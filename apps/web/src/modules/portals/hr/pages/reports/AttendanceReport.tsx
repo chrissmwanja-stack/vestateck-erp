@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField } from "@mui/material";
 import { supabase } from "../../../../../lib/supabaseClient";
 
-interface Attendance { id: string; status: string; attendance_date: string; hr_employees?: { first_name: string; last_name: string; hr_departments?: { name: string } | null } | null; }
+interface Attendance { id: string; status: string; attendance_date: string; hr_employees?: { first_name: string; last_name: string; departments?: { name: string } | null } | null; }
 
 export default function AttendanceReport() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -13,14 +13,34 @@ export default function AttendanceReport() {
     setLoading(true);
     const start = `${dateFilter}-01`;
     const end = `${dateFilter}-31`;
+    // NOTE: was "hr_departments", which does not exist -- departments live
+    // in the shared `departments` table (same issue fixed in
+    // EmployeesList.tsx / OrgChart.tsx / HRDashboard.tsx this session).
     const { data } = await supabase
       .from("hr_attendance")
-      .select("*, hr_employees(first_name, last_name, hr_departments(name))")
+      .select("*, hr_employees(first_name, last_name, departments(name))")
       .gte("attendance_date", start)
       .lte("attendance_date", end)
       .order("attendance_date", { ascending: false });
 
-    if (data) setAttendance(data as Attendance[]);
+    if (data) {
+      // PostgREST returns nested to-one joins as arrays in this schema
+      // (same quirk as CaseStatusReport.tsx / OrgChart.tsx) -- normalize
+      // both the employee and department levels to the singular shape
+      // the UI expects.
+      const normalized = (data as any[]).map((row) => {
+        const empRaw = Array.isArray(row.hr_employees) ? row.hr_employees[0] ?? null : row.hr_employees ?? null;
+        const emp = empRaw
+          ? {
+              first_name: empRaw.first_name,
+              last_name: empRaw.last_name,
+              departments: Array.isArray(empRaw.departments) ? empRaw.departments[0] ?? null : empRaw.departments ?? null,
+            }
+          : null;
+        return { ...row, hr_employees: emp };
+      });
+      setAttendance(normalized as Attendance[]);
+    }
     setLoading(false);
   };
 
@@ -69,7 +89,7 @@ export default function AttendanceReport() {
                   <TableRow key={a.id} hover>
                     <TableCell>{new Date(a.attendance_date).toLocaleDateString()}</TableCell>
                     <TableCell><Typography fontWeight={600}>{a.hr_employees ? `${a.hr_employees.first_name} ${a.hr_employees.last_name}` : "-"}</Typography></TableCell>
-                    <TableCell>{a.hr_employees?.hr_departments?.name || "-"}</TableCell>
+                    <TableCell>{a.hr_employees?.departments?.name || "-"}</TableCell>
                     <TableCell><Chip label={a.status} size="small" color={getStatusColor(a.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell>
                   </TableRow>
                 ))

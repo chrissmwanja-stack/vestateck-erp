@@ -49,7 +49,7 @@ export interface HREmployee {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  hr_departments?: { name: string } | null;
+  departments?: { name: string } | null;
   hr_positions?: { title: string } | null;
 }
 

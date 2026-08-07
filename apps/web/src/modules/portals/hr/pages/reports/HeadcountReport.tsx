@@ -12,20 +12,30 @@ export default function HeadcountReport() {
 
   const fetchReport = async () => {
     setLoading(true);
-    const { data } = await supabase.from("hr_employees").select("employment_status, is_active, hr_departments(name), hr_positions(title)");
+    // NOTE: was "hr_departments", which does not exist -- departments live
+    // in the shared `departments` table (same issue fixed in
+    // EmployeesList.tsx / OrgChart.tsx / HRDashboard.tsx / AttendanceReport.tsx
+    // this session). This query was previously erroring silently and
+    // returning zero rows entirely.
+    const { data } = await supabase.from("hr_employees").select("employment_status, is_active, departments(name), hr_positions(title)");
     const employees = (data as any[]) || [];
 
     const deptMap: Record<string, Agg> = {};
     const posMap: Record<string, Agg> = {};
 
     employees.forEach((e: any) => {
-      const deptName = e.hr_departments?.name || "Unassigned";
+      // PostgREST returns these nested to-one joins as arrays in this
+      // schema (same quirk as CaseStatusReport.tsx / OrgChart.tsx).
+      const dept = Array.isArray(e.departments) ? e.departments[0] : e.departments;
+      const pos = Array.isArray(e.hr_positions) ? e.hr_positions[0] : e.hr_positions;
+
+      const deptName = dept?.name || "Unassigned";
       if (!deptMap[deptName]) deptMap[deptName] = { name: deptName, count: 0, active: 0, onLeave: 0 };
       deptMap[deptName].count++;
       if (e.is_active) deptMap[deptName].active++;
       if (e.employment_status === 'on_leave') deptMap[deptName].onLeave++;
 
-      const posName = e.hr_positions?.title || "Unassigned";
+      const posName = pos?.title || "Unassigned";
       if (!posMap[posName]) posMap[posName] = { name: posName, count: 0, active: 0, onLeave: 0 };
       posMap[posName].count++;
       if (e.is_active) posMap[posName].active++;

@@ -114,7 +114,6 @@ import LeadSourceReport from './modules/portals/business-development/pages/repor
 // HR - NEW REAL
 import PositionsAdmin from './modules/portals/hr/pages/admin/PositionsAdmin';
 import LeaveTypesAdmin from './modules/portals/hr/pages/admin/LeaveTypesAdmin';
-import HRDepartmentsAdmin from './modules/portals/hr/pages/admin/DepartmentsAdmin';
 import EmployeesList from './modules/portals/hr/pages/employees/EmployeesList';
 import LeaveRequestsList from './modules/portals/hr/pages/leaves/LeaveRequestsList';
 import AttendanceList from './modules/portals/hr/pages/attendance/AttendanceList';
@@ -429,7 +428,7 @@ export default function App() {
               <Route path="/hr/training" element={<TrainingList />} />
               <Route path="/hr/reports/headcount" element={<HeadcountReport />} />
               <Route path="/hr/reports/attendance" element={<AttendanceReport />} />
-              <Route path="/hr/admin/departments" element={<HRDepartmentsAdmin />} />
+              <Route path="/hr/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/hr/admin/positions" element={<PositionsAdmin />} />
               <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
 

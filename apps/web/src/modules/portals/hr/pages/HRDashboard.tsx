@@ -10,7 +10,7 @@ export default function HRDashboard() {
     setLoading(true);
     const [empRes, deptRes, leaveRes, jobsRes, attRes] = await Promise.all([
       supabase.from("hr_employees").select("id, is_active", { count: "exact" }),
-      supabase.from("hr_departments").select("id", { count: "exact", head: true }),
+      supabase.from("departments").select("id", { count: "exact", head: true }).eq("is_active", true),
       supabase.from("hr_leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("hr_job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
       supabase.from("hr_attendance").select("id", { count: "exact", head: true }).eq("attendance_date", new Date().toISOString().slice(0, 10)),
