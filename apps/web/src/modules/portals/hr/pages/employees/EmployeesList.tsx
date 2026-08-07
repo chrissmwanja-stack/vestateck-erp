@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Box,
   Button,
@@ -46,6 +47,8 @@ interface Employee {
 
 export default function EmployeesList() {
   const { session } = useAuth();
+  const location = useLocation();
+  const isNewRoute = location.pathname.endsWith("/new");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -79,6 +82,18 @@ export default function EmployeesList() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // "New Employee" in the sidebar links to /hr/employees/new, which
+  // renders this same list component (no separate create page exists --
+  // creation is dialog-based). Auto-open that dialog on arrival so the
+  // nav item actually lands the user in create mode, instead of just
+  // showing the same list as /hr/employees.
+  useEffect(() => {
+    if (isNewRoute && !loading) {
+      handleOpenNew();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNewRoute, loading]);
 
   const handleOpenNew = () => {
     setEditing(null);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -22,6 +23,8 @@ interface LeaveRequest {
 
 export default function LeaveRequestsList() {
   const { session } = useAuth();
+  const location = useLocation();
+  const isApprovalsRoute = location.pathname.endsWith("/approvals");
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -100,12 +103,24 @@ export default function LeaveRequestsList() {
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
+  // "Leave Approvals" in the sidebar links to /hr/leaves/approvals, which
+  // renders this same list component (no separate approvals page exists).
+  // Default the view to pending-only there so the nav item actually shows
+  // what needs a decision, instead of the identical full list at
+  // /hr/leaves. The New Leave Request action stays available either way --
+  // an approver may also need to log one on someone's behalf.
+  const visibleLeaves = isApprovalsRoute ? leaves.filter((l) => l.status === "pending") : leaves;
+
   return (
     <Box sx={{ p: 3, maxWidth: 1100 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Leave Requests</Typography>
-          <Typography variant="body2" color="text.secondary">{leaves.length} requests. Days auto-calculated from start to end date.</Typography>
+          <Typography variant="h5" fontWeight={700}>{isApprovalsRoute ? "Leave Approvals" : "Leave Requests"}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {isApprovalsRoute
+              ? `${visibleLeaves.length} pending requests awaiting a decision.`
+              : `${leaves.length} requests. Days auto-calculated from start to end date.`}
+          </Typography>
         </Box>
         <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>New Leave Request</Button>
       </Box>
@@ -126,10 +141,10 @@ export default function LeaveRequestsList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {leaves.length === 0 ? (
-                <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No leave requests yet. Create first request — needs Employee + Leave Type lookup you built.</Typography></TableCell></TableRow>
+              {visibleLeaves.length === 0 ? (
+                <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">{isApprovalsRoute ? "Nothing pending right now." : "No leave requests yet. Create first request — needs Employee + Leave Type lookup you built."}</Typography></TableCell></TableRow>
               ) : (
-                leaves.map(l => (
+                visibleLeaves.map(l => (
                   <TableRow key={l.id} hover>
                     <TableCell><Typography fontWeight={600}>{l.hr_employees ? `${l.hr_employees.first_name} ${l.hr_employees.last_name}` : "-"}</Typography></TableCell>
                     <TableCell><Chip label={l.hr_leave_types?.name || "-"} size="small" variant="outlined" /></TableCell>
