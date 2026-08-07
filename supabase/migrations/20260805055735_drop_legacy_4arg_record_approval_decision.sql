@@ -1,0 +1,11 @@
+-- The 4-arg record_approval_decision(uuid, text, text, uuid) predates the
+-- multi-offer migration and still picks "latest submitted offer" instead of
+-- the selected winner. It was never removed after the 5-arg version
+-- (..., p_selected_offer_id uuid) replaced it, and remained EXECUTE-granted
+-- to anon/authenticated. Because Postgres prefers an exact-arity match over
+-- one requiring a default, ApprovalQueue.tsx's 4-arg call was silently being
+-- routed to this old function rather than the new one. Dropping it removes
+-- the ambiguity -- that same 4-key call will now resolve to the 5-arg
+-- function with p_selected_offer_id defaulting to null, which is safe given
+-- no stage ApprovalQueue.tsx handles requires offer selection.
+drop function if exists public.record_approval_decision(uuid, text, text, uuid);
