@@ -78,7 +78,7 @@ import Faq from './features/it-support/Faq';
 import AccessRequests from './features/it-support/access/AccessRequests';
 
 // BUSINESS DEVELOPMENT - NEW SHELL
-import BDPlaceholder from './modules/portals/business-development/pages/Placeholder';
+import BDDashboard from './modules/portals/business-development/pages/BDDashboard';
 import LeadSourcesAdmin from './modules/portals/business-development/pages/admin/LeadSourcesAdmin';
 import OpportunityStagesAdmin from './modules/portals/business-development/pages/admin/OpportunityStagesAdmin';
 import ClientCategoriesAdmin from './modules/portals/business-development/pages/admin/ClientCategoriesAdmin';
@@ -349,7 +349,7 @@ export default function App() {
 
 
               {/* BUSINESS DEVELOPMENT - NOW CONNECTED - Full 32-route shell */}
-              <Route path="/business-development/dashboard" element={<BDPlaceholder title="BD Dashboard" description="KPIs: Pipeline value, win rate, leads by source, proposals pending, revenue forecast. Funnel chart lead->opportunity->proposal->won." />} />
+              <Route path="/business-development/dashboard" element={<BDDashboard />} />
               
               {/* Lead Management */}
               <Route path="/business-development/leads" element={<LeadsList />} />
