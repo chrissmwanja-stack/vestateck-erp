@@ -1,198 +1,187 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link as RouterLink, Route, Routes, Navigate } from 'react-router-dom';
 import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
 
-import RequestSubmissionForm from './features/requests/RequestSubmissionForm';
-import ApprovalQueue from './features/approvals/ApprovalQueue';
-import PurchaseOrders from './features/finance/PurchaseOrders';
-import ProcurementTrack from './features/procurement/ProcurementTrack';
-import PurchasingDashboard from './features/procurement/PurchasingDashboard';
-import RequestTracking from './features/procurement/RequestTracking';
-import ProcurementInfo from './features/procurement/ProcurementInfo';
+const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
+const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
+const PurchaseOrders = lazy(() => import('./features/finance/PurchaseOrders'));
+const ProcurementTrack = lazy(() => import('./features/procurement/ProcurementTrack'));
+const PurchasingDashboard = lazy(() => import('./features/procurement/PurchasingDashboard'));
+const RequestTracking = lazy(() => import('./features/procurement/RequestTracking'));
+const ProcurementInfo = lazy(() => import('./features/procurement/ProcurementInfo'));
 import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import { useAuth } from './lib/authContext';
 import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
-import DelegationManager from './features/delegations/DelegationManager';
-import InvoiceApprovalQueue from './features/multiplexing/InvoiceApprovalQueue';
-import InvoiceSubmissionForm from './features/multiplexing/InvoiceSubmissionForm';
-import CostCodeList from './features/admin/CostCodeList';
-import CostCodeListNew from './features/admin/CostCodeListNew';
-import SapPaymentApprovals from './features/sap/SapPaymentApprovals';
-import SupplierInvoices from './features/financial/SupplierInvoices';
-import FinancialDashboard from './features/financial/FinancialDashboard';
-import SupplierInvoiceNonPO from './features/financial/SupplierInvoiceNonPO';
-import CashBankOperations from './features/financial/CashBankOperations';
-import EditInvoice from './features/financial/EditInvoice';
-import ExpenditureSlips from './features/financial/ExpenditureSlips';          
-import FinancialReports from './features/financial/FinancialReports';
-import AccountsAdmin from './features/admin/AccountsAdmin';
-import ReceivableInvoice from './features/financial/ReceivableInvoice'; 
-import PettyCashFloats from './features/financial/PettyCashFloats';
-import PettyCashRegister from './features/financial/PettyCashRegister';
-import CostTransactionsInquiry from './features/financial/CostTransactionsInquiry';
-import CurrentAccountExtract from './features/financial/CurrentAccountExtract';
-import TrialBalance from './features/financial/TrialBalance';
-import VatReport from './features/financial/VatReport';
-import Durations from './features/financial/Durations';
-import AdvancePayments from './features/financial/AdvancePayments';
-import PaymentPlanReport from './features/financial/PaymentPlanReport';
-import MassSlip from './features/financial/MassSlip';
-import MaterialQuantity from './features/requests/MaterialQuantity';
-import MaterialReceiptAdmin from './features/admin/MaterialReceiptAdmin';
-import MyRequests from './features/requests/MyRequests';
-import VendorEvaluationReport from './features/procurement/VendorEvaluationReport';
-import OrganizationsAdmin from './features/admin/OrganizationsAdmin';
-import DepartmentsAdmin from './features/admin/DepartmentsAdmin';
-import AccountCategoriesAdmin from './features/admin/AccountCategoriesAdmin';
-import NewMaterialRequest from './features/requests/NewMaterialRequest';
-import MaterialRequestApproval from './features/approvals/MaterialRequestApproval';
-import MaterialRequestReport from './features/requests/MaterialRequestReport';
-import MaterialLookupsAdmin from './features/admin/MaterialLookupsAdmin';
-import OfferEntry from './features/offers/OfferEntry';
-import OfferApprovalPO from './features/offers/OfferApprovalPO';
-import NewTicket from './features/it-support/NewTicket';
-import ItSupportDashboard from './features/it-support/ItSupportDashboard';
-import MyTickets from './features/it-support/MyTickets';
-import AllTickets from './features/it-support/AllTickets';
-import TicketApprovals from './features/it-support/TicketApprovals';
-import ProblemManagement from './features/it-support/ProblemManagement';
-import HardwareInventory from './features/it-support/assets/HardwareInventory';
-import SoftwareInventory from './features/it-support/assets/SoftwareInventory';
-import LicenseTracking from './features/it-support/assets/LicenseTracking';
-import AssetAssignments from './features/it-support/assets/AssetAssignments';
-import AssetRequest from './features/it-support/assets/AssetRequest';
-import AccountManagement from './features/it-support/access/AccountManagement';
-import GroupManagement from './features/it-support/access/GroupManagement';
-import TicketCategoriesAdmin from './features/it-support/admin/TicketCategoriesAdmin';
-import SlaPoliciesAdmin from './features/it-support/admin/SlaPoliciesAdmin';
-import PriorityLevelsAdmin from './features/it-support/admin/PriorityLevelsAdmin';
-import SupportTeamsAdmin from './features/it-support/admin/SupportTeamsAdmin';
-import TicketTrackingReport from './features/it-support/reports/TicketTrackingReport';
-import SlaPerformanceReport from './features/it-support/reports/SlaPerformanceReport';
-import AssetReport from './features/it-support/reports/AssetReport';   
-import KnowledgeBase from './features/it-support/KnowledgeBase';
-import Faq from './features/it-support/Faq';
-import AccessRequests from './features/it-support/access/AccessRequests';
+const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
+const InvoiceApprovalQueue = lazy(() => import('./features/multiplexing/InvoiceApprovalQueue'));
+const InvoiceSubmissionForm = lazy(() => import('./features/multiplexing/InvoiceSubmissionForm'));
+const CostCodeList = lazy(() => import('./features/admin/CostCodeList'));
+const CostCodeListNew = lazy(() => import('./features/admin/CostCodeListNew'));
+const SapPaymentApprovals = lazy(() => import('./features/sap/SapPaymentApprovals'));
+const SupplierInvoices = lazy(() => import('./features/financial/SupplierInvoices'));
+const FinancialDashboard = lazy(() => import('./features/financial/FinancialDashboard'));
+const SupplierInvoiceNonPO = lazy(() => import('./features/financial/SupplierInvoiceNonPO'));
+const CashBankOperations = lazy(() => import('./features/financial/CashBankOperations'));
+const EditInvoice = lazy(() => import('./features/financial/EditInvoice'));
+const ExpenditureSlips = lazy(() => import('./features/financial/ExpenditureSlips'));
+const FinancialReports = lazy(() => import('./features/financial/FinancialReports'));
+const AccountsAdmin = lazy(() => import('./features/admin/AccountsAdmin'));
+const ReceivableInvoice = lazy(() => import('./features/financial/ReceivableInvoice'));
+const PettyCashFloats = lazy(() => import('./features/financial/PettyCashFloats'));
+const PettyCashRegister = lazy(() => import('./features/financial/PettyCashRegister'));
+const CostTransactionsInquiry = lazy(() => import('./features/financial/CostTransactionsInquiry'));
+const CurrentAccountExtract = lazy(() => import('./features/financial/CurrentAccountExtract'));
+const TrialBalance = lazy(() => import('./features/financial/TrialBalance'));
+const VatReport = lazy(() => import('./features/financial/VatReport'));
+const Durations = lazy(() => import('./features/financial/Durations'));
+const AdvancePayments = lazy(() => import('./features/financial/AdvancePayments'));
+const PaymentPlanReport = lazy(() => import('./features/financial/PaymentPlanReport'));
+const MassSlip = lazy(() => import('./features/financial/MassSlip'));
+const MaterialQuantity = lazy(() => import('./features/requests/MaterialQuantity'));
+const MaterialReceiptAdmin = lazy(() => import('./features/admin/MaterialReceiptAdmin'));
+const MyRequests = lazy(() => import('./features/requests/MyRequests'));
+const VendorEvaluationReport = lazy(() => import('./features/procurement/VendorEvaluationReport'));
+const OrganizationsAdmin = lazy(() => import('./features/admin/OrganizationsAdmin'));
+const DepartmentsAdmin = lazy(() => import('./features/admin/DepartmentsAdmin'));
+const AccountCategoriesAdmin = lazy(() => import('./features/admin/AccountCategoriesAdmin'));
+const NewMaterialRequest = lazy(() => import('./features/requests/NewMaterialRequest'));
+const MaterialRequestApproval = lazy(() => import('./features/approvals/MaterialRequestApproval'));
+const MaterialRequestReport = lazy(() => import('./features/requests/MaterialRequestReport'));
+const MaterialLookupsAdmin = lazy(() => import('./features/admin/MaterialLookupsAdmin'));
+const OfferEntry = lazy(() => import('./features/offers/OfferEntry'));
+const OfferApprovalPO = lazy(() => import('./features/offers/OfferApprovalPO'));
+const NewTicket = lazy(() => import('./features/it-support/NewTicket'));
+const ItSupportDashboard = lazy(() => import('./features/it-support/ItSupportDashboard'));
+const MyTickets = lazy(() => import('./features/it-support/MyTickets'));
+const AllTickets = lazy(() => import('./features/it-support/AllTickets'));
+const TicketApprovals = lazy(() => import('./features/it-support/TicketApprovals'));
+const ProblemManagement = lazy(() => import('./features/it-support/ProblemManagement'));
+const HardwareInventory = lazy(() => import('./features/it-support/assets/HardwareInventory'));
+const SoftwareInventory = lazy(() => import('./features/it-support/assets/SoftwareInventory'));
+const LicenseTracking = lazy(() => import('./features/it-support/assets/LicenseTracking'));
+const AssetAssignments = lazy(() => import('./features/it-support/assets/AssetAssignments'));
+const AssetRequest = lazy(() => import('./features/it-support/assets/AssetRequest'));
+const AccountManagement = lazy(() => import('./features/it-support/access/AccountManagement'));
+const GroupManagement = lazy(() => import('./features/it-support/access/GroupManagement'));
+const TicketCategoriesAdmin = lazy(() => import('./features/it-support/admin/TicketCategoriesAdmin'));
+const SlaPoliciesAdmin = lazy(() => import('./features/it-support/admin/SlaPoliciesAdmin'));
+const PriorityLevelsAdmin = lazy(() => import('./features/it-support/admin/PriorityLevelsAdmin'));
+const SupportTeamsAdmin = lazy(() => import('./features/it-support/admin/SupportTeamsAdmin'));
+const TicketTrackingReport = lazy(() => import('./features/it-support/reports/TicketTrackingReport'));
+const SlaPerformanceReport = lazy(() => import('./features/it-support/reports/SlaPerformanceReport'));
+const AssetReport = lazy(() => import('./features/it-support/reports/AssetReport'));
+const KnowledgeBase = lazy(() => import('./features/it-support/KnowledgeBase'));
+const Faq = lazy(() => import('./features/it-support/Faq'));
+const AccessRequests = lazy(() => import('./features/it-support/access/AccessRequests'));
 
 // BUSINESS DEVELOPMENT - NEW SHELL
-import BDDashboard from './modules/portals/business-development/pages/BDDashboard';
-import LeadSourcesAdmin from './modules/portals/business-development/pages/admin/LeadSourcesAdmin';
-import OpportunityStagesAdmin from './modules/portals/business-development/pages/admin/OpportunityStagesAdmin';
-import ClientCategoriesAdmin from './modules/portals/business-development/pages/admin/ClientCategoriesAdmin';
-import ProposalTypesAdmin from './modules/portals/business-development/pages/admin/ProposalTypesAdmin';
-import ProposalStatusesAdmin from './modules/portals/business-development/pages/admin/ProposalStatusesAdmin';
-import TenderTypesAdmin from './modules/portals/business-development/pages/admin/TenderTypesAdmin';
-import LeadStatusesAdmin from './modules/portals/business-development/pages/admin/LeadStatusesAdmin';
-import NewLead from './modules/portals/business-development/pages/leads/NewLead';
-import LeadsList from './modules/portals/business-development/pages/leads/LeadsList';
-import QualifiedLeads from './modules/portals/business-development/pages/leads/QualifiedLeads';
-import ImportLeads from './modules/portals/business-development/pages/leads/ImportLeads';
-import NewOpportunity from './modules/portals/business-development/pages/opportunities/NewOpportunity';
-import ClientsList from './modules/portals/business-development/pages/clients/ClientsList';
-import ContactsList from './modules/portals/business-development/pages/clients/ContactsList';
-import ActivitiesList from './modules/portals/business-development/pages/clients/ActivitiesList';
-import OpportunitiesList from './modules/portals/business-development/pages/opportunities/OpportunitiesList';
-import PipelineBoard from './modules/portals/business-development/pages/opportunities/PipelineBoard';
-import ProposalsList from './modules/portals/business-development/pages/proposals/ProposalsList';
-import NewProposal from './modules/portals/business-development/pages/proposals/NewProposal';
-import ProposalApprovals from './modules/portals/business-development/pages/proposals/ProposalApprovals';
-import ProposalTemplates from './modules/portals/business-development/pages/proposals/ProposalTemplates';
-import ProposalTracking from './modules/portals/business-development/pages/proposals/ProposalTracking';
-import TendersList from './modules/portals/business-development/pages/tenders/TendersList';
-import NewTender from './modules/portals/business-development/pages/tenders/NewTender';
-import SubmissionsList from './modules/portals/business-development/pages/tenders/SubmissionsList';
-import TenderTracking from './modules/portals/business-development/pages/tenders/TenderTracking';
-import PipelineReport from './modules/portals/business-development/pages/reports/PipelineReport';
-import RevenueForecast from './modules/portals/business-development/pages/reports/RevenueForecast';
-import WinLossReport from './modules/portals/business-development/pages/reports/WinLossReport';
-import ProposalStatusReport from './modules/portals/business-development/pages/reports/ProposalStatusReport';
-import LeadSourceReport from './modules/portals/business-development/pages/reports/LeadSourceReport';
+const BDDashboard = lazy(() => import('./modules/portals/business-development/pages/BDDashboard'));
+const LeadSourcesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/LeadSourcesAdmin'));
+const OpportunityStagesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/OpportunityStagesAdmin'));
+const ClientCategoriesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/ClientCategoriesAdmin'));
+const ProposalTypesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/ProposalTypesAdmin'));
+const ProposalStatusesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/ProposalStatusesAdmin'));
+const TenderTypesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/TenderTypesAdmin'));
+const LeadStatusesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/LeadStatusesAdmin'));
+const NewLead = lazy(() => import('./modules/portals/business-development/pages/leads/NewLead'));
+const LeadsList = lazy(() => import('./modules/portals/business-development/pages/leads/LeadsList'));
+const QualifiedLeads = lazy(() => import('./modules/portals/business-development/pages/leads/QualifiedLeads'));
+const ImportLeads = lazy(() => import('./modules/portals/business-development/pages/leads/ImportLeads'));
+const NewOpportunity = lazy(() => import('./modules/portals/business-development/pages/opportunities/NewOpportunity'));
+const ClientsList = lazy(() => import('./modules/portals/business-development/pages/clients/ClientsList'));
+const ContactsList = lazy(() => import('./modules/portals/business-development/pages/clients/ContactsList'));
+const ActivitiesList = lazy(() => import('./modules/portals/business-development/pages/clients/ActivitiesList'));
+const OpportunitiesList = lazy(() => import('./modules/portals/business-development/pages/opportunities/OpportunitiesList'));
+const PipelineBoard = lazy(() => import('./modules/portals/business-development/pages/opportunities/PipelineBoard'));
+const ProposalsList = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalsList'));
+const NewProposal = lazy(() => import('./modules/portals/business-development/pages/proposals/NewProposal'));
+const ProposalApprovals = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalApprovals'));
+const ProposalTemplates = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalTemplates'));
+const ProposalTracking = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalTracking'));
+const TendersList = lazy(() => import('./modules/portals/business-development/pages/tenders/TendersList'));
+const NewTender = lazy(() => import('./modules/portals/business-development/pages/tenders/NewTender'));
+const SubmissionsList = lazy(() => import('./modules/portals/business-development/pages/tenders/SubmissionsList'));
+const TenderTracking = lazy(() => import('./modules/portals/business-development/pages/tenders/TenderTracking'));
+const PipelineReport = lazy(() => import('./modules/portals/business-development/pages/reports/PipelineReport'));
+const RevenueForecast = lazy(() => import('./modules/portals/business-development/pages/reports/RevenueForecast'));
+const WinLossReport = lazy(() => import('./modules/portals/business-development/pages/reports/WinLossReport'));
+const ProposalStatusReport = lazy(() => import('./modules/portals/business-development/pages/reports/ProposalStatusReport'));
+const LeadSourceReport = lazy(() => import('./modules/portals/business-development/pages/reports/LeadSourceReport'));
 
 // HR - NEW REAL
-import PositionsAdmin from './modules/portals/hr/pages/admin/PositionsAdmin';
-import LeaveTypesAdmin from './modules/portals/hr/pages/admin/LeaveTypesAdmin';
-import EmployeesList from './modules/portals/hr/pages/employees/EmployeesList';
-import LeaveRequestsList from './modules/portals/hr/pages/leaves/LeaveRequestsList';
-import AttendanceList from './modules/portals/hr/pages/attendance/AttendanceList';
-import JobPostingsList from './modules/portals/hr/pages/recruitment/JobPostingsList';
-import ApplicationsList from './modules/portals/hr/pages/recruitment/ApplicationsList';
-import PayrollList from './modules/portals/hr/pages/payroll/PayrollList';
-import AppraisalsList from './modules/portals/hr/pages/performance/AppraisalsList';
-import TrainingList from './modules/portals/hr/pages/performance/TrainingList';
-import HRDashboard from './modules/portals/hr/pages/HRDashboard';
-import OrgChart from './modules/portals/hr/pages/org/OrgChart';
-import HeadcountReport from './modules/portals/hr/pages/reports/HeadcountReport';
-import AttendanceReport from './modules/portals/hr/pages/reports/AttendanceReport';
+const PositionsAdmin = lazy(() => import('./modules/portals/hr/pages/admin/PositionsAdmin'));
+const LeaveTypesAdmin = lazy(() => import('./modules/portals/hr/pages/admin/LeaveTypesAdmin'));
+const EmployeesList = lazy(() => import('./modules/portals/hr/pages/employees/EmployeesList'));
+const LeaveRequestsList = lazy(() => import('./modules/portals/hr/pages/leaves/LeaveRequestsList'));
+const AttendanceList = lazy(() => import('./modules/portals/hr/pages/attendance/AttendanceList'));
+const JobPostingsList = lazy(() => import('./modules/portals/hr/pages/recruitment/JobPostingsList'));
+const ApplicationsList = lazy(() => import('./modules/portals/hr/pages/recruitment/ApplicationsList'));
+const PayrollList = lazy(() => import('./modules/portals/hr/pages/payroll/PayrollList'));
+const AppraisalsList = lazy(() => import('./modules/portals/hr/pages/performance/AppraisalsList'));
+const TrainingList = lazy(() => import('./modules/portals/hr/pages/performance/TrainingList'));
+const HRDashboard = lazy(() => import('./modules/portals/hr/pages/HRDashboard'));
+const OrgChart = lazy(() => import('./modules/portals/hr/pages/org/OrgChart'));
+const HeadcountReport = lazy(() => import('./modules/portals/hr/pages/reports/HeadcountReport'));
+const AttendanceReport = lazy(() => import('./modules/portals/hr/pages/reports/AttendanceReport'));
 
 // LAW AND COMPLIANCE - NEW REAL
-import ContractTypesAdmin from './modules/portals/law-compliance/pages/admin/ContractTypesAdmin';
-import CaseTypesAdmin from './modules/portals/law-compliance/pages/admin/CaseTypesAdmin';
-import ContractsList from './modules/portals/law-compliance/pages/contracts/ContractsList';
-import NewContract from './modules/portals/law-compliance/pages/contracts/NewContract';
-import ContractApprovals from './modules/portals/law-compliance/pages/contracts/ContractApprovals';
-import CasesList from './modules/portals/law-compliance/pages/cases/CasesList';
-import HearingsList from './modules/portals/law-compliance/pages/cases/HearingsList';
-import ComplianceRegister from './modules/portals/law-compliance/pages/compliance/ComplianceRegister';
-import FilingsList from './modules/portals/law-compliance/pages/compliance/FilingsList';
-import LawDashboard from './modules/portals/law-compliance/pages/LawDashboard';
-import ExpiryReport from './modules/portals/law-compliance/pages/reports/ExpiryReport';
-import CaseStatusReport from './modules/portals/law-compliance/pages/reports/CaseStatusReport';
+const ContractTypesAdmin = lazy(() => import('./modules/portals/law-compliance/pages/admin/ContractTypesAdmin'));
+const CaseTypesAdmin = lazy(() => import('./modules/portals/law-compliance/pages/admin/CaseTypesAdmin'));
+const ContractsList = lazy(() => import('./modules/portals/law-compliance/pages/contracts/ContractsList'));
+const NewContract = lazy(() => import('./modules/portals/law-compliance/pages/contracts/NewContract'));
+const ContractApprovals = lazy(() => import('./modules/portals/law-compliance/pages/contracts/ContractApprovals'));
+const CasesList = lazy(() => import('./modules/portals/law-compliance/pages/cases/CasesList'));
+const HearingsList = lazy(() => import('./modules/portals/law-compliance/pages/cases/HearingsList'));
+const ComplianceRegister = lazy(() => import('./modules/portals/law-compliance/pages/compliance/ComplianceRegister'));
+const FilingsList = lazy(() => import('./modules/portals/law-compliance/pages/compliance/FilingsList'));
+const LawDashboard = lazy(() => import('./modules/portals/law-compliance/pages/LawDashboard'));
+const ExpiryReport = lazy(() => import('./modules/portals/law-compliance/pages/reports/ExpiryReport'));
+const CaseStatusReport = lazy(() => import('./modules/portals/law-compliance/pages/reports/CaseStatusReport'));
 
 // MACHINE OPERATION - 100% REAL
-import MachineTypesAdmin from './modules/portals/machine-operation/pages/admin/MachineTypesAdmin';
-import MaintenanceTypesAdmin from './modules/portals/machine-operation/pages/admin/MaintenanceTypesAdmin';
-import MachineDashboard from './modules/portals/machine-operation/pages/MachineDashboard';
-import EquipmentList from './modules/portals/machine-operation/pages/equipment/EquipmentList';
-import EquipmentAssignments from './modules/portals/machine-operation/pages/equipment/EquipmentAssignments';
-import MaintenanceSchedule from './modules/portals/machine-operation/pages/maintenance/MaintenanceSchedule';
-import MaintenanceRequests from './modules/portals/machine-operation/pages/maintenance/MaintenanceRequests';
-import MaintenanceHistory from './modules/portals/machine-operation/pages/maintenance/MaintenanceHistory';
-import DailyLogs from './modules/portals/machine-operation/pages/logs/DailyLogs';
-import FuelLogs from './modules/portals/machine-operation/pages/logs/FuelLogs';
-import UtilizationReport from './modules/portals/machine-operation/pages/reports/UtilizationReport';
-import DowntimeReport from './modules/portals/machine-operation/pages/reports/DowntimeReport';
+const MachineTypesAdmin = lazy(() => import('./modules/portals/machine-operation/pages/admin/MachineTypesAdmin'));
+const MaintenanceTypesAdmin = lazy(() => import('./modules/portals/machine-operation/pages/admin/MaintenanceTypesAdmin'));
+const MachineDashboard = lazy(() => import('./modules/portals/machine-operation/pages/MachineDashboard'));
+const EquipmentList = lazy(() => import('./modules/portals/machine-operation/pages/equipment/EquipmentList'));
+const EquipmentAssignments = lazy(() => import('./modules/portals/machine-operation/pages/equipment/EquipmentAssignments'));
+const MaintenanceSchedule = lazy(() => import('./modules/portals/machine-operation/pages/maintenance/MaintenanceSchedule'));
+const MaintenanceRequests = lazy(() => import('./modules/portals/machine-operation/pages/maintenance/MaintenanceRequests'));
+const MaintenanceHistory = lazy(() => import('./modules/portals/machine-operation/pages/maintenance/MaintenanceHistory'));
+const DailyLogs = lazy(() => import('./modules/portals/machine-operation/pages/logs/DailyLogs'));
+const FuelLogs = lazy(() => import('./modules/portals/machine-operation/pages/logs/FuelLogs'));
+const UtilizationReport = lazy(() => import('./modules/portals/machine-operation/pages/reports/UtilizationReport'));
+const DowntimeReport = lazy(() => import('./modules/portals/machine-operation/pages/reports/DowntimeReport'));
 
 // PMO - 100% REAL
-import ProjectCategoriesAdmin from './modules/portals/pmo/pages/admin/ProjectCategoriesAdmin';
-import TaskTypesAdmin from './modules/portals/pmo/pages/admin/TaskTypesAdmin';
-import PMODashboard from './modules/portals/pmo/pages/PMODashboard';
-import ProjectsList from './modules/portals/pmo/pages/projects/ProjectsList';
-import NewProject from './modules/portals/pmo/pages/projects/NewProject';
-import TasksList from './modules/portals/pmo/pages/tasks/TasksList';
-import MilestonesList from './modules/portals/pmo/pages/tasks/MilestonesList';
-import GanttChart from './modules/portals/pmo/pages/tasks/GanttChart';
-import ResourceAllocation from './modules/portals/pmo/pages/resources/ResourceAllocation';
-import ResourceUtilization from './modules/portals/pmo/pages/resources/ResourceUtilization';
-import ProjectStatusReport from './modules/portals/pmo/pages/reports/ProjectStatusReport';
-import BudgetVsActualReport from './modules/portals/pmo/pages/reports/BudgetVsActualReport';
+const ProjectCategoriesAdmin = lazy(() => import('./modules/portals/pmo/pages/admin/ProjectCategoriesAdmin'));
+const TaskTypesAdmin = lazy(() => import('./modules/portals/pmo/pages/admin/TaskTypesAdmin'));
+const PMODashboard = lazy(() => import('./modules/portals/pmo/pages/PMODashboard'));
+const ProjectsList = lazy(() => import('./modules/portals/pmo/pages/projects/ProjectsList'));
+const NewProject = lazy(() => import('./modules/portals/pmo/pages/projects/NewProject'));
+const TasksList = lazy(() => import('./modules/portals/pmo/pages/tasks/TasksList'));
+const MilestonesList = lazy(() => import('./modules/portals/pmo/pages/tasks/MilestonesList'));
+const GanttChart = lazy(() => import('./modules/portals/pmo/pages/tasks/GanttChart'));
+const ResourceAllocation = lazy(() => import('./modules/portals/pmo/pages/resources/ResourceAllocation'));
+const ResourceUtilization = lazy(() => import('./modules/portals/pmo/pages/resources/ResourceUtilization'));
+const ProjectStatusReport = lazy(() => import('./modules/portals/pmo/pages/reports/ProjectStatusReport'));
+const BudgetVsActualReport = lazy(() => import('./modules/portals/pmo/pages/reports/BudgetVsActualReport'));
 
 // SUSTAINABILITY - 100% REAL
-import MetricTypesAdmin from './modules/portals/sustainability/pages/admin/MetricTypesAdmin';
-import InitiativeCategoriesAdmin from './modules/portals/sustainability/pages/admin/InitiativeCategoriesAdmin';
-import SustainabilityDashboard from './modules/portals/sustainability/pages/SustainabilityDashboard';
-import CarbonMetrics from './modules/portals/sustainability/pages/metrics/CarbonMetrics';
-import EnergyMetrics from './modules/portals/sustainability/pages/metrics/EnergyMetrics';
-import WasteMetrics from './modules/portals/sustainability/pages/metrics/WasteMetrics';
-import InitiativesList from './modules/portals/sustainability/pages/initiatives/InitiativesList';
-import NewInitiative from './modules/portals/sustainability/pages/initiatives/NewInitiative';
-import AuditsList from './modules/portals/sustainability/pages/audits/AuditsList';
-import CertificationsList from './modules/portals/sustainability/pages/audits/CertificationsList';
-import SustainabilityReport from './modules/portals/sustainability/pages/reports/SustainabilityReport';
-import ExcellenceReport from './modules/portals/sustainability/pages/reports/ExcellenceReport';
-
-
-
-
-
-
-
-
-
-
-
+const MetricTypesAdmin = lazy(() => import('./modules/portals/sustainability/pages/admin/MetricTypesAdmin'));
+const InitiativeCategoriesAdmin = lazy(() => import('./modules/portals/sustainability/pages/admin/InitiativeCategoriesAdmin'));
+const SustainabilityDashboard = lazy(() => import('./modules/portals/sustainability/pages/SustainabilityDashboard'));
+const CarbonMetrics = lazy(() => import('./modules/portals/sustainability/pages/metrics/CarbonMetrics'));
+const EnergyMetrics = lazy(() => import('./modules/portals/sustainability/pages/metrics/EnergyMetrics'));
+const WasteMetrics = lazy(() => import('./modules/portals/sustainability/pages/metrics/WasteMetrics'));
+const InitiativesList = lazy(() => import('./modules/portals/sustainability/pages/initiatives/InitiativesList'));
+const NewInitiative = lazy(() => import('./modules/portals/sustainability/pages/initiatives/NewInitiative'));
+const AuditsList = lazy(() => import('./modules/portals/sustainability/pages/audits/AuditsList'));
+const CertificationsList = lazy(() => import('./modules/portals/sustainability/pages/audits/CertificationsList'));
+const SustainabilityReport = lazy(() => import('./modules/portals/sustainability/pages/reports/SustainabilityReport'));
+const ExcellenceReport = lazy(() => import('./modules/portals/sustainability/pages/reports/ExcellenceReport'));
 
 function useFinanceAccess(sessionUserId: string | undefined) {
   const [isFinance, setIsFinance] = useState<boolean | null>(null);
@@ -261,6 +250,16 @@ function TopNav() {
   );
 }
 
+function RouteFallback() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+      <Typography variant="body2" sx={{ opacity: 0.6 }}>
+        Loading…
+      </Typography>
+    </Box>
+  );
+}
+
 export default function App() {
   const { session } = useAuth();
   return (
@@ -269,6 +268,7 @@ export default function App() {
       <Box sx={{ display: 'flex', flex: 1 }}>
         {session && <ModuleTree />}
         <Container component="main" sx={{ mt: 3, mb: 6, flexGrow: 1, maxWidth: '100%', px: 4 }}>
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<RequireAuth />}>
@@ -478,6 +478,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </Container>
       </Box>
     </Box>
