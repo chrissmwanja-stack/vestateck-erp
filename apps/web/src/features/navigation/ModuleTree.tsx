@@ -173,6 +173,15 @@ const portals: Portal[] = [
         ],
       },
       {
+        id: "warehouse-ops",
+        label: "Warehouse Operations",
+        icon: <Inventory2 fontSize="small" />,
+        children: [
+          { id: "goods-issue", label: "Goods Issue", icon: <ReceiptLong fontSize="small" />, to: "/warehouse/goods-issue" },
+          { id: "stock-balances", label: "Stock Balances", icon: <Inventory2 fontSize="small" />, to: "/warehouse/stock-balances" },
+        ],
+      },
+      {
         id: "offer-ops",
         label: "Offer Operations PO",
         icon: <Folder fontSize="small" />,
@@ -234,6 +243,7 @@ const portals: Portal[] = [
             ],
           },
           { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-lookups" },
+          { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/admin/warehouses" },
         ],
       },
       {

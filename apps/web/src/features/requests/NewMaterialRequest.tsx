@@ -112,6 +112,12 @@ export default function NewMaterialRequest() {
       return;
     }
 
+    // Warn if lookups empty (tables not populated via Material Classification admin)
+    if (types.length === 0 || groups.length === 0) {
+      setError('Material Types or Groups lookup is empty. Go to Admin → Material Classification and create types/groups first.');
+      return;
+    }
+
     setSaving(true);
 
     const { data: batch, error: batchErr } = await supabase
@@ -158,7 +164,7 @@ export default function NewMaterialRequest() {
         New Material Request
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Propose new materials to add to the catalog. Requests are reviewed before they become usable catalog items.
+        Propose new materials to add to the catalog. Requests are reviewed before they become usable catalog items. Material Types/Groups come from Admin → Material Classification (must be populated, otherwise dropdowns empty).
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}

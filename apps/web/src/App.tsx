@@ -42,6 +42,9 @@ const PaymentPlanReport = lazy(() => import('./features/financial/PaymentPlanRep
 const MassSlip = lazy(() => import('./features/financial/MassSlip'));
 const MaterialQuantity = lazy(() => import('./features/requests/MaterialQuantity'));
 const MaterialReceiptAdmin = lazy(() => import('./features/admin/MaterialReceiptAdmin'));
+const GoodsIssue = lazy(() => import('./features/requests/GoodsIssue'));
+const StockBalances = lazy(() => import('./features/reports/StockBalances'));
+const WarehousesAdmin = lazy(() => import('./features/admin/WarehousesAdmin'));
 const MyRequests = lazy(() => import('./features/requests/MyRequests'));
 const VendorEvaluationReport = lazy(() => import('./features/procurement/VendorEvaluationReport'));
 const OrganizationsAdmin = lazy(() => import('./features/admin/OrganizationsAdmin'));
@@ -310,6 +313,9 @@ export default function App() {
               <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
               <Route path="/requests/material-quantity" element={<MaterialQuantity />} />
               <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
+              <Route path="/warehouse/goods-issue" element={<GoodsIssue />} />
+              <Route path="/warehouse/stock-balances" element={<StockBalances />} />
+              <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
               <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
               <Route path="/procurement/vendor-evaluation" element={<VendorEvaluationReport />} />
