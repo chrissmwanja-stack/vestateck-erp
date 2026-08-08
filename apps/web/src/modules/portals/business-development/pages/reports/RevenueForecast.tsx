@@ -67,8 +67,8 @@ export default function RevenueForecast() {
 
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Card sx={{ minWidth: 180 }}><CardContent><Typography variant="caption" color="text.secondary">Opportunities in Forecast</Typography><Typography variant="h5" fontWeight={700}>{totals.count}</Typography></CardContent></Card>
-        <Card sx={{ minWidth: 200 }}><CardContent><Typography variant="caption" color="text.secondary">Total Raw Value</Typography><Typography variant="h5" fontWeight={700}>USD {totals.raw.toLocaleString()}</Typography></CardContent></Card>
-        <Card sx={{ minWidth: 200, bgcolor: "success.light" }}><CardContent><Typography variant="caption">Weighted Forecast</Typography><Typography variant="h5" fontWeight={700}>USD {totals.weighted.toLocaleString()}</Typography></CardContent></Card>
+        <Card sx={{ minWidth: 200 }}><CardContent><Typography variant="caption" color="text.secondary">Total Raw Value</Typography><Typography variant="h5" fontWeight={700}>UGX {totals.raw.toLocaleString()}</Typography></CardContent></Card>
+        <Card sx={{ minWidth: 200, bgcolor: "success.light" }}><CardContent><Typography variant="caption">Weighted Forecast</Typography><Typography variant="h5" fontWeight={700}>UGX {totals.weighted.toLocaleString()}</Typography></CardContent></Card>
       </Box>
 
       <Card>
@@ -93,8 +93,8 @@ export default function RevenueForecast() {
                     <TableRow key={m.month} hover>
                       <TableCell><Typography fontWeight={600}>{m.month}</Typography></TableCell>
                       <TableCell><Chip label={m.count} size="small" /></TableCell>
-                      <TableCell>USD {m.raw.toLocaleString()}</TableCell>
-                      <TableCell><Typography fontWeight={700}>USD {m.weighted.toLocaleString()}</Typography></TableCell>
+                      <TableCell>UGX {m.raw.toLocaleString()}</TableCell>
+                      <TableCell><Typography fontWeight={700}>UGX {m.weighted.toLocaleString()}</Typography></TableCell>
                       <TableCell><Chip label={`${confidence.toFixed(0)}%`} size="small" color={confidence > 70 ? "success" : confidence > 40 ? "warning" : "default"} /></TableCell>
                     </TableRow>
                   );

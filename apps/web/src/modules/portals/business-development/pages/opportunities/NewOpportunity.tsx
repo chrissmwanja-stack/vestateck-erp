@@ -57,7 +57,7 @@ export default function NewOpportunity() {
     stage: "identification",
     probability: 10,
     estimated_value: "",
-    currency: "USD",
+    currency: "UGX",
     expected_close_date: "",
     description: "",
   });

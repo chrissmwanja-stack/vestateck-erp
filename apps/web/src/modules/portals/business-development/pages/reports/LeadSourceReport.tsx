@@ -77,7 +77,7 @@ export default function LeadSourceReport() {
                   <TableRow key={a.source_id} hover>
                     <TableCell><Chip label={a.source_name} size="small" variant="outlined" /></TableCell>
                     <TableCell>{a.count}</TableCell>
-                    <TableCell>USD {a.totalValue.toLocaleString()}</TableCell>
+                    <TableCell>UGX {a.totalValue.toLocaleString()}</TableCell>
                     <TableCell>{a.qualified}</TableCell>
                     <TableCell>{a.converted}</TableCell>
                     <TableCell><Chip label={`${a.conversionRate.toFixed(0)}%`} size="small" color={a.conversionRate > 50 ? "success" : a.conversionRate > 20 ? "warning" : "default"} /></TableCell>

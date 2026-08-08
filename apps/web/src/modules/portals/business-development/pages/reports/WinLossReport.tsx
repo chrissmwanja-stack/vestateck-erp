@@ -67,8 +67,8 @@ export default function WinLossReport() {
 
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Card sx={{ minWidth: 150 }}><CardContent><Typography variant="caption" color="text.secondary">Total Closed</Typography><Typography variant="h5" fontWeight={700}>{stats.total}</Typography></CardContent></Card>
-        <Card sx={{ minWidth: 150, bgcolor: "success.light" }}><CardContent><Typography variant="caption">Won</Typography><Typography variant="h5" fontWeight={700}>{stats.won} • USD {stats.wonValue.toLocaleString()}</Typography></CardContent></Card>
-        <Card sx={{ minWidth: 150, bgcolor: "error.light" }}><CardContent><Typography variant="caption">Lost</Typography><Typography variant="h5" fontWeight={700}>{stats.lost} • USD {stats.lostValue.toLocaleString()}</Typography></CardContent></Card>
+        <Card sx={{ minWidth: 150, bgcolor: "success.light" }}><CardContent><Typography variant="caption">Won</Typography><Typography variant="h5" fontWeight={700}>{stats.won} • UGX {stats.wonValue.toLocaleString()}</Typography></CardContent></Card>
+        <Card sx={{ minWidth: 150, bgcolor: "error.light" }}><CardContent><Typography variant="caption">Lost</Typography><Typography variant="h5" fontWeight={700}>{stats.lost} • UGX {stats.lostValue.toLocaleString()}</Typography></CardContent></Card>
         <Card sx={{ minWidth: 150, bgcolor: "primary.light", color: "primary.contrastText" }}><CardContent><Typography variant="caption" sx={{ opacity: 0.8 }}>Win Rate</Typography><Typography variant="h5" fontWeight={700}>{stats.winRate.toFixed(1)}%</Typography></CardContent></Card>
       </Box>
 
@@ -86,8 +86,8 @@ export default function WinLossReport() {
                     <TableCell>{c.won}</TableCell>
                     <TableCell>{c.lost}</TableCell>
                     <TableCell><Chip label={`${c.winRate.toFixed(0)}%`} size="small" color={c.winRate > 60 ? "success" : c.winRate > 40 ? "warning" : "error"} /></TableCell>
-                    <TableCell>USD {c.wonValue.toLocaleString()}</TableCell>
-                    <TableCell>USD {c.lostValue.toLocaleString()}</TableCell>
+                    <TableCell>UGX {c.wonValue.toLocaleString()}</TableCell>
+                    <TableCell>UGX {c.lostValue.toLocaleString()}</TableCell>
                   </TableRow>
                 ))
               )}

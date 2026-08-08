@@ -38,7 +38,7 @@ interface ReportData {
 function groupByCurrency(rows: { currency: string; amount: number }[]): CurrencyTotal[] {
   const map = new Map<string, CurrencyTotal>();
   for (const r of rows) {
-    const currency = r.currency || 'USD';
+    const currency = r.currency || 'UGX';
     const existing = map.get(currency) ?? { currency, count: 0, total: 0 };
     existing.count += 1;
     existing.total += Number(r.amount) || 0;

@@ -12,7 +12,7 @@ import { supabase } from "../../../../lib/supabaseClient";
 // aggregation to top-line numbers + a short leaders list, and links out
 // to the full reports for drill-down instead of duplicating their logic.
 //
-// Currency is hardcoded to USD, matching the same simplification already
+// Currency is hardcoded to UGX, matching the same simplification already
 // made in the sibling report pages (see PipelineReport.tsx).
 
 interface Lead {
@@ -118,8 +118,8 @@ export default function BDDashboard() {
   const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
 
   const kpiCards = [
-    { label: "Open Pipeline Value", value: `USD ${pipelineValue.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: undefined },
-    { label: "Weighted Pipeline", value: `USD ${weightedPipeline.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: "primary.light" as const },
+    { label: "Open Pipeline Value", value: `UGX ${pipelineValue.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: undefined },
+    { label: "Weighted Pipeline", value: `UGX ${weightedPipeline.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: "primary.light" as const },
     { label: "Win Rate", value: `${winRate.toFixed(1)}%`, to: "/business-development/reports/win-loss", bg: winRate >= 50 ? "success.light" as const : undefined },
     { label: "Proposals Pending", value: String(proposalsPending.length), to: "/business-development/proposals/approvals", bg: proposalsPending.length > 0 ? "warning.light" as const : undefined },
   ];

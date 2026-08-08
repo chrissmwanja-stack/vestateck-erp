@@ -52,7 +52,7 @@ export default function ImportLeads() {
         source_id: sources[0]?.id,
         status: "new",
         estimated_value: row.estimated_value ? parseFloat(row.estimated_value) : null,
-        currency: row.currency || "USD",
+        currency: row.currency || "UGX",
         notes: row.notes || "Imported via CSV",
         created_by: session?.user?.id,
       };
@@ -74,7 +74,7 @@ export default function ImportLeads() {
           <Typography variant="subtitle2" gutterBottom>Expected CSV Format:</Typography>
           <Box component="pre" sx={{ bgcolor: "grey.100", p: 1, borderRadius: 1, fontSize: 12, overflow: "auto" }}>
             company_name,contact_name,email,phone,estimated_value,currency,notes
-            Acme Corp,John Doe,john@acme.com,+256700000000,50000,USD,Referral from exhibition
+            Acme Corp,John Doe,john@acme.com,+256700000000,50000,UGX,Referral from exhibition
           </Box>
           <Button variant="contained" component="label" startIcon={<UploadFile />} sx={{ mt: 2 }}>
             Upload CSV

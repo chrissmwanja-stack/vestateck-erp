@@ -25,7 +25,7 @@ export default function NewProposal() {
     opportunity_id: "",
     type_id: "",
     total_value: "",
-    currency: "USD",
+    currency: "UGX",
     valid_until: "",
     content: "",
   });

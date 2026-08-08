@@ -99,7 +99,7 @@ export default function PipelineBoard() {
           const stageOpps = opps.filter(o => o.stage === stage.stage);
           const total = stageOpps.reduce((sum, o) => sum + Number(o.estimated_value), 0);
           const weighted = stageOpps.reduce((sum, o) => sum + Number(o.estimated_value) * (o.probability / 100), 0);
-          const currency = stageOpps[0]?.currency || "USD";
+          const currency = stageOpps[0]?.currency || "UGX";
 
           return (
             <Paper

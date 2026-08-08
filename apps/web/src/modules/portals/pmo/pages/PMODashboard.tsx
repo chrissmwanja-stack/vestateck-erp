@@ -55,7 +55,7 @@ export default function PMODashboard() {
 
         <Grid item xs={12} sm={6} md={4}><Card><CardContent><Typography variant="caption">Total Tasks</Typography><Typography variant="h4" fontWeight={700}>{stats.tasksTotal}</Typography><Box sx={{ mt: 1 }}><LinearProgress variant="determinate" value={taskProgress} /><Typography variant="caption">{taskProgress.toFixed(0)}% completed ({stats.tasksCompleted}/{stats.tasksTotal})</Typography></Box></CardContent></Card></Grid>
         <Grid item xs={12} sm={6} md={4}><Card sx={{ bgcolor: stats.tasksOverdue > 0 ? "error.light" : "grey.50" }}><CardContent><Typography variant="caption">Overdue Tasks</Typography><Typography variant="h4" fontWeight={700}>{stats.tasksOverdue}</Typography></CardContent></Card></Grid>
-        <Grid item xs={12} sm={6} md={4}><Card><CardContent><Typography variant="caption">Total Budget</Typography><Typography variant="h4" fontWeight={700}>USD {stats.budgetTotal.toLocaleString()}</Typography></CardContent></Card></Grid>
+        <Grid item xs={12} sm={6} md={4}><Card><CardContent><Typography variant="caption">Total Budget</Typography><Typography variant="h4" fontWeight={700}>UGX {stats.budgetTotal.toLocaleString()}</Typography></CardContent></Card></Grid>
       </Grid>
     </Box>
   );

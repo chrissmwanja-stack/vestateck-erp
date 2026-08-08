@@ -41,7 +41,7 @@ export default function NewLead() {
     source_id: "",
     status: "new" as LeadStatus,
     estimated_value: "",
-    currency: "USD",
+    currency: "UGX",
     notes: "",
   });
 
@@ -115,7 +115,7 @@ export default function NewLead() {
         source_id: form.source_id,
         status: "new",
         estimated_value: "",
-        currency: "USD",
+        currency: "UGX",
         notes: "",
       });
       setTimeout(() => navigate("/business-development/leads"), 1500);

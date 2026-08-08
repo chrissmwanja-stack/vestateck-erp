@@ -1,9 +1,9 @@
 import { Box, Card, CardContent, Typography, Table, TableHead, TableRow, TableCell, TableBody, Chip } from "@mui/material";
 
 const MOCK_SUBMISSIONS = [
-  { id: "1", tender_no: "T-2025-001", title: "Classroom Construction", client: "Ministry of Education", submission_date: "2026-01-15", status: "submitted", value: "USD 120,000" },
-  { id: "2", tender_no: "T-2025-002", title: "IT Equipment Supply", client: "URA", submission_date: "2026-02-01", status: "under_evaluation", value: "USD 85,000" },
-  { id: "3", tender_no: "T-2025-003", title: "Office Furniture", client: "NSSF", submission_date: "2025-12-20", status: "awarded", value: "USD 45,000" },
+  { id: "1", tender_no: "T-2025-001", title: "Classroom Construction", client: "Ministry of Education", submission_date: "2026-01-15", status: "submitted", value: "UGX 120,000" },
+  { id: "2", tender_no: "T-2025-002", title: "IT Equipment Supply", client: "URA", submission_date: "2026-02-01", status: "under_evaluation", value: "UGX 85,000" },
+  { id: "3", tender_no: "T-2025-003", title: "Office Furniture", client: "NSSF", submission_date: "2025-12-20", status: "awarded", value: "UGX 45,000" },
 ];
 
 export default function SubmissionsList() {

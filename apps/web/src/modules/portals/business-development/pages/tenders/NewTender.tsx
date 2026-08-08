@@ -24,7 +24,7 @@ export default function NewTender() {
     type_id: "",
     submission_deadline: "",
     estimated_value: "",
-    currency: "USD",
+    currency: "UGX",
     portal_url: "",
     description: "",
   });

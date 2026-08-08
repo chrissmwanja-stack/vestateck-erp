@@ -151,7 +151,7 @@ export default function FinancialDashboard() {
                 <Typography variant="subtitle2">Supplier Invoices (PO)</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{stats.supplierInvoices}</Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>USD {stats.totalPayable.toLocaleString()} total payable (sample)</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>UGX {stats.totalPayable.toLocaleString()} total payable (sample)</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -177,7 +177,7 @@ export default function FinancialDashboard() {
                 <Typography variant="subtitle2">Receivable Invoices</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{stats.receivableInvoices}</Typography>
-              <Typography variant="caption">USD {stats.totalReceivable.toLocaleString()} receivable (sample)</Typography>
+              <Typography variant="caption">UGX {stats.totalReceivable.toLocaleString()} receivable (sample)</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -206,7 +206,7 @@ export default function FinancialDashboard() {
         <Grid item xs={6} sm={3}>
           <Card variant="outlined">
             <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-              <Typography variant="h6" color="success.main" fontWeight={700}>USD {(stats.totalPayable + stats.totalReceivable).toLocaleString()}</Typography>
+              <Typography variant="h6" color="success.main" fontWeight={700}>UGX {(stats.totalPayable + stats.totalReceivable).toLocaleString()}</Typography>
               <Typography variant="caption">Total Volume (sample)</Typography>
             </CardContent>
           </Card>
@@ -240,7 +240,7 @@ export default function FinancialDashboard() {
                     <TableRow key={inv.id} hover>
                       <TableCell><Typography variant="body2" fontFamily="monospace" fontWeight={600}>{inv.invoice_no || inv.id.slice(0, 8)}</Typography></TableCell>
                       <TableCell>{inv.vendor_name || "-"}</TableCell>
-                      <TableCell>{inv.total_amount ? `USD ${Number(inv.total_amount).toLocaleString()}` : "-"}</TableCell>
+                      <TableCell>{inv.total_amount ? `UGX ${Number(inv.total_amount).toLocaleString()}` : "-"}</TableCell>
                       <TableCell><Chip label={inv.status || "draft"} size="small" variant="outlined" sx={{ textTransform: "capitalize" }} /></TableCell>
                       <TableCell><Typography variant="caption">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "-"}</Typography></TableCell>
                     </TableRow>

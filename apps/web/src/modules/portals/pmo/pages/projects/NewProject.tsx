@@ -13,7 +13,7 @@ export default function NewProject() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", category_id: "", client_name: "", status: "not_started", budget: "", currency: "USD", start_date: "", end_date: "", description: "" });
+  const [form, setForm] = useState({ name: "", category_id: "", client_name: "", status: "not_started", budget: "", currency: "UGX", start_date: "", end_date: "", description: "" });
 
   useEffect(() => {
     const fetchCats = async () => {

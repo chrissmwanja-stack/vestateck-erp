@@ -80,7 +80,7 @@ export default function OpportunitiesList() {
         <Box>
           <Typography variant="h5" fontWeight={700}>Opportunities</Typography>
           <Typography variant="body2" color="text.secondary">
-            {filtered.length} opportunities • Total {filtered[0]?.currency || "USD"} {totalValue.toLocaleString()} • Weighted {weightedValue.toLocaleString()}
+            {filtered.length} opportunities • Total {filtered[0]?.currency || "UGX"} {totalValue.toLocaleString()} • Weighted {weightedValue.toLocaleString()}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>

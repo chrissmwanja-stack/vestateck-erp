@@ -98,7 +98,7 @@ export default function PipelineReport() {
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
-  const currency = "USD"; // Could detect from first opp or make dynamic
+  const currency = "UGX"; // Could detect from first opp or make dynamic
 
   return (
     <Box sx={{ p: 3, maxWidth: 1100 }}>

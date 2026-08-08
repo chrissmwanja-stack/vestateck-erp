@@ -92,8 +92,8 @@ export default function ProposalStatusReport() {
                   <TableRow key={a.status} hover>
                     <TableCell><Chip label={a.label} size="small" variant="outlined" sx={{ textTransform: "capitalize" }} /></TableCell>
                     <TableCell>{a.count}</TableCell>
-                    <TableCell>USD {a.totalValue.toLocaleString()}</TableCell>
-                    <TableCell>USD {a.avgValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                    <TableCell>UGX {a.totalValue.toLocaleString()}</TableCell>
+                    <TableCell>UGX {a.avgValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                     <TableCell>{a.avgDays.toFixed(1)} days</TableCell>
                   </TableRow>
                 ))

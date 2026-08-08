@@ -23,7 +23,7 @@ export default function NewContract() {
     start_date: "",
     end_date: "",
     value: "",
-    currency: "USD",
+    currency: "UGX",
   });
 
   useEffect(() => {
