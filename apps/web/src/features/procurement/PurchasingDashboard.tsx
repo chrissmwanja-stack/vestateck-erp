@@ -85,7 +85,7 @@ export default function PurchasingDashboard() {
       const [myRequestsRes, openRequestsRes, materialRequestsRes, offersRes, recentRes] = await Promise.all([
         supabase.from("requests").select("id", { count: "exact", head: true }).eq("requester_id", session?.user?.id || ""),
         supabase.from("requests").select("id", { count: "exact", head: true }).eq("status", "open"),
-        supabase.from("material_requests").select("id", { count: "exact", head: true }),
+        supabase.from("material_request_batches").select("id", { count: "exact", head: true }),
         supabase.from("request_offers").select("id", { count: "exact", head: true }).is("submitted_at", null),
         supabase.from("requests").select("id, item_description, quantity, status, created_at").order("created_at", { ascending: false }).limit(5),
       ]);
