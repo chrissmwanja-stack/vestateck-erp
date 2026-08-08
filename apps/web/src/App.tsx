@@ -161,6 +161,7 @@ const TaskTypesAdmin = lazy(() => import('./modules/portals/pmo/pages/admin/Task
 const PMODashboard = lazy(() => import('./modules/portals/pmo/pages/PMODashboard'));
 const ProjectsList = lazy(() => import('./modules/portals/pmo/pages/projects/ProjectsList'));
 const NewProject = lazy(() => import('./modules/portals/pmo/pages/projects/NewProject'));
+const ProjectDetail = lazy(() => import('./modules/portals/pmo/pages/projects/ProjectDetail'));
 const TasksList = lazy(() => import('./modules/portals/pmo/pages/tasks/TasksList'));
 const MilestonesList = lazy(() => import('./modules/portals/pmo/pages/tasks/MilestonesList'));
 const GanttChart = lazy(() => import('./modules/portals/pmo/pages/tasks/GanttChart'));
@@ -450,6 +451,7 @@ export default function App() {
               <Route path="/pmo/dashboard" element={<PMODashboard />} />
               <Route path="/pmo/projects" element={<ProjectsList />} />
               <Route path="/pmo/projects/new" element={<NewProject />} />
+              <Route path="/pmo/projects/:id" element={<ProjectDetail />} />
               <Route path="/pmo/tasks" element={<TasksList />} />
               <Route path="/pmo/milestones" element={<MilestonesList />} />
               <Route path="/pmo/gantt" element={<GanttChart />} />

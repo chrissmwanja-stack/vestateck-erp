@@ -46,26 +46,6 @@ export default function ResourceAllocation() {
     if (tenant_id) payload.tenant_id = tenant_id;
     const { error } = await supabase.from("pmo_resource_allocations").insert(payload);
     if (error) {
-      if (error.message.includes("does not exist")) {
-        // Mock for shell without table
-        const mock: Allocation = {
-          id: Math.random().toString(36).substring(7),
-          tenant_id: "mock",
-          employee_id: form.employee_id,
-          project_id: form.project_id,
-          allocation_percent: form.allocation_percent,
-          start_date: form.start_date || null,
-          end_date: form.end_date || null,
-          status: form.status,
-          created_at: new Date().toISOString(),
-          pmo_projects: projects.find(p => p.id === form.project_id) ? { name: projects.find(p => p.id === form.project_id)!.name } : null,
-          hr_employees: employees.find(e => e.id === form.employee_id) ? { first_name: employees.find(e => e.id === form.employee_id)!.first_name, last_name: employees.find(e => e.id === form.employee_id)!.last_name } : null,
-        };
-        setAllocations(prev => [mock, ...prev]);
-        setOpen(false);
-        setForm({ employee_id: "", project_id: "", allocation_percent: 100, start_date: "", end_date: "", status: "active" });
-        return;
-      }
       alert(error.message);
       return;
     }

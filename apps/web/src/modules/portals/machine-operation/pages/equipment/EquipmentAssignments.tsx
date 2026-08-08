@@ -49,24 +49,6 @@ export default function EquipmentAssignments() {
     if (tenant_id) payload.tenant_id = tenant_id;
     const { error } = await supabase.from("machine_assignments").insert(payload);
     if (error) {
-      if (error.message.includes("does not exist")) {
-        const mock: Assignment = {
-          id: Math.random().toString(36).substring(7),
-          tenant_id: "mock",
-          machine_id: form.machine_id,
-          project_name: form.project_name || null,
-          operator_name: form.operator_name || null,
-          start_date: form.start_date || null,
-          end_date: form.end_date || null,
-          status: form.status,
-          created_at: new Date().toISOString(),
-          machines: machines.find(m => m.id === form.machine_id) ? { name: machines.find(m => m.id === form.machine_id)!.name, machine_no: machines.find(m => m.id === form.machine_id)!.machine_no } : null,
-        };
-        setAssignments(prev => [mock, ...prev]);
-        setOpen(false);
-        setForm({ machine_id: "", project_name: "", operator_name: "", start_date: "", end_date: "", status: "active" });
-        return;
-      }
       alert(error.message);
       return;
     }
