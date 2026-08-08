@@ -285,6 +285,7 @@ const portals: Portal[] = [
       },
       { id: "petty-cash-floats", label: "Petty Cash Floats", icon: <Payments fontSize="small" />, to: "/financial-management/petty-cash-floats" },
       { id: "petty-cash-register", label: "Petty Cash Register", icon: <Payments fontSize="small" />, to: "/financial-management/petty-cash-register" },
+      { id: "payroll-disbursement", label: "Payroll Disbursement", icon: <Payments fontSize="small" />, to: "/financial-management/payroll-disbursement" },
       {
         id: "financial-reports",
         label: "Reports",

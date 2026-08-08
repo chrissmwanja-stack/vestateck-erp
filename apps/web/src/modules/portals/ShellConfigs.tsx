@@ -139,7 +139,11 @@ export const hrNodes: TreeNode[] = [
     id: "payroll",
     label: "Payroll",
     icon: <Payments fontSize="small" />,
-    to: "/hr/payroll",
+    children: [
+      { id: "payroll-runs", label: "Payroll Runs", icon: <Payments fontSize="small" />, to: "/hr/payroll" },
+      { id: "compensation-history", label: "Compensation History", icon: <ReceiptLong fontSize="small" />, to: "/hr/payroll/compensation-history" },
+      { id: "payroll-approvals", label: "Payroll Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/hr/payroll/approvals" },
+    ],
   },
   {
     id: "performance",

@@ -38,6 +38,7 @@ const TrialBalance = lazy(() => import('./features/financial/TrialBalance'));
 const VatReport = lazy(() => import('./features/financial/VatReport'));
 const Durations = lazy(() => import('./features/financial/Durations'));
 const AdvancePayments = lazy(() => import('./features/financial/AdvancePayments'));
+const PayrollDisbursement = lazy(() => import('./features/financial/PayrollDisbursement'));
 const PaymentPlanReport = lazy(() => import('./features/financial/PaymentPlanReport'));
 const MassSlip = lazy(() => import('./features/financial/MassSlip'));
 const MaterialQuantity = lazy(() => import('./features/requests/MaterialQuantity'));
@@ -123,6 +124,8 @@ const AttendanceList = lazy(() => import('./modules/portals/hr/pages/attendance/
 const JobPostingsList = lazy(() => import('./modules/portals/hr/pages/recruitment/JobPostingsList'));
 const ApplicationsList = lazy(() => import('./modules/portals/hr/pages/recruitment/ApplicationsList'));
 const PayrollList = lazy(() => import('./modules/portals/hr/pages/payroll/PayrollList'));
+const CompensationHistory = lazy(() => import('./modules/portals/hr/pages/payroll/CompensationHistory'));
+const PayrollApprovals = lazy(() => import('./modules/portals/hr/pages/payroll/PayrollApprovals'));
 const AppraisalsList = lazy(() => import('./modules/portals/hr/pages/performance/AppraisalsList'));
 const TrainingList = lazy(() => import('./modules/portals/hr/pages/performance/TrainingList'));
 const HRDashboard = lazy(() => import('./modules/portals/hr/pages/HRDashboard'));
@@ -311,6 +314,7 @@ export default function App() {
               <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />
               <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
               <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
+              <Route path="/financial-management/payroll-disbursement" element={<PayrollDisbursement />} />
               <Route path="/requests/material-quantity" element={<MaterialQuantity />} />
               <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
               <Route path="/warehouse/goods-issue" element={<GoodsIssue />} />
@@ -431,6 +435,8 @@ export default function App() {
               <Route path="/hr/recruitment/jobs" element={<JobPostingsList />} />
               <Route path="/hr/recruitment/applications" element={<ApplicationsList />} />
               <Route path="/hr/payroll" element={<PayrollList />} />
+              <Route path="/hr/payroll/compensation-history" element={<CompensationHistory />} />
+              <Route path="/hr/payroll/approvals" element={<PayrollApprovals />} />
               <Route path="/hr/performance/appraisals" element={<AppraisalsList />} />
               <Route path="/hr/training" element={<TrainingList />} />
               <Route path="/hr/reports/headcount" element={<HeadcountReport />} />

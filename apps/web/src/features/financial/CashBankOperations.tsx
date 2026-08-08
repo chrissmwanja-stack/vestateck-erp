@@ -23,12 +23,13 @@ import {
 import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 
-type ReferenceType = 'supplier_invoice' | 'expenditure_slip' | 'receivable_invoice';
+type ReferenceType = 'supplier_invoice' | 'expenditure_slip' | 'receivable_invoice' | 'payroll_run';
 
 const REFERENCE_TABLES: Record<ReferenceType, { table: string; numberField: string; label: string }> = {
   supplier_invoice: { table: 'supplier_invoices', numberField: 'invoice_number', label: 'Supplier Invoice' },
   expenditure_slip: { table: 'expenditure_slips', numberField: 'slip_number', label: 'Expenditure Slip' },
   receivable_invoice: { table: 'receivable_invoices', numberField: 'invoice_number', label: 'Receivable Invoice' },
+  payroll_run: { table: 'hr_payroll_runs', numberField: 'period', label: 'Payroll Run' },
 };
 
 interface CashBankTransactionRow {
@@ -391,6 +392,7 @@ export default function CashBankOperations() {
                     <MenuItem value="supplier_invoice">Supplier Invoice</MenuItem>
                     <MenuItem value="expenditure_slip">Expenditure Slip</MenuItem>
                     <MenuItem value="receivable_invoice">Receivable Invoice</MenuItem>
+                    <MenuItem value="payroll_run">Payroll Run</MenuItem>
                   </TextField>
                 </Stack>
 
