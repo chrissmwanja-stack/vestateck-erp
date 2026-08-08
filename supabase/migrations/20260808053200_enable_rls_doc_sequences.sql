@@ -1,0 +1,21 @@
+-- Fixes a critical security-advisor finding: public.doc_sequences had RLS
+-- disabled, meaning it was fully exposed to the anon and authenticated
+-- roles used by Supabase client libraries.
+--
+-- doc_sequences is a pure internal counter table (tenant_id, doc_type,
+-- year) -> last_number. The only access path in the entire codebase is
+-- next_doc_number(), a SECURITY DEFINER function called from these
+-- triggers:
+--   - generate_hr_employee_no       (hr_employees.employee_no)
+--   - generate_hr_leave_no          (hr_leave_requests.leave_no)
+--   - generate_law_contract_no      (law_contracts.contract_no)
+--   - generate_law_case_no          (law_cases.case_no)
+--   - generate_law_compliance_no    (law_compliance_register.item_no)
+--
+-- No frontend code and no other RPC queries this table directly.
+-- SECURITY DEFINER functions bypass RLS regardless of policies, so this
+-- table needs zero policies: enabling RLS with none default-denies all
+-- direct anon/authenticated access while leaving every numbering trigger
+-- fully functional (verified via a live smoke test of next_doc_number()
+-- after applying this migration).
+alter table public.doc_sequences enable row level security;
