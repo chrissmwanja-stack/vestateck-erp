@@ -133,7 +133,7 @@ const itSupportNodes: TreeNode[] = [
       { id: "ticket-tracking", label: "Ticket Tracking", icon: <BarChart fontSize="small" />, to: "/it-support/reports/ticket-tracking" },
       { id: "sla-performance", label: "SLA Performance", icon: <Timer fontSize="small" />, to: "/it-support/reports/sla" },
       { id: "asset-report", label: "Asset Report", icon: <BarChart fontSize="small" />, to: "/it-support/reports/assets" },
-      { id: "workload-report", label: "Technician Workload", icon: <BarChart fontSize="small" />, to: "/it-support/reports/workload", disabled: true },
+      
     ],
   },
   {

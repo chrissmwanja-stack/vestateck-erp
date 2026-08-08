@@ -323,7 +323,7 @@ export default function ItSupportDashboard() {
       <Paper variant="outlined" sx={{ p: 2, mt: 3, bgcolor: 'action.hover' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <CheckCircle fontSize="small" />
-          Dashboard now live: queries it_tickets for real counts, SLA breach detection via sla_due_at less than now, my tickets via requester_id equals auth.uid(). Next: Add chart for tickets by status and priority.
+          Dashboard queries it_tickets for real counts, SLA breach detection via sla_due_at less than now, my tickets.
         </Typography>
       </Paper>
     </Box>
