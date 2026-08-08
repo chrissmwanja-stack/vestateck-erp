@@ -88,7 +88,7 @@ export default function StockBalances() {
   return (
     <Box sx={{ maxWidth: 1000 }}>
       <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Inventory2Icon /> Stock Balances
+        <Inventory2Icon /> STOCK BALANCES
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Quantity on hand per warehouse, updated automatically from every goods receipt (in) and goods issue (out).
@@ -105,7 +105,7 @@ export default function StockBalances() {
             onChange={(e) => setWarehouseId(e.target.value)}
             SelectProps={{ native: true }}
           >
-            <option value="">All warehouses</option>
+            <option value=""> All warehouses </option>
             {warehouses.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
