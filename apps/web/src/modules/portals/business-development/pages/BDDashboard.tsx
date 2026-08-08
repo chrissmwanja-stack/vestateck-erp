@@ -3,7 +3,7 @@ import { Box, Card, CardContent, Chip, CircularProgress, LinearProgress, Stack, 
 import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "../../../../lib/supabaseClient";
 
-// BD Dashboard -- KPI summary for the Business Development portal home.
+// BD Dashboard — KPI summary for the Business Development portal home.
 //
 // This intentionally does NOT re-derive every metric from scratch: the
 // module already has dedicated report pages (Pipeline, Win/Loss, Lead
@@ -54,12 +54,14 @@ export default function BDDashboard() {
         supabase.from("bd_opportunities").select("id, stage, estimated_value, probability"),
         supabase.from("bd_proposals").select("id, status"),
       ]);
+
       // PostgREST returns nested to-one joins as arrays in this schema
       // (same quirk seen elsewhere in the app) -- normalize.
       const normalizedLeads = ((leadsRes.data as any[]) || []).map((l) => ({
         ...l,
         bd_lead_sources: Array.isArray(l.bd_lead_sources) ? l.bd_lead_sources[0] ?? null : l.bd_lead_sources ?? null,
       }));
+
       setLeads(normalizedLeads as Lead[]);
       setOpportunities(((oppsRes.data as Opportunity[]) || []));
       setProposals(((propsRes.data as Proposal[]) || []));
@@ -117,9 +119,9 @@ export default function BDDashboard() {
 
   const kpiCards = [
     { label: "Open Pipeline Value", value: `USD ${pipelineValue.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: undefined },
-    { label: "Weighted Pipeline", value: `USD ${weightedPipeline.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: "primary.light" },
-    { label: "Win Rate", value: `${winRate.toFixed(1)}%`, to: "/business-development/reports/win-loss", bg: winRate >= 50 ? "success.light" : undefined },
-    { label: "Proposals Pending", value: String(proposalsPending.length), to: "/business-development/proposals/approvals", bg: proposalsPending.length > 0 ? "warning.light" : undefined },
+    { label: "Weighted Pipeline", value: `USD ${weightedPipeline.toLocaleString()}`, to: "/business-development/reports/pipeline", bg: "primary.light" as const },
+    { label: "Win Rate", value: `${winRate.toFixed(1)}%`, to: "/business-development/reports/win-loss", bg: winRate >= 50 ? "success.light" as const : undefined },
+    { label: "Proposals Pending", value: String(proposalsPending.length), to: "/business-development/proposals/approvals", bg: proposalsPending.length > 0 ? "warning.light" as const : undefined },
   ];
 
   return (
