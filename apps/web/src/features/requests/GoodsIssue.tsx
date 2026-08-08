@@ -214,11 +214,10 @@ export default function GoodsIssue() {
   return (
     <Box sx={{ maxWidth: 1100 }}>
       <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <LocalShippingIcon /> Goods Issue
+        <LocalShippingIcon /> GOODS ISSUE
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Record stock leaving the warehouse to a project or cost center — the digitized Ambar Çıkış Formu
-        (YMI.GNL.AMB.FRM.002). This reduces stock on hand; goods coming in are recorded on Material Quantity
+        Record stock leaving the warehouse to a project or cost center . This reduces stock on hand; goods coming in are recorded on Material Quantity
         instead.
       </Typography>
 
@@ -387,7 +386,7 @@ export default function GoodsIssue() {
       </Paper>
 
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-        Recent issues
+        RECENT ISSUES
       </Typography>
       <Paper variant="outlined">
         {recentLoading ? (
