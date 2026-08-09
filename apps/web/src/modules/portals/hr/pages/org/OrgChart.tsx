@@ -3,7 +3,7 @@ import { Alert, Box, Card, CardContent, Chip, CircularProgress, Typography } fro
 import { AccountTree } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 
-interface Department { id: string; name: string; parent_id: string | null; }
+interface Department { id: string; name: string; parent_department_id: string | null; }
 interface Employee { id: string; first_name: string; last_name: string; department_id: string | null; hr_positions?: { title: string } | null; }
 
 export default function OrgChart() {
@@ -20,7 +20,9 @@ export default function OrgChart() {
         // NOTE: was "hr_departments", which does not exist -- departments
         // live in the shared `departments` table (same issue as
         // EmployeesList.tsx before its fix this session).
-        supabase.from("departments").select("id, name, parent_id").eq("is_active", true).order("name"),
+        // NOTE: the hierarchy column is `parent_department_id`, not
+        // `parent_id` -- fixed after a 400 from PostgREST.
+        supabase.from("departments").select("id, name, parent_department_id").eq("is_active", true).order("name"),
         supabase
           .from("hr_employees")
           .select("id, first_name, last_name, department_id, hr_positions(title)")
@@ -57,7 +59,7 @@ export default function OrgChart() {
   }, []);
 
   const renderDept = (dept: Department, level: number = 0) => {
-    const children = depts.filter(d => d.parent_id === dept.id);
+    const children = depts.filter(d => d.parent_department_id === dept.id);
     const deptEmployees = employees.filter(e => e.department_id === dept.id);
 
     return (
@@ -93,12 +95,12 @@ export default function OrgChart() {
     );
   }
 
-  const topLevel = depts.filter(d => !d.parent_id);
+  const topLevel = depts.filter(d => !d.parent_department_id);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1000 }}>
       <Typography variant="h5" fontWeight={700} gutterBottom>Organization Chart</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Hierarchical view of departments and employees. Based on departments parent_id and hr_employees department_id.</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Hierarchical view of departments and employees. Based on departments parent_department_id and hr_employees department_id.</Typography>
       
       {topLevel.length === 0 ? (
         <Card><CardContent><Typography color="text.secondary">No departments yet. Create departments in Admin → Departments with parent-child relationships to build org chart.</Typography></CardContent></Card>
