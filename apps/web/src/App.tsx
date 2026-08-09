@@ -15,6 +15,7 @@ import { useAuth } from './lib/authContext';
 import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
+const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage'));
 const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
 const InvoiceApprovalQueue = lazy(() => import('./features/multiplexing/InvoiceApprovalQueue'));
 const InvoiceSubmissionForm = lazy(() => import('./features/multiplexing/InvoiceSubmissionForm'));
@@ -278,6 +279,7 @@ export default function App() {
           <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<Navigate to="/requests/new" replace />} />
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
