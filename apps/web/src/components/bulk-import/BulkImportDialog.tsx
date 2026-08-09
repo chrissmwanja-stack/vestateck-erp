@@ -21,6 +21,7 @@ import { UploadFile, CheckCircle, ErrorOutline } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../lib/authContext";
 import { parseCsv } from "../../lib/csvParser";
+import { parseXlsx } from "../../lib/xlsxParser";
 
 /**
  * Resolves a CSV column's text value (e.g. "Engineering") to a foreign key
@@ -135,11 +136,11 @@ export default function BulkImportDialog({
     setValidating(true);
 
     try {
-      const text = await file.text();
-      const { rows, rowLineNumbers } = parseCsv(text);
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      const { rows, rowLineNumbers } = isExcel ? await parseXlsx(file) : parseCsv(await file.text());
 
       if (rows.length === 0) {
-        setFatalError("No data rows found in the CSV file.");
+        setFatalError("No data rows found in the file.");
         setValidating(false);
         return;
       }
@@ -269,7 +270,7 @@ export default function BulkImportDialog({
         {!results && (
           <>
             <Typography variant="body2" color="text.secondary">
-              Upload a CSV with headers: <b>{csvHeader.join(", ")}</b>
+              Upload a CSV or Excel (.xlsx) file with headers: <b>{csvHeader.join(", ")}</b>
             </Typography>
             <Box component="pre" sx={{ bgcolor: "grey.100", p: 1, borderRadius: 1, fontSize: 12, overflow: "auto" }}>
               {csvHeader.join(",")}
@@ -277,8 +278,8 @@ export default function BulkImportDialog({
               {config.sampleRowValues.join(",")}
             </Box>
             <Button variant="contained" component="label" startIcon={<UploadFile />} sx={{ alignSelf: "flex-start" }}>
-              Choose CSV File
-              <input type="file" accept=".csv" hidden onChange={handleFile} />
+              Choose CSV or Excel File
+              <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={handleFile} />
             </Button>
             {fileName && <Typography variant="caption" color="text.secondary">{fileName}</Typography>}
 
