@@ -16,6 +16,8 @@ import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage'));
+const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
+const InviteMember = lazy(() => import('./features/team/InviteMember'));
 const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
 const InvoiceApprovalQueue = lazy(() => import('./features/multiplexing/InvoiceApprovalQueue'));
 const InvoiceSubmissionForm = lazy(() => import('./features/multiplexing/InvoiceSubmissionForm'));
@@ -327,7 +329,9 @@ export default function App() {
               <Route path="/procurement/vendor-evaluation" element={<VendorEvaluationReport />} />
               <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
-              <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} /> 
+              <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
+              <Route path="/admin/companies" element={<CompaniesConsole />} />
+              <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
               <Route path="/purchasing/dashboard" element={<PurchasingDashboard />} />
               <Route path="/approvals/material-requests" element={<MaterialRequestApproval />} />

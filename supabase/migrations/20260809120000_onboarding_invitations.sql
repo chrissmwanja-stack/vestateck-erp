@@ -84,3 +84,14 @@ create policy invitations_insert_tenant_admin
 -- service role (via the edge function), which bypasses RLS. Revoke/expire
 -- flows, when built, should go through a SECURITY DEFINER RPC rather than a
 -- direct client-side UPDATE policy, matching the rest of the codebase.
+
+-- 4. Platform admin visibility on tenants --------------------------------
+-- Added a session later, while building the Companies console: the only
+-- existing SELECT policy on tenants (tenants_select_own) scopes to
+-- id = get_my_tenant_id(), so a platform admin couldn't see any tenant
+-- but their own. This lets them see all of them, same is_platform_admin()
+-- gate used everywhere else in this migration.
+
+create policy tenants_select_platform_admin
+  on tenants for select
+  using (is_platform_admin());
