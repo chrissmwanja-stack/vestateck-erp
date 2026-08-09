@@ -12,3 +12,4 @@ supabase/.temp
 *.key
 service-account*.json
 firebase-config.json
+apps/web/tsconfig.tsbuildinfo
