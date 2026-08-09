@@ -188,7 +188,21 @@ create table purchase_orders (
   vendor_name text not null,
   amount numeric(14, 2) not null,
   generated_by uuid not null references app_users(id),
-  generated_at timestamptz not null default now()
+  generated_at timestamptz not null default now(),
+  -- shared_with_supplier/delivered_at/completed_at were added directly via
+  -- the Supabase Studio table editor before migration tracking began on
+  -- 2026-07-30, so there was never a standalone ALTER TABLE for them.
+  -- Included directly in the initial CREATE TABLE here (rather than a
+  -- separate backfill migration) since no filename can sort between the
+  -- legacy bare-numbered 0001-0017 files that the Supabase CLI accepts --
+  -- timestamped files always sort after all of them, and lettered suffixes
+  -- (0001b, 0001c) are rejected outright by the CLI's filename pattern.
+  -- This file is already applied on the live DB and won't be re-run there;
+  -- this edit only affects fresh replays (shadow db, staging, disaster
+  -- recovery).
+  shared_with_supplier boolean not null default false,
+  delivered_at timestamptz,
+  completed_at timestamptz
 );
 
 create index idx_purchase_orders_request on purchase_orders(request_id);
