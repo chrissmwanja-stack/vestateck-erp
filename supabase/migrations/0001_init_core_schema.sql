@@ -208,6 +208,58 @@ create table purchase_orders (
 create index idx_purchase_orders_request on purchase_orders(request_id);
 
 -- ============================================================================
+-- PRE-TRACKING HELPER FUNCTIONS
+-- ============================================================================
+-- get_my_tenant_id() and can_act_on_stage() were created directly via the
+-- Supabase SQL Editor before migration tracking began on 2026-07-30, so
+-- there was never a standalone CREATE FUNCTION for either. 0005 calls
+-- get_my_tenant_id() and 0008 calls can_act_on_stage() with no earlier
+-- migration defining them, which breaks fresh replays the same way the
+-- pre-tracking tenant/department/workflow_stage rows above did.
+--
+-- Defined here in their ORIGINAL pre-tracking form -- neither one has the
+-- is_platform_admin() bypass yet, since is_platform_admin() itself isn't
+-- created until 20260801132413_platform_admin_and_finance_team.sql and the
+-- bypass isn't added to either function until
+-- 20260807075702_add_platform_admin_bypass_to_po_and_stage_functions.sql,
+-- which CREATE OR REPLACEs both later in the timeline. This file is already
+-- applied on the live DB and won't be re-run there; this addition only
+-- affects fresh replays.
+
+create or replace function public.get_my_tenant_id()
+returns uuid
+language sql
+stable security definer
+set search_path to 'public'
+as $$
+  select tenant_id from app_users where id = auth.uid();
+$$;
+
+create or replace function public.can_act_on_stage(check_stage_id uuid)
+returns boolean
+language sql
+stable security definer
+set search_path to 'public'
+as $$
+  select
+    exists (
+      select 1 from approval_assignments aa
+      where aa.user_id = auth.uid()
+        and aa.workflow_stage_id = check_stage_id
+    )
+    or exists (
+      select 1
+      from approval_delegations d
+      join approval_assignments aa on aa.user_id = d.delegator_user_id
+      where d.delegate_user_id = auth.uid()
+        and d.status = 'active'
+        and now() between d.starts_at and d.ends_at
+        and aa.workflow_stage_id = check_stage_id
+        and (d.workflow_stage_id is null or d.workflow_stage_id = check_stage_id)
+    );
+$$;
+
+-- ============================================================================
 -- PRE-TRACKING SEED DATA
 -- ============================================================================
 -- The rows below (tenant, departments, workflow stages, three test users,
@@ -268,7 +320,7 @@ update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-00000000
 -- Three original test accounts (auth.users + app_users), same "direct
 -- auth.users insert, no admin API" pattern as the later
 -- 20260730143728_seed_missing_stage_test_users.sql migration for the rest
--- of the roster. Test password for all: TestPassword123!
+-- of the roster. Test password for all: Tester123
 do $$
 declare
   v_tenant_id uuid := '00000000-0000-0000-0000-000000000001';
@@ -280,15 +332,15 @@ begin
       created_at, updated_at, confirmation_token, recovery_token
     ) values
     ('00000000-0000-0000-0000-000000000000', 'b93bd287-c359-44cc-a7a6-2dd1578b06ee', 'authenticated', 'authenticated',
-     'cost.control@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     'cost.control@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
      '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
     ('00000000-0000-0000-0000-000000000000', 'ed9cd87d-7649-486c-958b-36114271a0b2', 'authenticated', 'authenticated',
-     'finance@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     'finance@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
      '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
     ('00000000-0000-0000-0000-000000000000', '6cb314bb-c39e-40e2-aca9-446e12a1795f', 'authenticated', 'authenticated',
-     'procurement@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     'procurement@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
      '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '');
   end if;
