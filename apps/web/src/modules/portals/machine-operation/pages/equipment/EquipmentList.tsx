@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid } from "@mui/material";
-import { Add, Edit, Delete } from "@mui/icons-material";
+import { Add, Edit, Delete, UploadFile } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
+import BulkImportDialog, { BulkImportConfig } from "../../../../../components/bulk-import/BulkImportDialog";
 
 interface MachineType { id: string; name: string; }
 interface Machine {
@@ -24,6 +25,7 @@ export default function EquipmentList() {
   const [types, setTypes] = useState<MachineType[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Machine | null>(null);
   const [form, setForm] = useState({ name: "", type_id: "", model: "", serial_number: "", status: "available", location: "" });
 
@@ -84,17 +86,54 @@ export default function EquipmentList() {
     return 'warning';
   };
 
+  // machine_no is trigger-generated (generate_machine_no) -- never set it from CSV.
+  const bulkImportConfig: BulkImportConfig = {
+    table: "machines",
+    entityLabel: "Equipment",
+    dedupeColumn: "serial_number",
+    columns: [
+      { key: "name", label: "Name", required: true },
+      { key: "model", label: "Model" },
+      { key: "serial_number", label: "Serial Number" },
+      { key: "status", label: "Status", enumValues: ["available", "in_use", "maintenance", "breakdown", "retired"] },
+      { key: "location", label: "Location" },
+    ],
+    lookups: [
+      { csvColumn: "type", table: "machine_types", matchColumn: "name", payloadKey: "type_id", label: "Machine Type" },
+    ],
+    sampleRowValues: ["CAT Excavator 320D", "320D", "SN123456", "available", "Kampala Site A", "Heavy Equipment"],
+    buildPayload: (row, resolved, tenant_id) => ({
+      tenant_id,
+      name: row.name,
+      type_id: resolved.type_id || null,
+      model: row.model || null,
+      serial_number: row.serial_number || null,
+      status: row.status ? row.status.toLowerCase() : "available",
+      location: row.location || null,
+    }),
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box><Typography variant="h5" fontWeight={700}>Equipment List</Typography><Typography variant="body2" color="text.secondary">{machines.length} machines • Machine No auto generation, type lookup from Admin → Machine Types</Typography></Box>
-        <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>New Equipment</Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button variant="outlined" startIcon={<UploadFile />} onClick={() => setBulkOpen(true)}>Bulk Import</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>New Equipment</Button>
+        </Box>
       </Box>
       <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Machine No</TableCell><TableCell>Name</TableCell><TableCell>Type</TableCell><TableCell>Model</TableCell><TableCell>Status</TableCell><TableCell>Location</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{machines.length === 0 ? <TableRow><TableCell colSpan={7} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No machines yet. Create first via New Equipment — needs Machine Type lookup you built.</Typography></TableCell></TableRow> : machines.map(m => <TableRow key={m.id} hover><TableCell><Typography fontFamily="monospace" fontWeight={600}>{m.machine_no || m.id.slice(0,8)}</Typography></TableCell><TableCell><Typography fontWeight={600}>{m.name}</Typography></TableCell><TableCell>{m.machine_types?.name || "-"}</TableCell><TableCell>{m.model || "-"}</TableCell><TableCell><Chip label={m.status} size="small" color={getStatusColor(m.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell>{m.location || "-"}</TableCell><TableCell align="right"><IconButton size="small" onClick={() => handleOpenEdit(m)}><Edit fontSize="small" /></IconButton><IconButton size="small" onClick={() => handleDelete(m.id)}><Delete fontSize="small" /></IconButton></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth><DialogTitle>{editing ? "Edit Equipment" : "New Equipment"}</DialogTitle><DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}><TextField label="Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} fullWidth autoFocus placeholder="e.g. CAT Excavator 320D" /><Grid container spacing={2}><Grid item xs={6}><TextField select label="Type" value={form.type_id} onChange={e => setForm({ ...form, type_id: e.target.value })} fullWidth><MenuItem value="">-- None --</MenuItem>{types.map(t => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}</TextField></Grid><Grid item xs={6}><TextField select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} fullWidth><MenuItem value="available">Available</MenuItem><MenuItem value="in_use">In Use</MenuItem><MenuItem value="maintenance">Maintenance</MenuItem><MenuItem value="breakdown">Breakdown</MenuItem><MenuItem value="retired">Retired</MenuItem></TextField></Grid></Grid><TextField label="Model" value={form.model} onChange={e => setForm({ ...form, model: e.target.value })} fullWidth placeholder="e.g. 320D" /><TextField label="Serial Number" value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} fullWidth placeholder="e.g. SN123456" /><TextField label="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} fullWidth placeholder="e.g. Kampala Site A" /></DialogContent><DialogActions><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleSave} disabled={!form.name.trim()}>{editing ? "Update" : "Create"}</Button></DialogActions></Dialog>
+
+      <BulkImportDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onImported={fetchData}
+        config={bulkImportConfig}
+      />
     </Box>
   );
 }

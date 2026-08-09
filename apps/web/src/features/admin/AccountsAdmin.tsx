@@ -22,8 +22,10 @@ import {
   FormControlLabel,
   Divider,
 } from '@mui/material';
-import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon, Edit as EditIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import BulkImportDialog, { BulkImportConfig } from '../../components/bulk-import/BulkImportDialog';
 
 type AccountType = 'vendor' | 'client' | 'both';
 
@@ -136,6 +138,8 @@ function toFormState(row: AccountRow): FormState {
 }
 
 export default function AccountsAdmin() {
+  const { session } = useAuth();
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -240,7 +244,28 @@ export default function AccountsAdmin() {
     }
 
     setSaving(true);
-    const payload = {
+
+    // account_code is manual/required/unique-per-tenant with no default or
+    // trigger (unlike hr_employees.employee_no or machines.machine_no), so
+    // tenant_id must be resolved and set explicitly on create -- accounts.
+    // tenant_id is NOT NULL with no default, so a create without it fails
+    // the constraint outright.
+    let tenant_id: string | undefined;
+    if (!editingId) {
+      const { data: appUser, error: appUserErr } = await supabase
+        .from('app_users')
+        .select('tenant_id')
+        .eq('id', session?.user?.id)
+        .single();
+      if (appUserErr || !appUser?.tenant_id) {
+        setSaveError('Could not determine your organization. Please refresh and try again.');
+        setSaving(false);
+        return;
+      }
+      tenant_id = appUser.tenant_id;
+    }
+
+    const payload: Record<string, any> = {
       account_code: form.account_code.trim(),
       name: form.name.trim(),
       account_type: form.account_type,
@@ -260,6 +285,7 @@ export default function AccountsAdmin() {
       bank_branch: form.bank_branch.trim() || null,
       swift_code: form.swift_code.trim() || null,
     };
+    if (!editingId && tenant_id) payload.tenant_id = tenant_id;
 
     const { error: saveErr } = editingId
       ? await supabase.from('accounts').update(payload).eq('id', editingId)
@@ -284,13 +310,49 @@ export default function AccountsAdmin() {
 
   const showBankingFields = form.account_type === 'vendor' || form.account_type === 'both';
 
+  // account_code is manual/required/unique-per-tenant -- unlike hr_employees
+  // and machines, there is no generator trigger, so the CSV must supply it.
+  const bulkImportConfig: BulkImportConfig = {
+    table: 'accounts',
+    entityLabel: 'Accounts',
+    dedupeColumn: 'account_code',
+    columns: [
+      { key: 'account_code', label: 'Account Code', required: true },
+      { key: 'name', label: 'Name', required: true },
+      { key: 'account_type', label: 'Type', required: true, enumValues: ['vendor', 'client', 'both'] },
+      { key: 'contact_name', label: 'Contact Name' },
+      { key: 'contact_phone', label: 'Contact Phone' },
+      { key: 'contact_email', label: 'Contact Email' },
+    ],
+    lookups: [
+      { csvColumn: 'category', table: 'account_categories', matchColumn: 'code', payloadKey: 'category_id', label: 'Category' },
+    ],
+    sampleRowValues: ['VEN-0001', 'Acme Supplies Ltd', 'vendor', 'John Doe', '+256700000000', 'john@acme.com', 'GEN'],
+    buildPayload: (row, resolved, tenant_id) => ({
+      tenant_id,
+      account_code: row.account_code,
+      name: row.name,
+      account_type: row.account_type.toLowerCase(),
+      category_id: resolved.category_id || null,
+      contact_name: row.contact_name || null,
+      contact_phone: row.contact_phone || null,
+      contact_email: row.contact_email || null,
+      is_active: true,
+    }),
+  };
+
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h5">Accounts</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenNew}>
-          New Account
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setBulkOpen(true)}>
+            Bulk Import
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenNew}>
+            New Account
+          </Button>
+        </Stack>
       </Stack>
 
       {/* Search */}
@@ -606,6 +668,13 @@ export default function AccountsAdmin() {
           </TableContainer>
         )}
       </Paper>
+
+      <BulkImportDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onImported={() => runSearch(filters)}
+        config={bulkImportConfig}
+      />
     </Box>
   );
 }

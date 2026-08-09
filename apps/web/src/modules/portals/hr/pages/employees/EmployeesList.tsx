@@ -22,9 +22,10 @@ import {
   MenuItem,
   Grid,
 } from "@mui/material";
-import { Add, Edit, Delete, Badge } from "@mui/icons-material";
+import { Add, Edit, Delete, Badge, UploadFile } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
+import BulkImportDialog, { BulkImportConfig } from "../../../../../components/bulk-import/BulkImportDialog";
 
 interface Position { id: string; title: string; }
 interface Department { id: string; name: string; }
@@ -54,6 +55,7 @@ export default function EmployeesList() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [form, setForm] = useState({
     first_name: "",
@@ -161,6 +163,38 @@ export default function EmployeesList() {
     if (error) alert(`Cannot delete: ${error.message}`); else fetchData();
   };
 
+  // employee_no is trigger-generated (generate_hr_employee_no) -- never set it from CSV.
+  const bulkImportConfig: BulkImportConfig = {
+    table: "hr_employees",
+    entityLabel: "Employees",
+    dedupeColumn: "email",
+    columns: [
+      { key: "first_name", label: "First Name", required: true },
+      { key: "last_name", label: "Last Name", required: true },
+      { key: "email", label: "Email", required: true },
+      { key: "phone", label: "Phone" },
+      { key: "hire_date", label: "Hire Date" },
+      { key: "employment_status", label: "Status", enumValues: ["active", "on_leave", "terminated", "resigned"] },
+    ],
+    lookups: [
+      { csvColumn: "department", table: "departments", matchColumn: "name", payloadKey: "department_id", label: "Department" },
+      { csvColumn: "position", table: "hr_positions", matchColumn: "title", payloadKey: "position_id", label: "Position" },
+    ],
+    sampleRowValues: ["Jane", "Doe", "jane.doe@example.com", "+256700000000", "2026-01-15", "active", "Engineering", "Software Developer"],
+    buildPayload: (row, resolved, tenant_id) => ({
+      tenant_id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      email: row.email,
+      phone: row.phone || null,
+      department_id: resolved.department_id || null,
+      position_id: resolved.position_id || null,
+      employment_status: row.employment_status ? row.employment_status.toLowerCase() : "active",
+      hire_date: row.hire_date || null,
+      is_active: true,
+    }),
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
@@ -170,7 +204,10 @@ export default function EmployeesList() {
           <Typography variant="h5" fontWeight={700}>Employees</Typography>
           <Typography variant="body2" color="text.secondary">{employees.length} employees. Employee No auto HR-EMP-2026-0001. Positions lookup from Admin → Positions.</Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>New Employee</Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button variant="outlined" startIcon={<UploadFile />} onClick={() => setBulkOpen(true)}>Bulk Import</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={handleOpenNew}>New Employee</Button>
+        </Box>
       </Box>
 
       <Card>
@@ -253,6 +290,13 @@ export default function EmployeesList() {
           <Button variant="contained" onClick={handleSave} disabled={!form.first_name.trim() || !form.last_name.trim() || !form.email.trim()}>{editing ? "Update" : "Create"}</Button>
         </DialogActions>
       </Dialog>
+
+      <BulkImportDialog
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onImported={fetchData}
+        config={bulkImportConfig}
+      />
     </Box>
   );
 }
