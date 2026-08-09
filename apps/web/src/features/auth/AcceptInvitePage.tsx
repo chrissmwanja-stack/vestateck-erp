@@ -90,14 +90,22 @@ export default function AcceptInvitePage() {
 
     setPageState('finishing');
 
-    const { error: acceptError } = await supabase.functions.invoke('accept-invite');
+    const { data: acceptResult, error: acceptError } = await supabase.functions.invoke(
+      'accept-invite'
+    );
     if (acceptError) {
       setErrorMessage(acceptError.message);
       setPageState('set-password');
       return;
     }
 
-    navigate('/requests/new', { replace: true });
+    // Company admins land on the setup checklist (departments -> positions
+    // -> invite team) since they're the ones bootstrapping a brand-new
+    // tenant. Everyone else goes straight into the app, same as a normal
+    // login.
+    const destination =
+      acceptResult?.role_bundle === 'company_admin' ? '/setup' : '/requests/new';
+    navigate(destination, { replace: true });
   };
 
   return (
