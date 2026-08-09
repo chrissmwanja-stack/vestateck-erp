@@ -208,6 +208,103 @@ create table purchase_orders (
 create index idx_purchase_orders_request on purchase_orders(request_id);
 
 -- ============================================================================
+-- PRE-TRACKING SEED DATA
+-- ============================================================================
+-- The rows below (tenant, departments, workflow stages, three test users,
+-- and their approval assignments) were created directly via the Supabase
+-- Studio table editor / Auth panel on 2026-07-30, before migration tracking
+-- began. They were never captured by a migration, which breaks fresh-
+-- environment replays (shadow DB for `db pull`, CI, staging, disaster
+-- recovery) as soon as 0004_ccm_budget_approval_stage.sql and later
+-- migrations try to UPDATE or reference them by hardcoded id.
+--
+-- Seeded here in their ORIGINAL pre-migration-history shape -- e.g. stage
+-- 033 is named "Control Chief/Manager" with approver_role "Procurement &
+-- Logistics Chief", not the "Budget Controller" / "Cost Control Manager"
+-- it becomes later -- so that the later ALTER/UPDATE statements (0003,
+-- 0004, 0006, 0007, 20260731124853, etc.) transform them forward into
+-- exactly the state they reached live, rather than snapshotting current
+-- values and risking drift from what those later migrations expect.
+--
+-- This file is already applied on the live DB and won't be re-run there;
+-- this addition only affects fresh replays. See also the it@test.local /
+-- hr@test.local gap fixed in a small seed migration dated just before
+-- 20260806143937_add_it_platform_admin_and_hr_manager.sql, for the same
+-- class of issue surfacing later in the history.
+
+insert into tenants (id, name, industry_template, created_at) values
+  ('00000000-0000-0000-0000-000000000001', 'Test Construction Co', 'construction', '2026-07-30 11:30:48.602762+00')
+on conflict (id) do nothing;
+
+insert into departments (id, tenant_id, name, created_at) values
+  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Cost Control', '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001', 'Procurement & Logistics', '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000001', 'Finance & Financial Reporting', '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000001', 'Project Management Office', '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000001', 'IT Support', '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000001', 'Human Resources', '2026-07-30 11:30:48.602762+00')
+on conflict (id) do nothing;
+
+-- Workflow stages, original shape. next_stage_low_id/next_stage_high_id are
+-- backfilled via UPDATE afterward (rather than inline in the INSERT) purely
+-- to sidestep self-referencing forward-reference ordering.
+insert into workflow_stages (id, tenant_id, name, sequence_order, approver_role, threshold_amount, created_at) values
+  ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'Cost Control Engineer', 1, 'Cost Control Engineer', null, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'Cost Control Manager', 2, 'Cost Control Manager', null, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000001', 'Procurement: Offer Entry', 3, 'Procurement/Logistics Expert', null, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000033', '00000000-0000-0000-0000-000000000001', 'Control Chief/Manager', 4, 'Procurement & Logistics Chief', 5000000.00, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000034', '00000000-0000-0000-0000-000000000001', 'Finance', 5, 'Finance Officer', null, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000001', 'Project Manager', 6, 'Project Manager', null, '2026-07-30 11:30:48.602762+00'),
+  ('00000000-0000-0000-0000-000000000036', '00000000-0000-0000-0000-000000000001', 'Deputy General Manager', 7, 'Deputy General Manager', null, '2026-07-30 11:30:48.602762+00')
+on conflict (id) do nothing;
+
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000031' where id = '00000000-0000-0000-0000-000000000030';
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000032' where id = '00000000-0000-0000-0000-000000000031';
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000033' where id = '00000000-0000-0000-0000-000000000032';
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000034', next_stage_high_id = '00000000-0000-0000-0000-000000000035' where id = '00000000-0000-0000-0000-000000000033';
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000036' where id = '00000000-0000-0000-0000-000000000035';
+update workflow_stages set next_stage_low_id = '00000000-0000-0000-0000-000000000034' where id = '00000000-0000-0000-0000-000000000036';
+
+-- Three original test accounts (auth.users + app_users), same "direct
+-- auth.users insert, no admin API" pattern as the later
+-- 20260730143728_seed_missing_stage_test_users.sql migration for the rest
+-- of the roster. Test password for all: TestPassword123!
+do $$
+declare
+  v_tenant_id uuid := '00000000-0000-0000-0000-000000000001';
+begin
+  if not exists (select 1 from auth.users where id = 'b93bd287-c359-44cc-a7a6-2dd1578b06ee') then
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at, confirmation_token, recovery_token
+    ) values
+    ('00000000-0000-0000-0000-000000000000', 'b93bd287-c359-44cc-a7a6-2dd1578b06ee', 'authenticated', 'authenticated',
+     'cost.control@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
+    ('00000000-0000-0000-0000-000000000000', 'ed9cd87d-7649-486c-958b-36114271a0b2', 'authenticated', 'authenticated',
+     'finance@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
+    ('00000000-0000-0000-0000-000000000000', '6cb314bb-c39e-40e2-aca9-446e12a1795f', 'authenticated', 'authenticated',
+     'procurement@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+     '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '');
+  end if;
+
+  insert into app_users (id, tenant_id, department_id, name, email, role_title, created_at) values
+    ('b93bd287-c359-44cc-a7a6-2dd1578b06ee', v_tenant_id, '00000000-0000-0000-0000-000000000010', 'Test Cost Controller', 'cost.control@test.local', 'Cost Control Manager', '2026-07-30 11:30:48.602762+00'),
+    ('ed9cd87d-7649-486c-958b-36114271a0b2', v_tenant_id, '00000000-0000-0000-0000-000000000012', 'Test Finance Officer', 'finance@test.local', 'Finance Officer', '2026-07-30 11:30:48.602762+00'),
+    ('6cb314bb-c39e-40e2-aca9-446e12a1795f', v_tenant_id, '00000000-0000-0000-0000-000000000011', 'Test Procurement Lead', 'procurement@test.local', 'Procurement & Logistics Chief', '2026-07-30 11:30:48.602762+00')
+  on conflict (id) do nothing;
+
+  insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max, created_at) values
+    (v_tenant_id, 'b93bd287-c359-44cc-a7a6-2dd1578b06ee', '00000000-0000-0000-0000-000000000031', 'global', null, '2026-07-30 11:30:48.602762+00'),
+    (v_tenant_id, 'ed9cd87d-7649-486c-958b-36114271a0b2', '00000000-0000-0000-0000-000000000034', 'global', null, '2026-07-30 11:30:48.602762+00');
+end $$;
+
+-- ============================================================================
 -- Row Level Security: enabled now, policies deliberately deferred
 -- ============================================================================
 alter table tenants enable row level security;

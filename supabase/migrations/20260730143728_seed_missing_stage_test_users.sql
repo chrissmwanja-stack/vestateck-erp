@@ -6,7 +6,7 @@
 -- user per stage, following the same pattern as the existing 3 test
 -- accounts (direct auth.users insert, no admin API).
 --
--- Test password for both: TestPassword123!
+-- Test password for both: Tester123
 
 do $$
 declare
@@ -23,7 +23,7 @@ begin
     created_at, updated_at, confirmation_token, recovery_token
   ) values (
     '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated',
-    'cce@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+    'cce@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
   )
   returning id into v_cce_user_id;
@@ -46,7 +46,7 @@ begin
     created_at, updated_at, confirmation_token, recovery_token
   ) values (
     '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated',
-    'procurement.offer@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+    'procurement.offer@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
   )
   returning id into v_proc_user_id;

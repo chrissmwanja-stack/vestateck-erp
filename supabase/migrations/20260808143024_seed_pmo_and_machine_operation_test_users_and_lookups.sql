@@ -3,7 +3,7 @@
 -- write screen (New Project, Equipment, admin lookups, logs) would hit an RLS
 -- violation on first use -- same gap pattern as finance_team_members earlier.
 -- Same pattern as existing test users (direct auth.users insert, no admin API).
--- Test password for both: TestPassword123!
+-- Test password for both: Tester123
 
 do $$
 declare
@@ -20,7 +20,7 @@ begin
     created_at, updated_at, confirmation_token, recovery_token
   ) values (
     '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated',
-    'pmo@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+    'pmo@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
   )
   returning id into v_pmo_user_id;
@@ -38,7 +38,7 @@ begin
     created_at, updated_at, confirmation_token, recovery_token
   ) values (
     '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated',
-    'machine.ops@test.local', extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+    'machine.ops@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
   )
   returning id into v_machine_user_id;
