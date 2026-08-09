@@ -2,17 +2,22 @@
 --
 -- Reconciles get_my_approval_queue() with the version actually running on
 -- the live database, which drifted from 0002_approval_queue_rpc.sql:
---   - current_stage now also carries threshold_amount and
---     is_finance_terminal_stage (needed once the threshold-based routing
---     and Finance terminal-stage checks landed)
 --   - latest_offer now also carries submitted_by
 --   - a new purchase_order jsonb column was added (left join on
 --     purchase_orders), needed by PurchaseOrders.tsx
 --
+-- current_stage intentionally does NOT yet carry requires_offer_entry,
+-- blocks_offer_submitter_approval, or is_finance_terminal_stage here --
+-- those columns don't exist on workflow_stages until 0003, 0004, and
+-- 20260731124853 respectively. Each of those migrations re-runs this same
+-- create or replace to add its column once it exists, so the function
+-- converges to the full shape by the end of the migration history without
+-- this file forward-referencing columns that haven't been created yet.
+--
 -- This migration makes no behavioral change on the live DB (it's already
--- running this shape) -- it exists purely so migration history matches
--- reality and a fresh environment/staging/db reset produces the same
--- function.
+-- running the full final shape) -- it exists purely so migration history
+-- replays cleanly (e.g. `supabase db pull` shadow-db, staging, disaster
+-- recovery) and reaches the same end state.
 
 create or replace function get_my_approval_queue()
 returns table (
@@ -80,10 +85,7 @@ as $$
       'id', ws.id,
       'name', ws.name,
       'approver_role', ws.approver_role,
-      'threshold_amount', ws.threshold_amount,
-      'requires_offer_entry', ws.requires_offer_entry,
-      'blocks_offer_submitter_approval', ws.blocks_offer_submitter_approval,
-      'is_finance_terminal_stage', ws.is_finance_terminal_stage
+      'threshold_amount', ws.threshold_amount
     ) as current_stage,
     case when ms.delegator_user_id is not null
       then jsonb_build_object('id', delegator.id, 'name', delegator.name)
