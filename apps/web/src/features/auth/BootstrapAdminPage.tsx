@@ -66,27 +66,36 @@ export default function BootstrapAdminPage() {
     setErrorMessage(null);
     setPageState('submitting');
 
-    // Sign up (or sign in, if this email already has an unclaimed
-    // auth.users row from a prior attempt) to get a session, then call
-    // the edge function with the bootstrap code to claim admin.
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-    });
+    // Reuse an existing session if there already is one (e.g. you signed
+    // in via /login separately) rather than re-authenticating.
+    const { data: existingSessionData } = await supabase.auth.getSession();
+    let session = existingSessionData.session;
 
-    let session = signUpData.session;
-
-    if (signUpError) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    if (!session) {
+      // Sign up to get a session. For an email that's already
+      // registered, Supabase's signUp() silently returns no session AND
+      // NO ERROR (by design, to avoid leaking account existence) --
+      // so "no session" is the real signal to fall back to sign-in,
+      // not just an explicit error.
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
       });
-      if (signInError) {
-        setErrorMessage(signUpError.message);
-        setPageState('form');
-        return;
+
+      session = signUpData.session;
+
+      if (!session) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: values.email,
+          password: values.password,
+        });
+        if (signInError) {
+          setErrorMessage(signUpError?.message ?? signInError.message);
+          setPageState('form');
+          return;
+        }
+        session = signInData.session;
       }
-      session = signInData.session;
     }
 
     if (!session) {
