@@ -22,6 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { resendInvite, revokeInvite } from '../team/inviteActions';
 
@@ -95,6 +96,7 @@ function usePlatformAdminAccess() {
 
 export default function CompaniesConsole() {
   const isPlatformAdmin = usePlatformAdminAccess();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export default function CompaniesConsole() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<CompanyAdminInvitation | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -236,6 +239,22 @@ export default function CompaniesConsole() {
     loadInvitations();
   };
 
+  // Starts a tenant-scoped impersonation session (get_my_tenant_id()
+  // resolves to this tenant for every RLS check from here on) and drops
+  // into the normal app shell as if you belonged to it. The persistent
+  // ImpersonationBanner (mounted in TopNav) is the way back out.
+  const handleImpersonate = async (tenant: Tenant) => {
+    setActionError(null);
+    setImpersonatingId(tenant.id);
+    const { error } = await supabase.rpc('start_impersonation', { p_tenant_id: tenant.id });
+    setImpersonatingId(null);
+    if (error) {
+      setActionError(error.message);
+      return;
+    }
+    navigate('/requests/new');
+  };
+
   if (isPlatformAdmin === false) {
     return (
       <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
@@ -254,7 +273,8 @@ export default function CompaniesConsole() {
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Every tenant on the platform. Creating a company here also sends the first admin an
-        invite — they land as admin on all four modules once they accept.
+        invite — they land as admin on all four modules once they accept. Use "View as" to
+        step into a company's data directly.
       </Typography>
 
       {saveNotice && (
@@ -265,6 +285,11 @@ export default function CompaniesConsole() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
+          {actionError}
         </Alert>
       )}
 
@@ -281,6 +306,7 @@ export default function CompaniesConsole() {
                   <TableCell>Company</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Created</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -291,11 +317,20 @@ export default function CompaniesConsole() {
                       <Chip size="small" label={row.status} color={statusColor[row.status]} />
                     </TableCell>
                     <TableCell>{new Date(row.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        onClick={() => handleImpersonate(row)}
+                        disabled={impersonatingId === row.id}
+                      >
+                        {impersonatingId === row.id ? 'Starting…' : 'View as'}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No companies yet.
                     </TableCell>
                   </TableRow>
@@ -313,11 +348,6 @@ export default function CompaniesConsole() {
         Company admin invites sent from this console, across every tenant.
       </Typography>
 
-      {actionError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
-          {actionError}
-        </Alert>
-      )}
       {actionNotice && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setActionNotice(null)}>
           {actionNotice}

@@ -15,6 +15,7 @@ import { useAuth } from './lib/authContext';
 import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
+import ImpersonationBanner from './features/admin/ImpersonationBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
@@ -220,6 +221,7 @@ function TopNav() {
   const isFinance = useFinanceAccess(session?.user?.id);
 
   return (
+     <>
     <AppBar position="static">
       <Toolbar sx={{ gap: 2 }}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -258,6 +260,8 @@ function TopNav() {
         )}
       </Toolbar>
     </AppBar>
+      {session && <ImpersonationBanner />}
+    </>
   );
 }
 
