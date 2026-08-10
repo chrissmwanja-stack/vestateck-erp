@@ -6,6 +6,11 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControlLabel,
   MenuItem,
   Paper,
@@ -20,6 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import { resendInvite, revokeInvite } from './inviteActions';
 
 const ALL_MODULES = ['hr', 'legal', 'bd', 'it'] as const;
 const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
@@ -106,6 +112,11 @@ export default function InviteMember() {
   const [loadingInvites, setLoadingInvites] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [rowActionId, setRowActionId] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<Invitation | null>(null);
+
   const loadInvitations = useCallback(async () => {
     setLoadingInvites(true);
     setLoadError(null);
@@ -121,6 +132,37 @@ export default function InviteMember() {
   useEffect(() => {
     if (access?.isAdmin) loadInvitations();
   }, [access?.isAdmin, loadInvitations]);
+
+  const handleResend = async (invitation: Invitation) => {
+    setActionError(null);
+    setActionNotice(null);
+    setRowActionId(invitation.id);
+    const { error } = await resendInvite(invitation.id);
+    setRowActionId(null);
+    if (error) {
+      setActionError(error);
+      return;
+    }
+    setActionNotice(`Invite resent to ${invitation.email}.`);
+    loadInvitations();
+  };
+
+  const confirmRevoke = async () => {
+    if (!revokeTarget) return;
+    setActionError(null);
+    setActionNotice(null);
+    setRowActionId(revokeTarget.id);
+    const { error } = await revokeInvite(revokeTarget.id);
+    setRowActionId(null);
+    const email = revokeTarget.email;
+    setRevokeTarget(null);
+    if (error) {
+      setActionError(error);
+      return;
+    }
+    setActionNotice(`Invite for ${email} revoked.`);
+    loadInvitations();
+  };
 
   const toggleModule = (module: (typeof ALL_MODULES)[number]) => {
     setModules((v) => ({ ...v, [module]: { ...v[module], checked: !v[module].checked } }));
@@ -253,6 +295,16 @@ export default function InviteMember() {
       </Typography>
 
       {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
+      {actionNotice && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setActionNotice(null)}>
+          {actionNotice}
+        </Alert>
+      )}
 
       <Paper variant="outlined">
         {loadingInvites ? (
@@ -268,6 +320,7 @@ export default function InviteMember() {
                   <TableCell>Modules</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Sent</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -285,11 +338,34 @@ export default function InviteMember() {
                       <Chip size="small" label={inv.status} color={statusColor[inv.status]} />
                     </TableCell>
                     <TableCell>{new Date(inv.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell align="right">
+                      {(inv.status === 'pending' || inv.status === 'expired') && (
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            onClick={() => handleResend(inv)}
+                            disabled={rowActionId === inv.id}
+                          >
+                            Resend
+                          </Button>
+                          {inv.status === 'pending' && (
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setRevokeTarget(inv)}
+                              disabled={rowActionId === inv.id}
+                            >
+                              Revoke
+                            </Button>
+                          )}
+                        </Stack>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {invitations.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No invitations sent yet.
                     </TableCell>
                   </TableRow>
@@ -299,6 +375,22 @@ export default function InviteMember() {
           </TableContainer>
         )}
       </Paper>
+
+      <Dialog open={!!revokeTarget} onClose={() => setRevokeTarget(null)}>
+        <DialogTitle>Revoke invite?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {revokeTarget?.email} won't be able to use this invite link anymore. This can't be
+            undone — you'd need to send a new invite.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRevokeTarget(null)}>Cancel</Button>
+          <Button color="error" onClick={confirmRevoke} disabled={rowActionId === revokeTarget?.id}>
+            Revoke invite
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
