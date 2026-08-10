@@ -44,6 +44,9 @@ import {
   Category,
   Timer,
   PriorityHigh,
+  Business,
+  PersonAdd,
+  PlaylistAddCheck,
 } from "@mui/icons-material";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import {
@@ -363,6 +366,21 @@ const portals: Portal[] = [
     label: "Sustainability and Business Excellence",
     icon: <Folder fontSize="small" />,
     nodes: sustainabilityNodes,
+  },
+  {
+    // Not gated here -- like every other portal in this file, visibility
+    // is left to the destination screen (usePlatformAdminAccess /
+    // useTenantAdminAccess in CompaniesConsole / CompanySetupChecklist /
+    // InviteMember). A non-admin who clicks in just sees that screen's
+    // "not available to you" message.
+    id: "platform-admin",
+    label: "Platform Administration",
+    icon: <AdminPanelSettings fontSize="small" />,
+    nodes: [
+      { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
+      { id: "company-setup", label: "Company Setup", icon: <PlaylistAddCheck fontSize="small" />, to: "/setup" },
+      { id: "invite-team", label: "Invite Team", icon: <PersonAdd fontSize="small" />, to: "/team/invite" },
+    ],
   },
 ];
 

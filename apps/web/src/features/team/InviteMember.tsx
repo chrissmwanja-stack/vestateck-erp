@@ -57,34 +57,42 @@ const emptyModuleSelection: ModuleSelection = {
 // Gate: you need to be a module admin in your own tenant to invite here.
 // Real enforcement is server-side in invite-user / the invitations RLS
 // policies -- this just keeps the screen from rendering for people every
-// call on it would fail for. tenant_read_staff_roles lets any tenant
-// member read this, so it's a plain client-side query.
+// call on it would fail for.
+//
+// app_users' only SELECT policy scopes by tenant_id, not by your own id,
+// so a query without .eq('id', ...) can return every user in your tenant
+// and .single() throws on more than one row. Get the caller's own id
+// from the session first, then filter on it.
 function useTenantAdminAccess() {
   const [state, setState] = useState<{ isAdmin: boolean; tenantId: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from('app_users')
-      .select('tenant_id')
-      .single()
-      .then(async ({ data: appUser, error: appUserError }) => {
-        if (cancelled || appUserError || !appUser) {
-          if (!cancelled) setState({ isAdmin: false, tenantId: null });
-          return;
-        }
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = sessionData.session?.user.id;
-        const { data: adminRole } = await supabase
-          .from('staff_roles')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('tenant_id', appUser.tenant_id)
-          .eq('role', 'admin')
-          .limit(1)
-          .maybeSingle();
-        if (cancelled) return;
-        setState({ isAdmin: !!adminRole, tenantId: appUser.tenant_id });
-      });
+    supabase.auth.getSession().then(async ({ data: sessionData }) => {
+      const userId = sessionData.session?.user.id;
+      if (!userId) {
+        if (!cancelled) setState({ isAdmin: false, tenantId: null });
+        return;
+      }
+      const { data: appUser, error: appUserError } = await supabase
+        .from('app_users')
+        .select('tenant_id')
+        .eq('id', userId)
+        .maybeSingle();
+      if (cancelled || appUserError || !appUser) {
+        if (!cancelled) setState({ isAdmin: false, tenantId: null });
+        return;
+      }
+      const { data: adminRole } = await supabase
+        .from('staff_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('tenant_id', appUser.tenant_id)
+        .eq('role', 'admin')
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setState({ isAdmin: !!adminRole, tenantId: appUser.tenant_id });
+    });
     return () => {
       cancelled = true;
     };

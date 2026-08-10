@@ -60,21 +60,32 @@ const emptyForm = { name: '', adminEmail: '' };
 
 // Gate: only platform admins should see this screen at all. The real
 // enforcement lives server-side (create-tenant / invite-user both check
-// is_platform_admin), same pattern as useFinanceAccess in
-// OrganizationsAdmin.tsx -- this is just so the screen doesn't render
-// for people every call on it would fail for.
+// is_platform_admin) -- this just keeps the screen from rendering for
+// people every call on it would fail for.
+//
+// app_users' only SELECT policy scopes by tenant_id, not by your own id
+// (tenant_id = get_my_tenant_id()), so querying without an explicit
+// .eq('id', ...) filter can return every user in your tenant, not just
+// you -- and .single() throws on more than one row. Get the caller's own
+// id from the session first, then filter on it.
 function usePlatformAdminAccess() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from('app_users')
-      .select('is_platform_admin')
-      .single()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setIsPlatformAdmin(error ? false : Boolean(data?.is_platform_admin));
-      });
+    supabase.auth.getSession().then(async ({ data: sessionData }) => {
+      const userId = sessionData.session?.user.id;
+      if (!userId) {
+        if (!cancelled) setIsPlatformAdmin(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('is_platform_admin')
+        .eq('id', userId)
+        .maybeSingle();
+      if (cancelled) return;
+      setIsPlatformAdmin(error ? false : Boolean(data?.is_platform_admin));
+    });
     return () => {
       cancelled = true;
     };
