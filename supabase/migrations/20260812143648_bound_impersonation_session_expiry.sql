@@ -69,16 +69,34 @@ $function$;
 --    `ended_at` reflects why a session stopped (timeout, not just "the
 --    function silently stopped honoring it"). Matches the existing
 --    expire-approval-delegations job's shape and cadence.
-select cron.schedule(
-  'expire-impersonation-sessions',
-  '*/5 * * * *',
-  $$
-    update public.impersonation_sessions
-    set ended_at = now()
-    where ended_at is null
-      and started_at < now() - interval '2 hours';
-  $$
-);
+--
+-- NOTE (2026-08-13): pg_cron is enabled on this project via the Supabase
+-- dashboard (Database > Extensions), not through a migration -- so the
+-- `cron` schema doesn't exist in a fresh shadow database or any
+-- environment built purely from these migration files. This job is
+-- already scheduled and running in production (confirmed alongside the
+-- existing expire-approval-delegations job). Guarded below so
+-- `supabase db pull`/`db push` on an environment without pg_cron enabled
+-- skips it instead of failing outright; it schedules for real wherever
+-- the `cron` schema is actually present. cron.schedule() is idempotent
+-- on job name, so this is also safe to replay against production.
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    perform cron.schedule(
+      'expire-impersonation-sessions',
+      '*/5 * * * *',
+      $sql$
+        update public.impersonation_sessions
+        set ended_at = now()
+        where ended_at is null
+          and started_at < now() - interval '2 hours';
+      $sql$
+    );
+  else
+    raise notice 'Skipping cron.schedule(expire-impersonation-sessions) -- cron schema not present in this environment (pg_cron enabled via dashboard in production only).';
+  end if;
+end $$;
 
 -- Verification after applying:
 --   - select cron.job where jobname = 'expire-impersonation-sessions';

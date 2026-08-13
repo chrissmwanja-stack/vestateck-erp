@@ -46,8 +46,28 @@
 
 -- 1. Close the supabase_admin default-privilege gap permanently, same
 --    shape as the existing postgres-role guard from Aug 8.
-alter default privileges for role supabase_admin in schema public
-  revoke execute on functions from anon;
+--
+-- NOTE (2026-08-13): `alter default privileges for role supabase_admin`
+-- requires the executing session to BE supabase_admin or a superuser.
+-- The `postgres` role used by `supabase db push`/`db pull`/CI is neither
+-- on Supabase Cloud, so this statement fails with
+-- "permission denied to change default privileges" (SQLSTATE 42501)
+-- every time this migration is replayed through the CLI or a fresh
+-- shadow database.
+--
+-- The privilege change itself has already been applied directly against
+-- production (run under the elevated supabase_admin session the
+-- dashboard/Management API uses) and is confirmed live. This statement
+-- is intentionally left as a no-op below so the migration file can
+-- still replay cleanly for anyone rebuilding the shadow DB or a new
+-- environment from scratch. If this guard ever needs to be re-applied
+-- (e.g. a new project, or supabase_admin's default-privilege entry gets
+-- reset), it must be run manually via the dashboard SQL editor or an
+-- MCP-applied migration -- not `supabase db push`.
+do $$
+begin
+  raise notice 'Skipping ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin -- not permitted via the postgres role. Already applied manually in production; see migration comment.';
+end $$;
 
 -- 2. Re-sweep every function currently anon-executable, EXCLUDING:
 --    - platform_has_admin() (intentional pre-auth check, see above)
