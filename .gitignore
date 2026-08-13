@@ -13,3 +13,9 @@ supabase/.temp
 service-account*.json
 firebase-config.json
 apps/web/tsconfig.tsbuildinfo
+# Editor
+.vscode/
+
+# Local diagnostic output — regenerated on demand, goes stale immediately
+migration-scan-report.txt
+function-signature-diff.txt
