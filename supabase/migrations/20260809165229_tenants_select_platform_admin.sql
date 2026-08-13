@@ -16,6 +16,11 @@
 -- This file exists to make local history match remote, not to be re-run
 -- as-is against this project.
 
+-- 20260809155635_onboarding_invitations.sql (runs first on replay) already
+-- creates this identical policy. Drop it here first so shadow-replay doesn't
+-- collide with a duplicate-policy error.
+drop policy if exists tenants_select_platform_admin on public.tenants;
+
 create policy tenants_select_platform_admin
   on public.tenants
   for select

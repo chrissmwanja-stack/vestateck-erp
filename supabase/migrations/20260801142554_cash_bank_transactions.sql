@@ -4,6 +4,12 @@
 -- the app layer, not by a DB FK, since it can point at three different
 -- tables) rather than three separate near-identical settlement tables.
 
+-- 0016_cash_bank_transactions.sql created an earlier, incompatible version of
+-- this table (different account column, nullable reference fields, no check
+-- constraint on payment_method, no trigger, no RLS policies). Drop it here so
+-- shadow-replay lands on this migration's version, which matches production.
+DROP TABLE IF EXISTS public.cash_bank_transactions CASCADE;
+
 CREATE TABLE public.cash_bank_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES public.tenants(id),

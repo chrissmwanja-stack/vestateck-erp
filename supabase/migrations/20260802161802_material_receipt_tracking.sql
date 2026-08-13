@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS material_receipt_assignments (
 
 ALTER TABLE material_receipt_assignments ENABLE ROW LEVEL SECURITY;
 
+-- 0017_material_receipt_tracking.sql is an earlier copy of this same migration
+-- (identical table/policy/function definitions under a later timestamp). Drop
+-- the policy here first so shadow-replay doesn't collide with 0017's copy.
+DROP POLICY IF EXISTS material_receipt_assignments_select ON material_receipt_assignments;
+
 CREATE POLICY material_receipt_assignments_select ON material_receipt_assignments
   FOR SELECT
   USING (tenant_id = get_my_tenant_id());
@@ -114,6 +119,10 @@ CREATE TABLE IF NOT EXISTS line_item_receipts (
 CREATE INDEX IF NOT EXISTS idx_line_item_receipts_line_item ON line_item_receipts(line_item_id);
 
 ALTER TABLE line_item_receipts ENABLE ROW LEVEL SECURITY;
+
+-- Same reasoning as material_receipt_assignments_select above: 0017 already
+-- creates this identical policy, so drop before recreating on replay.
+DROP POLICY IF EXISTS line_item_receipts_select ON line_item_receipts;
 
 CREATE POLICY line_item_receipts_select ON line_item_receipts
   FOR SELECT
