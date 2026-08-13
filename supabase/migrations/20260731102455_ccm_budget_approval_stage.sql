@@ -1,6 +1,6 @@
 -- New schema-driven flag, same pattern as requires_offer_entry
 alter table workflow_stages
-  add column blocks_offer_submitter_approval boolean not null default false;
+  add column if not exists blocks_offer_submitter_approval boolean not null default false;
 
 -- Make room in display ordering for the new stage
 update workflow_stages set sequence_order = sequence_order + 1
@@ -25,7 +25,8 @@ values
    '00000000-0000-0000-0000-000000000033', -- next: Control Chief/Manager
    null,
    false,
-   true);
+   true)
+  on conflict (id) do nothing;
 
 -- Re-point Offer Entry to route into the new stage instead of straight to Control Chief/Manager
 update workflow_stages

@@ -99,6 +99,10 @@ begin
 end;
 $$;
 
+-- Return type is changing (offers/selected_offer columns added before
+-- the trailing purchase_order column), so this must be a drop + recreate.
+drop function if exists public.get_my_approval_queue();
+
 create or replace function public.get_my_approval_queue()
 returns table(id uuid, tenant_id uuid, requester_id uuid, department_id uuid, cost_center_id uuid, current_stage_id uuid, item_description text, quantity integer, status text, created_at timestamp with time zone, cost_center jsonb, department jsonb, requester jsonb, current_stage jsonb, acting_on_behalf_of jsonb, offers jsonb, selected_offer jsonb, purchase_order jsonb)
 language sql
@@ -204,6 +208,11 @@ as $$
     and r.tenant_id = (select tenant_id from my_tenant)
   order by r.created_at asc;
 $$;
+
+-- Return type is changing (project_sap_no/payment_conditions/terms_of_delivery
+-- inserted before the trailing edit_count/last_edited_at/last_edited_by
+-- columns), so this must be a drop + recreate.
+drop function if exists public.get_my_purchase_orders();
 
 create or replace function public.get_my_purchase_orders()
 returns table(id uuid, request_id uuid, po_number text, initial_po_number text, vendor_name text, amount numeric, currency text, generated_by jsonb, generated_at timestamp with time zone, delivery_date date, shared_with_supplier boolean, delivered_at timestamp with time zone, completed_at timestamp with time zone, request jsonb, requester jsonb, department jsonb, cost_center jsonb, organization jsonb, mr_number text, project_sap_no text, payment_conditions text, terms_of_delivery text, edit_count integer, last_edited_at timestamp with time zone, last_edited_by jsonb)

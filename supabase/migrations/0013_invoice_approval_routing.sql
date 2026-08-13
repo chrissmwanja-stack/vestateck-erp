@@ -1,3 +1,52 @@
+-- DEFENSIVE PATCH added 2026-08-13: public.notifications is created
+-- properly (with IF NOT EXISTS) in 20260808052808_backfill_pretracking_objects.sql,
+-- but that file's position in file order (Aug 8) is long after this
+-- migration (0013, one of the earliest), which needs the table to
+-- already exist. Copied verbatim from that later file so local shadow-
+-- database replay (supabase db pull) can build the table at the point
+-- it's actually needed. Both copies use IF NOT EXISTS, so when replay
+-- reaches 20260808052808 later, this is a harmless no-op there. Not a
+-- schema change against the real remote database, which already has
+-- this table.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id),
+  recipient_id uuid not null references public.app_users(id),
+  type text not null,
+  title text not null,
+  body text not null,
+  request_id uuid references public.requests(id),
+  purchase_order_id uuid references public.purchase_orders(id),
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_notifications_tenant on public.notifications(tenant_id);
+create index if not exists idx_notifications_recipient on public.notifications(recipient_id);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists notifications_select_own on public.notifications;
+create policy notifications_select_own on public.notifications
+  for select
+  using (recipient_id = auth.uid());
+
+drop policy if exists notifications_mark_read_own on public.notifications;
+create policy notifications_mark_read_own on public.notifications
+  for update
+  using (recipient_id = auth.uid())
+  with check (recipient_id = auth.uid());
+-- DEFENSIVE PATCH added 2026-08-13: this column was added directly to
+-- the live database outside migration history at some point before
+-- this migration was written (confirmed: referenced in 0002/0008/0010
+-- via function bodies, which don't validate columns at creation time,
+-- but never actually created by any local migration file). Harmless
+-- no-op against the real remote database, where the column already
+-- exists -- this only matters for local shadow-database replay
+-- (supabase db pull), which builds from a blank database and needs
+-- every referenced object created somewhere in file order.
+alter table public.workflow_stages
+  add column if not exists is_finance_terminal_stage boolean not null default false;
 -- Migration: Invoice approval routing (own stage chain)
 --
 -- Context: invoice_requests currently shares the exact same workflow_stages

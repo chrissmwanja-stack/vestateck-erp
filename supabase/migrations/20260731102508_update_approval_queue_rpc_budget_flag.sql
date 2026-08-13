@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS public.get_my_approval_queue();
 CREATE OR REPLACE FUNCTION public.get_my_approval_queue()
  RETURNS TABLE(id uuid, tenant_id uuid, requester_id uuid, department_id uuid, cost_center_id uuid, current_stage_id uuid, item_description text, quantity integer, status text, created_at timestamp with time zone, cost_center jsonb, department jsonb, requester jsonb, current_stage jsonb, acting_on_behalf_of jsonb, latest_offer jsonb)
  LANGUAGE sql

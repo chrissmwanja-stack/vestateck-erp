@@ -1,0 +1,17 @@
+-- RECONSTRUCTION STUB -- CONTENT NOT RECOVERED.
+--
+-- This version+name exists in supabase_migrations.schema_migrations with
+-- no corresponding local file. Companion to
+-- 20260809135053_seed_org_chart_test_hierarchy -- see that file's header
+-- for the full explanation of why exact content could not be recovered.
+--
+-- This file exists only so its version number has a local match, which
+-- is what `supabase db pull` / migration history checks require. Run
+-- `supabase db pull` after adding this file (and the other 3 in this
+-- batch) -- Supabase's own tooling may be able to recover the real SQL
+-- where raw pg_catalog introspection cannot.
+--
+-- Do not treat this file as authoritative. Replace it if `db pull`
+-- returns real content.
+
+-- (intentionally empty -- see notes above)

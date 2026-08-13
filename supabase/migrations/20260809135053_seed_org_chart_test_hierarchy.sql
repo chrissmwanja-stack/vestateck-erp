@@ -1,0 +1,31 @@
+-- RECONSTRUCTION STUB -- CONTENT NOT RECOVERED.
+--
+-- This version+name exists in supabase_migrations.schema_migrations with
+-- no corresponding local file. Unlike the other reconstructed migrations
+-- in this batch, this one's actual content could NOT be reliably
+-- recovered by live introspection on 2026-08-13.
+--
+-- Why: this is a seed migration, immediately followed in the version
+-- history by 20260809135402_cleanup_org_chart_test_hierarchy, whose
+-- purpose is to remove exactly what this one inserted. Net effect on
+-- live state today is close to zero, so there's no clean live signature
+-- left to reconstruct from.
+--
+-- Checked: hr_employees currently has 3 rows with test-pattern emails,
+-- but this project has multiple other test-seeding migrations
+-- (seed_it_hr_test_auth_users, seed_pmo_and_machine_operation_test_users_
+-- and_lookups, seed_request_line_items_for_testing, etc.) and there's no
+-- reliable way to attribute those 3 rows specifically to this migration
+-- rather than one of the others. Guessing INSERT statements here would
+-- be fabrication, not reconstruction -- deliberately not done.
+--
+-- This file exists only so its version number has a local match, which
+-- is what `supabase db pull` / migration history checks require. Run
+-- `supabase db pull` after adding this file (and the other 3 in this
+-- batch) -- Supabase's own tooling may be able to recover the real SQL
+-- where raw pg_catalog introspection cannot.
+--
+-- Do not treat this file as authoritative. Replace it if `db pull`
+-- returns real content.
+
+-- (intentionally empty -- see notes above)

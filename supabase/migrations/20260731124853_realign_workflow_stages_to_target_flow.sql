@@ -3,7 +3,7 @@
 -- Budget Controller's low path or General Manager's approval), not on the approval
 -- taken AT this stage. Mirrors the existing requires_offer_entry /
 -- blocks_offer_submitter_approval pattern rather than hardcoding a stage UUID in code.
-alter table workflow_stages add column is_finance_terminal_stage boolean not null default false;
+alter table workflow_stages add column if not exists is_finance_terminal_stage boolean not null default false;
 
 update workflow_stages set is_finance_terminal_stage = true
 where id = '00000000-0000-0000-0000-000000000034'; -- Finance
