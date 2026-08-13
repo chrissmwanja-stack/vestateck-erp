@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -57,7 +58,40 @@ const invitationStatusColor: Record<
   revoked: 'error',
 };
 
-const emptyForm = { name: '', adminEmail: '' };
+type IndustryTemplate = 'general' | 'construction';
+
+const emptyForm: { name: string; adminEmail: string; industryTemplate: IndustryTemplate } = {
+  name: '',
+  adminEmail: '',
+  industryTemplate: 'general',
+};
+
+// Every tenant gets the same 7-stage approval pipeline seeded at creation
+// (seed_tenant_defaults). There's no per-tenant workflow customization
+// yet -- that's a deliberately deferred feature -- so this is shown to
+// the platform admin as an explanation of what they're about to create,
+// not a set of choices.
+const APPROVAL_PIPELINE_STAGES = [
+  'Cost Control Engineer',
+  'Cost Control Manager',
+  'Procurement: Offer Entry',
+  'Control Chief/Manager (splits by amount)',
+  'Finance (if under 5,000,000) or Project Manager \u2192 Deputy GM \u2192 Finance (if over)',
+];
+
+const INDUSTRY_TEMPLATES: { value: IndustryTemplate; label: string; description: string }[] = [
+  {
+    value: 'general',
+    label: 'General',
+    description:
+      '8 departments: IT Support, Finance, Procurement & Logistics, HR, Law & Compliance, BD, PMO, Admin/System Config.',
+  },
+  {
+    value: 'construction',
+    label: 'Construction',
+    description: 'The same 8, plus Machine Operations and Sustainability & Business Excellence.',
+  },
+];
 
 // Gate: only platform admins should see this screen at all. The real
 // enforcement lives server-side (create-tenant / invite-user both check
@@ -168,7 +202,7 @@ export default function CompaniesConsole() {
 
     const { data: tenantResult, error: tenantError } = await supabase.functions.invoke(
       'create-tenant',
-      { body: { name } }
+      { body: { name, industry_template: form.industryTemplate } }
     );
     if (tenantError) {
       setSaving(false);
@@ -180,6 +214,17 @@ export default function CompaniesConsole() {
     if (!tenantId) {
       setSaving(false);
       setSaveError('Tenant was created but no id was returned — check the edge function logs.');
+      load();
+      return;
+    }
+
+    // Tenant creation succeeded but seeding departments/workflow_stages
+    // may not have -- surface that distinctly rather than silently
+    // proceeding to invite an admin into a still-empty company.
+    if (tenantResult?.seed_warning) {
+      setSaving(false);
+      setDialogOpen(false);
+      setError(`"${name}" was created, but: ${tenantResult.seed_warning}`);
       load();
       return;
     }
@@ -272,9 +317,9 @@ export default function CompaniesConsole() {
         </Button>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Every tenant on the platform. Creating a company here also sends the first admin an
-        invite — they land as admin on all four modules once they accept. Use "View as" to
-        step into a company's data directly.
+        Every tenant on the platform. Creating a company here seeds its departments and standard
+        approval workflow, then sends the first admin an invite — they land as admin on all four
+        modules once they accept. Use "View as" to step into a company's data directly.
       </Typography>
 
       {saveNotice && (
@@ -441,6 +486,46 @@ export default function CompaniesConsole() {
               disabled={saving}
               helperText="They'll be invited as admin on HR, Legal, BD, and IT."
             />
+            <TextField
+              select
+              label="Industry template"
+              fullWidth
+              value={form.industryTemplate}
+              onChange={(e) =>
+                setForm((v) => ({
+                  ...v,
+                  industryTemplate: e.target.value as IndustryTemplate,
+                }))
+              }
+              disabled={saving}
+              helperText={
+                INDUSTRY_TEMPLATES.find((t) => t.value === form.industryTemplate)?.description
+              }
+            >
+              {INDUSTRY_TEMPLATES.map((t) => (
+                <MenuItem key={t.value} value={t.value}>
+                  {t.label}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                Every company gets the same approval pipeline
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                This isn't customizable per company yet — every request routes through the same
+                7-stage chain, with a 5,000,000 threshold deciding the branch:
+              </Typography>
+              <Stack component="ol" sx={{ pl: 2.5, m: 0 }} spacing={0.25}>
+                {APPROVAL_PIPELINE_STAGES.map((stage) => (
+                  <Typography key={stage} component="li" variant="body2" color="text.secondary">
+                    {stage}
+                  </Typography>
+                ))}
+              </Stack>
+            </Box>
+
             {saveError && <Alert severity="error">{saveError}</Alert>}
           </Stack>
         </DialogContent>

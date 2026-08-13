@@ -11,6 +11,15 @@
 // 'company_admin') using the returned tenant_id.
 //
 // Authorization: caller must be a platform admin (app_users.is_platform_admin).
+//
+// Right after the tenant row is inserted, this also calls the
+// seed_tenant_defaults(tenant_id, industry_template) RPC so the new
+// tenant isn't an empty shell -- it gets its department list and the
+// standard 7-stage approval workflow immediately. That RPC is called
+// through the caller's own JWT (userClient), not the service-role
+// client, because it re-checks is_platform_admin() internally via
+// auth.uid() -- calling it with the service-role client would leave
+// auth.uid() null and the RPC would reject itself.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
@@ -28,6 +37,8 @@ interface CreateTenantBody {
   name: string;
   industry_template?: string;
 }
+
+const VALID_INDUSTRY_TEMPLATES = ['general', 'construction'] as const;
 
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -60,6 +71,14 @@ serve(async (req) => {
     const name = body.name?.trim();
     if (!name) {
       return jsonResponse({ error: 'name is required' }, 400);
+    }
+
+    const industryTemplate = body.industry_template ?? 'general';
+    if (!VALID_INDUSTRY_TEMPLATES.includes(industryTemplate as (typeof VALID_INDUSTRY_TEMPLATES)[number])) {
+      return jsonResponse(
+        { error: `industry_template must be one of: ${VALID_INDUSTRY_TEMPLATES.join(', ')}` },
+        400
+      );
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -97,7 +116,7 @@ serve(async (req) => {
       .from('tenants')
       .insert({
         name,
-        industry_template: body.industry_template ?? 'general',
+        industry_template: industryTemplate,
         created_by: callerId,
         status: 'pending',
       })
@@ -105,6 +124,29 @@ serve(async (req) => {
       .single();
 
     if (insertError) return jsonResponse({ error: insertError.message }, 500);
+
+    // --- Seed departments + workflow_stages for the new tenant ---
+    // Called with the caller's own JWT (userClient), see note above on
+    // why the service-role client can't be used here. A failure here
+    // doesn't roll back the tenant -- it's already been created and the
+    // caller may have already committed to it in the UI -- but it's
+    // surfaced distinctly from tenant creation so the platform admin
+    // knows the company still needs its defaults seeded (retry is safe:
+    // seed_tenant_defaults is idempotent and can be re-invoked).
+    const { error: seedError } = await userClient.rpc('seed_tenant_defaults', {
+      p_tenant_id: tenant.id,
+      p_industry_template: industryTemplate,
+    });
+
+    if (seedError) {
+      return jsonResponse(
+        {
+          tenant,
+          seed_warning: `Tenant was created but seeding default departments/workflow failed: ${seedError.message}`,
+        },
+        200
+      );
+    }
 
     return jsonResponse({ tenant }, 200);
   } catch (err) {
