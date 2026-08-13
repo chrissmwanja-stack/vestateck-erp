@@ -2,7 +2,7 @@
 -- matching the reference screen's Status dropdown (All / Pending MR /
 -- Pending Bid Entry / Pending PO / Pending All / Open Orders â plus
 -- rejected/cancelled/closed_order for rows that fall outside those,
--- e.g. "SipariÅ KapalÄ±" and "onayÄ± reddedildi" seen in the screenshots).
+-- 
 --
 -- Return signature changes (new lifecycle_status column), so drop first.
 drop function if exists get_request_tracking(
