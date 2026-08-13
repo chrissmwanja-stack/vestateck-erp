@@ -112,7 +112,18 @@ serve(async (req) => {
         .from('app_users')
         .update({ is_platform_admin: true })
         .eq('id', userId);
-      if (updateError) return jsonResponse({ error: updateError.message }, 500);
+      // 23505 here means the app_users_single_platform_admin partial
+      // unique index rejected us -- a different caller committed their
+      // claim between our count-check above and this update.
+      if (updateError) {
+        if (updateError.code === '23505') {
+          return jsonResponse(
+            { error: 'A platform admin already exists. Ask them to invite you instead.' },
+            409
+          );
+        }
+        return jsonResponse({ error: updateError.message }, 500);
+      }
     } else {
       const { error: insertError } = await admin.from('app_users').insert({
         id: userId,
@@ -121,9 +132,22 @@ serve(async (req) => {
         name: name.trim(),
         is_platform_admin: true,
       });
-      // 23505 = unique violation -> race with another retry, treat as done
-      if (insertError && insertError.code !== '23505') {
-        return jsonResponse({ error: insertError.message }, 500);
+      if (insertError) {
+        if (insertError.code === '23505') {
+          // Two distinct unique constraints can fire here:
+          //  - app_users_single_platform_admin: someone else won the race
+          //    between our count-check and this insert. Genuine loss.
+          //  - app_users_pkey (id): this exact caller retried after a
+          //    prior successful claim already committed. Treat as done.
+          if (insertError.message.includes('app_users_single_platform_admin')) {
+            return jsonResponse(
+              { error: 'A platform admin already exists. Ask them to invite you instead.' },
+              409
+            );
+          }
+        } else {
+          return jsonResponse({ error: insertError.message }, 500);
+        }
       }
     }
 
