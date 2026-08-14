@@ -45,6 +45,19 @@ export interface CostCenter {
   created_at: string;
 }
 
+// Mirrors public.material_catalog joined to material_types/material_groups
+// (see the seed_sample_material_catalog migration). type_code/group_code
+// are what the New Request line-item picker auto-fills into cost_code/
+// group_code on request_line_items.
+export interface MaterialCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  unit: string | null;
+  type_code: string | null;
+  group_code: string | null;
+}
+
 export interface WorkflowStage {
   id: string;
   tenant_id: string;

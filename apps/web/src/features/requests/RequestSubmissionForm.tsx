@@ -25,7 +25,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '../../lib/supabaseClient';
-import type { CostCenter } from '@erp-platform/shared';
+import type { CostCenter, Department, MaterialCatalogItem } from '@erp-platform/shared';
 
 // Simplified version without Excel, with UGX main currency
 const headerSchema = z.object({
@@ -67,12 +67,101 @@ function lineTotal(item: LineItem): number {
   return qty * price;
 }
 
+// material_catalog joined to material_types/material_groups for their codes.
+// Nested embeds come back from PostgREST as single objects here since
+// material_type_id/material_group_id are singular FKs (not arrays).
+function useMaterialCatalog() {
+  const [materials, setMaterials] = useState<MaterialCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('material_catalog')
+        .select('id, code, name, unit, material_types(code), material_groups(code)')
+        .eq('is_active', true)
+        .order('name');
+      if (!cancelled) {
+        if (!error && data) {
+          setMaterials(
+            data.map((row: any) => ({
+              id: row.id,
+              code: row.code,
+              name: row.name,
+              unit: row.unit,
+              type_code: row.material_types?.code ?? null,
+              group_code: row.material_groups?.code ?? null,
+            }))
+          );
+        }
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { materials, loading };
+}
+
+// Departments for the "Place of use" picker, plus the requester's own
+// department so the first row can default to it. Same app_users lookup
+// pattern NewTicket.tsx already uses for it_tickets.department_id.
+function useDepartmentDefault() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [defaultDepartment, setDefaultDepartment] = useState<Department | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [{ data: depts }, { data: userData }] = await Promise.all([
+        supabase.from('departments').select('id, tenant_id, parent_department_id, name, is_active, created_at').eq('is_active', true).order('name'),
+        supabase.auth.getUser(),
+      ]);
+      if (cancelled) return;
+      const deptList = (depts ?? []) as Department[];
+      setDepartments(deptList);
+
+      const authUser = userData?.user;
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from('app_users')
+          .select('department_id')
+          .eq('id', authUser.id)
+          .single();
+        if (!cancelled && profile?.department_id) {
+          setDefaultDepartment(deptList.find((d) => d.id === profile.department_id) ?? null);
+        }
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { departments, defaultDepartment, loading };
+}
+
 export default function RequestSubmissionForm({ onSubmitted }: { onSubmitted?: (id: string) => void }) {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [loadingCostCenters, setLoadingCostCenters] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([emptyLineItem()]);
+  const { materials, loading: loadingMaterials } = useMaterialCatalog();
+  const { departments, defaultDepartment, loading: loadingDepartments } = useDepartmentDefault();
+  const defaultAppliedRef = useState(() => ({ applied: false }))[0];
+
+  // Once the requester's department resolves, default it onto the first
+  // row only if that row hasn't been touched yet -- avoids clobbering
+  // something the user already picked while this was still loading.
+  useEffect(() => {
+    if (!defaultDepartment || defaultAppliedRef.applied) return;
+    defaultAppliedRef.applied = true;
+    setLineItems((rows) =>
+      rows.map((row, i) => (i === 0 && !row.placeOfUse ? { ...row, placeOfUse: defaultDepartment.name } : row))
+    );
+  }, [defaultDepartment]);
 
   const {
     control,
@@ -188,10 +277,57 @@ export default function RequestSubmissionForm({ onSubmitted }: { onSubmitted?: (
                     <TableBody>
                       {lineItems.map((row) => (
                         <TableRow key={row.key} hover>
-                          <TableCell><TextField size="small" variant="standard" fullWidth value={row.materialService} onChange={(e) => updateLineItem(row.key, { materialService: e.target.value })} /></TableCell>
+                          <TableCell>
+                            <Autocomplete
+                              freeSolo
+                              size="small"
+                              fullWidth
+                              options={materials}
+                              loading={loadingMaterials}
+                              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} · ${option.name}`)}
+                              filterOptions={(options, state) => {
+                                const q = state.inputValue.trim().toLowerCase();
+                                if (!q) return options;
+                                return options.filter((o) => o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q));
+                              }}
+                              inputValue={row.materialService}
+                              onInputChange={(_, value, reason) => {
+                                if (reason === 'input') updateLineItem(row.key, { materialService: value });
+                              }}
+                              onChange={(_, option) => {
+                                if (option && typeof option !== 'string') {
+                                  updateLineItem(row.key, {
+                                    materialService: option.name,
+                                    costCode: option.type_code ?? row.costCode,
+                                    groupCode: option.group_code ?? row.groupCode,
+                                  });
+                                }
+                              }}
+                              renderInput={(params) => <TextField {...params} variant="standard" placeholder="Type or pick from catalog" />}
+                            />
+                          </TableCell>
                           <TableCell><TextField size="small" variant="standard" fullWidth value={row.costCode} onChange={(e) => updateLineItem(row.key, { costCode: e.target.value })} /></TableCell>
                           <TableCell><TextField size="small" variant="standard" fullWidth value={row.groupCode} onChange={(e) => updateLineItem(row.key, { groupCode: e.target.value })} /></TableCell>
-                          <TableCell><TextField size="small" variant="standard" fullWidth value={row.placeOfUse} onChange={(e) => updateLineItem(row.key, { placeOfUse: e.target.value })} /></TableCell>
+                          <TableCell>
+                            <Autocomplete
+                              freeSolo
+                              size="small"
+                              fullWidth
+                              options={departments}
+                              loading={loadingDepartments}
+                              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                              inputValue={row.placeOfUse}
+                              onInputChange={(_, value, reason) => {
+                                if (reason === 'input') updateLineItem(row.key, { placeOfUse: value });
+                              }}
+                              onChange={(_, option) => {
+                                if (option && typeof option !== 'string') {
+                                  updateLineItem(row.key, { placeOfUse: option.name });
+                                }
+                              }}
+                              renderInput={(params) => <TextField {...params} variant="standard" placeholder="Department" />}
+                            />
+                          </TableCell>
                           <TableCell align="right"><TextField size="small" variant="standard" type="number" inputProps={{ min: 0, style: { textAlign: "right" } }} value={row.quantity} onChange={(e) => updateLineItem(row.key, { quantity: e.target.value })} /></TableCell>
                           <TableCell align="right"><TextField size="small" variant="standard" type="number" inputProps={{ min: 0, style: { textAlign: "right" } }} value={row.unitPrice} onChange={(e) => updateLineItem(row.key, { unitPrice: e.target.value })} /></TableCell>
                           <TableCell align="right">{lineTotal(row) > 0 ? lineTotal(row).toLocaleString() : "—"}</TableCell>
