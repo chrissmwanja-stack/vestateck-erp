@@ -59,7 +59,7 @@ begin
 
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max)
   values (v_tenant_id, v_gm_user_id, '00000000-0000-0000-0000-000000000036', 'global', null)
-  on conflict do nothing;
+  on conflict (tenant_id, user_id, workflow_stage_id) do nothing;
 
   -- Project Manager (high-threshold branch, stage before Deputy GM)
   if not exists (select 1 from auth.users where id = v_pm_user_id) then
@@ -80,7 +80,7 @@ begin
 
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max)
   values (v_tenant_id, v_pm_user_id, '00000000-0000-0000-0000-000000000035', 'global', null)
-  on conflict do nothing;
+  on conflict (tenant_id, user_id, workflow_stage_id) do nothing;
 end $$;
 
 -- Note on is_platform_admin for gm@test.local: the live project currently
