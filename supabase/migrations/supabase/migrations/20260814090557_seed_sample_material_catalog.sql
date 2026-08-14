@@ -12,6 +12,11 @@
 -- disable just for this seed insert, since we're supplying tenant_id
 -- explicitly and correctly, and re-enable immediately after so the
 -- normal app-side insert path (real users, real sessions) is unaffected.
+--
+-- All inserts use ON CONFLICT DO NOTHING so this migration is safe to
+-- replay against a fresh shadow/dev database without erroring or
+-- duplicating rows (material_catalog's unique (tenant_id, code)
+-- constraint was added in 20260814100507).
 
 alter table material_types disable trigger trg_set_material_types_defaults;
 alter table material_groups disable trigger trg_set_material_groups_defaults;
@@ -26,17 +31,35 @@ declare
 begin
   insert into material_types (tenant_id, code, name) values
     (v_tenant_id, 'CONS', 'Consumable')
+    on conflict (tenant_id, code) do nothing
     returning id into v_type_consumable;
+  if v_type_consumable is null then
+    select id into v_type_consumable from material_types where tenant_id = v_tenant_id and code = 'CONS';
+  end if;
+
   insert into material_types (tenant_id, code, name) values
     (v_tenant_id, 'EQUIP', 'Equipment')
+    on conflict (tenant_id, code) do nothing
     returning id into v_type_equipment;
+  if v_type_equipment is null then
+    select id into v_type_equipment from material_types where tenant_id = v_tenant_id and code = 'EQUIP';
+  end if;
 
   insert into material_groups (tenant_id, code, name) values
     (v_tenant_id, 'ITS', 'IT Supplies')
+    on conflict (tenant_id, code) do nothing
     returning id into v_group_it;
+  if v_group_it is null then
+    select id into v_group_it from material_groups where tenant_id = v_tenant_id and code = 'ITS';
+  end if;
+
   insert into material_groups (tenant_id, code, name) values
     (v_tenant_id, 'OFC', 'Office Supplies')
+    on conflict (tenant_id, code) do nothing
     returning id into v_group_office;
+  if v_group_office is null then
+    select id into v_group_office from material_groups where tenant_id = v_tenant_id and code = 'OFC';
+  end if;
 
   insert into material_catalog (tenant_id, code, name, unit, material_type_id, material_group_id) values
     (v_tenant_id, 'MAT-0001', 'Toner Cartridge - HP 26A', 'Piece', v_type_consumable, v_group_it),
@@ -44,7 +67,8 @@ begin
     (v_tenant_id, 'MAT-0003', 'A4 Paper Ream (80gsm)', 'Ream', v_type_consumable, v_group_office),
     (v_tenant_id, 'MAT-0004', 'USB Flash Drive 32GB', 'Piece', v_type_consumable, v_group_it),
     (v_tenant_id, 'MAT-0005', 'External Hard Drive 1TB', 'Piece', v_type_equipment, v_group_it),
-    (v_tenant_id, 'MAT-0006', 'Office Chair - Ergonomic', 'Piece', v_type_equipment, v_group_office);
+    (v_tenant_id, 'MAT-0006', 'Office Chair - Ergonomic', 'Piece', v_type_equipment, v_group_office)
+  on conflict (tenant_id, code) do nothing;
 end $$;
 
 alter table material_types enable trigger trg_set_material_types_defaults;
