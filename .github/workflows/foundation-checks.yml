@@ -1,0 +1,47 @@
+name: Foundation checks
+
+# Runs supabase/MIGRATION_POLICY.md's automated rules against new
+# migration files on every push and PR. See FOUNDATION_PLAYBOOK.md
+# Phase 0. This is deliberately narrow -- it does not run the app,
+# lint, or a full db reset yet; those come in later phases.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  migration-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the diff against the base ref is meaningful
+
+      # For pull_request, origin/main is still the unmerged target branch,
+      # so diffing HEAD against it is meaningful. For push, by the time CI
+      # runs, origin/main already includes the commit we're checking -- so
+      # diffing against origin/main would always be empty and this check
+      # would silently no-op on every push. Use the pre-push SHA
+      # (github.event.before) instead, which git already has locally
+      # thanks to fetch-depth: 0. Fall back to HEAD~1 for the edge case of
+      # a force-push/new-branch push where `before` is the all-zero SHA.
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=origin/main" >> "$GITHUB_OUTPUT"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+            else
+              echo "ref=$BEFORE" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Check new migrations against MIGRATION_POLICY.md
+        run: |
+          chmod +x scripts/check-migration-policy.sh
+          ./scripts/check-migration-policy.sh "${{ steps.base.outputs.ref }}"
