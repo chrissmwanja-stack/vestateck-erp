@@ -55,6 +55,9 @@ for the most current picture of what schema exists per module.
 3. Apply the migrations in `supabase/migrations/` to your Supabase project (via
    the Supabase CLI or dashboard) — migrations are ordered by timestamp prefix
    and should be applied in order.
+   Run `supabase migrations list` periodically to check local/remote drift — if a migration
+    was ever applied directly against the database (SQL editor, hotfix, etc.) without a
+   matching local file, it'll show up as an unmatched row in the `Remote` column.
 4. Run the web app:
    ```
    npm run dev
@@ -81,3 +84,9 @@ before treating any given table as safe for broad client-side access.
 - Delegation (`approval_delegations`) is capped at the delegator's own authority —
   the delegate simply steps into the delegator's existing `approval_assignments`
   threshold for the duration of the delegation.
+
+  - `material_catalog` (and its lookup tables `material_types`, `material_groups`) enforce a
+  unique `(tenant_id, code)` constraint — material codes are stable business keys per tenant,
+  not just free text. Seed data for the Test Company tenant (6 sample materials across
+  Consumable/Equipment types) lives in a dedicated, idempotent migration for local dev and
+  demo purposes.
