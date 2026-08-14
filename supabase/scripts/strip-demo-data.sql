@@ -7,12 +7,18 @@
 --
 -- What it does:
 --   1. Deletes every row scoped to the demo tenant (Test Construction Co,
---      00000000-0000-0000-0000-000000000001) across every table that has
---      a tenant_id column -- discovered dynamically via
+--      00000000-0000-0000-0000-000000000001) across every BASE TABLE that
+--      has a tenant_id column -- discovered dynamically via
 --      information_schema, so it does not go stale as new modules add
 --      tables. This also covers the satellite tables (hr_*, pmo_*,
 --      machines, sustainability_*) that don't have an FK to tenants(id)
---      yet and so would NOT be cleaned up by cascade alone.
+--      yet and so would NOT be cleaned up by cascade alone. Views with a
+--      tenant_id column (e.g. hr_employee_current_compensation) are
+--      deliberately excluded -- they're derived from base tables, so
+--      clearing the underlying rows clears the view's output too; trying
+--      to DELETE FROM a non-simple view fails outright (Postgres requires
+--      an INSTEAD OF trigger for views using DISTINCT/GROUP BY/etc, which
+--      these don't have and shouldn't need just for this script).
 --   2. Deletes the demo tenant row itself.
 --   3. Deletes every @test.local auth.users row (cascades to app_users
 --      via the on-delete-cascade FK in 0001_init_core_schema.sql).
@@ -47,9 +53,13 @@ begin
   set local session_replication_role = 'replica';
 
   for r in
-    select distinct table_schema, table_name
-    from information_schema.columns
-    where column_name = 'tenant_id' and table_schema = 'public'
+    select distinct c.table_schema, c.table_name
+    from information_schema.columns c
+    join information_schema.tables t
+      on t.table_schema = c.table_schema
+      and t.table_name = c.table_name
+      and t.table_type = 'BASE TABLE'
+    where c.column_name = 'tenant_id' and c.table_schema = 'public'
   loop
     execute format('delete from %I.%I where tenant_id = %L', r.table_schema, r.table_name, v_demo_tenant_id);
   end loop;
