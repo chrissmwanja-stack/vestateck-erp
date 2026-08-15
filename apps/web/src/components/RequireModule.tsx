@@ -6,7 +6,15 @@ import { useAuth } from '../lib/authContext';
 
 // Keep in sync with the staff_roles.module CHECK constraint
 // (see 0001_init_core_schema.sql + later module-add migrations).
-export type ModuleKey = 'hr' | 'legal' | 'bd' | 'it' | 'pmo' | 'machine_operation' | 'sustainability';
+export type ModuleKey =
+  | 'hr'
+  | 'legal'
+  | 'bd'
+  | 'it'
+  | 'pmo'
+  | 'machine_operation'
+  | 'sustainability'
+  | 'procurement';
 
 const DEFAULT_ROLES = ['admin', 'manager', 'member'] as const;
 

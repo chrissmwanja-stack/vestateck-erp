@@ -294,9 +294,6 @@ export default function App() {
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
               <Route path="/approvals" element={<ApprovalQueue />} />
               <Route path="/finance/purchase-orders" element={<PurchaseOrders />} />
-              <Route path="/procurement/track" element={<ProcurementTrack />} />
-              <Route path="/procurement/request-tracking" element={<RequestTracking />} />
-              <Route path="/procurement/info" element={<ProcurementInfo />} />
               <Route
                 path="/delegations"
                 element={session ? <DelegationManager userId={session.user.id} /> : null}
@@ -326,14 +323,10 @@ export default function App() {
               <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
               <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
               <Route path="/financial-management/payroll-disbursement" element={<PayrollDisbursement />} />
-              <Route path="/requests/material-quantity" element={<MaterialQuantity />} />
               <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
-              <Route path="/warehouse/goods-issue" element={<GoodsIssue />} />
-              <Route path="/warehouse/stock-balances" element={<StockBalances />} />
               <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
               <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
-              <Route path="/procurement/vendor-evaluation" element={<VendorEvaluationReport />} />
               <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
@@ -341,11 +334,24 @@ export default function App() {
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
-              <Route path="/purchasing/dashboard" element={<PurchasingDashboard />} />
-              <Route path="/approvals/material-requests" element={<MaterialRequestApproval />} />
-              <Route path="/requests/material-request-report" element={<MaterialRequestReport />} />
-              <Route path="/offers/entry" element={<OfferEntry />} />
-              <Route path="/offers/approval-po" element={<OfferApprovalPO />} />
+
+              {/* PROCUREMENT - gated by staff_roles module="procurement" (added
+                  2026-08-15). These were previously reachable by any
+                  authenticated tenant user with no module check at all. */}
+              <Route element={<RequireModule module="procurement" />}>
+                <Route path="/procurement/track" element={<ProcurementTrack />} />
+                <Route path="/procurement/request-tracking" element={<RequestTracking />} />
+                <Route path="/procurement/info" element={<ProcurementInfo />} />
+                <Route path="/procurement/vendor-evaluation" element={<VendorEvaluationReport />} />
+                <Route path="/purchasing/dashboard" element={<PurchasingDashboard />} />
+                <Route path="/offers/entry" element={<OfferEntry />} />
+                <Route path="/offers/approval-po" element={<OfferApprovalPO />} />
+                <Route path="/approvals/material-requests" element={<MaterialRequestApproval />} />
+                <Route path="/requests/material-quantity" element={<MaterialQuantity />} />
+                <Route path="/requests/material-request-report" element={<MaterialRequestReport />} />
+                <Route path="/warehouse/goods-issue" element={<GoodsIssue />} />
+                <Route path="/warehouse/stock-balances" element={<StockBalances />} />
+              </Route>
               
               {/* IT SUPPORT - your existing work */}
               <Route element={<RequireModule module="it" />}>

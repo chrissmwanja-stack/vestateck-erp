@@ -1,4 +1,4 @@
-import { useState, MouseEvent, useMemo } from "react";
+import { useState, useEffect, MouseEvent, useMemo } from "react";
 import {
   Box,
   Collapse,
@@ -49,6 +49,8 @@ import {
   PlaylistAddCheck,
 } from "@mui/icons-material";
 import { Link as RouterLink, useLocation } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
+import type { ModuleKey } from "../../components/RequireModule";
 import {
   lawComplianceNodes,
   hrNodes,
@@ -66,6 +68,13 @@ interface TreeNode {
   children?: TreeNode[];
   disabled?: boolean;
   tooltip?: string;
+  // Module gate for individual nodes -- used inside portals that mix
+  // gated and ungated screens (e.g. "purchasing-logistics", which has
+  // procurement-only nodes alongside open request/finance screens).
+  // Nodes with no requiredModule are always shown once their portal is
+  // shown. This mirrors, but does not replace, the real enforcement in
+  // RequireModule at the route level -- this is nav visibility only.
+  requiredModule?: ModuleKey;
 }
 
 interface Portal {
@@ -75,6 +84,60 @@ interface Portal {
   nodes: TreeNode[];
   disabled?: boolean;
   tooltip?: string;
+  // Module gate for the whole portal -- used for portals that are 100%
+  // one module (hr, legal, bd, it, pmo, machine_operation,
+  // sustainability). Portals with no requiredModule are always shown;
+  // "purchasing-logistics" mixes gated/ungated nodes so it's tagged at
+  // the node level instead (see requiredModule on TreeNode).
+  requiredModule?: ModuleKey;
+}
+
+// Fetches the current user's own staff_roles modules + platform-admin
+// flag, purely for nav visibility (RequireModule/has_module_role is the
+// real enforcement). Mirrors the query pattern already used in
+// InviteMember's useTenantAdminAccess / CompaniesConsole's
+// usePlatformAdminAccess: get the caller's id from the session first,
+// since RLS on these tables scopes by tenant, not by caller.
+function useMyModuleAccess() {
+  const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string> } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data: sessionData }) => {
+      const userId = sessionData.session?.user.id;
+      if (!userId) {
+        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set() });
+        return;
+      }
+      const { data: appUser } = await supabase
+        .from("app_users")
+        .select("tenant_id, is_platform_admin")
+        .eq("id", userId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!appUser) {
+        setState({ isPlatformAdmin: false, modules: new Set() });
+        return;
+      }
+      if (appUser.is_platform_admin) {
+        // has_module_role() treats platform admins as an automatic pass
+        // for every module -- mirror that here so nav doesn't hide
+        // things the route guard would let them through to anyway.
+        setState({ isPlatformAdmin: true, modules: new Set() });
+        return;
+      }
+      const { data: roles } = await supabase
+        .from("staff_roles")
+        .select("module")
+        .eq("user_id", userId)
+        .eq("tenant_id", appUser.tenant_id);
+      if (cancelled) return;
+      setState({ isPlatformAdmin: false, modules: new Set((roles ?? []).map((r) => r.module as string)) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return state;
 }
 
 // IT Support - YOU ALREADY WORKED ON IT (keeping your simpler paths)
@@ -163,6 +226,7 @@ const portals: Portal[] = [
         label: "Dashboard",
         icon: <Dashboard fontSize="small" />,
         to: "/purchasing/dashboard",
+        requiredModule: "procurement",
       },
       {
         id: "request-ops",
@@ -172,13 +236,14 @@ const portals: Portal[] = [
           { id: "new-request", label: "New Request", icon: <Description fontSize="small" />, to: "/requests/new" },
           { id: "my-requests", label: "My Requests", icon: <ReceiptLong fontSize="small" />, to: "/requests/my-requests" },
           { id: "req-approval", label: "Request Approval", icon: <AssignmentTurnedIn fontSize="small" />, to: "/approvals" },
-          { id: "material-quantity", label: "Material Quantity", icon: <ReceiptLong fontSize="small" />, to: "/requests/material-quantity" },
+          { id: "material-quantity", label: "Material Quantity", icon: <ReceiptLong fontSize="small" />, to: "/requests/material-quantity", requiredModule: "procurement" },
         ],
       },
       {
         id: "warehouse-ops",
         label: "Warehouse Operations",
         icon: <Inventory2 fontSize="small" />,
+        requiredModule: "procurement",
         children: [
           { id: "goods-issue", label: "Goods Issue", icon: <ReceiptLong fontSize="small" />, to: "/warehouse/goods-issue" },
           { id: "stock-balances", label: "Stock Balances", icon: <Inventory2 fontSize="small" />, to: "/warehouse/stock-balances" },
@@ -188,6 +253,7 @@ const portals: Portal[] = [
         id: "offer-ops",
         label: "Offer Operations PO",
         icon: <Folder fontSize="small" />,
+        requiredModule: "procurement",
         children: [
           { id: "offer-entry", label: "Offer Entry", icon: <ShoppingCart fontSize="small" />, to: "/offers/entry" },
           { id: "offer-approval-po", label: "Offer Approval PO", icon: <AssignmentTurnedIn fontSize="small" />, to: "/offers/approval-po" },
@@ -198,7 +264,7 @@ const portals: Portal[] = [
         label: "Purchasing Operations",
         icon: <Folder fontSize="small" />,
         children: [
-         { id: "procurement-info", label: "Procurement Info", icon: <OpenInNew fontSize="small" />, to: "/procurement/info" },
+         { id: "procurement-info", label: "Procurement Info", icon: <OpenInNew fontSize="small" />, to: "/procurement/info", requiredModule: "procurement" },
          { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/finance/purchase-orders" },
        ],
       },
@@ -206,6 +272,7 @@ const portals: Portal[] = [
         id: "reports",
         label: "Reports",
         icon: <Folder fontSize="small" />,
+        requiredModule: "procurement",
         children: [
           { id: "req-tracking", label: "Request Tracking", icon: <BarChart fontSize="small" />, to: "/procurement/request-tracking" },
           { id: "vendor-eval", label: "Vendor Evaluation Report", icon: <BarChart fontSize="small" />, to: "/procurement/vendor-evaluation" },
@@ -217,8 +284,8 @@ const portals: Portal[] = [
         icon: <Folder fontSize="small" />,
         children: [
           { id: "new-material-req", label: "New Material Request", icon: <ReceiptLong fontSize="small" />, to: "/requests/new-material" },
-          { id: "new-material-approval", label: "Material Request Approval", icon: <AssignmentTurnedIn fontSize="small" />, to: "/approvals/material-requests" },
-          { id: "new-material-report", label: "Material Request Report", icon: <BarChart fontSize="small" />, to: "/requests/material-request-report" },
+          { id: "new-material-approval", label: "Material Request Approval", icon: <AssignmentTurnedIn fontSize="small" />, to: "/approvals/material-requests", requiredModule: "procurement" },
+          { id: "new-material-report", label: "Material Request Report", icon: <BarChart fontSize="small" />, to: "/requests/material-request-report", requiredModule: "procurement" },
         ],
       },
       {
@@ -330,42 +397,49 @@ const portals: Portal[] = [
     label: "IT Support",
     icon: <SupportAgent fontSize="small" />,
     nodes: itSupportNodes,
+    requiredModule: "it",
   },
   {
     id: "law-compliance",
     label: "Law and Compliance",
     icon: <AdminPanelSettings fontSize="small" />,
     nodes: lawComplianceNodes,
+    requiredModule: "legal",
   },
   {
     id: "human-resources",
     label: "Human Resources",
     icon: <AssignmentTurnedIn fontSize="small" />,
     nodes: hrNodes,
+    requiredModule: "hr",
   },
   {
     id: "business-development",
     label: "Business Development and Proposal",
     icon: <Description fontSize="small" />,
     nodes: businessDevNodes,
+    requiredModule: "bd",
   },
   {
     id: "machine-operation",
     label: "Machine Operation",
     icon: <Build fontSize="small" />,
     nodes: machineOperationNodes,
+    requiredModule: "machine_operation",
   },
   {
     id: "pmo",
     label: "Project Management Office",
     icon: <Folder fontSize="small" />,
     nodes: pmoNodes,
+    requiredModule: "pmo",
   },
   {
     id: "sustainability",
     label: "Sustainability and Business Excellence",
     icon: <Folder fontSize="small" />,
     nodes: sustainabilityNodes,
+    requiredModule: "sustainability",
   },
   {
     // Not gated here -- like every other portal in this file, visibility
@@ -459,14 +533,51 @@ function TreeItem({ node, depth = 0, pathname }: { node: TreeNode; depth?: numbe
   );
 }
 
+// Strips nodes the current user has no module access to. Nodes without
+// a requiredModule are always kept; a parent with children is kept if
+// it has any surviving child, or if it's directly accessible itself.
+// This is nav visibility only -- RequireModule/has_module_role is what
+// actually enforces access if someone still hits the URL directly.
+function filterNodesByAccess(nodes: TreeNode[], access: { isPlatformAdmin: boolean; modules: Set<string> }): TreeNode[] {
+  const canSee = (m?: ModuleKey) => !m || access.isPlatformAdmin || access.modules.has(m);
+  const walk = (list: TreeNode[]): TreeNode[] =>
+    list
+      .map((n) => {
+        if (!canSee(n.requiredModule)) return null;
+        if (n.children) {
+          const children = walk(n.children);
+          if (children.length === 0 && !n.to) return null;
+          return { ...n, children };
+        }
+        return n;
+      })
+      .filter(Boolean) as TreeNode[];
+  return walk(nodes);
+}
+
 export default function ModuleTree() {
   const location = useLocation();
   const [search, setSearch] = useState("");
+  const access = useMyModuleAccess();
   const [activePortalId, setActivePortalId] = useState(() => {
     return localStorage.getItem("activePortalId") || portals[0].id;
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const activePortal = useMemo(() => portals.find((p) => p.id === activePortalId) ?? portals[0], [activePortalId]);
+
+  // Portals gated at the whole-portal level (hr/legal/bd/it/pmo/
+  // machine_operation/sustainability) disappear entirely from the
+  // switcher if the user has no access. Mixed portals (purchasing-
+  // logistics) and ungated ones (financial-management, platform-admin)
+  // always show, with node-level filtering applied below.
+  const visiblePortals = useMemo(() => {
+    if (!access) return portals;
+    return portals.filter((p) => !p.requiredModule || access.isPlatformAdmin || access.modules.has(p.requiredModule));
+  }, [access]);
+
+  const activePortal = useMemo(
+    () => visiblePortals.find((p) => p.id === activePortalId) ?? visiblePortals[0] ?? portals[0],
+    [activePortalId, visiblePortals]
+  );
 
   const handleOpenSwitcher = (e: MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
   const handleCloseSwitcher = () => setAnchorEl(null);
@@ -477,8 +588,13 @@ export default function ModuleTree() {
     handleCloseSwitcher();
   };
 
+  const accessFilteredNodes = useMemo(() => {
+    if (!access) return activePortal.nodes;
+    return filterNodesByAccess(activePortal.nodes, access);
+  }, [activePortal.nodes, access]);
+
   const filteredNodes = useMemo(() => {
-    if (!search) return activePortal.nodes;
+    if (!search) return accessFilteredNodes;
     const lower = search.toLowerCase();
     const filter = (nodes: TreeNode[]): TreeNode[] => {
       return nodes
@@ -494,8 +610,8 @@ export default function ModuleTree() {
         })
         .filter(Boolean) as TreeNode[];
     };
-    return filter(activePortal.nodes);
-  }, [activePortal.nodes, search]);
+    return filter(accessFilteredNodes);
+  }, [accessFilteredNodes, search]);
 
   return (
     <Box
@@ -540,7 +656,7 @@ export default function ModuleTree() {
       </Box>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCloseSwitcher} PaperProps={{ sx: { width: 320 } }}>
-        {portals.map((portal) => (
+        {visiblePortals.map((portal) => (
           <MenuItem
             key={portal.id}
             selected={portal.id === activePortalId}

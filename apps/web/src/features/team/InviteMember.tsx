@@ -27,7 +27,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { resendInvite, revokeInvite } from './inviteActions';
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability'] as const;
+const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
 const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
   hr: 'HR',
   legal: 'Legal & Compliance',
@@ -36,6 +36,7 @@ const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
   pmo: 'Project Management Office',
   machine_operation: 'Machine Operation',
   sustainability: 'Sustainability & Business Excellence',
+  procurement: 'Procurement & Purchasing',
 };
 const ROLES = ['admin', 'manager', 'member'] as const;
 
@@ -58,6 +59,7 @@ const emptyModuleSelection: ModuleSelection = {
   pmo: { checked: false, role: 'member' },
   machine_operation: { checked: false, role: 'member' },
   sustainability: { checked: false, role: 'member' },
+  procurement: { checked: false, role: 'member' },
 };
 
 // Gate: you need to be a module admin in your own tenant to invite here.

@@ -35,7 +35,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // screen once it exists, e.g. https://erp.vestateck.com/accept-invite
 const ACCEPT_INVITE_URL = Deno.env.get('ACCEPT_INVITE_URL') ?? '';
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability'] as const;
+const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
 const VALID_ROLES = ['admin', 'manager', 'member'] as const;
 
 const corsHeaders = {
@@ -109,7 +109,7 @@ serve(async (req) => {
         return jsonResponse(
           {
             error:
-              'modules_and_roles is required for member invites: an array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability, role in admin/manager/member',
+              'modules_and_roles is required for member invites: an array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability/procurement, role in admin/manager/member',
           },
           400
         );
