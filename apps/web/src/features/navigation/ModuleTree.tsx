@@ -102,8 +102,8 @@ function useMyModuleAccess() {
   const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string> } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(async ({ data: sessionData }) => {
-      const userId = sessionData.session?.user.id;
+
+    const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
         if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set() });
         return;
@@ -132,9 +132,27 @@ function useMyModuleAccess() {
         .eq("tenant_id", appUser.tenant_id);
       if (cancelled) return;
       setState({ isPlatformAdmin: false, modules: new Set((roles ?? []).map((r) => r.module as string)) });
+    };
+
+    // Fetch once on mount for the fast path, but also re-fetch on any auth
+    // state change. A session can swap within the same tab without a full
+    // page reload -- e.g. accepting an invite link while this layout is
+    // already mounted -- and a mount-only effect would keep showing the
+    // previous session's access (e.g. "Platform Administration") after the
+    // underlying user has changed.
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!cancelled) fetchAccess(sessionData.session?.user.id);
     });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setState(null);
+      fetchAccess(session?.user.id);
+    });
+
     return () => {
       cancelled = true;
+      subscription.subscription.unsubscribe();
     };
   }, []);
   return state;
