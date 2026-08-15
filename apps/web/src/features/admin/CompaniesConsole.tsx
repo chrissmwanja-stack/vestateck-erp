@@ -35,6 +35,13 @@ interface Tenant {
   name: string;
   status: 'pending' | 'active' | 'suspended';
   created_at: string;
+  // Populated from get_companies_overview() (platform-admin-gated RPC).
+  // Optional so the type still fits results from a plain `tenants`
+  // select if that ever needs to be used as a fallback.
+  member_count?: number;
+  module_count?: number;
+  request_count_30d?: number;
+  pending_request_count?: number;
 }
 
 interface CompanyAdminInvitation {
@@ -177,12 +184,25 @@ export default function CompaniesConsole() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from('tenants')
-      .select('id, name, status, created_at')
-      .order('created_at', { ascending: false });
+    // get_companies_overview() carries the same columns as the old
+    // `tenants` select plus per-tenant activity counts (members,
+    // modules enabled, requests), so the table and the summary stats
+    // bar below both come from one round trip.
+    const { data, error: err } = await supabase.rpc('get_companies_overview');
     if (err) setError(err.message);
-    else setRows((data ?? []) as Tenant[]);
+    else
+      setRows(
+        ((data ?? []) as any[]).map((r) => ({
+          id: r.tenant_id,
+          name: r.name,
+          status: r.status,
+          created_at: r.created_at,
+          member_count: r.member_count,
+          module_count: r.module_count,
+          request_count_30d: r.request_count_30d,
+          pending_request_count: r.pending_request_count,
+        })) as Tenant[]
+      );
     setLoading(false);
   }, []);
 
@@ -413,6 +433,31 @@ export default function CompaniesConsole() {
         </Alert>
       )}
 
+      {!loading && rows.length > 0 && (
+        <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 2 }}>
+          {[
+            { label: 'Companies onboarded', value: rows.length },
+            { label: 'Active', value: rows.filter((r) => r.status === 'active').length },
+            { label: 'Pending', value: rows.filter((r) => r.status === 'pending').length },
+            {
+              label: 'Total members',
+              value: rows.reduce((sum, r) => sum + (r.member_count ?? 0), 0),
+            },
+            {
+              label: 'Requests (30d)',
+              value: rows.reduce((sum, r) => sum + (r.request_count_30d ?? 0), 0),
+            },
+          ].map((stat) => (
+            <Paper key={stat.label} variant="outlined" sx={{ px: 2, py: 1, minWidth: 140 }}>
+              <Typography variant="h6">{stat.value}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {stat.label}
+              </Typography>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+
       <Paper variant="outlined">
         {loading ? (
           <Box display="flex" justifyContent="center" py={4}>
@@ -426,6 +471,9 @@ export default function CompaniesConsole() {
                   <TableCell>Company</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Created</TableCell>
+                  <TableCell align="right">Members</TableCell>
+                  <TableCell align="right">Modules</TableCell>
+                  <TableCell align="right">Requests (30d)</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -437,20 +485,30 @@ export default function CompaniesConsole() {
                       <Chip size="small" label={row.status} color={statusColor[row.status]} />
                     </TableCell>
                     <TableCell>{new Date(row.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell align="right">{row.member_count ?? '—'}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        onClick={() => handleImpersonate(row)}
-                        disabled={impersonatingId === row.id}
-                      >
-                        {impersonatingId === row.id ? 'Starting…' : 'View as'}
-                      </Button>
+                      {row.module_count ?? '—'} / {MODULE_OPTIONS.length}
+                    </TableCell>
+                    <TableCell align="right">{row.request_count_30d ?? '—'}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" onClick={() => openModules(row)}>
+                          Modules
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() => handleImpersonate(row)}
+                          disabled={impersonatingId === row.id}
+                        >
+                          {impersonatingId === row.id ? 'Starting…' : 'View as'}
+                        </Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={7} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No companies yet.
                     </TableCell>
                   </TableRow>
@@ -626,6 +684,48 @@ export default function CompaniesConsole() {
           <Button onClick={() => setRevokeTarget(null)}>Cancel</Button>
           <Button color="error" onClick={confirmRevoke} disabled={rowActionId === revokeTarget?.id}>
             Revoke invite
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!modulesTarget} onClose={closeModules} maxWidth="xs" fullWidth>
+        <DialogTitle>Modules — {modulesTarget?.name}</DialogTitle>
+        <DialogContent>
+          {modulesLoading ? (
+            <Box display="flex" justifyContent="center" py={3}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Modules this company can access. Finance and core Purchasing & Logistics aren't
+                listed — every tenant has those by default.
+              </Typography>
+              <FormGroup>
+                {MODULE_OPTIONS.map((opt) => (
+                  <FormControlLabel
+                    key={opt.value}
+                    control={
+                      <Checkbox
+                        checked={moduleSelection.has(opt.value)}
+                        onChange={() => toggleModule(opt.value)}
+                        disabled={modulesSaving}
+                      />
+                    }
+                    label={opt.label}
+                  />
+                ))}
+              </FormGroup>
+              {modulesError && <Alert severity="error">{modulesError}</Alert>}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeModules} disabled={modulesSaving}>
+            Cancel
+          </Button>
+          <Button onClick={saveModules} variant="contained" disabled={modulesSaving || modulesLoading}>
+            {modulesSaving ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
