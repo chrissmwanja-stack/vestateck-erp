@@ -75,8 +75,8 @@ function useTenantAdminAccess() {
   const [state, setState] = useState<{ isAdmin: boolean; tenantId: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(async ({ data: sessionData }) => {
-      const userId = sessionData.session?.user.id;
+
+    const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
         if (!cancelled) setState({ isAdmin: false, tenantId: null });
         return;
@@ -114,9 +114,26 @@ function useTenantAdminAccess() {
         .maybeSingle();
       if (cancelled) return;
       setState({ isAdmin: !!adminRole, tenantId });
+    };
+
+    // Fetch once on mount for the fast path, but also re-fetch on any auth
+    // state change. A session can swap within the same tab without a full
+    // page reload -- e.g. accepting an invite link while this screen is
+    // already mounted -- and a mount-only effect would keep showing the
+    // previous session's access after the underlying user has changed.
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!cancelled) fetchAccess(sessionData.session?.user.id);
     });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setState(null);
+      fetchAccess(session?.user.id);
+    });
+
     return () => {
       cancelled = true;
+      subscription.subscription.unsubscribe();
     };
   }, []);
   return state;

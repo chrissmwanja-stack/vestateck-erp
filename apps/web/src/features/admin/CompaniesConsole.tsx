@@ -134,8 +134,8 @@ function usePlatformAdminAccess() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(async ({ data: sessionData }) => {
-      const userId = sessionData.session?.user.id;
+
+    const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
         if (!cancelled) setIsPlatformAdmin(false);
         return;
@@ -147,9 +147,25 @@ function usePlatformAdminAccess() {
         .maybeSingle();
       if (cancelled) return;
       setIsPlatformAdmin(error ? false : Boolean(data?.is_platform_admin));
+    };
+
+    // Fetch once on mount for the fast path, but also re-fetch on any auth
+    // state change. A session can swap within the same tab without a full
+    // page reload, and a mount-only effect would keep showing the previous
+    // session's access after the underlying user has changed.
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!cancelled) fetchAccess(sessionData.session?.user.id);
     });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      setIsPlatformAdmin(null);
+      fetchAccess(session?.user.id);
+    });
+
     return () => {
       cancelled = true;
+      subscription.subscription.unsubscribe();
     };
   }, []);
   return isPlatformAdmin;
