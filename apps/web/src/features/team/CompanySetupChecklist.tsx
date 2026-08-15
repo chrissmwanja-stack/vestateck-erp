@@ -72,23 +72,37 @@ function useTenantAdminAccess() {
       }
       const { data: appUser, error: appUserError } = await supabase
         .from('app_users')
-        .select('tenant_id')
+        .select('tenant_id, is_platform_admin')
         .eq('id', userId)
         .maybeSingle();
       if (cancelled || appUserError || !appUser) {
         if (!cancelled) setState({ isAdmin: false, tenantId: null });
         return;
       }
+      // app_users.tenant_id is the caller's real (home) tenant and doesn't
+      // move during impersonation. get_my_tenant_id() resolves to the
+      // impersonated tenant server-side, so it's the one that actually
+      // matches what invitations/staff_roles/RLS are scoped to right now.
+      const { data: effectiveTenantId, error: tenantIdError } = await supabase.rpc('get_my_tenant_id');
+      if (cancelled) return;
+      const tenantId = tenantIdError || !effectiveTenantId ? appUser.tenant_id : effectiveTenantId;
+      // Platform admins get full access to every module while impersonating
+      // a tenant (view mode included) -- they don't need a staff_roles admin
+      // row in that company to manage it.
+      if (appUser.is_platform_admin) {
+        setState({ isAdmin: true, tenantId });
+        return;
+      }
       const { data: adminRole } = await supabase
         .from('staff_roles')
         .select('id')
         .eq('user_id', userId)
-        .eq('tenant_id', appUser.tenant_id)
+        .eq('tenant_id', tenantId)
         .eq('role', 'admin')
         .limit(1)
         .maybeSingle();
       if (cancelled) return;
-      setState({ isAdmin: !!adminRole, tenantId: appUser.tenant_id });
+      setState({ isAdmin: !!adminRole, tenantId });
     });
     return () => {
       cancelled = true;
