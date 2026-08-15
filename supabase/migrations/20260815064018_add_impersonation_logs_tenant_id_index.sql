@@ -1,0 +1,1 @@
+create index if not exists idx_impersonation_logs_tenant_id on public.impersonation_logs (tenant_id);
