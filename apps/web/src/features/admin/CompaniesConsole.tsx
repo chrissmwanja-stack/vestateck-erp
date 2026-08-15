@@ -745,8 +745,9 @@ export default function CompaniesConsole() {
           <DialogContentText>
             {statusTarget?.next === 'suspended' ? (
               <>
-                {statusTarget?.tenant.name} will be marked suspended. This is a status label only —
-                it does not yet block their users from logging in or using the platform.
+                {statusTarget?.tenant.name} will be marked suspended. Their users will immediately
+                lose access to the platform (they'll see a "your company's access has been
+                suspended" message) — you'll still be able to "View as" them for support purposes.
               </>
             ) : (
               <>{statusTarget?.tenant.name} will be marked active again.</>
