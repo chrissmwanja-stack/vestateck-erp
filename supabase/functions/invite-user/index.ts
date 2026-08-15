@@ -131,6 +131,26 @@ serve(async (req) => {
       return jsonResponse({ error: 'Caller has no app_users record' }, 403);
     }
 
+    // --- Resolve caller's effective tenant ---
+    // Mirrors get_my_tenant_id(): a platform admin impersonating a company
+    // is acting on that company's tenant, not their own home tenant. Without
+    // this, callerRow.tenant_id is always the platform tenant during
+    // impersonation and every member invite gets rejected.
+    let effectiveTenantId = callerRow.tenant_id;
+    if (callerRow.is_platform_admin) {
+      const { data: impersonation } = await admin
+        .from('impersonation_sessions')
+        .select('tenant_id')
+        .eq('platform_admin_id', callerId)
+        .is('ended_at', null)
+        .gt('started_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (impersonation?.tenant_id) {
+        effectiveTenantId = impersonation.tenant_id;
+      }
+    }
+
     // --- Authorization ---
     if (role_bundle === 'company_admin') {
       if (!callerRow.is_platform_admin) {
@@ -139,10 +159,20 @@ serve(async (req) => {
           403
         );
       }
+    } else if (callerRow.is_platform_admin) {
+      // Platform admins get full access to every module while impersonating
+      // a tenant -- they don't need a staff_roles admin row in that company
+      // to manage it. Still scoped to the tenant they're actually acting on.
+      if (tenant_id !== effectiveTenantId) {
+        return jsonResponse(
+          { error: 'You can only invite members into the tenant you are currently viewing' },
+          403
+        );
+      }
     } else {
       // member invite: caller must be a module admin, and only within
       // their own tenant.
-      if (tenant_id !== callerRow.tenant_id) {
+      if (tenant_id !== effectiveTenantId) {
         return jsonResponse(
           { error: 'You can only invite members into your own tenant' },
           403
