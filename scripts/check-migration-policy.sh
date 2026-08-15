@@ -34,22 +34,29 @@ FAIL=0
 for f in $NEW_MIGRATIONS; do
   [ -f "$f" ] || continue
 
-  if grep -qiE 'insert\s+into\s+auth\.users' "$f"; then
+  # Strip full-line and trailing SQL comments before checking. Comments
+  # (e.g. explaining a *past* violation being fixed) shouldn't trip the
+  # same pattern as live SQL -- see 20260814150000_fix_all_seeded_users_
+  # null_string_columns.sql, whose comment text contained the literal
+  # string "insert into auth.users" while the SQL itself only UPDATEs.
+  CODE=$(sed -E 's/--.*$//' "$f")
+
+  if echo "$CODE" | grep -qiE 'insert\s+into\s+auth\.users'; then
     echo "FAIL: $f inserts into auth.users directly. Demo/test accounts belong in supabase/seed.sql, not a migration. (MIGRATION_POLICY.md, rule 1)"
     FAIL=1
   fi
 
-  if grep -qiE "crypt\(\s*'" "$f"; then
+  if echo "$CODE" | grep -qiE "crypt\(\s*'"; then
     echo "FAIL: $f contains a crypt('literal', ...) call -- looks like a committed password. (MIGRATION_POLICY.md, rule 2)"
     FAIL=1
   fi
 
-  if grep -qiE '\bfor\s+all\b' "$f"; then
+  if echo "$CODE" | grep -qiE '\bfor\s+all\b'; then
     echo "FAIL: $f uses a 'FOR ALL' RLS policy. Split into SELECT/INSERT/UPDATE/DELETE. (MIGRATION_POLICY.md, rule 4)"
     FAIL=1
   fi
 
-  if grep -qiE 'tenant_id\s+uuid\s+not\s+null' "$f" && ! grep -qiE 'references\s+(public\.)?tenants\s*\(' "$f"; then
+  if echo "$CODE" | grep -qiE 'tenant_id\s+uuid\s+not\s+null' && ! echo "$CODE" | grep -qiE 'references\s+(public\.)?tenants\s*\('; then
     echo "FAIL: $f adds a tenant_id column with no 'references tenants(id)' FK in the same file. (MIGRATION_POLICY.md, rule 5)"
     FAIL=1
   fi
