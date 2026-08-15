@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -71,6 +71,59 @@ export default function ApprovalQueue() {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id ?? null);
     });
+  }, []);
+
+  // Live updates — get_my_approval_queue() is a computed RPC (joins
+  // requests against my_stages/delegations/offers/PO), not a plain table
+  // select, so there's no single row-level "postgres_changes" filter that
+  // maps to queue membership the way NotificationBell's recipient_id
+  // filter does. Instead: listen for INSERT/UPDATE on `requests` (new
+  // requests landing at my stage, or another approver's decision moving a
+  // request's current_stage_id into or out of my stage) and on
+  // `request_offers` (an offer being submitted/selected can change what
+  // this queue displays for a row without necessarily changing the
+  // request's stage), and debounce-reload the queue via the RPC rather
+  // than trying to splice the raw payload into state. RLS still governs
+  // what get_my_approval_queue() actually returns; this subscription only
+  // decides *when* to ask again.
+  const loadQueueRef = useRef(loadQueue);
+  loadQueueRef.current = loadQueue;
+
+  useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadQueueRef.current(), 400);
+    };
+
+    const channel = supabase
+      .channel("approval-queue-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "requests" },
+        scheduleReload
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "requests" },
+        scheduleReload
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "request_offers" },
+        scheduleReload
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "request_offers" },
+        scheduleReload
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Offer-entry and offer-approval rows now have dedicated homes:
