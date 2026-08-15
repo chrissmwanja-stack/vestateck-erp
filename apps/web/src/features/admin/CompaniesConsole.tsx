@@ -182,6 +182,11 @@ export default function CompaniesConsole() {
   const [modulesSaving, setModulesSaving] = useState(false);
   const [modulesError, setModulesError] = useState<string | null>(null);
 
+  const [statusTarget, setStatusTarget] = useState<{ tenant: Tenant; next: 'active' | 'suspended' } | null>(
+    null
+  );
+  const [statusSaving, setStatusSaving] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -396,6 +401,33 @@ export default function CompaniesConsole() {
     setModulesTarget(null);
   };
 
+  // Suspend/activate go through confirmation (same pattern as revoke
+  // invite) since suspending a company is consequential and shouldn't
+  // be one accidental click. 'pending' is deliberately not offered
+  // here -- it's a bootstrap-only state set by create-tenant /
+  // accept-invite, not something to hand-set on an already-running
+  // company.
+  const confirmStatusChange = async () => {
+    if (!statusTarget) return;
+    setActionError(null);
+    setActionNotice(null);
+    setStatusSaving(true);
+    const { error } = await supabase.rpc('set_tenant_status', {
+      p_tenant_id: statusTarget.tenant.id,
+      p_status: statusTarget.next,
+    });
+    setStatusSaving(false);
+    if (error) {
+      setActionError(error.message);
+      return;
+    }
+    setActionNotice(
+      `${statusTarget.tenant.name} ${statusTarget.next === 'suspended' ? 'suspended' : 'reactivated'}.`
+    );
+    setStatusTarget(null);
+    load();
+  };
+
   if (isPlatformAdmin === false) {
     return (
       <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
@@ -500,6 +532,20 @@ export default function CompaniesConsole() {
                         <Button size="small" onClick={() => openModules(row)}>
                           Modules
                         </Button>
+                        {row.status !== 'pending' && (
+                          <Button
+                            size="small"
+                            color={row.status === 'suspended' ? 'success' : 'warning'}
+                            onClick={() =>
+                              setStatusTarget({
+                                tenant: row,
+                                next: row.status === 'suspended' ? 'active' : 'suspended',
+                              })
+                            }
+                          >
+                            {row.status === 'suspended' ? 'Activate' : 'Suspend'}
+                          </Button>
+                        )}
                         <Button
                           size="small"
                           onClick={() => handleImpersonate(row)}
@@ -689,6 +735,34 @@ export default function CompaniesConsole() {
           <Button onClick={() => setRevokeTarget(null)}>Cancel</Button>
           <Button color="error" onClick={confirmRevoke} disabled={rowActionId === revokeTarget?.id}>
             Revoke invite
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!statusTarget} onClose={() => !statusSaving && setStatusTarget(null)}>
+        <DialogTitle>{statusTarget?.next === 'suspended' ? 'Suspend company?' : 'Reactivate company?'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {statusTarget?.next === 'suspended' ? (
+              <>
+                {statusTarget?.tenant.name} will be marked suspended. This is a status label only —
+                it does not yet block their users from logging in or using the platform.
+              </>
+            ) : (
+              <>{statusTarget?.tenant.name} will be marked active again.</>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStatusTarget(null)} disabled={statusSaving}>
+            Cancel
+          </Button>
+          <Button
+            color={statusTarget?.next === 'suspended' ? 'warning' : 'success'}
+            onClick={confirmStatusChange}
+            disabled={statusSaving}
+          >
+            {statusSaving ? 'Saving…' : statusTarget?.next === 'suspended' ? 'Suspend' : 'Activate'}
           </Button>
         </DialogActions>
       </Dialog>
