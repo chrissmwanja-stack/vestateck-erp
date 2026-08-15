@@ -11,6 +11,7 @@ const RequestTracking = lazy(() => import('./features/procurement/RequestTrackin
 const ProcurementInfo = lazy(() => import('./features/procurement/ProcurementInfo'));
 import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
+import RequireModule from './components/RequireModule';
 import { useAuth } from './lib/authContext';
 import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
@@ -347,159 +348,173 @@ export default function App() {
               <Route path="/offers/approval-po" element={<OfferApprovalPO />} />
               
               {/* IT SUPPORT - your existing work */}
-              <Route path="/it-support/new-ticket" element={<NewTicket />} />
-              <Route path="/it-support/my-tickets" element={<MyTickets />} />
-              <Route path="/it-support/all-tickets" element={<AllTickets />} />
-              <Route path="/it-support/approvals" element={<TicketApprovals />} />
-              <Route path="/it-support/problems" element={<ProblemManagement />} />
-              <Route path="/it-support/dashboard" element={<ItSupportDashboard />} />
-              <Route path="/it-support/assets/hardware" element={<HardwareInventory />} />
-              <Route path="/it-support/assets/software" element={<SoftwareInventory />} />
-              <Route path="/it-support/assets/licenses" element={<LicenseTracking />} />
-              <Route path="/it-support/assets/assignments" element={<AssetAssignments />} />
-              <Route path="/it-support/assets/request" element={<AssetRequest />} />
-              <Route path="/it-support/access/accounts" element={<AccountManagement />} />
-              <Route path="/it-support/access/groups" element={<GroupManagement />} />
-              <Route path="/it-support/admin/categories" element={<TicketCategoriesAdmin />} />
-              <Route path="/it-support/admin/slas" element={<SlaPoliciesAdmin />} />
-              <Route path="/it-support/admin/priorities" element={<PriorityLevelsAdmin />} />
-              <Route path="/it-support/admin/teams" element={<SupportTeamsAdmin />} />
-              <Route path="/it-support/reports/ticket-tracking" element={<TicketTrackingReport />} />
-              <Route path="/it-support/reports/sla" element={<SlaPerformanceReport />} />
-              <Route path="/it-support/reports/assets" element={<AssetReport />} />
-              <Route path="/it-support/kb" element={<KnowledgeBase />} />
-              <Route path="/it-support/faq" element={<Faq />} />
-              <Route path="/it-support/access/requests" element={<AccessRequests />} />
+              <Route element={<RequireModule module="it" />}>
+                <Route path="/it-support/new-ticket" element={<NewTicket />} />
+                <Route path="/it-support/my-tickets" element={<MyTickets />} />
+                <Route path="/it-support/all-tickets" element={<AllTickets />} />
+                <Route path="/it-support/approvals" element={<TicketApprovals />} />
+                <Route path="/it-support/problems" element={<ProblemManagement />} />
+                <Route path="/it-support/dashboard" element={<ItSupportDashboard />} />
+                <Route path="/it-support/assets/hardware" element={<HardwareInventory />} />
+                <Route path="/it-support/assets/software" element={<SoftwareInventory />} />
+                <Route path="/it-support/assets/licenses" element={<LicenseTracking />} />
+                <Route path="/it-support/assets/assignments" element={<AssetAssignments />} />
+                <Route path="/it-support/assets/request" element={<AssetRequest />} />
+                <Route path="/it-support/access/accounts" element={<AccountManagement />} />
+                <Route path="/it-support/access/groups" element={<GroupManagement />} />
+                <Route path="/it-support/admin/categories" element={<TicketCategoriesAdmin />} />
+                <Route path="/it-support/admin/slas" element={<SlaPoliciesAdmin />} />
+                <Route path="/it-support/admin/priorities" element={<PriorityLevelsAdmin />} />
+                <Route path="/it-support/admin/teams" element={<SupportTeamsAdmin />} />
+                <Route path="/it-support/reports/ticket-tracking" element={<TicketTrackingReport />} />
+                <Route path="/it-support/reports/sla" element={<SlaPerformanceReport />} />
+                <Route path="/it-support/reports/assets" element={<AssetReport />} />
+                <Route path="/it-support/kb" element={<KnowledgeBase />} />
+                <Route path="/it-support/faq" element={<Faq />} />
+                <Route path="/it-support/access/requests" element={<AccessRequests />} />
+              </Route>
 
 
               {/* BUSINESS DEVELOPMENT - NOW CONNECTED - Full 32-route shell */}
-              <Route path="/business-development/dashboard" element={<BDDashboard />} />
-              
-              {/* Lead Management */}
-              <Route path="/business-development/leads" element={<LeadsList />} />
-              <Route path="/business-development/leads/new" element={<NewLead />} />
-              <Route path="/business-development/leads/qualified" element={<QualifiedLeads />} />
-              <Route path="/business-development/leads/import" element={<ImportLeads />} />
-              
-              {/* Opportunity Management */}
-              <Route path="/business-development/opportunities" element={<OpportunitiesList />} />
-              <Route path="/business-development/opportunities/pipeline" element={<PipelineBoard />} />
-              <Route path="/business-development/opportunities/new" element={<NewOpportunity />} />
-              
-              {/* Proposals */}
-              <Route path="/business-development/proposals" element={<ProposalsList />} />
-              <Route path="/business-development/proposals/new" element={<NewProposal />} />
-              <Route path="/business-development/proposals/approvals" element={<ProposalApprovals />} />
-              <Route path="/business-development/proposals/templates" element={<ProposalTemplates />} />
-              <Route path="/business-development/proposals/tracking" element={<ProposalTracking />} />
-              
-              {/* Client Management */}
-              <Route path="/business-development/clients" element={<ClientsList />} />
-              <Route path="/business-development/clients/contacts" element={<ContactsList />} />
-              <Route path="/business-development/clients/activities" element={<ActivitiesList />} />
-              
-              {/* Tender Management */}
-              <Route path="/business-development/tenders" element={<TendersList />} />
-              <Route path="/business-development/tenders/new" element={<NewTender />} />
-              <Route path="/business-development/tenders/submissions" element={<SubmissionsList />} />
-              <Route path="/business-development/tenders/tracking" element={<TenderTracking />} />
-              
-              {/* Reports */}
-              <Route path="/business-development/reports/pipeline" element={<PipelineReport />} />
-              <Route path="/business-development/reports/win-loss" element={<WinLossReport />} />
-              <Route path="/business-development/reports/proposal-status" element={<ProposalStatusReport />} />
-              <Route path="/business-development/reports/lead-source" element={<LeadSourceReport />} />
-              <Route path="/business-development/reports/forecast" element={<RevenueForecast />} />
-              
-              {/* Admin - lookups backing dropdowns */}
-              <Route path="/business-development/admin/lead-sources" element={<LeadSourcesAdmin />} />
-              <Route path="/business-development/admin/lead-statuses" element={<LeadStatusesAdmin />} />
-              <Route path="/business-development/admin/opportunity-stages" element={<OpportunityStagesAdmin />} />
-              <Route path="/business-development/admin/proposal-types" element={<ProposalTypesAdmin />} />
-              <Route path="/business-development/admin/proposal-statuses" element={<ProposalStatusesAdmin />} />
-              <Route path="/business-development/admin/client-categories" element={<ClientCategoriesAdmin />} />
-              <Route path="/business-development/admin/tender-types" element={<TenderTypesAdmin />} />
+              <Route element={<RequireModule module="bd" />}>
+                <Route path="/business-development/dashboard" element={<BDDashboard />} />
+
+                {/* Lead Management */}
+                <Route path="/business-development/leads" element={<LeadsList />} />
+                <Route path="/business-development/leads/new" element={<NewLead />} />
+                <Route path="/business-development/leads/qualified" element={<QualifiedLeads />} />
+                <Route path="/business-development/leads/import" element={<ImportLeads />} />
+
+                {/* Opportunity Management */}
+                <Route path="/business-development/opportunities" element={<OpportunitiesList />} />
+                <Route path="/business-development/opportunities/pipeline" element={<PipelineBoard />} />
+                <Route path="/business-development/opportunities/new" element={<NewOpportunity />} />
+
+                {/* Proposals */}
+                <Route path="/business-development/proposals" element={<ProposalsList />} />
+                <Route path="/business-development/proposals/new" element={<NewProposal />} />
+                <Route path="/business-development/proposals/approvals" element={<ProposalApprovals />} />
+                <Route path="/business-development/proposals/templates" element={<ProposalTemplates />} />
+                <Route path="/business-development/proposals/tracking" element={<ProposalTracking />} />
+
+                {/* Client Management */}
+                <Route path="/business-development/clients" element={<ClientsList />} />
+                <Route path="/business-development/clients/contacts" element={<ContactsList />} />
+                <Route path="/business-development/clients/activities" element={<ActivitiesList />} />
+
+                {/* Tender Management */}
+                <Route path="/business-development/tenders" element={<TendersList />} />
+                <Route path="/business-development/tenders/new" element={<NewTender />} />
+                <Route path="/business-development/tenders/submissions" element={<SubmissionsList />} />
+                <Route path="/business-development/tenders/tracking" element={<TenderTracking />} />
+
+                {/* Reports */}
+                <Route path="/business-development/reports/pipeline" element={<PipelineReport />} />
+                <Route path="/business-development/reports/win-loss" element={<WinLossReport />} />
+                <Route path="/business-development/reports/proposal-status" element={<ProposalStatusReport />} />
+                <Route path="/business-development/reports/lead-source" element={<LeadSourceReport />} />
+                <Route path="/business-development/reports/forecast" element={<RevenueForecast />} />
+
+                {/* Admin - lookups backing dropdowns */}
+                <Route path="/business-development/admin/lead-sources" element={<LeadSourcesAdmin />} />
+                <Route path="/business-development/admin/lead-statuses" element={<LeadStatusesAdmin />} />
+                <Route path="/business-development/admin/opportunity-stages" element={<OpportunityStagesAdmin />} />
+                <Route path="/business-development/admin/proposal-types" element={<ProposalTypesAdmin />} />
+                <Route path="/business-development/admin/proposal-statuses" element={<ProposalStatusesAdmin />} />
+                <Route path="/business-development/admin/client-categories" element={<ClientCategoriesAdmin />} />
+                <Route path="/business-development/admin/tender-types" element={<TenderTypesAdmin />} />
+              </Route>
 
 
 
               {/* LAW AND COMPLIANCE - SHELL WIRED */}
-              <Route path="/law-compliance/dashboard" element={<LawDashboard />} />
-              <Route path="/law-compliance/contracts" element={<ContractsList />} />
-              <Route path="/law-compliance/contracts/new" element={<NewContract />} />
-              <Route path="/law-compliance/contracts/approvals" element={<ContractApprovals />} />
-              <Route path="/law-compliance/cases" element={<CasesList />} />
-              <Route path="/law-compliance/cases/hearings" element={<HearingsList />} />
-              <Route path="/law-compliance/compliance/register" element={<ComplianceRegister />} />
-              <Route path="/law-compliance/compliance/filings" element={<FilingsList />} />
-              <Route path="/law-compliance/reports/expiry" element={<ExpiryReport />} />
-              <Route path="/law-compliance/reports/cases" element={<CaseStatusReport />} />
-              <Route path="/law-compliance/admin/contract-types" element={<ContractTypesAdmin />} />
-              <Route path="/law-compliance/admin/case-types" element={<CaseTypesAdmin />} />
+              <Route element={<RequireModule module="legal" />}>
+                <Route path="/law-compliance/dashboard" element={<LawDashboard />} />
+                <Route path="/law-compliance/contracts" element={<ContractsList />} />
+                <Route path="/law-compliance/contracts/new" element={<NewContract />} />
+                <Route path="/law-compliance/contracts/approvals" element={<ContractApprovals />} />
+                <Route path="/law-compliance/cases" element={<CasesList />} />
+                <Route path="/law-compliance/cases/hearings" element={<HearingsList />} />
+                <Route path="/law-compliance/compliance/register" element={<ComplianceRegister />} />
+                <Route path="/law-compliance/compliance/filings" element={<FilingsList />} />
+                <Route path="/law-compliance/reports/expiry" element={<ExpiryReport />} />
+                <Route path="/law-compliance/reports/cases" element={<CaseStatusReport />} />
+                <Route path="/law-compliance/admin/contract-types" element={<ContractTypesAdmin />} />
+                <Route path="/law-compliance/admin/case-types" element={<CaseTypesAdmin />} />
+              </Route>
 
 
               {/* HUMAN RESOURCES - SHELL WIRED */}
-              <Route path="/hr/dashboard" element={<HRDashboard />} />
-              <Route path="/hr/employees" element={<EmployeesList />} />
-              <Route path="/hr/employees/new" element={<EmployeesList />} />
-              <Route path="/hr/org-chart" element={<OrgChart />} />
-              <Route path="/hr/attendance" element={<AttendanceList />} />
-              <Route path="/hr/leaves" element={<LeaveRequestsList />} />
-              <Route path="/hr/leaves/approvals" element={<LeaveRequestsList />} />
-              <Route path="/hr/recruitment/jobs" element={<JobPostingsList />} />
-              <Route path="/hr/recruitment/applications" element={<ApplicationsList />} />
-              <Route path="/hr/payroll" element={<PayrollList />} />
-              <Route path="/hr/payroll/compensation-history" element={<CompensationHistory />} />
-              <Route path="/hr/payroll/approvals" element={<PayrollApprovals />} />
-              <Route path="/hr/performance/appraisals" element={<AppraisalsList />} />
-              <Route path="/hr/training" element={<TrainingList />} />
-              <Route path="/hr/reports/headcount" element={<HeadcountReport />} />
-              <Route path="/hr/reports/attendance" element={<AttendanceReport />} />
-              <Route path="/hr/admin/departments" element={<DepartmentsAdmin />} />
-              <Route path="/hr/admin/positions" element={<PositionsAdmin />} />
-              <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
+              <Route element={<RequireModule module="hr" />}>
+                <Route path="/hr/dashboard" element={<HRDashboard />} />
+                <Route path="/hr/employees" element={<EmployeesList />} />
+                <Route path="/hr/employees/new" element={<EmployeesList />} />
+                <Route path="/hr/org-chart" element={<OrgChart />} />
+                <Route path="/hr/attendance" element={<AttendanceList />} />
+                <Route path="/hr/leaves" element={<LeaveRequestsList />} />
+                <Route path="/hr/leaves/approvals" element={<LeaveRequestsList />} />
+                <Route path="/hr/recruitment/jobs" element={<JobPostingsList />} />
+                <Route path="/hr/recruitment/applications" element={<ApplicationsList />} />
+                <Route path="/hr/payroll" element={<PayrollList />} />
+                <Route path="/hr/payroll/compensation-history" element={<CompensationHistory />} />
+                <Route path="/hr/payroll/approvals" element={<PayrollApprovals />} />
+                <Route path="/hr/performance/appraisals" element={<AppraisalsList />} />
+                <Route path="/hr/training" element={<TrainingList />} />
+                <Route path="/hr/reports/headcount" element={<HeadcountReport />} />
+                <Route path="/hr/reports/attendance" element={<AttendanceReport />} />
+                <Route path="/hr/admin/departments" element={<DepartmentsAdmin />} />
+                <Route path="/hr/admin/positions" element={<PositionsAdmin />} />
+                <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
+              </Route>
 
               {/* MACHINE OPERATION - 100% REAL NOW */}
-              <Route path="/machine-operation/dashboard" element={<MachineDashboard />} />
-              <Route path="/machine-operation/equipment" element={<EquipmentList />} />
-              <Route path="/machine-operation/equipment/assignments" element={<EquipmentAssignments />} />
-              <Route path="/machine-operation/maintenance/schedule" element={<MaintenanceSchedule />} />
-              <Route path="/machine-operation/maintenance/requests" element={<MaintenanceRequests />} />
-              <Route path="/machine-operation/maintenance/history" element={<MaintenanceHistory />} />
-              <Route path="/machine-operation/logs/daily" element={<DailyLogs />} />
-              <Route path="/machine-operation/logs/fuel" element={<FuelLogs />} />
-              <Route path="/machine-operation/reports/utilization" element={<UtilizationReport />} />
-              <Route path="/machine-operation/reports/downtime" element={<DowntimeReport />} />
-              <Route path="/machine-operation/admin/types" element={<MachineTypesAdmin />} />
-              <Route path="/machine-operation/admin/maintenance-types" element={<MaintenanceTypesAdmin />} />
+              <Route element={<RequireModule module="machine_operation" />}>
+                <Route path="/machine-operation/dashboard" element={<MachineDashboard />} />
+                <Route path="/machine-operation/equipment" element={<EquipmentList />} />
+                <Route path="/machine-operation/equipment/assignments" element={<EquipmentAssignments />} />
+                <Route path="/machine-operation/maintenance/schedule" element={<MaintenanceSchedule />} />
+                <Route path="/machine-operation/maintenance/requests" element={<MaintenanceRequests />} />
+                <Route path="/machine-operation/maintenance/history" element={<MaintenanceHistory />} />
+                <Route path="/machine-operation/logs/daily" element={<DailyLogs />} />
+                <Route path="/machine-operation/logs/fuel" element={<FuelLogs />} />
+                <Route path="/machine-operation/reports/utilization" element={<UtilizationReport />} />
+                <Route path="/machine-operation/reports/downtime" element={<DowntimeReport />} />
+                <Route path="/machine-operation/admin/types" element={<MachineTypesAdmin />} />
+                <Route path="/machine-operation/admin/maintenance-types" element={<MaintenanceTypesAdmin />} />
+              </Route>
 
               {/* PMO - 100% REAL NOW */}
-              <Route path="/pmo/dashboard" element={<PMODashboard />} />
-              <Route path="/pmo/projects" element={<ProjectsList />} />
-              <Route path="/pmo/projects/new" element={<NewProject />} />
-              <Route path="/pmo/projects/:id" element={<ProjectDetail />} />
-              <Route path="/pmo/tasks" element={<TasksList />} />
-              <Route path="/pmo/milestones" element={<MilestonesList />} />
-              <Route path="/pmo/gantt" element={<GanttChart />} />
-              <Route path="/pmo/resources/allocation" element={<ResourceAllocation />} />
-              <Route path="/pmo/resources/utilization" element={<ResourceUtilization />} />
-              <Route path="/pmo/reports/status" element={<ProjectStatusReport />} />
-              <Route path="/pmo/reports/budget" element={<BudgetVsActualReport />} />
-              <Route path="/pmo/admin/categories" element={<ProjectCategoriesAdmin />} />
-              <Route path="/pmo/admin/task-types" element={<TaskTypesAdmin />} />
+              <Route element={<RequireModule module="pmo" />}>
+                <Route path="/pmo/dashboard" element={<PMODashboard />} />
+                <Route path="/pmo/projects" element={<ProjectsList />} />
+                <Route path="/pmo/projects/new" element={<NewProject />} />
+                <Route path="/pmo/projects/:id" element={<ProjectDetail />} />
+                <Route path="/pmo/tasks" element={<TasksList />} />
+                <Route path="/pmo/milestones" element={<MilestonesList />} />
+                <Route path="/pmo/gantt" element={<GanttChart />} />
+                <Route path="/pmo/resources/allocation" element={<ResourceAllocation />} />
+                <Route path="/pmo/resources/utilization" element={<ResourceUtilization />} />
+                <Route path="/pmo/reports/status" element={<ProjectStatusReport />} />
+                <Route path="/pmo/reports/budget" element={<BudgetVsActualReport />} />
+                <Route path="/pmo/admin/categories" element={<ProjectCategoriesAdmin />} />
+                <Route path="/pmo/admin/task-types" element={<TaskTypesAdmin />} />
+              </Route>
 
               {/* SUSTAINABILITY - 100% REAL NOW */}
-              <Route path="/sustainability/dashboard" element={<SustainabilityDashboard />} />
-              <Route path="/sustainability/metrics/carbon" element={<CarbonMetrics />} />
-              <Route path="/sustainability/metrics/energy" element={<EnergyMetrics />} />
-              <Route path="/sustainability/metrics/waste" element={<WasteMetrics />} />
-              <Route path="/sustainability/initiatives" element={<InitiativesList />} />
-              <Route path="/sustainability/initiatives/new" element={<NewInitiative />} />
-              <Route path="/sustainability/audits" element={<AuditsList />} />
-              <Route path="/sustainability/certifications" element={<CertificationsList />} />
-              <Route path="/sustainability/reports/sustainability" element={<SustainabilityReport />} />
-              <Route path="/sustainability/reports/excellence" element={<ExcellenceReport />} />
-              <Route path="/sustainability/admin/metric-types" element={<MetricTypesAdmin />} />
-              <Route path="/sustainability/admin/categories" element={<InitiativeCategoriesAdmin />} />
+              <Route element={<RequireModule module="sustainability" />}>
+                <Route path="/sustainability/dashboard" element={<SustainabilityDashboard />} />
+                <Route path="/sustainability/metrics/carbon" element={<CarbonMetrics />} />
+                <Route path="/sustainability/metrics/energy" element={<EnergyMetrics />} />
+                <Route path="/sustainability/metrics/waste" element={<WasteMetrics />} />
+                <Route path="/sustainability/initiatives" element={<InitiativesList />} />
+                <Route path="/sustainability/initiatives/new" element={<NewInitiative />} />
+                <Route path="/sustainability/audits" element={<AuditsList />} />
+                <Route path="/sustainability/certifications" element={<CertificationsList />} />
+                <Route path="/sustainability/reports/sustainability" element={<SustainabilityReport />} />
+                <Route path="/sustainability/reports/excellence" element={<ExcellenceReport />} />
+                <Route path="/sustainability/admin/metric-types" element={<MetricTypesAdmin />} />
+                <Route path="/sustainability/admin/categories" element={<InitiativeCategoriesAdmin />} />
+              </Route>
 
 
             </Route>
