@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { Link as RouterLink, Route, Routes, Navigate } from 'react-router-dom';
 import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
 
@@ -13,7 +13,6 @@ import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
 import { useAuth } from './lib/authContext';
-import { supabase } from './lib/supabaseClient';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
@@ -197,57 +196,18 @@ const CertificationsList = lazy(() => import('./modules/portals/sustainability/p
 const SustainabilityReport = lazy(() => import('./modules/portals/sustainability/pages/reports/SustainabilityReport'));
 const ExcellenceReport = lazy(() => import('./modules/portals/sustainability/pages/reports/ExcellenceReport'));
 
-function useFinanceAccess(sessionUserId: string | undefined) {
-  const [isFinance, setIsFinance] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!sessionUserId) {
-      setIsFinance(null);
-      return;
-    }
-    let cancelled = false;
-    supabase.rpc('am_i_finance').then(({ data, error }) => {
-      if (cancelled) return;
-      setIsFinance(error ? false : Boolean(data));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionUserId]);
-
-  return isFinance;
-}
-
 function TopNav() {
   const { session, signOut } = useAuth();
-  const isFinance = useFinanceAccess(session?.user?.id);
 
   return (
      <>
     <AppBar position="static">
       <Toolbar sx={{ gap: 2 }}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          ERP Platform
+          VestaPortal
         </Typography>
         {session && (
           <>
-            <Button color="inherit" component={RouterLink} to="/requests/my-requests">
-              My requests
-            </Button>
-            <Button color="inherit" component={RouterLink} to="/requests/new">
-              New request
-            </Button>
-            <Button color="inherit" component={RouterLink} to="/approvals">
-              Approval queue
-            </Button>
-            <Button color="inherit" component={RouterLink} to="/procurement/track">
-              Procurement
-            </Button>
-            {isFinance && (
-              <Button color="inherit" component={RouterLink} to="/finance/purchase-orders">
-                Purchase orders
-              </Button>
-            )}
             <Button color="inherit" component={RouterLink} to="/delegations">
               Delegations
             </Button>
