@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Link as RouterLink, Route, Routes, Navigate } from 'react-router-dom';
-import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, Tooltip } from '@mui/material';
+import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
 
 const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
 const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
@@ -13,6 +14,7 @@ import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
 import { useAuth } from './lib/authContext';
+import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
@@ -198,6 +200,7 @@ const ExcellenceReport = lazy(() => import('./modules/portals/sustainability/pag
 
 function TopNav() {
   const { session, signOut } = useAuth();
+  const { resolvedMode, toggle } = useThemeMode();
 
   return (
      <>
@@ -206,6 +209,11 @@ function TopNav() {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           VestaPortal
         </Typography>
+        <Tooltip title={resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <IconButton color="inherit" onClick={toggle} aria-label="Toggle dark mode">
+            {resolvedMode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
+          </IconButton>
+        </Tooltip>
         {session && (
           <>
             <Button color="inherit" component={RouterLink} to="/delegations">

@@ -20,7 +20,11 @@
     "react-hook-form": "^7.53.0",
     "react-router-dom": "^6.26.0",
     "zod": "^3.23.0",
+     "@fontsource/inter": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
     "@erp-platform/shared": "*"
+   
+
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

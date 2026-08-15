@@ -106,7 +106,7 @@ export default function LoginPage() {
             position: 'relative',
             px: { xs: 3, md: 5 },
             py: { xs: 4, md: 6 },
-            background: 'linear-gradient(155deg, #0B1F3A 0%, #123A66 62%, #1B4F8C 100%)',
+            background: 'linear-gradient(155deg, #0A2530 0%, #123B44 62%, #1B5560 100%)',
             color: '#fff',
             display: 'flex',
             flexDirection: 'column',
@@ -165,7 +165,7 @@ export default function LoginPage() {
                     transform: i % 2 === 1 ? 'translateY(6px)' : 'none',
                   }}
                 >
-                  <Icon sx={{ fontSize: 16, color: '#8FBBFF' }} />
+                  <Icon sx={{ fontSize: 16, color: '#E0B368' }} />
                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>
                     {label}
                   </Typography>
