@@ -262,8 +262,7 @@ export default function LoginPage() {
             }}
           >
             <Typography variant="caption" color="text.secondary">
-              Staging environment — use the test account credentials created in Supabase
-              Authentication.
+              Need help? Contact your company admin or support@erp.com
             </Typography>
           </Box>
         </Box>
