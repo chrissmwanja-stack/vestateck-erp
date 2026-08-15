@@ -13,6 +13,7 @@ import {
   DialogTitle,
   FormControlLabel,
   FormGroup,
+  Link,
   MenuItem,
   Paper,
   Stack,
@@ -26,7 +27,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { resendInvite, revokeInvite } from '../team/inviteActions';
 
@@ -480,7 +481,11 @@ export default function CompaniesConsole() {
               <TableBody>
                 {rows.map((row) => (
                   <TableRow key={row.id} hover>
-                    <TableCell>{row.name}</TableCell>
+                    <TableCell>
+                      <Link component={RouterLink} to={`/admin/companies/${row.id}`}>
+                        {row.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Chip size="small" label={row.status} color={statusColor[row.status]} />
                     </TableCell>

@@ -19,6 +19,7 @@ import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
+const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
 const CompanySetupChecklist = lazy(() => import('./features/team/CompanySetupChecklist'));
 const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
@@ -331,6 +332,7 @@ export default function App() {
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
               <Route path="/admin/companies" element={<CompaniesConsole />} />
+              <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
