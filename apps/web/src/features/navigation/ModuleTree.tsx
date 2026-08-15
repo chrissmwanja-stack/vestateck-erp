@@ -649,7 +649,7 @@ export default function ModuleTree() {
             {activePortal.label}
           </Typography>
           <Typography variant="caption" sx={{ color: "primary.contrastText", opacity: 0.8 }}>
-            Vestateck ERP — click to switch portal
+            VestaPortal — click to switch portal
           </Typography>
         </Box>
         <ExpandMore sx={{ color: "primary.contrastText", flexShrink: 0 }} />

@@ -138,7 +138,7 @@ export default function LoginPage() {
               Multi-department ERP
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.15, mt: 0.5 }}>
-              Vestateck
+              VestaPortal
             </Typography>
             {!isCompact && (
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)', mt: 1.5, maxWidth: 320 }}>
@@ -181,7 +181,7 @@ export default function LoginPage() {
             Welcome back
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
-            Sign in to your Vestateck workspace.
+            Sign in to your VestaPortal workspace.
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>

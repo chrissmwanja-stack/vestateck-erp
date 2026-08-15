@@ -73,7 +73,7 @@ export default function RequireAuth() {
         <Stack spacing={2}>
           <Alert severity="warning">Your company's access has been suspended.</Alert>
           <Typography variant="body2" color="text.secondary">
-            Contact your company admin or Vestateck support if you believe this is a mistake.
+            Contact your company admin or VestaPortal support if you believe this is a mistake.
           </Typography>
           <Button variant="outlined" onClick={() => signOut()} sx={{ alignSelf: 'flex-start' }}>
             Sign out

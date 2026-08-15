@@ -175,7 +175,7 @@ serve(async (req) => {
       y -= lineGap;
     };
 
-    drawText(request.tenants?.name ?? 'Vestateck ERP', { size: 16, useBold: true });
+    drawText(request.tenants?.name ?? 'VestaPortal', { size: 16, useBold: true });
     y -= 4;
     drawText('PURCHASE ORDER', { size: 14, useBold: true, color: [0.06, 0.17, 0.34] });
     y -= 6;

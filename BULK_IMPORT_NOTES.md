@@ -1,6 +1,6 @@
 # Bulk Import — Employees, Accounts, Equipment, Leads
 
-Built and validated against a fresh clone of `vestateck-erp` (typechecked with
+Built and validated against a fresh clone of `vestaportal` (typechecked with
 `tsc -b` and a full `vite build` — both pass clean). Copy these files into
 your repo at the matching paths, overwriting what's there.
 

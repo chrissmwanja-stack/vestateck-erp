@@ -32,7 +32,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // Where the invite email's link lands. Point this at the Accept Invite
-// screen once it exists, e.g. https://erp.vestateck.com/accept-invite
+// screen once it exists, e.g. https://app.vestaportal.com/accept-invite
 const ACCEPT_INVITE_URL = Deno.env.get('ACCEPT_INVITE_URL') ?? '';
 
 const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;

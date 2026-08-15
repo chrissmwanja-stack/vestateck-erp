@@ -1,4 +1,4 @@
-# Vestateck ERP
+# VestaPortal
 
 Multi-tenant enterprise platform covering Procurement, Finance, HR, IT Support,
 Business Development, Law & Compliance, PMO, Machine Operation, and Sustainability.
