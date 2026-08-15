@@ -17,6 +17,12 @@
 -- replay against a fresh shadow/dev database without erroring or
 -- duplicating rows (material_catalog's unique (tenant_id, code)
 -- constraint was added in 20260814100507).
+--
+-- The 'Test Company' tenant (c4206048-...) was created directly in Studio
+-- on 2026-08-10, not by any migration -- same situation as gm@test.local /
+-- pm@test.local in seed.sql. A fresh shadow/dev database won't have this
+-- tenant, so the tenant_id FK on material_types would fail outright with
+-- no guard. Skip gracefully instead, mirroring seed.sql's pattern.
 
 alter table material_types disable trigger trg_set_material_types_defaults;
 alter table material_groups disable trigger trg_set_material_groups_defaults;
@@ -29,6 +35,11 @@ declare
   v_group_it uuid;
   v_group_office uuid;
 begin
+  if not exists (select 1 from tenants where id = v_tenant_id) then
+    raise notice 'seed_sample_material_catalog: tenant % (Test Company) not found -- skipping (this tenant was created live in Studio, not via a migration).', v_tenant_id;
+    return;
+  end if;
+
   insert into material_types (tenant_id, code, name) values
     (v_tenant_id, 'CONS', 'Consumable')
     on conflict (tenant_id, code) do nothing
