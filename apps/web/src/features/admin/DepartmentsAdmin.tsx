@@ -23,7 +23,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 
 interface Department {
@@ -33,20 +33,72 @@ interface Department {
   is_active: boolean;
 }
 
+interface ParsedDeptRow {
+  name: string;
+  parentName: string | null;
+  is_active: boolean;
+}
+
 const emptyForm = { name: '', parent_department_id: '', is_active: true };
 
-// Unlike organizations/account_categories, departments_select_tenant is
-// open to every tenant member (any requester needs to see the list to pick
-// their department) -- only insert/update/delete are Finance-gated. So
-// this screen shows the read-only table to everyone, and only hides the
-// New/Edit actions from non-Finance users.
+// Splits a CSV line respecting quoted commas, e.g. "Engineering, Civil",...
+function splitCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      cells.push(current);
+      current = '';
+    } else current += char;
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+function parseDepartmentsCsv(text: string): ParsedDeptRow[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const looksLikeHeader = /^name$/i.test(splitCsvLine(lines[0])[0] || '');
+  const dataLines = looksLikeHeader ? lines.slice(1) : lines;
+  return dataLines
+    .map((line) => splitCsvLine(line))
+    .filter((cells) => (cells[0] || '').trim().length > 0)
+    .map((cells) => ({
+      name: cells[0].trim(),
+      parentName: (cells[1] || '').trim() || null,
+      is_active: (cells[2] || '').trim() === '' ? true : /^(true|1|yes|active)$/i.test(cells[2].trim()),
+    }));
+}
+
+// departments_select_tenant is open to every tenant member (any requester
+// needs to see the list to pick their department) -- insert/update/delete
+// are open to Finance team members OR any module admin (see
+// broaden_departments_write_to_any_module_admin migration), so this screen
+// shows the read-only table to everyone and only hides the New/Edit actions
+// from users who are neither.
 function useFinanceAccess() {
   const [isFinance, setIsFinance] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
-    supabase.rpc('am_i_finance').then(({ data, error }) => {
+    Promise.all([
+      supabase.rpc('am_i_finance'),
+      supabase.rpc('is_any_module_admin'),
+    ]).then(([financeResult, moduleAdminResult]) => {
       if (cancelled) return;
-      setIsFinance(error ? false : Boolean(data));
+      const canWrite =
+        (!financeResult.error && Boolean(financeResult.data)) ||
+        (!moduleAdminResult.error && Boolean(moduleAdminResult.data));
+      setIsFinance(canWrite);
     });
     return () => {
       cancelled = true;
@@ -66,6 +118,12 @@ export default function DepartmentsAdmin() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: string[]; unresolved: string[] } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,19 +189,101 @@ export default function DepartmentsAdmin() {
     load();
   };
 
+  const openImport = () => {
+    setImportText('');
+    setImportResult(null);
+    setImportError(null);
+    setImportOpen(true);
+  };
+
+  const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setImportText(String(reader.result || ''));
+    reader.readAsText(file);
+  };
+
+  // Multi-pass import: repeatedly inserts whichever pending rows have a
+  // resolvable parent (already in the DB, already inserted this run, or no
+  // parent at all), so the CSV doesn't need parents listed before children
+  // in a strict order -- any order works as long as the hierarchy is
+  // eventually resolvable. Rows whose parent name never resolves (typo, or
+  // a genuine cycle) are reported back instead of silently dropped.
+  const handleImport = async () => {
+    setImportError(null);
+    const parsed = parseDepartmentsCsv(importText);
+    if (parsed.length === 0) {
+      setImportError('No rows found. Expected columns: name, parent_department, is_active.');
+      return;
+    }
+
+    setImporting(true);
+    const nameToId = new Map<string, string>(rows.map((r) => [r.name.trim().toLowerCase(), r.id]));
+    const skipped: string[] = [];
+    const created: string[] = [];
+
+    let pending = parsed.filter((row) => {
+      const key = row.name.toLowerCase();
+      if (nameToId.has(key)) {
+        skipped.push(`${row.name} (already exists)`);
+        return false;
+      }
+      return true;
+    });
+
+    let progress = true;
+    while (pending.length > 0 && progress) {
+      progress = false;
+      const resolvable = pending.filter((row) => !row.parentName || nameToId.has(row.parentName.trim().toLowerCase()));
+      if (resolvable.length === 0) break;
+
+      const insertPayload = resolvable.map((row) => ({
+        name: row.name,
+        parent_department_id: row.parentName ? nameToId.get(row.parentName.trim().toLowerCase()) ?? null : null,
+        is_active: row.is_active,
+      }));
+
+      const { data, error: err } = await supabase.from('departments').insert(insertPayload).select('id, name');
+      if (err) {
+        setImporting(false);
+        setImportError(err.message);
+        return;
+      }
+      for (const inserted of data ?? []) {
+        nameToId.set(inserted.name.trim().toLowerCase(), inserted.id);
+        created.push(inserted.name);
+      }
+      const resolvedNames = new Set(resolvable.map((row) => row.name));
+      pending = pending.filter((row) => !resolvedNames.has(row.name));
+      progress = true;
+    }
+
+    const unresolved = pending.map((row) => `${row.name} (parent "${row.parentName}" not found)`);
+
+    setImporting(false);
+    setImportResult({ created: created.length, skipped, unresolved });
+    load();
+  };
+
   return (
     <Box sx={{ maxWidth: 900 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h5">Departments</Typography>
         {isFinance && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openNew}>
-            New Department
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={openImport}>
+              Bulk Import
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openNew}>
+              New Department
+            </Button>
+          </Stack>
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Departments used for request routing and approvals. Everyone in the tenant can see this list; only
-        Finance can add or edit.
+        Departments used for request routing and approvals. Everyone in the tenant can see this list; Finance
+        and module admins can add or edit.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -230,6 +370,46 @@ export default function DepartmentsAdmin() {
           </Button>
           <Button onClick={save} variant="contained" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Bulk Import Departments</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            CSV with columns <code>name, parent_department, is_active</code> (header row optional; parent_department
+            and is_active are optional, is_active defaults to true). Parent departments can appear in any order in
+            the file — rows are inserted in passes as their parent becomes resolvable.
+          </Typography>
+          <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} sx={{ alignSelf: 'flex-start' }}>
+            Choose CSV file
+            <input type="file" accept=".csv,text/csv" hidden onChange={handleFilePick} />
+          </Button>
+          <TextField
+            label="Or paste CSV here"
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            fullWidth
+            multiline
+            rows={8}
+            placeholder={'name,parent_department,is_active\nOperations,,true\nEngineering,Operations,true\nFinance,,true'}
+          />
+          {importError && <Alert severity="error">{importError}</Alert>}
+          {importResult && (
+            <Alert severity={importResult.skipped.length > 0 || importResult.unresolved.length > 0 ? 'warning' : 'success'}>
+              Created {importResult.created} department{importResult.created === 1 ? '' : 's'}.
+              {importResult.skipped.length > 0 && <> Skipped {importResult.skipped.length}: {importResult.skipped.join(', ')}.</>}
+              {importResult.unresolved.length > 0 && (
+                <> Could not resolve {importResult.unresolved.length}: {importResult.unresolved.join(', ')}.</>
+              )}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportOpen(false)}>Close</Button>
+          <Button variant="contained" onClick={handleImport} disabled={importing || !importText.trim()}>
+            {importing ? 'Importing…' : 'Import'}
           </Button>
         </DialogActions>
       </Dialog>
