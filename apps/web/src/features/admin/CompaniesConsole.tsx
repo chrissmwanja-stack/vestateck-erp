@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -10,6 +11,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControlLabel,
+  FormGroup,
   MenuItem,
   Paper,
   Stack,
@@ -77,6 +80,22 @@ const APPROVAL_PIPELINE_STAGES = [
   'Procurement: Offer Entry',
   'Control Chief/Manager (splits by amount)',
   'Finance (if under 5,000,000) or Project Manager \u2192 Deputy GM \u2192 Finance (if over)',
+];
+
+// Keep in sync with the tenant_modules CHECK constraint and
+// apps/web/src/components/RequireModule.tsx's ModuleKey. Finance and
+// core Procurement aren't here -- they're baseline functionality every
+// tenant gets, gated by finance_team_members/approval_assignments
+// rather than staff_roles, so there's nothing to toggle for them.
+const MODULE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'hr', label: 'HR' },
+  { value: 'legal', label: 'Law & Compliance' },
+  { value: 'bd', label: 'Business Development' },
+  { value: 'it', label: 'IT Support' },
+  { value: 'pmo', label: 'PMO' },
+  { value: 'procurement', label: 'Purchasing & Logistics extras' },
+  { value: 'machine_operation', label: 'Machine Operation' },
+  { value: 'sustainability', label: 'Sustainability' },
 ];
 
 const INDUSTRY_TEMPLATES: { value: IndustryTemplate; label: string; description: string }[] = [
@@ -148,6 +167,12 @@ export default function CompaniesConsole() {
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<CompanyAdminInvitation | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+
+  const [modulesTarget, setModulesTarget] = useState<Tenant | null>(null);
+  const [moduleSelection, setModuleSelection] = useState<Set<string>>(new Set());
+  const [modulesLoading, setModulesLoading] = useState(false);
+  const [modulesSaving, setModulesSaving] = useState(false);
+  const [modulesError, setModulesError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -298,6 +323,56 @@ export default function CompaniesConsole() {
       return;
     }
     navigate('/requests/new');
+  };
+
+  // Opens the modules dialog and loads this tenant's current
+  // entitlements via get_tenant_modules (platform-admin-gated RPC, so
+  // no separate client-side permission check needed here).
+  const openModules = async (tenant: Tenant) => {
+    setModulesError(null);
+    setModulesTarget(tenant);
+    setModulesLoading(true);
+    const { data, error } = await supabase.rpc('get_tenant_modules', { p_tenant_id: tenant.id });
+    setModulesLoading(false);
+    if (error) {
+      setModulesError(error.message);
+      setModuleSelection(new Set());
+      return;
+    }
+    setModuleSelection(new Set((data ?? []) as string[]));
+  };
+
+  const closeModules = () => {
+    if (!modulesSaving) setModulesTarget(null);
+  };
+
+  const toggleModule = (module: string) => {
+    setModuleSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(module)) next.delete(module);
+      else next.add(module);
+      return next;
+    });
+  };
+
+  // Replace-all: set_tenant_modules takes the full desired set, so
+  // there's no risk of a partial update leaving stale entitlements
+  // behind if a toggle gets missed.
+  const saveModules = async () => {
+    if (!modulesTarget) return;
+    setModulesError(null);
+    setModulesSaving(true);
+    const { error } = await supabase.rpc('set_tenant_modules', {
+      p_tenant_id: modulesTarget.id,
+      p_modules: Array.from(moduleSelection),
+    });
+    setModulesSaving(false);
+    if (error) {
+      setModulesError(error.message);
+      return;
+    }
+    setActionNotice(`Modules updated for ${modulesTarget.name}.`);
+    setModulesTarget(null);
   };
 
   if (isPlatformAdmin === false) {
