@@ -13,6 +13,7 @@ const ProcurementInfo = lazy(() => import('./features/procurement/ProcurementInf
 import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
+import RequireFinanceTeam from './components/RequireFinanceTeam';
 import { useAuth } from './lib/authContext';
 import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
@@ -262,48 +263,55 @@ export default function App() {
               <Route path="/" element={<Navigate to="/requests/new" replace />} />
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
               <Route path="/approvals" element={<ApprovalQueue />} />
-              <Route path="/finance/purchase-orders" element={<PurchaseOrders />} />
               <Route
                 path="/delegations"
                 element={session ? <DelegationManager userId={session.user.id} /> : null}
               />
               <Route path="/multiplexing/approvals" element={<InvoiceApprovalQueue />} />
               <Route path="/multiplexing/invoice-new" element={<InvoiceSubmissionForm />} />
-              <Route path="/admin/cost-codes" element={<CostCodeList />} />
-              <Route path="/admin/cost-codes/new" element={<CostCodeListNew />} />
-              <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />
-              <Route path="/financial-management/invoices/supplier-invoice-po" element={<SupplierInvoices />} />
-              <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
-              <Route path="/financial-management/invoices/supplier-invoice-non-po" element={<SupplierInvoiceNonPO />} />
-              <Route path="/financial-management/cash-bank-operations" element={<CashBankOperations />} />
-              <Route path="/financial-management/invoices/receivable-invoice" element={<ReceivableInvoice />} /> 
-              <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
-              <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />
-              <Route path="/financial-management/reports" element={<FinancialReports />} />
-              <Route path="/admin/accounts" element={<AccountsAdmin />} />
-              <Route path="/financial-management/petty-cash-floats" element={<PettyCashFloats />} />  
-              <Route path="/financial-management/petty-cash-register" element={<PettyCashRegister />} />
-              <Route path="/financial-management/reports/cost-transactions-inquiry" element={<CostTransactionsInquiry />} />
-              <Route path="/financial-management/reports/current-account-extract" element={<CurrentAccountExtract />} />
-              <Route path="/financial-management/reports/trial-balance" element={<TrialBalance />} />
-              <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
-              <Route path="/financial-management/reports/durations" element={<Durations />} />
-              <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />
-              <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
-              <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
-              <Route path="/financial-management/payroll-disbursement" element={<PayrollDisbursement />} />
-              <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
-              <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
-              <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
-              <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
-              <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
               <Route path="/admin/companies" element={<CompaniesConsole />} />
               <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
+
+              {/* FINANCE - gated by can_access_finance() (added 2026-08-16),
+                  the OR of is_finance_team_member() and has_po_access().
+                  These were previously reachable by any authenticated
+                  tenant user with no access check at all. */}
+              <Route element={<RequireFinanceTeam />}>
+                <Route path="/finance/purchase-orders" element={<PurchaseOrders />} />
+                <Route path="/admin/cost-codes" element={<CostCodeList />} />
+                <Route path="/admin/cost-codes/new" element={<CostCodeListNew />} />
+                <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />
+                <Route path="/financial-management/invoices/supplier-invoice-po" element={<SupplierInvoices />} />
+                <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
+                <Route path="/financial-management/invoices/supplier-invoice-non-po" element={<SupplierInvoiceNonPO />} />
+                <Route path="/financial-management/cash-bank-operations" element={<CashBankOperations />} />
+                <Route path="/financial-management/invoices/receivable-invoice" element={<ReceivableInvoice />} />
+                <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
+                <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />
+                <Route path="/financial-management/reports" element={<FinancialReports />} />
+                <Route path="/admin/accounts" element={<AccountsAdmin />} />
+                <Route path="/financial-management/petty-cash-floats" element={<PettyCashFloats />} />
+                <Route path="/financial-management/petty-cash-register" element={<PettyCashRegister />} />
+                <Route path="/financial-management/reports/cost-transactions-inquiry" element={<CostTransactionsInquiry />} />
+                <Route path="/financial-management/reports/current-account-extract" element={<CurrentAccountExtract />} />
+                <Route path="/financial-management/reports/trial-balance" element={<TrialBalance />} />
+                <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
+                <Route path="/financial-management/reports/durations" element={<Durations />} />
+                <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />
+                <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
+                <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
+                <Route path="/financial-management/payroll-disbursement" element={<PayrollDisbursement />} />
+                <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
+                <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
+                <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
+                <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
+                <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
+              </Route>
 
               {/* PROCUREMENT - gated by staff_roles module="procurement" (added
                   2026-08-15). These were previously reachable by any

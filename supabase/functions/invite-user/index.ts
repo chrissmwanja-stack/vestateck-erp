@@ -37,6 +37,10 @@ const ACCEPT_INVITE_URL = Deno.env.get('ACCEPT_INVITE_URL') ?? '';
 
 const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
 const VALID_ROLES = ['admin', 'manager', 'member'] as const;
+// Not part of ALL_MODULES/staff_roles -- finance access is a separate
+// mechanism (finance_team_members / is_finance_team_member()), see
+// 20260816_add_finance_role_to_invitations.
+const VALID_FINANCE_ROLES = ['finance', 'cost_control'] as const;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,6 +57,7 @@ interface InviteUserBody {
   tenant_id: string;
   role_bundle: 'company_admin' | 'member';
   modules_and_roles?: ModuleRole[];
+  finance_role?: (typeof VALID_FINANCE_ROLES)[number] | null;
 }
 
 function jsonResponse(body: unknown, status: number) {
@@ -103,18 +108,43 @@ serve(async (req) => {
       return jsonResponse({ error: "role_bundle must be 'company_admin' or 'member'" }, 400);
     }
 
+    // finance_role only applies to member invites -- company_admin gets
+    // full 'finance' access implicitly (same treatment as modules_and_roles).
+    // Computed before the modules_and_roles check below, since a
+    // finance-only invite (no modules at all) is valid.
+    let financeRole: (typeof VALID_FINANCE_ROLES)[number] | null = null;
+    if (role_bundle === 'member' && body.finance_role != null) {
+      if (!VALID_FINANCE_ROLES.includes(body.finance_role)) {
+        return jsonResponse(
+          { error: "finance_role must be 'finance', 'cost_control', or omitted" },
+          400
+        );
+      }
+      financeRole = body.finance_role;
+    }
+
     let modulesAndRoles: ModuleRole[] | null = null;
     if (role_bundle === 'member') {
-      if (!isValidModuleRoleArray(body.modules_and_roles)) {
+      const hasModules = Array.isArray(body.modules_and_roles) && body.modules_and_roles.length > 0;
+      if (!hasModules && !financeRole) {
         return jsonResponse(
           {
             error:
-              'modules_and_roles is required for member invites: an array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability/procurement, role in admin/manager/member',
+              'member invites need at least one module (module/role pairs) or a finance_role grant',
           },
           400
         );
       }
-      modulesAndRoles = body.modules_and_roles!;
+      if (hasModules && !isValidModuleRoleArray(body.modules_and_roles)) {
+        return jsonResponse(
+          {
+            error:
+              'modules_and_roles must be a non-empty array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability/procurement, role in admin/manager/member',
+          },
+          400
+        );
+      }
+      modulesAndRoles = hasModules ? body.modules_and_roles! : [];
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -220,6 +250,7 @@ serve(async (req) => {
         invited_by: callerId,
         role_bundle,
         modules_and_roles: modulesAndRoles,
+        finance_role: financeRole,
         status: 'pending',
       })
       .select('id')

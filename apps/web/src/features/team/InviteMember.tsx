@@ -40,11 +40,21 @@ const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
 };
 const ROLES = ['admin', 'manager', 'member'] as const;
 
+// Not a module -- finance access is a separate mechanism
+// (finance_team_members / is_finance_team_member()), not staff_roles.
+const FINANCE_ROLES = ['', 'cost_control', 'finance'] as const;
+const FINANCE_ROLE_LABELS: Record<(typeof FINANCE_ROLES)[number], string> = {
+  '': 'No finance access',
+  cost_control: 'Cost Control (view only)',
+  finance: 'Finance (view & edit)',
+};
+
 interface Invitation {
   id: string;
   email: string;
   role_bundle: 'company_admin' | 'member';
   modules_and_roles: { module: string; role: string }[] | null;
+  finance_role: 'finance' | 'cost_control' | null;
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   created_at: string;
 }
@@ -151,6 +161,7 @@ export default function InviteMember() {
 
   const [email, setEmail] = useState('');
   const [modules, setModules] = useState<ModuleSelection>(emptyModuleSelection);
+  const [financeRole, setFinanceRole] = useState<(typeof FINANCE_ROLES)[number]>('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -169,7 +180,7 @@ export default function InviteMember() {
     setLoadError(null);
     const { data, error } = await supabase
       .from('invitations')
-      .select('id, email, role_bundle, modules_and_roles, status, created_at')
+      .select('id, email, role_bundle, modules_and_roles, finance_role, status, created_at')
       .order('created_at', { ascending: false });
     if (error) setLoadError(error.message);
     else setInvitations((data ?? []) as Invitation[]);
@@ -233,8 +244,8 @@ export default function InviteMember() {
       module: m,
       role: modules[m].role,
     }));
-    if (modulesAndRoles.length === 0) {
-      setSaveError('Select at least one module.');
+    if (modulesAndRoles.length === 0 && !financeRole) {
+      setSaveError('Select at least one module, or grant finance access.');
       return;
     }
     if (!access?.tenantId) {
@@ -248,7 +259,12 @@ export default function InviteMember() {
         email: trimmedEmail,
         tenant_id: access.tenantId,
         role_bundle: 'member',
-        modules_and_roles: modulesAndRoles,
+        // invite-user requires a non-empty modules_and_roles array for
+        // member invites, so a finance-only invite still needs to pass
+        // something -- an empty array reads clearly as "no modules" once
+        // the finance grant is the only access being given.
+        modules_and_roles: modulesAndRoles.length > 0 ? modulesAndRoles : undefined,
+        finance_role: financeRole || null,
       },
     });
     setSaving(false);
@@ -261,6 +277,7 @@ export default function InviteMember() {
     setSaveNotice(`Invite sent to ${trimmedEmail}.`);
     setEmail('');
     setModules(emptyModuleSelection);
+    setFinanceRole('');
     loadInvitations();
   };
 
@@ -326,6 +343,23 @@ export default function InviteMember() {
             ))}
           </Stack>
 
+          <TextField
+            select
+            size="small"
+            label="Finance access"
+            value={financeRole}
+            onChange={(e) => setFinanceRole(e.target.value as (typeof FINANCE_ROLES)[number])}
+            disabled={saving}
+            helperText="Separate from the modules above — controls invoices, cash/bank, petty cash, and related admin screens."
+            sx={{ width: 320 }}
+          >
+            {FINANCE_ROLES.map((role) => (
+              <MenuItem key={role} value={role}>
+                {FINANCE_ROLE_LABELS[role]}
+              </MenuItem>
+            ))}
+          </TextField>
+
           {saveError && <Alert severity="error">{saveError}</Alert>}
           {saveNotice && <Alert severity="success">{saveNotice}</Alert>}
 
@@ -376,10 +410,13 @@ export default function InviteMember() {
                     <TableCell>{inv.email}</TableCell>
                     <TableCell>
                       {inv.role_bundle === 'company_admin'
-                        ? 'All modules (admin)'
-                        : (inv.modules_and_roles ?? [])
-                            .map((mr) => `${MODULE_LABELS[mr.module as (typeof ALL_MODULES)[number]] ?? mr.module} (${mr.role})`)
-                            .join(', ')}
+                        ? 'All modules + Finance (admin)'
+                        : [
+                            ...(inv.modules_and_roles ?? []).map(
+                              (mr) => `${MODULE_LABELS[mr.module as (typeof ALL_MODULES)[number]] ?? mr.module} (${mr.role})`
+                            ),
+                            ...(inv.finance_role ? [FINANCE_ROLE_LABELS[inv.finance_role]] : []),
+                          ].join(', ') || '—'}
                     </TableCell>
                     <TableCell>
                       <Chip size="small" label={inv.status} color={statusColor[inv.status]} />

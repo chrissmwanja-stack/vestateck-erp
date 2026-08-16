@@ -72,7 +72,7 @@ serve(async (req) => {
     // own email is the only thing we trust here.
     const { data: invitation, error: inviteError } = await admin
       .from('invitations')
-      .select('id, tenant_id, role_bundle, modules_and_roles, status')
+      .select('id, tenant_id, role_bundle, modules_and_roles, finance_role, status')
       .eq('email', userEmail.toLowerCase().trim())
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -139,6 +139,25 @@ serve(async (req) => {
       }
     }
 
+    // --- Create finance_team_members row, if applicable ---
+    // company_admin gets full 'finance' access implicitly, same treatment
+    // as staff_roles above. Member invites only get a row if the inviter
+    // explicitly granted finance access via invite-user's finance_role.
+    const financeRole =
+      invitation.role_bundle === 'company_admin' ? 'finance' : invitation.finance_role;
+
+    if (financeRole) {
+      const { error: financeError } = await admin.from('finance_team_members').insert({
+        tenant_id: invitation.tenant_id,
+        user_id: userId,
+        role: financeRole,
+      });
+      // Ignore unique-violation for the same retry reason as staff_roles.
+      if (financeError && financeError.code !== '23505') {
+        return jsonResponse({ error: financeError.message }, 500);
+      }
+    }
+
     // --- Mark the invitation accepted ---
     const { error: acceptError } = await admin
       .from('invitations')
@@ -167,6 +186,7 @@ serve(async (req) => {
         tenant_id: invitation.tenant_id,
         role_bundle: invitation.role_bundle,
         modules_granted: roleRows.map((r) => r.module),
+        finance_role_granted: financeRole,
       },
       200
     );
