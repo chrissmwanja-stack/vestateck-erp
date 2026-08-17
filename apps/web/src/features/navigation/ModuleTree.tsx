@@ -92,12 +92,23 @@ interface Portal {
   requiredModule?: ModuleKey;
 }
 
-// Fetches the current user's own staff_roles modules + platform-admin
-// flag, purely for nav visibility (RequireModule/has_module_role is the
-// real enforcement). Mirrors the query pattern already used in
+// Fetches the current user's own staff_roles modules, intersected with
+// the tenant's actual tenant_modules entitlements, plus the
+// platform-admin flag -- purely for nav visibility (RequireModule/
+// has_module_role is the real enforcement, and already applies this
+// same intersection server-side -- see 20260815075105_tenant_module_
+// entitlements.sql). Mirrors the query pattern already used in
 // InviteMember's useTenantAdminAccess / CompaniesConsole's
 // usePlatformAdminAccess: get the caller's id from the session first,
 // since RLS on these tables scopes by tenant, not by caller.
+//
+// Without the tenant_modules intersection, a company_admin (who holds
+// a staff_roles admin row for all 8 modules by design, so newly-opened
+// modules reach them automatically) would see nav entries for modules
+// their company hasn't actually been opened for, only to hit "Not
+// available to you" on click. tenant_modules is directly readable here
+// (not just via the platform-admin-gated get_tenant_modules RPC) --
+// its own SELECT policy already allows tenant_id = get_my_tenant_id().
 function useMyModuleAccess() {
   const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string> } | null>(null);
   useEffect(() => {
@@ -120,18 +131,21 @@ function useMyModuleAccess() {
       }
       if (appUser.is_platform_admin) {
         // has_module_role() treats platform admins as an automatic pass
-        // for every module -- mirror that here so nav doesn't hide
-        // things the route guard would let them through to anyway.
+        // for every module, entitlement gate included -- mirror that
+        // here so nav doesn't hide things the route guard would let
+        // them through to anyway.
         setState({ isPlatformAdmin: true, modules: new Set() });
         return;
       }
-      const { data: roles } = await supabase
-        .from("staff_roles")
-        .select("module")
-        .eq("user_id", userId)
-        .eq("tenant_id", appUser.tenant_id);
+      const [{ data: roles }, { data: entitlements }] = await Promise.all([
+        supabase.from("staff_roles").select("module").eq("user_id", userId).eq("tenant_id", appUser.tenant_id),
+        supabase.from("tenant_modules").select("module").eq("tenant_id", appUser.tenant_id),
+      ]);
       if (cancelled) return;
-      setState({ isPlatformAdmin: false, modules: new Set((roles ?? []).map((r) => r.module as string)) });
+      const roleModules = new Set((roles ?? []).map((r) => r.module as string));
+      const entitledModules = new Set((entitlements ?? []).map((e) => e.module as string));
+      const effectiveModules = new Set([...roleModules].filter((m) => entitledModules.has(m)));
+      setState({ isPlatformAdmin: false, modules: effectiveModules });
     };
 
     // Fetch once on mount for the fast path, but also re-fetch on any auth
@@ -551,11 +565,15 @@ function TreeItem({ node, depth = 0, pathname }: { node: TreeNode; depth?: numbe
   );
 }
 
-// Strips nodes the current user has no module access to. Nodes without
-// a requiredModule are always kept; a parent with children is kept if
-// it has any surviving child, or if it's directly accessible itself.
-// This is nav visibility only -- RequireModule/has_module_role is what
-// actually enforces access if someone still hits the URL directly.
+// Strips nodes the current user has no module access to. "Access" here
+// is access.modules, which is already the staff_roles ∩ tenant_modules
+// intersection (see useMyModuleAccess) -- so a node also disappears if
+// the tenant simply doesn't have that module opened, not just if the
+// user lacks a role in it. Nodes without a requiredModule are always
+// kept; a parent with children is kept if it has any surviving child,
+// or if it's directly accessible itself. This is nav visibility only --
+// RequireModule/has_module_role is what actually enforces access if
+// someone still hits the URL directly.
 function filterNodesByAccess(nodes: TreeNode[], access: { isPlatformAdmin: boolean; modules: Set<string> }): TreeNode[] {
   const canSee = (m?: ModuleKey) => !m || access.isPlatformAdmin || access.modules.has(m);
   const walk = (list: TreeNode[]): TreeNode[] =>
