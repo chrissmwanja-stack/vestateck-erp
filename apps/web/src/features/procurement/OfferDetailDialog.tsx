@@ -89,7 +89,7 @@ export default function OfferDetailDialog({ open, onClose, requestId, initialPoN
         if (error) {
           setError(error.message);
         } else {
-          setDetail(data as OfferDetail);
+          setDetail(data as unknown as OfferDetail);
         }
         setLoading(false);
       });

@@ -116,9 +116,12 @@ function LookupTable({ table, canEdit }: { table: TableName; canEdit: boolean })
     }
     setSaving(true);
     const payload = { code: form.code.trim(), name: form.name.trim(), is_active: form.is_active };
+    // tenant_id is required by the generated Insert type but is filled
+    // unconditionally by trg_set_material_types_defaults / trg_set_material_groups_defaults
+    // / trg_set_external_material_groups_defaults (BEFORE INSERT triggers).
     const { error: err } = editTarget
       ? await supabase.from(table).update(payload).eq('id', editTarget.id)
-      : await supabase.from(table).insert(payload);
+      : await supabase.from(table).insert({ ...payload, tenant_id: '' });
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

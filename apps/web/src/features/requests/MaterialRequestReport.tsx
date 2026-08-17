@@ -96,7 +96,7 @@ export default function MaterialRequestReport() {
       setTypes((t.data ?? []) as LookupOption[]);
       setGroups((g.data ?? []) as LookupOption[]);
       setExternalGroups((e.data ?? []) as LookupOption[]);
-      const distinctUnits = Array.from(new Set((u.data ?? []).map((r: { unit: string }) => r.unit))).sort();
+      const distinctUnits = Array.from(new Set((u.data ?? []).map((r: { unit: string | null }) => r.unit).filter((v): v is string => !!v))).sort();
       setUnits(distinctUnits);
     })();
   }, []);

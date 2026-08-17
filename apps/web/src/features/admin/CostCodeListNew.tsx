@@ -114,7 +114,7 @@ export default function CostCodeListNew() {
             name,
             project_code: editForm.project_code.trim() || null,
             budget_amount: budgetAmount,
-          });
+          } as any);
 
     setEditSubmitting(false);
 

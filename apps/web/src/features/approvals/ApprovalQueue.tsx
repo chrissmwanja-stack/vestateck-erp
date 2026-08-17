@@ -59,7 +59,7 @@ export default function ApprovalQueue() {
     setLoadError(null);
     const { data, error } = await supabase.rpc("get_my_approval_queue");
     if (error) setLoadError(error.message);
-    else setQueue((data ?? []) as QueuedRequest[]);
+    else setQueue((data ?? []) as unknown as QueuedRequest[]);
     setLoading(false);
   }, []);
 
@@ -186,7 +186,7 @@ export default function ApprovalQueue() {
     const { error } = await supabase.rpc("record_approval_decision", {
       p_request_id: pending.request.id,
       p_decision: pending.decision,
-      p_comment: comment.trim() || null,
+      p_comment: comment.trim() || undefined,
       p_acting_on_behalf_of: (pending.request.acting_on_behalf_of as any)?.id ?? null,
     });
 

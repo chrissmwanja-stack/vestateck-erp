@@ -112,9 +112,11 @@ export default function OrganizationsAdmin() {
       site_name: form.site_name.trim(),
       is_active: form.is_active,
     };
+    // tenant_id is required by the generated Insert type but is filled
+    // unconditionally by trg_set_organization_defaults (BEFORE INSERT trigger).
     const { error: err } = editTarget
       ? await supabase.from('organizations').update(payload).eq('id', editTarget.id)
-      : await supabase.from('organizations').insert(payload);
+      : await supabase.from('organizations').insert({ ...payload, tenant_id: '' });
     setSaving(false);
     if (err) {
       setSaveError(

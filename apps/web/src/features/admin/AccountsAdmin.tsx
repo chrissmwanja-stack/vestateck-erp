@@ -252,10 +252,16 @@ export default function AccountsAdmin() {
     // the constraint outright.
     let tenant_id: string | undefined;
     if (!editingId) {
+      const userId = session?.user?.id;
+      if (!userId) {
+        setSaveError('Could not determine your session. Please refresh and try again.');
+        setSaving(false);
+        return;
+      }
       const { data: appUser, error: appUserErr } = await supabase
         .from('app_users')
         .select('tenant_id')
-        .eq('id', session?.user?.id)
+        .eq('id', userId)
         .single();
       if (appUserErr || !appUser?.tenant_id) {
         setSaveError('Could not determine your organization. Please refresh and try again.');
@@ -288,8 +294,8 @@ export default function AccountsAdmin() {
     if (!editingId && tenant_id) payload.tenant_id = tenant_id;
 
     const { error: saveErr } = editingId
-      ? await supabase.from('accounts').update(payload).eq('id', editingId)
-      : await supabase.from('accounts').insert(payload);
+      ? await supabase.from('accounts').update(payload as any).eq('id', editingId)
+      : await supabase.from('accounts').insert(payload as any);
     setSaving(false);
 
     if (saveErr) {

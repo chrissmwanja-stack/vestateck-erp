@@ -106,11 +106,14 @@ export default function SapPaymentApprovals() {
     }
 
     setPaymentSubmitting(true);
+    // tenant_id is required by the generated Insert type but is filled
+    // unconditionally by trg_set_sap_payment_defaults (BEFORE INSERT trigger).
     const { error } = await supabase.from("sap_payments").insert({
       purchase_order_id: paymentTarget.id,
       amount,
       status: paymentStatus,
       sap_reference: paymentRef.trim() || null,
+      tenant_id: '',
     });
     setPaymentSubmitting(false);
 

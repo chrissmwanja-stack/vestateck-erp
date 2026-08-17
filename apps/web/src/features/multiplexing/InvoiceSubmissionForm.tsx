@@ -29,12 +29,17 @@ export default function InvoiceSubmissionForm() {
     }
 
     setSubmitting(true);
+    // tenant_id and requester_id are required by the generated Insert type
+    // but are filled unconditionally by invoice_request_defaults (BEFORE
+    // INSERT trigger, see set_invoice_request_defaults()).
     const { data, error } = await supabase
       .from("invoice_requests")
       .insert({
         vendor_name: vendor.trim(),
         amount: parsedAmount,
         description: description.trim() || null,
+        tenant_id: "",
+        requester_id: "",
       })
       .select("id, vendor_name, amount, current_stage_id, workflow_stages(name)")
       .single();
@@ -46,7 +51,7 @@ export default function InvoiceSubmissionForm() {
     }
 
     setSubmitted({
-      vendorName: data.vendor_name,
+      vendorName: data.vendor_name ?? vendor.trim(),
       amount: Number(data.amount),
       // `workflow_stages` comes back as an array from the embedded select
       // even for a to-one relationship -- take the first row's name.

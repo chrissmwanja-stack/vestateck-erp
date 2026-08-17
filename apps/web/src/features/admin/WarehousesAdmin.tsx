@@ -142,9 +142,11 @@ export default function WarehousesAdmin() {
       department_id: form.department_id || null,
       is_active: form.is_active,
     };
+    // tenant_id is required by the generated Insert type but is filled
+    // unconditionally by set_warehouse_defaults_trigger (BEFORE INSERT trigger).
     const { error: err } = editTarget
       ? await supabase.from('warehouses').update(payload).eq('id', editTarget.id)
-      : await supabase.from('warehouses').insert(payload);
+      : await supabase.from('warehouses').insert({ ...payload, tenant_id: '' });
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

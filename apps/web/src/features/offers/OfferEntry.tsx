@@ -73,7 +73,7 @@ export default function OfferEntry() {
     setLoadError(null);
     const { data, error } = await supabase.rpc("get_my_approval_queue");
     if (error) setLoadError(error.message);
-    else setQueue((data ?? []) as QueuedRequest[]);
+    else setQueue((data ?? []) as unknown as QueuedRequest[]);
     setLoading(false);
   }, []);
 
@@ -138,6 +138,12 @@ export default function OfferEntry() {
 
     setOfferSubmitting(true);
     setOfferError(null);
+
+    if (!currentUserId) {
+      setOfferError("Could not determine your session. Please refresh and try again.");
+      setOfferSubmitting(false);
+      return;
+    }
 
     // Direct insert -- request_offers_insert_authorized RLS restricts
     // this to the offer-entry stage's assignee/delegate, and the

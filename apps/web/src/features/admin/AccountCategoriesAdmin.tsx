@@ -24,12 +24,14 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
 
 interface AccountCategory {
   id: string;
   code: string;
   name: string;
   is_active: boolean;
+  tenant_id?: string;
 }
 
 const emptyForm = { code: '', name: '', is_active: true };
@@ -54,6 +56,7 @@ function useFinanceAccess() {
 
 export default function AccountCategoriesAdmin() {
   const isFinance = useFinanceAccess();
+  const { session } = useAuth();
   const [rows, setRows] = useState<AccountCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +72,7 @@ export default function AccountCategoriesAdmin() {
     setError(null);
     const { data, error: err } = await supabase
       .from('account_categories')
-      .select('id, code, name, is_active')
+      .select('id, code, name, is_active, tenant_id')
       .order('code');
     if (err) setError(err.message);
     else setRows((data ?? []) as AccountCategory[]);
@@ -105,10 +108,15 @@ export default function AccountCategoriesAdmin() {
       return;
     }
     setSaving(true);
-    const payload = { code: form.code.trim(), name: form.name.trim(), is_active: form.is_active };
-    const { error: err } = editTarget
-      ? await supabase.from('account_categories').update(payload).eq('id', editTarget.id)
-      : await supabase.from('account_categories').insert(payload);
+    const payload: any = { code: form.code.trim(), name: form.name.trim(), is_active: form.is_active };
+    let err;
+    if (editTarget) {
+      ({ error: err } = await supabase.from('account_categories').update(payload).eq('id', editTarget.id));
+    } else {
+      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || rows[0]?.tenant_id;
+      if (tenant_id) payload.tenant_id = tenant_id;
+      ({ error: err } = await supabase.from('account_categories').insert(payload));
+    }
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

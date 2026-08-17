@@ -212,8 +212,8 @@ export default function RequestSubmissionForm({ onSubmitted }: { onSubmitted?: (
       p_item_description: values.item_description,
       p_quantity: totalQuantity,
       p_cost_center_id: values.cost_center_id,
-      p_delivery_date: values.delivery_date || null,
-      p_subcontractor: values.subcontractor?.trim() || null,
+      p_delivery_date: values.delivery_date || '',
+      p_subcontractor: values.subcontractor?.trim() || '',
       p_line_items: validRows.map((row) => ({
         material_service: row.materialService.trim(),
         cost_code: row.costCode.trim() || null,

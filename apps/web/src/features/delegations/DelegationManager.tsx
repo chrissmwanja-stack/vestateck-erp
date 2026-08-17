@@ -163,8 +163,8 @@ export default function DelegationManager({ userId }: { userId: string }) {
     setSubmitting(true);
     const { error: rpcError } = await supabase.rpc("grant_delegation", {
       p_delegate_user_id: delegate.id,
-      p_workflow_stage_id: stageId === "__all__" ? null : stageId,
-      p_starts_at: startsAt ? new Date(startsAt).toISOString() : null,
+      p_workflow_stage_id: stageId === "__all__" ? undefined : stageId,
+      p_starts_at: startsAt ? new Date(startsAt).toISOString() : undefined,
       p_ends_at: new Date(endsAt).toISOString(),
     });
     setSubmitting(false);

@@ -208,8 +208,8 @@ function ReceiveRow({
       p_line_item_id: line.line_item_id,
       p_received_qty: parsed,
       p_warehouse_id: warehouseId,
-      p_voucher_no: voucherNo.trim() || null,
-      p_note: note.trim() || null,
+      p_voucher_no: voucherNo.trim() || undefined,
+      p_note: note.trim() || undefined,
     });
     setSaving(false);
 

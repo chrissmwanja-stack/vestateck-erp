@@ -120,7 +120,7 @@ export default function CompanyDetail() {
     }
 
     setTenant(tenantRow as Tenant);
-    setAnalytics(analyticsData as Analytics);
+    setAnalytics(analyticsData as unknown as Analytics);
     setLoading(false);
   }, [tenantId]);
 

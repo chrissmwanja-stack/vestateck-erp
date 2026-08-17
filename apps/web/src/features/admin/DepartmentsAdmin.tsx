@@ -240,10 +240,13 @@ export default function DepartmentsAdmin() {
       const resolvable = pending.filter((row) => !row.parentName || nameToId.has(row.parentName.trim().toLowerCase()));
       if (resolvable.length === 0) break;
 
+      // tenant_id is required by the generated Insert type but is filled
+      // unconditionally by trg_set_department_defaults (BEFORE INSERT trigger).
       const insertPayload = resolvable.map((row) => ({
         name: row.name,
         parent_department_id: row.parentName ? nameToId.get(row.parentName.trim().toLowerCase()) ?? null : null,
         is_active: row.is_active,
+        tenant_id: '',
       }));
 
       const { data, error: err } = await supabase.from('departments').insert(insertPayload).select('id, name');

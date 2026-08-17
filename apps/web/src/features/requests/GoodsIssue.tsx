@@ -186,10 +186,10 @@ export default function GoodsIssue() {
     setSubmitting(true);
     const { error } = await supabase.rpc('record_goods_issue', {
       p_warehouse_id: warehouseId,
-      p_project_label: projectLabel.trim() || null,
-      p_voucher_no: voucherNo.trim() || null,
-      p_received_by_name: receivedByName.trim() || null,
-      p_approved_by_name: approvedByName.trim() || null,
+      p_project_label: projectLabel.trim(),
+      p_voucher_no: voucherNo.trim(),
+      p_received_by_name: receivedByName.trim(),
+      p_approved_by_name: approvedByName.trim(),
       p_items: validItems.map((i) => ({
         material_catalog_id: i.material_catalog_id,
         material_description: i.material_description.trim(),

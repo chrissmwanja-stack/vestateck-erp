@@ -101,13 +101,13 @@ export default function ProcurementInfo() {
     setLoading(true);
     setError(null);
     const { data, error } = await supabase.rpc("get_procurement_info", {
-      p_organization_id: filters.organization_id || null,
-      p_initial_po_number: filters.initial_po_number || null,
-      p_company: filters.company || null,
-      p_purchaser: filters.purchaser || null,
-      p_mr_number: filters.mr_number || null,
-      p_po_number: filters.po_number || null,
-      p_po_status: filters.po_status || null,
+      p_organization_id: filters.organization_id || undefined,
+      p_initial_po_number: filters.initial_po_number || undefined,
+      p_company: filters.company || undefined,
+      p_purchaser: filters.purchaser || undefined,
+      p_mr_number: filters.mr_number || undefined,
+      p_po_number: filters.po_number || undefined,
+      p_po_status: filters.po_status || undefined,
     });
     setLoading(false);
     if (error) setError(error.message);

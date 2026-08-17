@@ -120,9 +120,12 @@ export default function NewMaterialRequest() {
 
     setSaving(true);
 
+    // requester_id and tenant_id are required by the generated Insert type
+    // but are filled unconditionally by trg_set_material_request_batch_defaults
+    // (BEFORE INSERT trigger).
     const { data: batch, error: batchErr } = await supabase
       .from('material_request_batches')
-      .insert({})
+      .insert({ requester_id: '', tenant_id: '' })
       .select('id')
       .single();
 
@@ -132,6 +135,9 @@ export default function NewMaterialRequest() {
       return;
     }
 
+    // tenant_id is required by the generated Insert type but is filled
+    // unconditionally by trg_set_material_request_item_defaults (BEFORE
+    // INSERT trigger).
     const payload = usableRows.map((r) => ({
       batch_id: batch.id,
       material_type_id: r.material_type_id || null,
@@ -143,6 +149,7 @@ export default function NewMaterialRequest() {
       description_en: r.description_en.trim() || null,
       description_fr: r.description_fr.trim() || null,
       old_material_code: r.old_material_code.trim() || null,
+      tenant_id: '',
     }));
 
     const { error: itemsErr } = await supabase.from('material_request_items').insert(payload);

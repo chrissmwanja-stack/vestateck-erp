@@ -169,8 +169,14 @@ export interface QueuedRequest extends ERPRequest {
   // present on every stage after selection (Finance / PM / GM).
   selected_offer?: Pick<RequestOffer, "id" | "vendor_name" | "quotation_amount"> | null;
   // TODO: superseded by `offers`/`selected_offer` under the multi-offer
-  // model -- confirm nothing else still reads this before removing it.
-  latest_offer: Pick<RequestOffer, "vendor_name" | "quotation_amount" | "submitted_by"> | null;
+  // model -- get_my_approval_queue() no longer returns this field (see
+  // 20260805053825_get_my_approval_queue_multi_offer.sql), so it's always
+  // undefined at runtime now. ApprovalQueue.tsx still reads it for queue
+  // filtering / offer-submitter blocking; that logic needs to move to
+  // `selected_offer` (which would need a `submitted_by` field added to
+  // its Pick) before this can be safely removed. Marked optional here so
+  // the type matches what the RPC actually returns.
+  latest_offer?: Pick<RequestOffer, "vendor_name" | "quotation_amount" | "submitted_by"> | null;
 }
 
 export interface PoEditChange {
