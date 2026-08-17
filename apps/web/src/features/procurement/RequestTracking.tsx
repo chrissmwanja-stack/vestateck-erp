@@ -161,33 +161,33 @@ export default function RequestTracking() {
     setLoading(true);
     setError(null);
     const { data, error } = await supabase.rpc("get_request_tracking", {
-      p_organization_id: filters.organization_id || null,
-      p_mr_number: filters.mr_number || null,
-      p_po_number: filters.po_number || null,
-      p_company: filters.company || null,
-      p_description: filters.description || null,
-      p_subcontractor: filters.subcontractor || null,
-      p_mr_originator: filters.mr_originator || null,
-      p_pending_authority: filters.pending_authority || null,
+      p_organization_id: filters.organization_id || undefined,
+      p_mr_number: filters.mr_number || undefined,
+      p_po_number: filters.po_number || undefined,
+      p_company: filters.company || undefined,
+      p_description: filters.description || undefined,
+      p_subcontractor: filters.subcontractor || undefined,
+      p_mr_originator: filters.mr_originator || undefined,
+      p_pending_authority: filters.pending_authority || undefined,
       // FIX: "All" is the default/no-op selection in the dropdown, not a
       // real lifecycle_status value the RPC understands. Sending the
       // literal string "All" through previously meant the very first
       // search on page load (and any explicit "All" re-selection) was
       // filtered against a status that matches nothing. Only real status
       // values (including the "pending_all" grouping value) get sent.
-      p_status: filters.status === "All" ? null : filters.status || null,
-      p_cost_code: filters.cost_code || null,
-      p_place_of_use: filters.place_of_use || null,
-      p_mr_date_from: filters.mr_date_from || null,
-      p_mr_date_to: filters.mr_date_to || null,
-      p_po_date_from: filters.po_date_from || null,
-      p_po_date_to: filters.po_date_to || null,
-      p_delivery_date_from: filters.delivery_date_from || null,
-      p_delivery_date_to: filters.delivery_date_to || null,
-      p_market_offer_date_from: filters.market_offer_date_from || null,
-      p_market_offer_date_to: filters.market_offer_date_to || null,
-      p_closing_date_from: filters.closing_date_from || null,
-      p_closing_date_to: filters.closing_date_to || null,
+      p_status: filters.status === "All" ? undefined : filters.status || undefined,
+      p_cost_code: filters.cost_code || undefined,
+      p_place_of_use: filters.place_of_use || undefined,
+      p_mr_date_from: filters.mr_date_from || undefined,
+      p_mr_date_to: filters.mr_date_to || undefined,
+      p_po_date_from: filters.po_date_from || undefined,
+      p_po_date_to: filters.po_date_to || undefined,
+      p_delivery_date_from: filters.delivery_date_from || undefined,
+      p_delivery_date_to: filters.delivery_date_to || undefined,
+      p_market_offer_date_from: filters.market_offer_date_from || undefined,
+      p_market_offer_date_to: filters.market_offer_date_to || undefined,
+      p_closing_date_from: filters.closing_date_from || undefined,
+      p_closing_date_to: filters.closing_date_to || undefined,
     });
     setLoading(false);
     if (error) setError(error.message);

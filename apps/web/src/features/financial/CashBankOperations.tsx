@@ -22,10 +22,12 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import type { Database } from '@erp-platform/shared';
 
 type ReferenceType = 'supplier_invoice' | 'expenditure_slip' | 'receivable_invoice' | 'payroll_run';
+type PublicTableName = keyof Database['public']['Tables'];
 
-const REFERENCE_TABLES: Record<ReferenceType, { table: string; numberField: string; label: string }> = {
+const REFERENCE_TABLES: Record<ReferenceType, { table: PublicTableName; numberField: string; label: string }> = {
   supplier_invoice: { table: 'supplier_invoices', numberField: 'invoice_number', label: 'Supplier Invoice' },
   expenditure_slip: { table: 'expenditure_slips', numberField: 'slip_number', label: 'Expenditure Slip' },
   receivable_invoice: { table: 'receivable_invoices', numberField: 'invoice_number', label: 'Receivable Invoice' },
@@ -172,10 +174,14 @@ export default function CashBankOperations() {
     const cfg = REFERENCE_TABLES[entry.reference_type];
     let cancelled = false;
     setLoadingRefOptions(true);
-    let refQuery = supabase.from(cfg.table).select(`id, ${cfg.numberField}`).order(cfg.numberField);
-    if (entry.reference_type === 'receivable_invoice') {
-      refQuery = refQuery.eq('status', 'open');
-    }
+    // receivable_invoices is queried directly by name (rather than through
+    // cfg.table) so its status column type-checks — cfg.table is a union
+    // of all four reference tables, and only receivable_invoices has a
+    // status column, so .eq('status', ...) can't resolve against the union.
+    const refQuery =
+      entry.reference_type === 'receivable_invoice'
+        ? supabase.from('receivable_invoices').select(`id, ${cfg.numberField}`).eq('status', 'open').order(cfg.numberField)
+        : supabase.from(cfg.table).select(`id, ${cfg.numberField}`).order(cfg.numberField);
     refQuery.then(({ data, error: refError }) => {
       if (cancelled) return;
       if (refError) {
@@ -226,6 +232,11 @@ export default function CashBankOperations() {
 
     setSaving(true);
     const { error: insertError } = await supabase.from('cash_bank_transactions').insert({
+      // tenant_id is required by the generated Insert type (NOT NULL, no
+      // column default), but set_cash_bank_transaction_defaults_trigger
+      // unconditionally overwrites it server-side with get_my_tenant_id()
+      // before the row lands — this value is never actually used.
+      tenant_id: '',
       transaction_type: entry.transaction_type,
       payment_method: entry.payment_method,
       reference_type: entry.reference_type,

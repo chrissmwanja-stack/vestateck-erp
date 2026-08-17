@@ -71,7 +71,7 @@ export default function PurchaseOrders() {
     setLoadError(null);
     const { data, error } = await supabase.rpc("get_my_purchase_orders");
     if (error) setLoadError(error.message);
-    else setOrders((data ?? []) as FinancePurchaseOrder[]);
+    else setOrders((data ?? []) as unknown as FinancePurchaseOrder[]);
     setLoading(false);
   }, []);
 
@@ -157,9 +157,9 @@ export default function PurchaseOrders() {
       p_vendor_name: vendorName,
       p_amount: amount,
       p_reason: reason,
-      p_project_sap_no: projectSapNo || null,
-      p_payment_conditions: paymentConditions || null,
-      p_terms_of_delivery: termsOfDelivery || null,
+      p_project_sap_no: projectSapNo || undefined,
+      p_payment_conditions: paymentConditions || undefined,
+      p_terms_of_delivery: termsOfDelivery || undefined,
     });
 
     setEditSubmitting(false);
@@ -184,7 +184,7 @@ export default function PurchaseOrders() {
     setHistoryLoading(false);
 
     if (error) setHistoryError(error.message);
-    else setHistory((data ?? []) as PoEdit[]);
+    else setHistory((data ?? []) as unknown as PoEdit[]);
   };
 
   const closeHistory = () => {

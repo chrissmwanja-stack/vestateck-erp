@@ -9,7 +9,6 @@ import {
   CardActionArea,
   CardContent,
   CircularProgress,
-  Chip,
   Table,
   TableBody,
   TableCell,
@@ -71,18 +70,28 @@ export default function FinancialDashboard() {
       setLoading(true);
 
       // Try to fetch from financial tables, with fallback to 0 if tables don't exist or RLS blocks
+      //
+      // supplier_invoices has no is_po_related/status/vendor_name/total_amount
+      // columns — "PO related" is derived from purchase_order_id being set,
+      // the amount column is amount_incl_vat, and vendor is resolved via the
+      // vendor_account_id -> accounts(name) relationship. There's also no
+      // lifecycle status tracked on this table (unlike receivable_invoices,
+      // which does have one) — see the recent-invoices table below.
       const [supplierPoRes, supplierNonPoRes, receivableRes, expenditureRes, cashBankRes] = await Promise.all([
-        supabase.from("supplier_invoices").select("id, total_amount", { count: "exact" }).eq("is_po_related", true).limit(5),
-        supabase.from("supplier_invoices").select("id, total_amount", { count: "exact" }).eq("is_po_related", false).limit(5),
-        supabase.from("receivable_invoices").select("id, total_amount", { count: "exact" }).limit(5),
+        supabase.from("supplier_invoices").select("id, amount_incl_vat", { count: "exact" }).not("purchase_order_id", "is", null).limit(5),
+        supabase.from("supplier_invoices").select("id, amount_incl_vat", { count: "exact" }).is("purchase_order_id", null).limit(5),
+        supabase.from("receivable_invoices").select("id, amount_incl_vat", { count: "exact" }).limit(5),
         supabase.from("expenditure_slips").select("id, amount", { count: "exact" }).limit(5),
-        supabase.from("cash_bank_transactions").select("id, amount, status").eq("status", "pending").limit(100),
+        // cash_bank_transactions records a completed money movement — it has
+        // no "pending" status of its own. Recent activity count, not a
+        // pending-settlement count; see comment near stats.pendingPayments.
+        supabase.from("cash_bank_transactions").select("id, amount", { count: "exact" }).order("created_at", { ascending: false }).limit(100),
       ]);
 
       // For more accurate counts, use count from head:true queries
       const [supplierPoCount, supplierNonPoCount, receivableCount, expenditureCount] = await Promise.all([
-        supabase.from("supplier_invoices").select("id", { count: "exact", head: true }).eq("is_po_related", true),
-        supabase.from("supplier_invoices").select("id", { count: "exact", head: true }).eq("is_po_related", false),
+        supabase.from("supplier_invoices").select("id", { count: "exact", head: true }).not("purchase_order_id", "is", null),
+        supabase.from("supplier_invoices").select("id", { count: "exact", head: true }).is("purchase_order_id", null),
         supabase.from("receivable_invoices").select("id", { count: "exact", head: true }),
         supabase.from("expenditure_slips").select("id", { count: "exact", head: true }),
       ]);
@@ -90,7 +99,7 @@ export default function FinancialDashboard() {
       // Fetch recent supplier invoices for table
       const { data: recent } = await supabase
         .from("supplier_invoices")
-        .select("id, invoice_no, vendor_name, total_amount, status, created_at")
+        .select("id, invoice_number, amount_incl_vat, created_at, accounts:vendor_account_id (name)")
         .order("created_at", { ascending: false })
         .limit(5);
 
@@ -99,13 +108,19 @@ export default function FinancialDashboard() {
       const receivableInvoices = receivableCount.count || receivableRes.count || 0;
       const expenditureSlips = expenditureCount.count || expenditureRes.count || 0;
 
+      // NOTE: cash_bank_transactions has no status column, so this isn't a
+      // true "awaiting settlement" count — it's a recent-activity count
+      // (last 100 transactions). Renamed in the UI below to avoid implying
+      // these need action. If you want a real pending-payments KPI, it'd
+      // need to compare unpaid supplier/receivable invoices against which
+      // ones already have a matching cash_bank_transactions row.
       const pendingPayments = cashBankRes.count || (cashBankRes.data as any[])?.length || 0;
 
       const totalPayable =
-        ((supplierPoRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0) +
-        ((supplierNonPoRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0);
+        ((supplierPoRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.amount_incl_vat) || 0), 0) || 0) +
+        ((supplierNonPoRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.amount_incl_vat) || 0), 0) || 0);
 
-      const totalReceivable = (receivableRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0;
+      const totalReceivable = (receivableRes.data as any[])?.reduce((sum: number, inv: any) => sum + (Number(inv.amount_incl_vat) || 0), 0) || 0;
 
       setStats({
         supplierInvoices,
@@ -183,14 +198,14 @@ export default function FinancialDashboard() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: stats.pendingPayments > 0 ? 'warning.light' : 'grey.100' }}>
+          <Card sx={{ bgcolor: stats.pendingPayments > 0 ? 'info.light' : 'grey.100' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Warning />
-                <Typography variant="subtitle2">Pending Payments</Typography>
+                <Typography variant="subtitle2">Recent Cash/Bank Activity</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{stats.pendingPayments}</Typography>
-              <Typography variant="caption">{stats.pendingPayments > 0 ? 'Needs settlement' : 'All settled'}</Typography>
+              <Typography variant="caption">Transactions (last 100)</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -231,17 +246,15 @@ export default function FinancialDashboard() {
                     <TableCell>Invoice No</TableCell>
                     <TableCell>Vendor</TableCell>
                     <TableCell>Amount</TableCell>
-                    <TableCell>Status</TableCell>
                     <TableCell>Created</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {recentInvoices.map((inv: any) => (
                     <TableRow key={inv.id} hover>
-                      <TableCell><Typography variant="body2" fontFamily="monospace" fontWeight={600}>{inv.invoice_no || inv.id.slice(0, 8)}</Typography></TableCell>
-                      <TableCell>{inv.vendor_name || "-"}</TableCell>
-                      <TableCell>{inv.total_amount ? `UGX ${Number(inv.total_amount).toLocaleString()}` : "-"}</TableCell>
-                      <TableCell><Chip label={inv.status || "draft"} size="small" variant="outlined" sx={{ textTransform: "capitalize" }} /></TableCell>
+                      <TableCell><Typography variant="body2" fontFamily="monospace" fontWeight={600}>{inv.invoice_number || inv.id.slice(0, 8)}</Typography></TableCell>
+                      <TableCell>{inv.accounts?.name || "-"}</TableCell>
+                      <TableCell>{inv.amount_incl_vat ? `UGX ${Number(inv.amount_incl_vat).toLocaleString()}` : "-"}</TableCell>
                       <TableCell><Typography variant="caption">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "-"}</Typography></TableCell>
                     </TableRow>
                   ))}
@@ -287,4 +300,3 @@ export default function FinancialDashboard() {
     </Box>
   );
 }
-
