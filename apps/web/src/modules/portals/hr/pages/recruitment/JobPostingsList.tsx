@@ -43,10 +43,16 @@ export default function JobPostingsList() {
   const handleSave = async () => {
     if (!form.title.trim()) return;
 
+    const userId = session?.user?.id;
+    if (!userId) {
+      alert("Your session has expired. Please sign in again.");
+      return;
+    }
+
     const { data: appUser, error: appUserError } = await supabase
       .from("app_users")
       .select("tenant_id")
-      .eq("id", session?.user?.id)
+      .eq("id", userId)
       .single();
     const tenant_id = appUser?.tenant_id;
     if (appUserError || !tenant_id) {

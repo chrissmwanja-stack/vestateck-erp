@@ -122,10 +122,16 @@ export default function EmployeesList() {
   const handleSave = async () => {
     if (!form.first_name.trim() || !form.last_name.trim() || !form.email.trim()) return;
 
+    const userId = session?.user?.id;
+    if (!userId) {
+      alert("Your session has expired. Please sign in again.");
+      return;
+    }
+
     const { data: appUser, error: appUserError } = await supabase
       .from("app_users")
       .select("tenant_id")
-      .eq("id", session?.user?.id)
+      .eq("id", userId)
       .single();
     const tenant_id = appUser?.tenant_id;
     if (!editing && (appUserError || !tenant_id)) {
