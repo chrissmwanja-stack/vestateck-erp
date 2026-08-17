@@ -90,7 +90,7 @@ export default function TicketApprovals() {
     const { error } = await supabase.rpc('record_ticket_approval', {
       p_ticket_id: activeTicket.id,
       p_decision: decision,
-      p_notes: notes || null,
+      p_notes: notes || undefined,
     });
     setSubmitting(false);
     if (error) {

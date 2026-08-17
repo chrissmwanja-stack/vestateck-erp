@@ -260,8 +260,15 @@ export default function SupplierInvoiceNonPO() {
     e.preventDefault();
     setSaveError(null);
 
-    if (!entry.cost_center_id || !entry.vendor_account_id || !entry.invoice_number || !entry.invoice_date || !entry.amount_incl_vat) {
-      setSaveError('Cost center, vendor account, invoice number, invoice date, and amount are required.');
+    if (
+      !entry.organization_id ||
+      !entry.cost_center_id ||
+      !entry.vendor_account_id ||
+      !entry.invoice_number ||
+      !entry.invoice_date ||
+      !entry.amount_incl_vat
+    ) {
+      setSaveError('Organization, cost center, vendor account, invoice number, invoice date, and amount are required.');
       return;
     }
 
@@ -272,10 +279,29 @@ export default function SupplierInvoiceNonPO() {
     }
 
     setSaving(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+
+    if (profileError || !profile) {
+      setSaving(false);
+      setSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
+
     const { error: insertError } = await supabase.from('supplier_invoices').insert({
+      tenant_id: profile.tenant_id,
+      // Overwritten unconditionally by assign_supplier_invoice_oif before the row is written.
+      prf_oif_number: '',
       cost_center_id: entry.cost_center_id,
       vendor_account_id: entry.vendor_account_id,
-      organization_id: entry.organization_id || null,
+      organization_id: entry.organization_id,
       invoice_number: entry.invoice_number.trim(),
       invoice_date: entry.invoice_date,
       amount_incl_vat: parsedAmount,

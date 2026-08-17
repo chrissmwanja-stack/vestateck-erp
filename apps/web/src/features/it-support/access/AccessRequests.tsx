@@ -74,7 +74,7 @@ export default function AccessRequests() {
   }, []);
 
   const loadQueue = useCallback(async (status: 'pending' | 'all') => {
-    const { data, error } = await supabase.rpc('get_access_requests', { p_status: status === 'all' ? null : status });
+    const { data, error } = await supabase.rpc('get_access_requests', { p_status: status === 'all' ? undefined : status });
     if (error) setError(error.message);
     else setQueue((data as QueueRequest[]) ?? []);
   }, []);
@@ -103,8 +103,8 @@ export default function AccessRequests() {
     setError(null);
     const { error } = await supabase.rpc('create_access_request', {
       p_resource: resource,
-      p_access_level: accessLevel || null,
-      p_justification: justification || null,
+      p_access_level: accessLevel || undefined,
+      p_justification: justification || undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -129,7 +129,7 @@ export default function AccessRequests() {
     const { error } = await supabase.rpc('decide_access_request', {
       p_request_id: decisionTarget.req.id,
       p_decision: decisionTarget.decision,
-      p_notes: decisionNotes || null,
+      p_notes: decisionNotes || undefined,
     });
     setActing(false);
     if (error) {

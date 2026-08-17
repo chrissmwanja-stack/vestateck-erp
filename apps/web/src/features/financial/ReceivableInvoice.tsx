@@ -268,8 +268,14 @@ export default function ReceivableInvoice() {
     e.preventDefault();
     setSaveError(null);
 
-    if (!entry.client_account_id || !entry.invoice_number || !entry.invoice_date || !entry.amount_incl_vat) {
-      setSaveError('Client account, invoice number, invoice date, and amount are required.');
+    if (
+      !entry.organization_id ||
+      !entry.client_account_id ||
+      !entry.invoice_number ||
+      !entry.invoice_date ||
+      !entry.amount_incl_vat
+    ) {
+      setSaveError('Organization, client account, invoice number, invoice date, and amount are required.');
       return;
     }
 
@@ -280,8 +286,27 @@ export default function ReceivableInvoice() {
     }
 
     setSaving(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+
+    if (profileError || !profile) {
+      setSaving(false);
+      setSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
+
     const { error: insertError } = await supabase.from('receivable_invoices').insert({
-      organization_id: entry.organization_id || null,
+      tenant_id: profile.tenant_id,
+      organization_id: entry.organization_id,
+      // Overwritten unconditionally by assign_receivable_invoice_oif before the row is written.
+      prf_oif_number: '',
       cost_center_id: entry.cost_center_id || null,
       client_account_id: entry.client_account_id,
       invoice_number: entry.invoice_number.trim(),

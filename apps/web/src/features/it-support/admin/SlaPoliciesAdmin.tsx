@@ -84,7 +84,7 @@ export default function SlaPoliciesAdmin() {
     const { error } = await supabase.rpc('upsert_sla_policy', {
       p_priority: editPolicy.priority,
       p_target_hours: hours,
-      p_description: editDescription || null,
+      p_description: editDescription || undefined,
     });
     setSaving(false);
     if (error) {

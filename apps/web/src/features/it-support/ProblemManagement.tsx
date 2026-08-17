@@ -99,8 +99,8 @@ export default function ProblemManagement() {
     setCreating(true);
     const { error } = await supabase.rpc('create_problem', {
       p_title: newTitle,
-      p_description: newDescription || null,
-      p_category: newCategory || null,
+      p_description: newDescription || undefined,
+      p_category: newCategory || undefined,
       p_priority: newPriority,
     });
     setCreating(false);
@@ -139,8 +139,8 @@ export default function ProblemManagement() {
     setSavingDetail(true);
     const { error } = await supabase.rpc('update_problem', {
       p_problem_id: detail.id,
-      p_status: status ?? null,
-      p_root_cause: rootCauseDraft || null,
+      p_status: status ?? undefined,
+      p_root_cause: rootCauseDraft || undefined,
     });
     setSavingDetail(false);
     if (error) {

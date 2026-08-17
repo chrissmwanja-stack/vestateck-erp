@@ -285,8 +285,15 @@ export default function SupplierInvoices() {
     e.preventDefault();
     setSaveError(null);
 
-    if (!entry.purchase_order_id || !entry.vendor_account_id || !entry.invoice_number || !entry.invoice_date || !entry.amount_incl_vat) {
-      setSaveError('PO, vendor account, invoice number, invoice date, and amount are required.');
+    if (
+      !entry.organization_id ||
+      !entry.purchase_order_id ||
+      !entry.vendor_account_id ||
+      !entry.invoice_number ||
+      !entry.invoice_date ||
+      !entry.amount_incl_vat
+    ) {
+      setSaveError('Organization, PO, vendor account, invoice number, invoice date, and amount are required.');
       return;
     }
 
@@ -297,10 +304,29 @@ export default function SupplierInvoices() {
     }
 
     setSaving(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+
+    if (profileError || !profile) {
+      setSaving(false);
+      setSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
+
     const { error: insertError } = await supabase.from('supplier_invoices').insert({
+      tenant_id: profile.tenant_id,
+      // Overwritten unconditionally by assign_supplier_invoice_oif before the row is written.
+      prf_oif_number: '',
       purchase_order_id: entry.purchase_order_id,
       vendor_account_id: entry.vendor_account_id,
-      organization_id: entry.organization_id || null,
+      organization_id: entry.organization_id,
       invoice_number: entry.invoice_number.trim(),
       invoice_date: entry.invoice_date,
       due_date: entry.due_date || null,

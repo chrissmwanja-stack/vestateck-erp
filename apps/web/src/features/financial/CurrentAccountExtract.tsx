@@ -57,7 +57,7 @@ export default function CurrentAccountExtract() {
       .select('id, account_code, name, account_type')
       .eq('is_active', true)
       .order('name')
-      .then(({ data }) => setAccounts(data ?? []));
+      .then(({ data }) => setAccounts((data as Account[]) ?? []));
   }, []);
 
   const runSearch = async () => {

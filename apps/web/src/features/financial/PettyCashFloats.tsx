@@ -240,9 +240,29 @@ export default function PettyCashFloats() {
       is_active: floatForm.is_active,
     };
 
-    const { error: saveErr } = editingFloatId
-      ? await supabase.from('petty_cash_floats').update(payload).eq('id', editingFloatId)
-      : await supabase.from('petty_cash_floats').insert(payload);
+    let saveErr;
+    if (editingFloatId) {
+      ({ error: saveErr } = await supabase.from('petty_cash_floats').update(payload).eq('id', editingFloatId));
+    } else {
+      // tenant_id is overwritten server-side by set_petty_cash_defaults_trigger,
+      // but the column is NOT NULL with no DB default so it must be present here for TS.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { data: profile, error: profileError } = await supabase
+        .from('app_users')
+        .select('tenant_id')
+        .eq('id', user?.id ?? '')
+        .single();
+      if (profileError || !profile) {
+        setSavingFloat(false);
+        setFloatSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+        return;
+      }
+      ({ error: saveErr } = await supabase
+        .from('petty_cash_floats')
+        .insert({ ...payload, tenant_id: profile.tenant_id }));
+    }
     setSavingFloat(false);
 
     if (saveErr) {
@@ -278,7 +298,21 @@ export default function PettyCashFloats() {
     }
 
     setSavingReplenishment(true);
+    const {
+      data: { user: replenishUser },
+    } = await supabase.auth.getUser();
+    const { data: replenishProfile, error: replenishProfileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', replenishUser?.id ?? '')
+      .single();
+    if (replenishProfileError || !replenishProfile) {
+      setSavingReplenishment(false);
+      setReplenishError(replenishProfileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
     const { error: insertError } = await supabase.from('petty_cash_replenishments').insert({
+      tenant_id: replenishProfile.tenant_id,
       petty_cash_float_id: replenishingFloat.petty_cash_float_id,
       amount: parsedAmount,
       replenished_date: replenishForm.replenished_date,

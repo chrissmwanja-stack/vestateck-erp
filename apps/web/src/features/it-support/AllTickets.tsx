@@ -143,7 +143,7 @@ export default function AllTickets() {
     const { error: rpcError } = await supabase.rpc("update_ticket_status", {
       p_ticket_id: statusTarget.id,
       p_status: statusValue,
-      p_resolution_notes: resolutionNotes.trim() || null,
+      p_resolution_notes: resolutionNotes.trim() || undefined,
     });
 
     setStatusSubmitting(false);
@@ -168,7 +168,7 @@ export default function AllTickets() {
 
     const { error: rpcError } = await supabase.rpc("assign_ticket", {
       p_ticket_id: assignTarget.id,
-      p_assignee_id: assignValue?.id ?? null,
+      p_assignee_id: assignValue?.id ?? undefined,
     });
 
     setAssignSubmitting(false);

@@ -68,7 +68,7 @@ export default function Faq() {
     const { error } = await supabase.rpc('create_faq', {
       p_question: question,
       p_answer: answer,
-      p_category: category || null,
+      p_category: category || undefined,
       p_sort_order: Number(sortOrder) || 0,
     });
     setSaving(false);
@@ -100,7 +100,7 @@ export default function Faq() {
       p_faq_id: editFaq.id,
       p_question: editQuestion,
       p_answer: editAnswer,
-      p_category: editCategory || null,
+      p_category: editCategory || undefined,
       p_sort_order: Number(editSortOrder) || 0,
       p_is_published: editPublished,
     });

@@ -105,7 +105,7 @@ export default function GroupManagement() {
     setError(null);
     const { error } = await supabase.rpc('create_group', {
       p_name: newName,
-      p_description: newDescription || null,
+      p_description: newDescription || undefined,
     });
     setCreating(false);
     if (error) {

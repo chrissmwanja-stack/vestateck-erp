@@ -78,7 +78,9 @@ const COLUMN_DEFS: Record<RecordType, ColumnDef[]> = {
   ],
 };
 
-const RECORD_TYPE_META: Record<RecordType, { table: string; label: string; numberField: string }> = {
+type MassSlipTableName = 'expenditure_slips' | 'supplier_invoices' | 'receivable_invoices';
+
+const RECORD_TYPE_META: Record<RecordType, { table: MassSlipTableName; label: string; numberField: string }> = {
   expenditure_slip: { table: 'expenditure_slips', label: 'Expenditure Slips', numberField: 'slip_number' },
   supplier_invoice: { table: 'supplier_invoices', label: 'Supplier Invoices', numberField: 'invoice_number' },
   receivable_invoice: { table: 'receivable_invoices', label: 'Receivable Invoices', numberField: 'invoice_number' },
@@ -527,13 +529,32 @@ export default function MassSlip() {
     const meta = RECORD_TYPE_META[recordType];
     const results: CommitResult[] = [];
 
+    // tenant_id isn't set by resolveRow (it doesn't have access to the
+    // session). expenditure_slips fills it via a DB trigger regardless,
+    // but supplier_invoices and receivable_invoices have no such trigger
+    // and would otherwise fail NOT NULL on every imported row.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+    if (profileError || !profile) {
+      setPhase('preview');
+      return;
+    }
+
     // Inserted one row at a time, not batched -- both invoice tables
     // auto-generate prf_oif_number from a per-organization sequence on
     // insert, and this keeps failures attributable to the exact row that
     // caused them instead of failing an entire batch together.
     for (const row of preview) {
       if (row.errors.length > 0 || !row.insertPayload) continue;
-      const { error } = await supabase.from(meta.table).insert(row.insertPayload);
+      const { error } = await supabase
+        .from(meta.table)
+        .insert({ ...row.insertPayload, tenant_id: profile.tenant_id } as never);
       results.push({
         index: row.index,
         success: !error,

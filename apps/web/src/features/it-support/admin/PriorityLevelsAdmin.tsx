@@ -73,8 +73,8 @@ export default function PriorityLevelsAdmin() {
     setError(null);
     const { error } = await supabase.rpc('update_priority_level', {
       p_code: editLevel.code,
-      p_label: editLabel || null,
-      p_color: editColor || null,
+      p_label: editLabel || undefined,
+      p_color: editColor || undefined,
     });
     setSaving(false);
     if (error) {

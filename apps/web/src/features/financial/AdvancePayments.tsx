@@ -83,7 +83,7 @@ export default function AdvancePayments() {
       .select('id, account_code, name, account_type')
       .eq('is_active', true)
       .order('name')
-      .then(({ data }) => setAccounts(data ?? []));
+      .then(({ data }) => setAccounts((data as Account[]) ?? []));
 
   const loadRows = () => {
     setLoading(true);
@@ -114,7 +114,26 @@ export default function AdvancePayments() {
       return;
     }
     setSaving(true);
+
+    // advance_payments has no DB-level default or trigger for tenant_id,
+    // so it must be supplied explicitly from the requester's own app_users row.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+
+    if (profileError || !profile) {
+      setSaving(false);
+      setFormError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
+
     const { error } = await supabase.from('advance_payments').insert({
+      tenant_id: profile.tenant_id,
       account_id: form.accountId,
       direction: form.direction,
       amount: Number(form.amount),
@@ -138,13 +157,18 @@ export default function AdvancePayments() {
     setApplyInvoiceId('');
     setApplyAmount('');
     const account = accounts.find((a) => a.id === row.account_id);
-    const table = row.direction === 'payment' ? 'supplier_invoices' : 'receivable_invoices';
-    const accountFilterCol = row.direction === 'payment' ? 'vendor_account_id' : 'client_account_id';
-    const { data } = await supabase
-      .from(table)
-      .select('id, invoice_number, amount_incl_vat')
-      .eq(accountFilterCol, row.account_id)
-      .eq('currency', row.currency);
+    const { data } =
+      row.direction === 'payment'
+        ? await supabase
+            .from('supplier_invoices')
+            .select('id, invoice_number, amount_incl_vat')
+            .eq('vendor_account_id', row.account_id)
+            .eq('currency', row.currency)
+        : await supabase
+            .from('receivable_invoices')
+            .select('id, invoice_number, amount_incl_vat')
+            .eq('client_account_id', row.account_id)
+            .eq('currency', row.currency);
     setOpenInvoices((data as OpenInvoice[]) ?? []);
     void account;
   };

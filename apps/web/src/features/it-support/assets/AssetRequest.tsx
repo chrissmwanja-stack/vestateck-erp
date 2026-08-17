@@ -96,8 +96,8 @@ export default function AssetRequest() {
 
   const loadQueue = useCallback(async (status: 'pending' | 'all') => {
     const [queueRes, assetsRes] = await Promise.all([
-      supabase.rpc('get_asset_requests', { p_status: status === 'all' ? null : status }),
-      supabase.rpc('get_assets', { p_type: null }),
+      supabase.rpc('get_asset_requests', { p_status: status === 'all' ? undefined : status }),
+      supabase.rpc('get_assets', { p_type: undefined }),
     ]);
     if (queueRes.error) setError(queueRes.error.message);
     else setQueue((queueRes.data as QueueRequest[]) ?? []);
@@ -132,7 +132,7 @@ export default function AssetRequest() {
     const { error } = await supabase.rpc('create_asset_request', {
       p_asset_type: assetType,
       p_item_description: itemDescription,
-      p_justification: justification || null,
+      p_justification: justification || undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -156,7 +156,7 @@ export default function AssetRequest() {
     const { error } = await supabase.rpc('decide_asset_request', {
       p_request_id: decisionTarget.req.id,
       p_decision: decisionTarget.decision,
-      p_notes: decisionNotes || null,
+      p_notes: decisionNotes || undefined,
     });
     setActing(false);
     if (error) {
@@ -179,7 +179,7 @@ export default function AssetRequest() {
     const { error } = await supabase.rpc('fulfill_asset_request', {
       p_request_id: fulfillTarget.id,
       p_asset_id: fulfillAssetId,
-      p_notes: fulfillNotes || null,
+      p_notes: fulfillNotes || undefined,
     });
     setActing(false);
     if (error) {

@@ -75,7 +75,7 @@ export default function AssetAssignments() {
     setError(null);
     const [assignmentsRes, assetsRes, usersRes] = await Promise.all([
       supabase.rpc('get_asset_assignments', { p_active_only: activeOnly }),
-      supabase.rpc('get_assets', { p_type: null }),
+      supabase.rpc('get_assets', { p_type: undefined }),
       supabase.from('app_users').select('id, name, email').order('name'),
     ]);
     if (assignmentsRes.error) setError(assignmentsRes.error.message);
@@ -104,7 +104,7 @@ export default function AssetAssignments() {
     const { error } = await supabase.rpc('assign_asset', {
       p_asset_id: assetId,
       p_assigned_to: assignedTo,
-      p_notes: notes || null,
+      p_notes: notes || undefined,
     });
     setSaving(false);
     if (error) {
@@ -121,7 +121,7 @@ export default function AssetAssignments() {
     setSaving(true);
     const { error } = await supabase.rpc('return_asset', {
       p_assignment_id: returnTarget.id,
-      p_notes: returnNotes || null,
+      p_notes: returnNotes || undefined,
     });
     setSaving(false);
     if (error) {

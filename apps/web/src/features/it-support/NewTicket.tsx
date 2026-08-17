@@ -99,6 +99,9 @@ export default function NewTicket() {
         tenant_id: profile.tenant_id,
         requester_id: user.id,
         department_id: profile.department_id,
+        // Placeholder — the it_tickets_set_number BEFORE INSERT trigger overwrites this
+        // unconditionally. Required only because codegen doesn't know about the trigger.
+        ticket_number: '',
         subject: subject.trim(),
         description: description.trim(),
         category,

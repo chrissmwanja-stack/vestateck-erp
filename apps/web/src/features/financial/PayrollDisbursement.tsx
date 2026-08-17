@@ -209,7 +209,21 @@ export default function PayrollDisbursement() {
     }
 
     setSaving(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+    if (profileError || !profile) {
+      setSaving(false);
+      setSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
     const { error: insertError } = await supabase.from('cash_bank_transactions').insert({
+      tenant_id: profile.tenant_id,
       transaction_type: 'payment',
       payment_method: form.payment_method,
       reference_type: 'payroll_run',

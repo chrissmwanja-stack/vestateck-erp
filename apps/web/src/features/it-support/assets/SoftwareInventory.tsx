@@ -87,9 +87,9 @@ export default function SoftwareInventory() {
     const { error } = await supabase.rpc('create_asset', {
       p_type: 'software',
       p_name: name,
-      p_category: category || null,
-      p_vendor: vendor || null,
-      p_purchase_cost: purchaseCost ? Number(purchaseCost) : null,
+      p_category: category || undefined,
+      p_vendor: vendor || undefined,
+      p_purchase_cost: purchaseCost ? Number(purchaseCost) : undefined,
     });
     setSaving(false);
     if (error) {
@@ -112,8 +112,8 @@ export default function SoftwareInventory() {
     setSaving(true);
     const { error } = await supabase.rpc('update_asset', {
       p_asset_id: editAsset.id,
-      p_status: editAsset.status === 'assigned' ? null : editStatus,
-      p_notes: editNotes || null,
+      p_status: editAsset.status === 'assigned' ? undefined : editStatus,
+      p_notes: editNotes || undefined,
     });
     setSaving(false);
     if (error) {

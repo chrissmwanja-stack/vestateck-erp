@@ -116,10 +116,10 @@ export default function LicenseTracking() {
     const { error } = await supabase.rpc('create_license', {
       p_asset_id: assetId,
       p_seats_total: Number(seatsTotal) || 1,
-      p_license_key: licenseKey || null,
-      p_vendor: vendor || null,
-      p_expiry_date: expiryDate || null,
-      p_notes: notes || null,
+      p_license_key: licenseKey || undefined,
+      p_vendor: vendor || undefined,
+      p_expiry_date: expiryDate || undefined,
+      p_notes: notes || undefined,
     });
     setSaving(false);
     if (error) {
@@ -145,11 +145,11 @@ export default function LicenseTracking() {
     setSaving(true);
     const { error } = await supabase.rpc('update_license', {
       p_license_id: editLicense.id,
-      p_license_key: editLicenseKey || null,
+      p_license_key: editLicenseKey || undefined,
       p_seats_total: Number(editSeatsTotal) || undefined,
-      p_vendor: editVendor || null,
-      p_expiry_date: editExpiryDate || null,
-      p_notes: editNotes || null,
+      p_vendor: editVendor || undefined,
+      p_expiry_date: editExpiryDate || undefined,
+      p_notes: editNotes || undefined,
     });
     setSaving(false);
     if (error) {

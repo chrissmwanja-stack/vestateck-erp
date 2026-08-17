@@ -124,7 +124,7 @@ export default function SupportTeamsAdmin() {
     const { error } = await supabase.rpc('update_support_team', {
       p_id: selected.id,
       p_name: editName,
-      p_description: editDescription || null,
+      p_description: editDescription || undefined,
       p_is_active: editActive,
     });
     setSavingMeta(false);
@@ -143,7 +143,7 @@ export default function SupportTeamsAdmin() {
     setError(null);
     const { error } = await supabase.rpc('create_support_team', {
       p_name: newName,
-      p_description: newDescription || null,
+      p_description: newDescription || undefined,
     });
     setCreating(false);
     if (error) {

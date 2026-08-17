@@ -106,11 +106,11 @@ export default function AccountManagement() {
     setError(null);
     const { error } = await supabase.rpc('update_app_user', {
       p_user_id: editUser.id,
-      p_department_id: editDepartmentId || null,
-      p_role_title: editRoleTitle || null,
+      p_department_id: editDepartmentId || undefined,
+      p_role_title: editRoleTitle || undefined,
       // Only pass a platform-admin change if the caller is actually allowed to make one;
       // the RPC rejects a non-null value from a non-platform-admin caller outright.
-      p_is_platform_admin: isPlatformAdmin ? editIsPlatformAdmin : null,
+      p_is_platform_admin: isPlatformAdmin ? editIsPlatformAdmin : undefined,
     });
     setSaving(false);
     if (error) {

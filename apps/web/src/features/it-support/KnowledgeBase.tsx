@@ -77,7 +77,7 @@ export default function KnowledgeBase() {
     const { error } = await supabase.rpc('create_kb_article', {
       p_title: title,
       p_content: content,
-      p_category: category || null,
+      p_category: category || undefined,
       p_is_published: isPublished,
     });
     setSaving(false);
@@ -106,7 +106,7 @@ export default function KnowledgeBase() {
       p_article_id: selected.id,
       p_title: title,
       p_content: content,
-      p_category: category || null,
+      p_category: category || undefined,
       p_is_published: isPublished,
     });
     setSaving(false);

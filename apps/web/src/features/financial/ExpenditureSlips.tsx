@@ -272,7 +272,21 @@ export default function ExpenditureSlips() {
     }
 
     setSaving(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile, error: profileError } = await supabase
+      .from('app_users')
+      .select('tenant_id')
+      .eq('id', user?.id ?? '')
+      .single();
+    if (profileError || !profile) {
+      setSaving(false);
+      setSaveError(profileError?.message ?? 'Could not determine your tenant. Contact an admin.');
+      return;
+    }
     const { error: insertError } = await supabase.from('expenditure_slips').insert({
+      tenant_id: profile.tenant_id,
       cost_center_id: entry.cost_center_id,
       organization_id: entry.organization_id || null,
       slip_number: entry.slip_number.trim(),
