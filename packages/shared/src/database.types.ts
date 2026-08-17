@@ -7293,7 +7293,7 @@ export type Database = {
         }
       }
       assign_ticket: {
-        Args: { p_assignee_id: string; p_ticket_id: string }
+        Args: { p_assignee_id?: string; p_ticket_id: string }
         Returns: {
           approval_notes: string | null
           approval_status: string
