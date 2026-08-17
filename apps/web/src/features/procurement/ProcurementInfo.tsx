@@ -4,7 +4,7 @@ import {
   DialogTitle, Grid, IconButton, Link, MenuItem, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Tooltip, Typography,
 } from "@mui/material";
-import { PictureAsPdf } from "@mui/icons-material";
+import { Email, PictureAsPdf } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
 import { buildPoPdf } from "./pdfGenerator";
 import PurchaseOrderDetailDialog from "../finance/PurchaseOrderDetailDialog";
@@ -79,6 +79,8 @@ export default function ProcurementInfo() {
   const [error, setError] = useState<string | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState<string | null>(null);
   const [pdfGenerating, setPdfGenerating] = useState<string | null>(null);
+  const [emailingPo, setEmailingPo] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
   const isFinance = useFinanceAccess();
 
   const [settleTarget, setSettleTarget] = useState<InfoRow | null>(null);
@@ -196,6 +198,47 @@ export default function ProcurementInfo() {
     }
   };
 
+  // Server-side generation + email to the requester via the generate-po
+  // Edge Function. Separate from viewPdf (which regenerates client-side
+  // and just opens a link) — this one renders on the server, uploads to
+  // the purchase-order-documents bucket, and emails the requester via
+  // Resend. Only the requester or someone in the approval trail can
+  // trigger this; the function re-checks that server-side regardless of
+  // who can see this row client-side.
+  const emailPo = async (row: InfoRow) => {
+    setEmailingPo(row.purchase_order_id);
+    setError(null);
+    setEmailSuccess(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("generate-po", {
+        body: { request_id: row.request_id },
+      });
+      if (fnError) {
+        // generate-po returns a JSON body ({ error: "..." }) on 401/403/404/500;
+        // functions.invoke only gives us a generic message unless we read the
+        // response body off the error's context ourselves.
+        const context = (fnError as { context?: Response }).context;
+        const detail = context ? await context.clone().json().catch(() => null) : null;
+        throw new Error(detail?.error ?? fnError.message);
+      }
+
+      const result = data as { po_number: string; pdf_url: string; emailed: boolean; email_error?: string };
+      if (result.emailed) {
+        setEmailSuccess(`PO ${result.po_number} emailed to the requester.`);
+      } else {
+        setEmailSuccess(
+          `PO ${result.po_number} generated, but the email could not be sent${
+            result.email_error ? `: ${result.email_error}` : "."
+          } A link is available: ${result.pdf_url}`
+        );
+      }
+    } catch (e: any) {
+      setError(e.message ?? "Could not email the PO");
+    } finally {
+      setEmailingPo(null);
+    }
+  };
+
   const exportCsv = () => {
     const headers = [
       "Initial PO #", "PO #", "PO Total", "Currency", "Company", "Requester",
@@ -267,6 +310,7 @@ export default function ProcurementInfo() {
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {emailSuccess && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setEmailSuccess(null)}>{emailSuccess}</Alert>}
 
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
@@ -291,6 +335,7 @@ export default function ProcurementInfo() {
             {rows.map((r) => {
               const isBusy = actionSubmitting === r.purchase_order_id;
               const isPdfBusy = pdfGenerating === r.purchase_order_id;
+              const isEmailBusy = emailingPo === r.purchase_order_id;
               return (
                 <TableRow key={r.purchase_order_id} hover>
                   <TableCell>
@@ -332,6 +377,13 @@ export default function ProcurementInfo() {
                       <span>
                         <IconButton size="small" disabled={isPdfBusy} onClick={() => viewPdf(r)}>
                           {isPdfBusy ? <CircularProgress size={16} /> : <PictureAsPdf fontSize="small" color="error" />}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Email PO to requester">
+                      <span>
+                        <IconButton size="small" disabled={isEmailBusy} onClick={() => emailPo(r)}>
+                          {isEmailBusy ? <CircularProgress size={16} /> : <Email fontSize="small" color="primary" />}
                         </IconButton>
                       </span>
                     </Tooltip>

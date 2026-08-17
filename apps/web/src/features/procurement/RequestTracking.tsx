@@ -19,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { PictureAsPdf } from "@mui/icons-material";
+import { Email, PictureAsPdf } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
 import { buildPoPdf } from "./pdfGenerator";
 import RequestLineItemsDialog from "./RequestLineItemsDialog";
@@ -140,6 +140,8 @@ export default function RequestTracking() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfGenerating, setPdfGenerating] = useState<string | null>(null);
+  const [emailingPo, setEmailingPo] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
 
   // Row whose "Request Detail" dialog is currently open, if any.
   const [detailRow, setDetailRow] = useState<TrackingRow | null>(null);
@@ -244,6 +246,43 @@ export default function RequestTracking() {
       setError(e.message ?? "Could not generate the PO PDF");
     } finally {
       setPdfGenerating(null);
+    }
+  };
+
+  // Server-side generation + email to the requester via the generate-po
+  // Edge Function — same handler as ProcurementInfo.tsx, kept identical
+  // on purpose. Separate from viewPdf, which regenerates client-side and
+  // just opens a link; this one renders on the server, uploads to the
+  // purchase-order-documents bucket, and emails the requester via Resend.
+  const emailPo = async (row: TrackingRow) => {
+    if (!row.purchase_order_id) return;
+    setEmailingPo(row.purchase_order_id);
+    setError(null);
+    setEmailSuccess(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("generate-po", {
+        body: { request_id: row.request_id },
+      });
+      if (fnError) {
+        const context = (fnError as { context?: Response }).context;
+        const detail = context ? await context.clone().json().catch(() => null) : null;
+        throw new Error(detail?.error ?? fnError.message);
+      }
+
+      const result = data as { po_number: string; pdf_url: string; emailed: boolean; email_error?: string };
+      if (result.emailed) {
+        setEmailSuccess(`PO ${result.po_number} emailed to the requester.`);
+      } else {
+        setEmailSuccess(
+          `PO ${result.po_number} generated, but the email could not be sent${
+            result.email_error ? `: ${result.email_error}` : "."
+          } A link is available: ${result.pdf_url}`
+        );
+      }
+    } catch (e: any) {
+      setError(e.message ?? "Could not email the PO");
+    } finally {
+      setEmailingPo(null);
     }
   };
 
@@ -364,6 +403,7 @@ export default function RequestTracking() {
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {emailSuccess && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setEmailSuccess(null)}>{emailSuccess}</Alert>}
 
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
@@ -391,11 +431,15 @@ export default function RequestTracking() {
           <TableBody>
             {rows.map((r) => {
               const isPdfBusy = pdfGenerating === r.purchase_order_id;
+              const isEmailBusy = emailingPo === r.purchase_order_id;
               const pdfTooltip = !r.purchase_order_id
                 ? "No PO issued yet for this request"
                 : r.pdf_generated_at
                 ? `Last generated ${new Date(r.pdf_generated_at).toLocaleString()}`
                 : "Generate PO PDF";
+              const emailTooltip = !r.purchase_order_id
+                ? "No PO issued yet for this request"
+                : "Email PO to requester";
               return (
                 <TableRow key={r.request_id} hover>
                   <TableCell>
@@ -438,6 +482,21 @@ export default function RequestTracking() {
                             <CircularProgress size={16} />
                           ) : (
                             <PictureAsPdf fontSize="small" color={r.purchase_order_id ? "error" : "disabled"} />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title={emailTooltip}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          disabled={!r.purchase_order_id || isEmailBusy}
+                          onClick={() => emailPo(r)}
+                        >
+                          {isEmailBusy ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <Email fontSize="small" color={r.purchase_order_id ? "primary" : "disabled"} />
                           )}
                         </IconButton>
                       </span>
