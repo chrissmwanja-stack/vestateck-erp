@@ -6,7 +6,7 @@ interface Lead {
   id: string;
   source_id: string;
   estimated_value: number | null;
-  converted_to_opportunity_id: string | null;
+  converted_opportunity_id: string | null;
   status: string;
   bd_lead_sources?: { name: string } | null;
 }
@@ -38,7 +38,7 @@ export default function LeadSourceReport() {
       map[l.source_id].count += 1;
       map[l.source_id].totalValue += Number(l.estimated_value || 0);
       if (l.status === "qualified") map[l.source_id].qualified += 1;
-      if (l.converted_to_opportunity_id || l.status === "converted") map[l.source_id].converted += 1;
+      if (l.converted_opportunity_id || l.status === "converted") map[l.source_id].converted += 1;
     });
 
     const result = Object.entries(map).map(([source_id, v]) => ({

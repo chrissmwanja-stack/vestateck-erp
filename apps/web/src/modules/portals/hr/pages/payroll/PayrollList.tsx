@@ -136,7 +136,7 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
       p_item_id: itemId,
       p_allowances: allowances,
       p_deductions: deductions,
-      p_note: buf.note.trim() || null,
+      p_note: buf.note.trim() || undefined,
     });
     if (err) {
       setError(err.message ?? "Could not save the line item.");

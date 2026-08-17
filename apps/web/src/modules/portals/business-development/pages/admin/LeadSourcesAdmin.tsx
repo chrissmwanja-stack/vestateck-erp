@@ -29,7 +29,7 @@ interface LeadSource {
   id: string;
   tenant_id: string;
   name: string;
-  description: string | null;
+
   is_active: boolean;
   created_at: string;
 }
@@ -40,7 +40,7 @@ export default function LeadSourcesAdmin() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<LeadSource | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", is_active: true });
+  const [form, setForm] = useState({ name: "", is_active: true });
 
   const fetchSources = async () => {
     setLoading(true);
@@ -64,13 +64,13 @@ export default function LeadSourcesAdmin() {
 
   const handleOpenNew = () => {
     setEditing(null);
-    setForm({ name: "", description: "", is_active: true });
+    setForm({ name: "", is_active: true });
     setOpen(true);
   };
 
   const handleOpenEdit = (source: LeadSource) => {
     setEditing(source);
-    setForm({ name: source.name, description: source.description || "", is_active: source.is_active });
+    setForm({ name: source.name, is_active: source.is_active });
     setOpen(true);
   };
 
@@ -87,7 +87,6 @@ export default function LeadSourcesAdmin() {
         .from("bd_lead_sources")
         .update({
           name: form.name.trim(),
-          description: form.description.trim() || null,
           is_active: form.is_active,
         })
         .eq("id", editing.id);
@@ -101,7 +100,6 @@ export default function LeadSourcesAdmin() {
       // If not, you need to provide tenant_id from your appUser table
       const payload: any = {
         name: form.name.trim(),
-        description: form.description.trim() || null,
         is_active: form.is_active,
       };
       if (tenant_id) payload.tenant_id = tenant_id;
@@ -163,7 +161,6 @@ export default function LeadSourcesAdmin() {
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
-                <TableCell>Description</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -172,7 +169,7 @@ export default function LeadSourcesAdmin() {
             <TableBody>
               {sources.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} sx={{ textAlign: "center", py: 4 }}>
+                  <TableCell colSpan={4} sx={{ textAlign: "center", py: 4 }}>
                     <Typography color="text.secondary">No lead sources yet. Create Referral, Website, Tender Portal, Cold Call, etc.</Typography>
                   </TableCell>
                 </TableRow>
@@ -181,9 +178,6 @@ export default function LeadSourcesAdmin() {
                   <TableRow key={s.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>{s.name}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">{s.description || "-"}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip label={s.is_active ? "Active" : "Inactive"} size="small" color={s.is_active ? "success" : "default"} />
@@ -216,15 +210,6 @@ export default function LeadSourcesAdmin() {
             placeholder="e.g. Referral, Website, Tender Portal"
             fullWidth
             autoFocus
-          />
-          <TextField
-            label="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Optional description"
-            fullWidth
-            multiline
-            rows={2}
           />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Switch checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />

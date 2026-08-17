@@ -114,8 +114,8 @@ export default function CompensationHistory() {
       p_employee_id: employeeId,
       p_basic_salary: salary,
       p_effective_date: form.effective_date,
-      p_contract_reference: form.contract_reference.trim() || null,
-      p_note: form.note.trim() || null,
+      p_contract_reference: form.contract_reference.trim() || undefined,
+      p_note: form.note.trim() || undefined,
     });
     setSaving(false);
     if (err) {

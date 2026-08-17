@@ -118,14 +118,20 @@ export default function PositionsAdmin() {
     setImporting(true);
     const existingTitles = new Set(positions.map((p) => p.title.trim().toLowerCase()));
     const skipped: string[] = [];
-    const toInsert: { title: string; description: string | null; is_active: boolean; tenant_id?: string }[] = [];
+    const toInsert: { title: string; description: string | null; is_active: boolean; tenant_id: string }[] = [];
     const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || positions[0]?.tenant_id;
+
+    if (!tenant_id) {
+      setImporting(false);
+      setImportError("Could not determine your organization. Please refresh and try again.");
+      return;
+    }
 
     for (const row of rows) {
       const key = row.title.toLowerCase();
       if (existingTitles.has(key)) { skipped.push(`${row.title} (already exists)`); continue; }
       existingTitles.add(key); // dedupe within the file itself too
-      toInsert.push({ ...row, ...(tenant_id ? { tenant_id } : {}) });
+      toInsert.push({ ...row, tenant_id });
     }
 
     if (toInsert.length > 0) {
