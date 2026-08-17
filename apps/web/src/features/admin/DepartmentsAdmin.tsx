@@ -179,7 +179,9 @@ export default function DepartmentsAdmin() {
     };
     const { error: err } = editTarget
       ? await supabase.from('departments').update(payload).eq('id', editTarget.id)
-      : await supabase.from('departments').insert(payload);
+      // tenant_id is required by the generated Insert type but is filled
+      // unconditionally by trg_set_department_defaults (BEFORE INSERT trigger).
+      : await supabase.from('departments').insert({ ...payload, tenant_id: '' });
     setSaving(false);
     if (err) {
       setSaveError(err.message);

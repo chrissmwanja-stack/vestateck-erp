@@ -22,6 +22,9 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../lib/authContext";
 import { parseCsv } from "../../lib/csvParser";
 import { parseXlsx } from "../../lib/xlsxParser";
+import type { Database } from "@erp-platform/shared";
+
+type TableName = keyof Database["public"]["Tables"];
 
 /**
  * Resolves a CSV column's text value (e.g. "Engineering") to a foreign key
@@ -32,7 +35,7 @@ export interface BulkImportLookup {
   /** CSV column this lookup reads from, e.g. "department" */
   csvColumn: string;
   /** Supabase table to resolve against, e.g. "departments" */
-  table: string;
+  table: TableName;
   /** Column on that table to match the CSV value against, e.g. "name" */
   matchColumn: string;
   /** Key to write the resolved id under in the insert payload, e.g. "department_id" */
@@ -59,7 +62,7 @@ export interface BulkImportRowResult {
 
 export interface BulkImportConfig {
   /** Supabase table rows are inserted into */
-  table: string;
+  table: TableName;
   /** Display name, e.g. "Employees" */
   entityLabel: string;
   /** Plain CSV columns validated for presence/format before insert */
@@ -220,13 +223,17 @@ export default function BulkImportDialog({
 
   const handleImport = async () => {
     if (validRows.length === 0) return;
+    if (!session?.user?.id) {
+      setFatalError("Could not determine your session. Please refresh and try again.");
+      return;
+    }
     setImporting(true);
     setFatalError(null);
 
     const { data: appUser, error: appUserErr } = await supabase
       .from("app_users")
       .select("tenant_id")
-      .eq("id", session?.user?.id)
+      .eq("id", session.user.id)
       .single();
 
     if (appUserErr || !appUser?.tenant_id) {
