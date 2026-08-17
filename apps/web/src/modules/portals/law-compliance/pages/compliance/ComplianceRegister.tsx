@@ -77,12 +77,34 @@ export default function ComplianceRegister() {
 
     if (editing) {
       const { error } = await supabase.from("law_compliance_register").update(payload).eq("id", editing.id);
-      if (error) { alert(error.message); return; }
+      if (error) {
+        alert(error.code === "42501" ? "You don't have permission to edit this item." : error.message);
+        return;
+      }
     } else {
-      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || items[0]?.tenant_id;
-      if (tenant_id) payload.tenant_id = tenant_id;
+      const userId = session?.user?.id;
+      if (!userId) {
+        alert("Your session has expired. Please sign in again.");
+        return;
+      }
+
+      const { data: appUser, error: appUserError } = await supabase
+        .from("app_users")
+        .select("tenant_id")
+        .eq("id", userId)
+        .single();
+      const tenant_id = appUser?.tenant_id;
+      if (appUserError || !tenant_id) {
+        alert("Could not determine your organization. Please refresh and try again.");
+        return;
+      }
+      payload.tenant_id = tenant_id;
+
       const { error } = await supabase.from("law_compliance_register").insert(payload);
-      if (error) { alert(error.message); return; }
+      if (error) {
+        alert(error.code === "42501" ? "You don't have permission to create compliance items." : error.message);
+        return;
+      }
     }
 
     setOpen(false);
