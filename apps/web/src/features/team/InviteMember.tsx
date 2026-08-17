@@ -72,10 +72,12 @@ const emptyModuleSelection: ModuleSelection = {
   procurement: { checked: false, role: 'member' },
 };
 
-// Gate: you need to be a module admin in your own tenant to invite here.
-// Real enforcement is server-side in invite-user / the invitations RLS
-// policies -- this just keeps the screen from rendering for people every
-// call on it would fail for.
+// Gate: you need to be your tenant's company admin (or a platform admin)
+// to invite here -- module-only admins (e.g. HR-only) can no longer
+// invite, since they had no business granting access to modules they
+// don't run, including finance. Real enforcement is server-side in
+// invite-user / the invitations RLS policies -- this just keeps the
+// screen from rendering for people every call on it would fail for.
 //
 // app_users' only SELECT policy scopes by tenant_id, not by your own id,
 // so a query without .eq('id', ...) can return every user in your tenant
@@ -93,7 +95,7 @@ function useTenantAdminAccess() {
       }
       const { data: appUser, error: appUserError } = await supabase
         .from('app_users')
-        .select('tenant_id, is_platform_admin')
+        .select('tenant_id, is_platform_admin, is_company_admin')
         .eq('id', userId)
         .maybeSingle();
       if (cancelled || appUserError || !appUser) {
@@ -114,16 +116,10 @@ function useTenantAdminAccess() {
         setState({ isAdmin: true, tenantId });
         return;
       }
-      const { data: adminRole } = await supabase
-        .from('staff_roles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      setState({ isAdmin: !!adminRole, tenantId });
+      // Mirrors invite-user's server-side check: only the tenant's
+      // company admin (not any single-module admin) may invite members.
+      // See 20260817125405_add_is_company_admin_flag.
+      setState({ isAdmin: !!appUser.is_company_admin, tenantId });
     };
 
     // Fetch once on mount for the fast path, but also re-fetch on any auth

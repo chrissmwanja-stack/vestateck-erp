@@ -152,7 +152,7 @@ serve(async (req) => {
     // --- Load caller's own app_users row (platform admin flag + tenant) ---
     const { data: callerRow, error: callerError } = await admin
       .from('app_users')
-      .select('tenant_id, is_platform_admin')
+      .select('tenant_id, is_platform_admin, is_company_admin')
       .eq('id', callerId)
       .maybeSingle();
 
@@ -200,27 +200,23 @@ serve(async (req) => {
         );
       }
     } else {
-      // member invite: caller must be a module admin, and only within
-      // their own tenant.
+      // member invite: caller must be the tenant's company admin, and
+      // only within their own tenant. Previously this checked for *any*
+      // staff_roles admin row, which let a single-module admin (e.g.
+      // HR-only) invite members into any module -- including finance,
+      // which they had no business granting. is_company_admin (set by
+      // accept-invite when a company_admin-bundle invite is accepted) is
+      // the durable, unambiguous signal for "the actual company admin";
+      // see 20260817125405_add_is_company_admin_flag.
       if (tenant_id !== effectiveTenantId) {
         return jsonResponse(
           { error: 'You can only invite members into your own tenant' },
           403
         );
       }
-      const { data: adminRole, error: adminRoleError } = await admin
-        .from('staff_roles')
-        .select('id')
-        .eq('user_id', callerId)
-        .eq('tenant_id', tenant_id)
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-
-      if (adminRoleError) return jsonResponse({ error: adminRoleError.message }, 500);
-      if (!adminRole) {
+      if (!callerRow.is_company_admin) {
         return jsonResponse(
-          { error: 'Only a module admin can invite team members' },
+          { error: 'Only your company admin can invite team members' },
           403
         );
       }

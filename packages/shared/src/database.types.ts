@@ -345,6 +345,7 @@ export type Database = {
           department_id: string | null
           email: string
           id: string
+          is_company_admin: boolean
           is_platform_admin: boolean
           name: string
           role_title: string | null
@@ -355,6 +356,7 @@ export type Database = {
           department_id?: string | null
           email: string
           id: string
+          is_company_admin?: boolean
           is_platform_admin?: boolean
           name: string
           role_title?: string | null
@@ -365,6 +367,7 @@ export type Database = {
           department_id?: string | null
           email?: string
           id?: string
+          is_company_admin?: boolean
           is_platform_admin?: boolean
           name?: string
           role_title?: string | null

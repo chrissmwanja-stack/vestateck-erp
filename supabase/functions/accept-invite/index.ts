@@ -104,6 +104,13 @@ serve(async (req) => {
       tenant_id: invitation.tenant_id,
       email: userEmail,
       name: userEmail.split('@')[0], // placeholder -- user can update in profile settings
+      // Durable marker for "the tenant's overall company admin", distinct
+      // from the per-module staff_roles admin rows inserted below (see
+      // 20260817125405_add_is_company_admin_flag). invite-user's
+      // member-invite authorization gates on this specifically -- without
+      // it, nobody who accepts a company_admin invite would ever be able
+      // to invite anyone else.
+      is_company_admin: invitation.role_bundle === 'company_admin',
     });
 
     if (appUserError) {
