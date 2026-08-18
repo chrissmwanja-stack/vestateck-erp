@@ -1,4 +1,4 @@
-﻿-- Platform admins impersonating a tenant have get_my_tenant_id() resolve to the
+-- Platform admins impersonating a tenant have get_my_tenant_id() resolve to the
 -- impersonated tenant, but their own app_users row keeps their real (home) tenant_id.
 -- The tenant-scoped SELECT policy alone hides their own row from them during
 -- impersonation, which breaks InviteMember.tsx's admin check and any staff_roles
