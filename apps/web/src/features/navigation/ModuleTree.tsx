@@ -350,6 +350,7 @@ const portals: Portal[] = [
             ],
           },
           { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-lookups" },
+          { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-catalog" },
           { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/admin/warehouses" },
         ],
       },

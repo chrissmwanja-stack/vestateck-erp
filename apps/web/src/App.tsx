@@ -64,6 +64,7 @@ const NewMaterialRequest = lazy(() => import('./features/requests/NewMaterialReq
 const MaterialRequestApproval = lazy(() => import('./features/approvals/MaterialRequestApproval'));
 const MaterialRequestReport = lazy(() => import('./features/requests/MaterialRequestReport'));
 const MaterialLookupsAdmin = lazy(() => import('./features/admin/MaterialLookupsAdmin'));
+const MaterialCatalogAdmin = lazy(() => import('./features/admin/MaterialCatalogAdmin'));
 const OfferEntry = lazy(() => import('./features/offers/OfferEntry'));
 const OfferApprovalPO = lazy(() => import('./features/offers/OfferApprovalPO'));
 const NewTicket = lazy(() => import('./features/it-support/NewTicket'));
@@ -309,6 +310,7 @@ export default function App() {
                 <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
                 <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
                 <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
+                <Route path="/admin/material-catalog" element={<MaterialCatalogAdmin />} />
                 <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
                 <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
               </Route>
