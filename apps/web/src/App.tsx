@@ -4,6 +4,7 @@ import { AppBar, Box, Button, CircularProgress, Container, IconButton, Toolbar, 
 import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
 import { usePlatformAdminAccess } from './lib/usePlatformAdminAccess';
 const AdminLayout = lazy(() => import('./features/admin/AdminLayout'));
+const PlatformDashboard = lazy(() => import('./features/admin/PlatformDashboard'));
 
 const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
 const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
@@ -264,7 +265,7 @@ function RootRedirect() {
       </Box>
     );
   }
-  return <Navigate to={isPlatformAdmin ? '/admin/companies' : '/requests/new'} replace />;
+  return <Navigate to={isPlatformAdmin ? '/admin' : '/requests/new'} replace />;
 }
 
 export default function App() {
@@ -274,7 +275,7 @@ export default function App() {
   // outside a company, so it's swapped out (not just hidden) whenever
   // we're inside the platform-admin dashboard. AdminLayout supplies its
   // own header for that section instead.
-  const isPlatformAdminRoute = location.pathname.startsWith('/admin/companies');
+  const isPlatformAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/companies');
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
@@ -298,6 +299,7 @@ export default function App() {
               <Route path="/multiplexing/invoice-new" element={<InvoiceSubmissionForm />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
+              <Route path="/admin" element={<PlatformDashboard />} />
               <Route element={<AdminLayout />}>
                 <Route path="/admin/companies" element={<CompaniesConsole />} />
                 <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />

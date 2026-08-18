@@ -489,6 +489,7 @@ const portals: Portal[] = [
     label: "Platform Administration",
     icon: <AdminPanelSettings fontSize="small" />,
     nodes: [
+      { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
       { id: "company-setup", label: "Company Setup", icon: <PlaylistAddCheck fontSize="small" />, to: "/setup" },
       { id: "invite-team", label: "Invite Team", icon: <PersonAdd fontSize="small" />, to: "/team/invite" },
