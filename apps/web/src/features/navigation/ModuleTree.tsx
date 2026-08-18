@@ -442,7 +442,6 @@ const portals: Portal[] = [
     icon: <AdminPanelSettings fontSize="small" />,
     nodes: lawComplianceNodes,
     requiredModule: "legal",
-    isPreview: true,
   },
   {
     id: "human-resources",
@@ -450,7 +449,6 @@ const portals: Portal[] = [
     icon: <AssignmentTurnedIn fontSize="small" />,
     nodes: hrNodes,
     requiredModule: "hr",
-    isPreview: true,
   },
   {
     id: "business-development",
@@ -458,7 +456,6 @@ const portals: Portal[] = [
     icon: <Description fontSize="small" />,
     nodes: businessDevNodes,
     requiredModule: "bd",
-    isPreview: true,
   },
   {
     id: "machine-operation",
@@ -466,7 +463,6 @@ const portals: Portal[] = [
     icon: <Build fontSize="small" />,
     nodes: machineOperationNodes,
     requiredModule: "machine_operation",
-    isPreview: true,
   },
   {
     id: "pmo",
@@ -474,7 +470,6 @@ const portals: Portal[] = [
     icon: <Folder fontSize="small" />,
     nodes: pmoNodes,
     requiredModule: "pmo",
-    isPreview: true,
   },
   {
     id: "sustainability",
@@ -482,7 +477,6 @@ const portals: Portal[] = [
     icon: <Folder fontSize="small" />,
     nodes: sustainabilityNodes,
     requiredModule: "sustainability",
-    isPreview: true,
   },
   {
     // Not gated here -- like every other portal in this file, visibility
