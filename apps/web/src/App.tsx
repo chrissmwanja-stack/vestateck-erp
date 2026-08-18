@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { Link as RouterLink, Route, Routes, Navigate } from 'react-router-dom';
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, Tooltip } from '@mui/material';
+import { Link as RouterLink, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { AppBar, Box, Button, CircularProgress, Container, IconButton, Toolbar, Typography, Tooltip } from '@mui/material';
 import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
+import { usePlatformAdminAccess } from './lib/usePlatformAdminAccess';
+const AdminLayout = lazy(() => import('./features/admin/AdminLayout'));
 
 const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
 const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
@@ -247,13 +249,37 @@ function RouteFallback() {
   );
 }
 
+// Platform admins aren't part of any company, so "submit a material
+// request" (everyone else's landing page) isn't a meaningful home for
+// them -- they land on the companies dashboard instead. isPlatformAdmin
+// is null while the app_users lookup is still in flight; hold the
+// redirect until it resolves so an admin never flashes through
+// /requests/new first.
+function RootRedirect() {
+  const isPlatformAdmin = usePlatformAdminAccess();
+  if (isPlatformAdmin === null) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+  return <Navigate to={isPlatformAdmin ? '/admin/companies' : '/requests/new'} replace />;
+}
+
 export default function App() {
   const { session } = useAuth();
+  const location = useLocation();
+  // The tenant ModuleTree lists one company's modules -- meaningless
+  // outside a company, so it's swapped out (not just hidden) whenever
+  // we're inside the platform-admin dashboard. AdminLayout supplies its
+  // own header for that section instead.
+  const isPlatformAdminRoute = location.pathname.startsWith('/admin/companies');
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
       <Box sx={{ display: 'flex', flex: 1 }}>
-        {session && <ModuleTree />}
+        {session && !isPlatformAdminRoute && <ModuleTree />}
         <Container component="main" sx={{ mt: 3, mb: 6, flexGrow: 1, maxWidth: '100%', px: 4 }}>
           <Suspense fallback={<RouteFallback />}>
           <Routes>
@@ -261,7 +287,7 @@ export default function App() {
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/bootstrap-admin" element={<BootstrapAdminPage />} />
             <Route element={<RequireAuth />}>
-              <Route path="/" element={<Navigate to="/requests/new" replace />} />
+              <Route path="/" element={<RootRedirect />} />
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
               <Route path="/approvals" element={<ApprovalQueue />} />
               <Route
@@ -272,8 +298,10 @@ export default function App() {
               <Route path="/multiplexing/invoice-new" element={<InvoiceSubmissionForm />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
-              <Route path="/admin/companies" element={<CompaniesConsole />} />
-              <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/companies" element={<CompaniesConsole />} />
+                <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+              </Route>
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />

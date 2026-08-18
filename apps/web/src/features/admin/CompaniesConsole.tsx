@@ -453,18 +453,27 @@ export default function CompaniesConsole() {
   }
 
   return (
-    <Box sx={{ maxWidth: 900 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h5">Companies</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openNew}>
-          New Company
+    <Box sx={{ maxWidth: 1100 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Box>
+          <Typography variant="h4">Companies</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            Every tenant on the platform. Creating a company here seeds its departments and
+            standard approval workflow, then sends the first admin an invite — they land as
+            admin on all four modules once they accept. Use "View as" to step into a company's
+            data directly.
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openNew} sx={{ flexShrink: 0 }}>
+          Set up a company
         </Button>
       </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Every tenant on the platform. Creating a company here seeds its departments and standard
-        approval workflow, then sends the first admin an invite — they land as admin on all four
-        modules once they accept. Use "View as" to step into a company's data directly.
-      </Typography>
 
       {saveNotice && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveNotice(null)}>
@@ -483,7 +492,7 @@ export default function CompaniesConsole() {
       )}
 
       {!loading && rows.length > 0 && (
-        <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 4 }}>
           {[
             { label: 'Companies onboarded', value: rows.length },
             { label: 'Active', value: rows.filter((r) => r.status === 'active').length },
@@ -497,8 +506,14 @@ export default function CompaniesConsole() {
               value: rows.reduce((sum, r) => sum + (r.request_count_30d ?? 0), 0),
             },
           ].map((stat) => (
-            <Paper key={stat.label} variant="outlined" sx={{ px: 2, py: 1, minWidth: 140 }}>
-              <Typography variant="h6">{stat.value}</Typography>
+            <Paper
+              key={stat.label}
+              variant="outlined"
+              sx={{ px: 2.5, py: 1.75, minWidth: 150, borderTop: (theme) => `3px solid ${theme.palette.secondary.main}` }}
+            >
+              <Typography variant="h4" sx={{ color: 'secondary.main', lineHeight: 1.1 }}>
+                {stat.value}
+              </Typography>
               <Typography variant="caption" color="text.secondary">
                 {stat.label}
               </Typography>
@@ -506,6 +521,10 @@ export default function CompaniesConsole() {
           ))}
         </Stack>
       )}
+
+      <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+        All companies
+      </Typography>
 
       <Paper variant="outlined">
         {loading ? (
