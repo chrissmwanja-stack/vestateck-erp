@@ -105,7 +105,7 @@ jobs:
       # 53 tables for.
       - name: Audit tenant_id foreign keys
         run: |
-          RESULT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -f scripts/audit_tenant_fk.sql)
+          RESULT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -f supabase/scripts/audit_tenant_fk.sql)
           if [ -n "$RESULT" ]; then
             echo "::error::Tables with tenant_id but no FK constraint:"
             echo "$RESULT"
