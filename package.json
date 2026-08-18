@@ -11,8 +11,8 @@
     "build": "npm run build --workspace=apps/web"
   },
   "dependencies": {
-    "jspdf": "^3.0.4",
-    "xlsx": "^0.18.5"
+    "jspdf": "^4.2.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "allowScripts": {
     "core-js@3.49.0": true,
