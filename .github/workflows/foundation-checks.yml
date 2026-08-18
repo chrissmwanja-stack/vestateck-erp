@@ -1,9 +1,18 @@
 name: Foundation checks
 
 # Runs supabase/MIGRATION_POLICY.md's automated rules against new
-# migration files on every push and PR. See FOUNDATION_PLAYBOOK.md
-# Phase 0. This is deliberately narrow -- it does not run the app,
-# lint, or a full db reset yet; those come in later phases.
+# migration files on every push and PR, plus (as of 2026-08-18) three
+# more gates prompted by the 17 Aug deep-audit's #2 P0 recommendation
+# ("Add real CI"): a build+typecheck job, a from-scratch migration
+# replay against a real local Supabase stack, and the tenant_id FK
+# audit query from that same report (see scripts/audit_tenant_fk.sql
+# for why it needs a BASE TABLE filter the report's raw query didn't
+# have -- an unfiltered version permanently flags ~10 views).
+#
+# migration-policy stays narrow by design (see its own comment below).
+# build and db-shadow-replay are new, independent jobs -- neither
+# blocks the other, so a broken migration doesn't hide a broken build
+# or vice versa.
 
 on:
   push:
@@ -45,3 +54,61 @@ jobs:
         run: |
           chmod +x scripts/check-migration-policy.sh
           ./scripts/check-migration-policy.sh "${{ steps.base.outputs.ref }}"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      # Root "build" script delegates to apps/web ("tsc -b && vite
+      # build"), which project-references packages/shared -- so this
+      # single command typechecks and builds both. Catches exactly the
+      # class of bug the accept-invite/invite-user is_company_admin
+      # change would have hit if database.types.ts hadn't been updated
+      # to match: a silent runtime mismatch instead of a red PR check.
+      - name: Typecheck + build
+        run: npm run build
+
+  db-shadow-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.114.0
+
+      # `supabase start` replays every file in supabase/migrations/ from
+      # scratch against a throwaway local Postgres (via Docker) and then
+      # applies seed.sql. This is the actual test for migration-history
+      # health that the 17 Aug audit flagged as missing: a bad ordering,
+      # a broken remote_schema dump, or a migration that only worked
+      # because production already had the object it's creating, all
+      # fail loudly here instead of surfacing on the next teammate's
+      # fresh clone or the next `supabase db reset`.
+      - name: Replay all migrations + seed from scratch
+        run: supabase start
+
+      # The tenant_id FK audit from the 17 Aug report, §4 -- corrected
+      # to exclude views (see scripts/audit_tenant_fk.sql header).
+      # Confirmed 0 rows against production on 2026-08-18; any output
+      # here means a new BASE TABLE shipped with a tenant_id column but
+      # no FK, i.e. a repeat of the gap 20260815063702 had to backfill
+      # 53 tables for.
+      - name: Audit tenant_id foreign keys
+        run: |
+          RESULT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -f scripts/audit_tenant_fk.sql)
+          if [ -n "$RESULT" ]; then
+            echo "::error::Tables with tenant_id but no FK constraint:"
+            echo "$RESULT"
+            exit 1
+          fi
+          echo "Tenant FK audit clean -- no BASE TABLE with an unconstrained tenant_id column."
