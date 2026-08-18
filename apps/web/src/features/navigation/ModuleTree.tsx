@@ -12,6 +12,7 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
+  Chip,
 } from "@mui/material";
 import {
   Folder,
@@ -84,6 +85,10 @@ interface Portal {
   nodes: TreeNode[];
   disabled?: boolean;
   tooltip?: string;
+  // Cosmetic-only: marks preview-maturity modules with a "Preview" badge
+  // in the switcher and header. Does NOT restrict access -- gating is
+  // still purely requiredModule + useMyModuleAccess, same as before.
+  isPreview?: boolean;
   // Module gate for the whole portal -- used for portals that are 100%
   // one module (hr, legal, bd, it, pmo, machine_operation,
   // sustainability). Portals with no requiredModule are always shown;
@@ -437,6 +442,7 @@ const portals: Portal[] = [
     icon: <AdminPanelSettings fontSize="small" />,
     nodes: lawComplianceNodes,
     requiredModule: "legal",
+    isPreview: true,
   },
   {
     id: "human-resources",
@@ -444,6 +450,7 @@ const portals: Portal[] = [
     icon: <AssignmentTurnedIn fontSize="small" />,
     nodes: hrNodes,
     requiredModule: "hr",
+    isPreview: true,
   },
   {
     id: "business-development",
@@ -458,6 +465,7 @@ const portals: Portal[] = [
     icon: <Build fontSize="small" />,
     nodes: machineOperationNodes,
     requiredModule: "machine_operation",
+    isPreview: true,
   },
   {
     id: "pmo",
@@ -465,6 +473,7 @@ const portals: Portal[] = [
     icon: <Folder fontSize="small" />,
     nodes: pmoNodes,
     requiredModule: "pmo",
+    isPreview: true,
   },
   {
     id: "sustainability",
@@ -472,6 +481,7 @@ const portals: Portal[] = [
     icon: <Folder fontSize="small" />,
     nodes: sustainabilityNodes,
     requiredModule: "sustainability",
+    isPreview: true,
   },
   {
     // Not gated here -- like every other portal in this file, visibility
@@ -683,6 +693,18 @@ export default function ModuleTree() {
           <Typography variant="subtitle2" sx={{ color: "primary.contrastText", fontWeight: 700, display: "flex", alignItems: "center", gap: 1, whiteSpace: "nowrap" }}>
             {activePortal.icon}
             {activePortal.label}
+            {activePortal.isPreview && (
+              <Chip
+                label="Preview"
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: "0.65rem",
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "primary.contrastText",
+                }}
+              />
+            )}
           </Typography>
           <Typography variant="caption" sx={{ color: "primary.contrastText", opacity: 0.8 }}>
             VestaPortal — click to switch portal
@@ -700,7 +722,17 @@ export default function ModuleTree() {
             onClick={() => handleSelectPortal(portal)}
           >
             <ListItemIcon sx={{ minWidth: 32 }}>{portal.icon}</ListItemIcon>
-            <ListItemText primary={portal.label} secondary={portal.disabled ? "Coming soon" : undefined} />
+            <ListItemText
+              primary={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                  {portal.label}
+                  {portal.isPreview && (
+                    <Chip label="Preview" size="small" sx={{ height: 18, fontSize: "0.65rem" }} />
+                  )}
+                </Box>
+              }
+              secondary={portal.disabled ? "Coming soon" : undefined}
+            />
           </MenuItem>
         ))}
       </Menu>
