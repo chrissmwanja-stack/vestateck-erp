@@ -458,6 +458,7 @@ const portals: Portal[] = [
     icon: <Description fontSize="small" />,
     nodes: businessDevNodes,
     requiredModule: "bd",
+    isPreview: true,
   },
   {
     id: "machine-operation",
