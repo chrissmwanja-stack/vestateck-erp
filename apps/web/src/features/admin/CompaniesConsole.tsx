@@ -714,8 +714,9 @@ export default function CompaniesConsole() {
                 Every company gets the same approval pipeline
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                This isn't customizable per company yet — every request routes through the same
-                7-stage chain, with a 5,000,000 threshold deciding the branch:
+                The 7-stage chain itself isn't customizable per company yet, but the 5,000,000
+                threshold that decides the branch below can be edited afterward from each
+                company's detail page:
               </Typography>
               <Stack component="ol" sx={{ pl: 2.5, m: 0 }} spacing={0.25}>
                 {APPROVAL_PIPELINE_STAGES.map((stage) => (

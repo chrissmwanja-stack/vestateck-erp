@@ -8457,6 +8457,7 @@ export type Database = {
         }[]
       }
       get_tenant_modules: { Args: { p_tenant_id: string }; Returns: string[] }
+      get_tenant_workflow_stages: { Args: { p_tenant_id: string }; Returns: Json }
       get_ticket_categories: {
         Args: never
         Returns: {
@@ -9293,6 +9294,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_workflow_stage_threshold: {
+        Args: { p_stage_id: string; p_threshold_amount: number }
+        Returns: undefined
       }
       upsert_sla_policy: {
         Args: {
