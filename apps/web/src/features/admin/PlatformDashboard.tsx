@@ -75,6 +75,12 @@ interface PlatformStats {
   recent_companies: { id: string; name: string; status: string; created_at: string }[];
   top_companies_by_requests: { name: string; count: number; tenant_id: string }[];
   pending_invites_list: { id: string; email: string; tenant_id: string; created_at: string }[];
+  // Added alongside totals.pending_companies / totals.suspended_companies
+  // so the dashboard alert can name the companies, not just count them.
+  // Optional because the fallback path (get_companies_overview) below
+  // doesn't populate these -- treated as "no data yet", not an error.
+  pending_companies_list?: { id: string; name: string; created_at: string }[];
+  suspended_companies_list?: { id: string; name: string; created_at: string }[];
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -165,6 +171,8 @@ export default function PlatformDashboard() {
         recent_companies: rows.slice(0, 5).map((r) => ({ id: r.tenant_id, name: r.name, status: r.status, created_at: r.created_at })),
         top_companies_by_requests: [...rows].sort((a, b) => Number(b.request_count_30d) - Number(a.request_count_30d)).slice(0, 5).map((r) => ({ name: r.name, count: Number(r.request_count_30d), tenant_id: r.tenant_id })),
         pending_invites_list: [],
+        pending_companies_list: rows.filter((r) => r.status === 'pending').map((r) => ({ id: r.tenant_id, name: r.name, created_at: r.created_at })),
+        suspended_companies_list: rows.filter((r) => r.status === 'suspended').map((r) => ({ id: r.tenant_id, name: r.name, created_at: r.created_at })),
       };
       setStats(minimal);
       setError(`Live stats RPC not yet migrated — showing limited view. Apply migration 20260818140000: ${err.message}`);
@@ -286,6 +294,11 @@ export default function PlatformDashboard() {
           <Button component={RouterLink} to="/admin/companies" variant="outlined" sx={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.35)', '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' } }}>
             All companies
           </Button>
+          <Tooltip title="Platform settings">
+            <IconButton component={RouterLink} to="/admin/settings" sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
+              <Settings fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Refresh stats">
             <IconButton onClick={load} sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
               <Refresh fontSize="small" />
@@ -298,6 +311,49 @@ export default function PlatformDashboard() {
       </Paper>
 
       {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {/* DASHBOARD ALERTS — named, actionable, and silent on a clean
+          day. The KPI row below already shows the *counts* (pending,
+          suspended); this is the "so what do I actually do" layer on
+          top of them, naming the companies so a platform admin doesn't
+          have to open Companies and eyeball the status column. */}
+      {((stats!.pending_companies_list?.length ?? 0) > 0 || (stats!.suspended_companies_list?.length ?? 0) > 0) && (
+        <Stack spacing={1.5} sx={{ mb: 2 }}>
+          {(stats!.pending_companies_list?.length ?? 0) > 0 && (
+            <Alert
+              severity="info"
+              action={
+                <Button color="inherit" size="small" component={RouterLink} to="/admin/companies">
+                  Review
+                </Button>
+              }
+            >
+              <b>{stats!.pending_companies_list!.length} compan{stats!.pending_companies_list!.length === 1 ? 'y' : 'ies'} pending</b>
+              {' — '}
+              {stats!.pending_companies_list!.slice(0, 3).map((c) => c.name).join(', ')}
+              {stats!.pending_companies_list!.length > 3 && ` +${stats!.pending_companies_list!.length - 3} more`}
+            </Alert>
+          )}
+          {(stats!.suspended_companies_list?.length ?? 0) > 0 && (
+            <Alert
+              severity="warning"
+              action={
+                <Button color="inherit" size="small" component={RouterLink} to="/admin/companies">
+                  Review
+                </Button>
+              }
+            >
+              <b>
+                {stats!.suspended_companies_list!.length} suspended compan{stats!.suspended_companies_list!.length === 1 ? 'y' : 'ies'} need
+                {stats!.suspended_companies_list!.length === 1 ? 's' : ''} review
+              </b>
+              {' — '}
+              {stats!.suspended_companies_list!.slice(0, 3).map((c) => c.name).join(', ')}
+              {stats!.suspended_companies_list!.length > 3 && ` +${stats!.suspended_companies_list!.length - 3} more`}
+            </Alert>
+          )}
+        </Stack>
+      )}
 
       {/* KPI ROW */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>

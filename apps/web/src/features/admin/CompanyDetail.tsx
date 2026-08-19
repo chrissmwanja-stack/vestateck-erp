@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Link,
   Paper,
   Stack,
   Table,
@@ -15,8 +14,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 
 // Single-tenant drill-down for the Companies Console. Pulls everything
@@ -205,9 +203,10 @@ export default function CompanyDetail() {
   if (error || !tenant || !analytics) {
     return (
       <Box sx={{ maxWidth: 900 }}>
-        <Link component={RouterLink} to="/admin/companies" sx={{ display: 'inline-flex', alignItems: 'center', mb: 2 }}>
-          <ArrowBackIcon fontSize="small" sx={{ mr: 0.5 }} /> Back to Companies
-        </Link>
+        {/* AdminLayout's header supplies back nav for this screen now --
+            this page used to carry its own separate "Back to Companies"
+            link here, which duplicated (and could drift from) the one
+            in the shared shell. */}
         <Alert severity="error">{error ?? 'Company not found.'}</Alert>
       </Box>
     );
@@ -215,10 +214,6 @@ export default function CompanyDetail() {
 
   return (
     <Box sx={{ maxWidth: 900 }}>
-      <Link component={RouterLink} to="/admin/companies" sx={{ display: 'inline-flex', alignItems: 'center', mb: 2 }}>
-        <ArrowBackIcon fontSize="small" sx={{ mr: 0.5 }} /> Back to Companies
-      </Link>
-
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
         <Typography variant="h5">{tenant.name}</Typography>
         <Chip size="small" label={tenant.status} color={tenantStatusColor[tenant.status] ?? 'default'} />

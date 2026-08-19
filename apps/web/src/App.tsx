@@ -26,6 +26,7 @@ import ImpersonationBanner from './features/admin/ImpersonationBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
+const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
 const CompanySetupChecklist = lazy(() => import('./features/team/CompanySetupChecklist'));
 const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
@@ -276,7 +277,10 @@ export default function App() {
   // outside a company, so it's swapped out (not just hidden) whenever
   // we're inside the platform-admin dashboard. AdminLayout supplies its
   // own header for that section instead.
-  const isPlatformAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/companies');
+  const isPlatformAdminRoute =
+    location.pathname === '/admin' ||
+    location.pathname.startsWith('/admin/companies') ||
+    location.pathname === '/admin/settings';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
@@ -307,10 +311,19 @@ export default function App() {
                   gated server-side via is_platform_admin(), so this is
                   belt-and-braces rather than the only line of defense. */}
               <Route element={<RequirePlatformAdmin />}>
+                {/* PlatformDashboard keeps its own header (the gradient
+                    "Harbor Slate" banner) rather than being wrapped in
+                    AdminLayout -- it already does everything AdminLayout's
+                    strip does, just more elaborately, and stacking both
+                    would mean two headers on one screen. AdminLayout
+                    wraps Companies/Company Detail/Settings, whose back
+                    nav previously pointed everywhere to "all companies"
+                    -- now route-aware, see AdminLayout.tsx. */}
                 <Route path="/admin" element={<PlatformDashboard />} />
                 <Route element={<AdminLayout />}>
                   <Route path="/admin/companies" element={<CompaniesConsole />} />
                   <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+                  <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />
