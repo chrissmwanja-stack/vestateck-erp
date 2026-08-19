@@ -17,22 +17,18 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ACCEPT_INVITE_URL = Deno.env.get('ACCEPT_INVITE_URL') ?? '';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 interface ResendInviteBody {
   invitation_id: string;
 }
 
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -40,6 +36,8 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -47,7 +45,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -55,13 +53,13 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const callerId = userData.user.id;
 
     const body = (await req.json()) as ResendInviteBody;
     if (!body.invitation_id) {
-      return jsonResponse({ error: 'invitation_id is required' }, 400);
+      return jsonResponse(corsHeaders, { error: 'invitation_id is required' }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -72,11 +70,11 @@ serve(async (req) => {
       .eq('id', body.invitation_id)
       .maybeSingle();
 
-    if (inviteError) return jsonResponse({ error: inviteError.message }, 500);
-    if (!invitation) return jsonResponse({ error: 'Invitation not found' }, 404);
+    if (inviteError) return jsonResponse(corsHeaders, { error: inviteError.message }, 500);
+    if (!invitation) return jsonResponse(corsHeaders, { error: 'Invitation not found' }, 404);
 
     if (!['pending', 'expired'].includes(invitation.status)) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: `Only pending or expired invitations can be resent (this one is ${invitation.status})` },
         400
       );
@@ -89,16 +87,16 @@ serve(async (req) => {
       .eq('id', callerId)
       .maybeSingle();
 
-    if (callerError) return jsonResponse({ error: callerError.message }, 500);
-    if (!callerRow) return jsonResponse({ error: 'Caller has no app_users record' }, 403);
+    if (callerError) return jsonResponse(corsHeaders, { error: callerError.message }, 500);
+    if (!callerRow) return jsonResponse(corsHeaders, { error: 'Caller has no app_users record' }, 403);
 
     if (invitation.role_bundle === 'company_admin') {
       if (!callerRow.is_platform_admin) {
-        return jsonResponse({ error: 'Only platform admins can resend a company admin invite' }, 403);
+        return jsonResponse(corsHeaders, { error: 'Only platform admins can resend a company admin invite' }, 403);
       }
     } else {
       if (invitation.tenant_id !== callerRow.tenant_id) {
-        return jsonResponse({ error: 'You can only resend invites within your own tenant' }, 403);
+        return jsonResponse(corsHeaders, { error: 'You can only resend invites within your own tenant' }, 403);
       }
       const { data: adminRole, error: adminRoleError } = await admin
         .from('staff_roles')
@@ -109,9 +107,9 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (adminRoleError) return jsonResponse({ error: adminRoleError.message }, 500);
+      if (adminRoleError) return jsonResponse(corsHeaders, { error: adminRoleError.message }, 500);
       if (!adminRole) {
-        return jsonResponse({ error: 'Only a module admin can resend team member invites' }, 403);
+        return jsonResponse(corsHeaders, { error: 'Only a module admin can resend team member invites' }, 403);
       }
     }
 
@@ -122,7 +120,7 @@ serve(async (req) => {
     });
 
     if (authError) {
-      return jsonResponse({ error: authError.message }, 500);
+      return jsonResponse(corsHeaders, { error: authError.message }, 500);
     }
 
     // If it had been marked expired, resending makes it pending again.
@@ -130,9 +128,9 @@ serve(async (req) => {
       await admin.from('invitations').update({ status: 'pending' }).eq('id', invitation.id);
     }
 
-    return jsonResponse({ invitation_id: invitation.id, email: invitation.email }, 200);
+    return jsonResponse(corsHeaders, { invitation_id: invitation.id, email: invitation.email }, 200);
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );

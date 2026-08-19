@@ -23,15 +23,11 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface CreateTenantBody {
   name: string;
@@ -40,7 +36,7 @@ interface CreateTenantBody {
 
 const VALID_INDUSTRY_TEMPLATES = ['general', 'construction'] as const;
 
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -48,6 +44,8 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -55,7 +53,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -63,19 +61,19 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const callerId = userData.user.id;
 
     const body = (await req.json()) as CreateTenantBody;
     const name = body.name?.trim();
     if (!name) {
-      return jsonResponse({ error: 'name is required' }, 400);
+      return jsonResponse(corsHeaders, { error: 'name is required' }, 400);
     }
 
     const industryTemplate = body.industry_template ?? 'general';
     if (!VALID_INDUSTRY_TEMPLATES.includes(industryTemplate as (typeof VALID_INDUSTRY_TEMPLATES)[number])) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: `industry_template must be one of: ${VALID_INDUSTRY_TEMPLATES.join(', ')}` },
         400
       );
@@ -90,9 +88,9 @@ serve(async (req) => {
       .eq('id', callerId)
       .maybeSingle();
 
-    if (callerError) return jsonResponse({ error: callerError.message }, 500);
+    if (callerError) return jsonResponse(corsHeaders, { error: callerError.message }, 500);
     if (!callerRow?.is_platform_admin) {
-      return jsonResponse({ error: 'Only platform admins can create tenants' }, 403);
+      return jsonResponse(corsHeaders, { error: 'Only platform admins can create tenants' }, 403);
     }
 
     // --- Prevent obvious accidental duplicates ---
@@ -103,9 +101,9 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (existingError) return jsonResponse({ error: existingError.message }, 500);
+    if (existingError) return jsonResponse(corsHeaders, { error: existingError.message }, 500);
     if (existing) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: 'A tenant with this name already exists', tenant_id: existing.id },
         409
       );
@@ -123,7 +121,7 @@ serve(async (req) => {
       .select('id, name, status')
       .single();
 
-    if (insertError) return jsonResponse({ error: insertError.message }, 500);
+    if (insertError) return jsonResponse(corsHeaders, { error: insertError.message }, 500);
 
     // --- Seed departments + workflow_stages for the new tenant ---
     // Called with the caller's own JWT (userClient), see note above on
@@ -139,7 +137,7 @@ serve(async (req) => {
     });
 
     if (seedError) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         {
           tenant,
           seed_warning: `Tenant was created but seeding default departments/workflow failed: ${seedError.message}`,
@@ -148,9 +146,9 @@ serve(async (req) => {
       );
     }
 
-    return jsonResponse({ tenant }, 200);
+    return jsonResponse(corsHeaders, { tenant }, 200);
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );

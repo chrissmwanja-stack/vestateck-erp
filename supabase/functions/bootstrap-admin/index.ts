@@ -20,6 +20,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -28,12 +29,7 @@ const BOOTSTRAP_ADMIN_CODE = Deno.env.get('BOOTSTRAP_ADMIN_CODE');
 
 const PLATFORM_TENANT_ID = '00000000-0000-0000-0000-000000000099';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -41,6 +37,8 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -49,7 +47,7 @@ serve(async (req) => {
     // The code must be configured before this endpoint does anything.
     // Fails closed rather than silently allowing an uncoded claim.
     if (!BOOTSTRAP_ADMIN_CODE) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: 'Bootstrap is not configured. Set BOOTSTRAP_ADMIN_CODE and redeploy.' },
         503
       );
@@ -57,7 +55,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -65,21 +63,21 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const userId = userData.user.id;
     const userEmail = userData.user.email;
     if (!userEmail) {
-      return jsonResponse({ error: 'Authenticated user has no email' }, 400);
+      return jsonResponse(corsHeaders, { error: 'Authenticated user has no email' }, 400);
     }
 
     const { name, code } = await req.json().catch(() => ({}));
 
     if (typeof code !== 'string' || code !== BOOTSTRAP_ADMIN_CODE) {
-      return jsonResponse({ error: 'Invalid bootstrap code' }, 403);
+      return jsonResponse(corsHeaders, { error: 'Invalid bootstrap code' }, 403);
     }
     if (typeof name !== 'string' || name.trim().length === 0) {
-      return jsonResponse({ error: 'Name is required' }, 400);
+      return jsonResponse(corsHeaders, { error: 'Name is required' }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -90,10 +88,10 @@ serve(async (req) => {
       .select('id', { count: 'exact', head: true })
       .eq('is_platform_admin', true);
 
-    if (countError) return jsonResponse({ error: countError.message }, 500);
+    if (countError) return jsonResponse(corsHeaders, { error: countError.message }, 500);
 
     if ((adminCount ?? 0) > 0) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: 'A platform admin already exists. Ask them to invite you instead.' },
         409
       );
@@ -117,12 +115,12 @@ serve(async (req) => {
       // claim between our count-check above and this update.
       if (updateError) {
         if (updateError.code === '23505') {
-          return jsonResponse(
+          return jsonResponse(corsHeaders,
             { error: 'A platform admin already exists. Ask them to invite you instead.' },
             409
           );
         }
-        return jsonResponse({ error: updateError.message }, 500);
+        return jsonResponse(corsHeaders, { error: updateError.message }, 500);
       }
     } else {
       const { error: insertError } = await admin.from('app_users').insert({
@@ -140,20 +138,20 @@ serve(async (req) => {
           //  - app_users_pkey (id): this exact caller retried after a
           //    prior successful claim already committed. Treat as done.
           if (insertError.message.includes('app_users_single_platform_admin')) {
-            return jsonResponse(
+            return jsonResponse(corsHeaders,
               { error: 'A platform admin already exists. Ask them to invite you instead.' },
               409
             );
           }
         } else {
-          return jsonResponse({ error: insertError.message }, 500);
+          return jsonResponse(corsHeaders, { error: insertError.message }, 500);
         }
       }
     }
 
-    return jsonResponse({ message: 'Platform admin claimed' }, 200);
+    return jsonResponse(corsHeaders, { message: 'Platform admin claimed' }, 200);
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );

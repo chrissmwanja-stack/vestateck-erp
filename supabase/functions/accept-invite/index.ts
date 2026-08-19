@@ -13,6 +13,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -20,17 +21,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 interface ModuleRole {
   module: (typeof ALL_MODULES)[number];
   role: 'admin' | 'manager' | 'member';
 }
 
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -38,6 +34,8 @@ function jsonResponse(body: unknown, status: number) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -47,7 +45,7 @@ serve(async (req) => {
     // Supabase Auth's recovery/invite flow before hitting this endpoint).
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -55,12 +53,12 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const userId = userData.user.id;
     const userEmail = userData.user.email;
     if (!userEmail) {
-      return jsonResponse({ error: 'Authenticated user has no email' }, 400);
+      return jsonResponse(corsHeaders, { error: 'Authenticated user has no email' }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -79,7 +77,7 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (inviteError) return jsonResponse({ error: inviteError.message }, 500);
+    if (inviteError) return jsonResponse(corsHeaders, { error: inviteError.message }, 500);
 
     // --- Idempotency: already accepted (e.g. double-submit) ---
     if (!invitation) {
@@ -90,12 +88,12 @@ serve(async (req) => {
         .maybeSingle();
 
       if (alreadyAccepted) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { message: 'Invitation already accepted', tenant_id: alreadyAccepted.tenant_id },
           200
         );
       }
-      return jsonResponse({ error: 'No pending invitation found for this email' }, 404 );
+      return jsonResponse(corsHeaders, { error: 'No pending invitation found for this email' }, 404 );
     }
 
     // --- Create app_users row ---
@@ -118,7 +116,7 @@ serve(async (req) => {
       // condition or a retried call). Treat as already-done rather than
       // a hard failure.
       if (appUserError.code !== '23505') {
-        return jsonResponse({ error: appUserError.message }, 500);
+        return jsonResponse(corsHeaders, { error: appUserError.message }, 500);
       }
     }
 
@@ -142,7 +140,7 @@ serve(async (req) => {
       const { error: rolesError } = await admin.from('staff_roles').insert(roleRows);
       // Ignore unique-violation on roles too, for the same retry reason.
       if (rolesError && rolesError.code !== '23505') {
-        return jsonResponse({ error: rolesError.message }, 500);
+        return jsonResponse(corsHeaders, { error: rolesError.message }, 500);
       }
     }
 
@@ -161,7 +159,7 @@ serve(async (req) => {
       });
       // Ignore unique-violation for the same retry reason as staff_roles.
       if (financeError && financeError.code !== '23505') {
-        return jsonResponse({ error: financeError.message }, 500);
+        return jsonResponse(corsHeaders, { error: financeError.message }, 500);
       }
     }
 
@@ -171,7 +169,7 @@ serve(async (req) => {
       .update({ status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('id', invitation.id);
 
-    if (acceptError) return jsonResponse({ error: acceptError.message }, 500);
+    if (acceptError) return jsonResponse(corsHeaders, { error: acceptError.message }, 500);
 
     // --- If this is the tenant's first accepted invite, activate it ---
     const { count: acceptedCount, error: countError } = await admin
@@ -188,7 +186,7 @@ serve(async (req) => {
         .eq('status', 'pending');
     }
 
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       {
         tenant_id: invitation.tenant_id,
         role_bundle: invitation.role_bundle,
@@ -198,7 +196,7 @@ serve(async (req) => {
       200
     );
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );

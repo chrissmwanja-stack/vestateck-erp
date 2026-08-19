@@ -27,6 +27,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -42,11 +43,6 @@ const VALID_ROLES = ['admin', 'manager', 'member'] as const;
 // 20260816_add_finance_role_to_invitations.
 const VALID_FINANCE_ROLES = ['finance', 'cost_control'] as const;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 interface ModuleRole {
   module: (typeof ALL_MODULES)[number];
   role: (typeof VALID_ROLES)[number];
@@ -60,7 +56,7 @@ interface InviteUserBody {
   finance_role?: (typeof VALID_FINANCE_ROLES)[number] | null;
 }
 
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,6 +75,8 @@ function isValidModuleRoleArray(value: unknown): value is ModuleRole[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -86,7 +84,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -94,7 +92,7 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const callerId = userData.user.id;
 
@@ -102,10 +100,10 @@ serve(async (req) => {
     const { email, tenant_id, role_bundle } = body;
 
     if (!email || !tenant_id || !role_bundle) {
-      return jsonResponse({ error: 'email, tenant_id, and role_bundle are required' }, 400);
+      return jsonResponse(corsHeaders, { error: 'email, tenant_id, and role_bundle are required' }, 400);
     }
     if (!['company_admin', 'member'].includes(role_bundle)) {
-      return jsonResponse({ error: "role_bundle must be 'company_admin' or 'member'" }, 400);
+      return jsonResponse(corsHeaders, { error: "role_bundle must be 'company_admin' or 'member'" }, 400);
     }
 
     // finance_role only applies to member invites -- company_admin gets
@@ -115,7 +113,7 @@ serve(async (req) => {
     let financeRole: (typeof VALID_FINANCE_ROLES)[number] | null = null;
     if (role_bundle === 'member' && body.finance_role != null) {
       if (!VALID_FINANCE_ROLES.includes(body.finance_role)) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: "finance_role must be 'finance', 'cost_control', or omitted" },
           400
         );
@@ -127,7 +125,7 @@ serve(async (req) => {
     if (role_bundle === 'member') {
       const hasModules = Array.isArray(body.modules_and_roles) && body.modules_and_roles.length > 0;
       if (!hasModules && !financeRole) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           {
             error:
               'member invites need at least one module (module/role pairs) or a finance_role grant',
@@ -136,7 +134,7 @@ serve(async (req) => {
         );
       }
       if (hasModules && !isValidModuleRoleArray(body.modules_and_roles)) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           {
             error:
               'modules_and_roles must be a non-empty array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability/procurement, role in admin/manager/member',
@@ -156,9 +154,9 @@ serve(async (req) => {
       .eq('id', callerId)
       .maybeSingle();
 
-    if (callerError) return jsonResponse({ error: callerError.message }, 500);
+    if (callerError) return jsonResponse(corsHeaders, { error: callerError.message }, 500);
     if (!callerRow) {
-      return jsonResponse({ error: 'Caller has no app_users record' }, 403);
+      return jsonResponse(corsHeaders, { error: 'Caller has no app_users record' }, 403);
     }
 
     // --- Resolve caller's effective tenant ---
@@ -184,7 +182,7 @@ serve(async (req) => {
     // --- Authorization ---
     if (role_bundle === 'company_admin') {
       if (!callerRow.is_platform_admin) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: 'Only platform admins can invite a company admin' },
           403
         );
@@ -194,7 +192,7 @@ serve(async (req) => {
       // a tenant -- they don't need a staff_roles admin row in that company
       // to manage it. Still scoped to the tenant they're actually acting on.
       if (tenant_id !== effectiveTenantId) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: 'You can only invite members into the tenant you are currently viewing' },
           403
         );
@@ -209,13 +207,13 @@ serve(async (req) => {
       // the durable, unambiguous signal for "the actual company admin";
       // see 20260817125405_add_is_company_admin_flag.
       if (tenant_id !== effectiveTenantId) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: 'You can only invite members into your own tenant' },
           403
         );
       }
       if (!callerRow.is_company_admin) {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: 'Only your company admin can invite team members' },
           403
         );
@@ -229,12 +227,12 @@ serve(async (req) => {
       .eq('id', tenant_id)
       .maybeSingle();
 
-    if (tenantError) return jsonResponse({ error: tenantError.message }, 500);
+    if (tenantError) return jsonResponse(corsHeaders, { error: tenantError.message }, 500);
     if (!tenant) {
-      return jsonResponse({ error: 'tenant_id does not exist' }, 404);
+      return jsonResponse(corsHeaders, { error: 'tenant_id does not exist' }, 404);
     }
     if (tenant.status === 'suspended') {
-      return jsonResponse({ error: 'Cannot invite into a suspended tenant' }, 400);
+      return jsonResponse(corsHeaders, { error: 'Cannot invite into a suspended tenant' }, 400);
     }
 
     // --- Insert the pending invitation row ---
@@ -256,12 +254,12 @@ serve(async (req) => {
       // Unique constraint is (tenant_id, email, status) — a duplicate
       // here means there's already a pending invite for this person.
       if (insertError.code === '23505') {
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           { error: 'A pending invitation already exists for this email in this tenant' },
           409
         );
       }
-      return jsonResponse({ error: insertError.message }, 500);
+      return jsonResponse(corsHeaders, { error: insertError.message }, 500);
     }
 
     // --- Create the auth.users row and send the invite email ---
@@ -277,10 +275,10 @@ serve(async (req) => {
       // Roll back the invitations row so a retry doesn't hit the unique
       // constraint on a dead invite.
       await admin.from('invitations').delete().eq('id', invitation.id);
-      return jsonResponse({ error: authError.message }, 500);
+      return jsonResponse(corsHeaders, { error: authError.message }, 500);
     }
 
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       {
         invitation_id: invitation.id,
         auth_user_id: authInvite.user?.id ?? null,
@@ -291,7 +289,7 @@ serve(async (req) => {
       200
     );
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );

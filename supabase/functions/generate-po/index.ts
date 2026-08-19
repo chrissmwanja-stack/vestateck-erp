@@ -17,6 +17,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { buildCorsHeaders } from '../_shared/cors.ts';
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -28,16 +29,11 @@ const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL');
 const PO_BUCKET = 'purchase-order-documents';
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 interface GeneratePoBody {
   request_id: string;
 }
 
-function jsonResponse(body: unknown, status: number) {
+function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -56,6 +52,8 @@ function uint8ToBase64(bytes: Uint8Array): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -63,7 +61,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return jsonResponse({ error: 'Missing Authorization header' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Missing Authorization header' }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -71,13 +69,13 @@ serve(async (req) => {
     });
     const { data: userData, error: userError } = await userClient.auth.getUser();
     if (userError || !userData.user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(corsHeaders, { error: 'Invalid or expired session' }, 401);
     }
     const callerId = userData.user.id;
 
     const body = (await req.json()) as GeneratePoBody;
     if (!body.request_id) {
-      return jsonResponse({ error: 'request_id is required' }, 400);
+      return jsonResponse(corsHeaders, { error: 'request_id is required' }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -100,9 +98,9 @@ serve(async (req) => {
       .eq('request_id', body.request_id)
       .maybeSingle();
 
-    if (poError) return jsonResponse({ error: poError.message }, 500);
+    if (poError) return jsonResponse(corsHeaders, { error: poError.message }, 500);
     if (!po || !po.requests) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: 'No purchase order exists for this request yet — it must be approved through its final stage first' },
         404
       );
@@ -134,7 +132,7 @@ serve(async (req) => {
       authorized = !!actedOn;
     }
     if (!authorized) {
-      return jsonResponse(
+      return jsonResponse(corsHeaders,
         { error: 'You are not authorized to view this purchase order' },
         403
       );
@@ -224,14 +222,14 @@ serve(async (req) => {
       .from(PO_BUCKET)
       .upload(filePath, pdfBytes, { contentType: 'application/pdf', upsert: true });
 
-    if (uploadError) return jsonResponse({ error: uploadError.message }, 500);
+    if (uploadError) return jsonResponse(corsHeaders, { error: uploadError.message }, 500);
 
     const { data: signedUrlData, error: signedUrlError } = await admin.storage
       .from(PO_BUCKET)
       .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
 
     if (signedUrlError || !signedUrlData) {
-      return jsonResponse({ error: signedUrlError?.message ?? 'Could not create signed URL' }, 500);
+      return jsonResponse(corsHeaders, { error: signedUrlError?.message ?? 'Could not create signed URL' }, 500);
     }
 
     // --- Email via Resend ---
@@ -267,7 +265,7 @@ serve(async (req) => {
         // Don't fail the whole request over email — the PDF is already
         // generated and stored; surface the email problem separately.
         const errText = await emailRes.text();
-        return jsonResponse(
+        return jsonResponse(corsHeaders,
           {
             po_number: po.po_number,
             pdf_url: signedUrlData.signedUrl,
@@ -280,7 +278,7 @@ serve(async (req) => {
       emailed = true;
     }
 
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       {
         po_number: po.po_number,
         pdf_url: signedUrlData.signedUrl,
@@ -289,7 +287,7 @@ serve(async (req) => {
       200
     );
   } catch (err) {
-    return jsonResponse(
+    return jsonResponse(corsHeaders,
       { error: err instanceof Error ? err.message : 'Unexpected error' },
       500
     );
