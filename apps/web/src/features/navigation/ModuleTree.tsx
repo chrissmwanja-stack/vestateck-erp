@@ -115,13 +115,13 @@ interface Portal {
 // (not just via the platform-admin-gated get_tenant_modules RPC) --
 // its own SELECT policy already allows tenant_id = get_my_tenant_id().
 function useMyModuleAccess() {
-  const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string> } | null>(null);
+  const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string>; isImpersonating: boolean } | null>(null);
   useEffect(() => {
     let cancelled = false;
 
     const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
-        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set() });
+        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set(), isImpersonating: false });
         return;
       }
       const { data: appUser } = await supabase
@@ -131,15 +131,29 @@ function useMyModuleAccess() {
         .maybeSingle();
       if (cancelled) return;
       if (!appUser) {
-        setState({ isPlatformAdmin: false, modules: new Set() });
+        setState({ isPlatformAdmin: false, modules: new Set(), isImpersonating: false });
         return;
       }
       if (appUser.is_platform_admin) {
+        // Check for an active impersonation session -- when impersonating,
+        // get_my_tenant_id() resolves to the target tenant, but
+        // has_module_role() still bypasses. For nav we need to know:
+        // are we in platform-only mode (setup + analytics only) or in
+        // "View as" mode (show that company's own portals)?
+        const { data: imp } = await supabase
+          .from("impersonation_sessions")
+          .select("id")
+          .eq("platform_admin_id", userId)
+          .is("ended_at", null)
+          .gt("started_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
         // has_module_role() treats platform admins as an automatic pass
         // for every module, entitlement gate included -- mirror that
         // here so nav doesn't hide things the route guard would let
         // them through to anyway.
-        setState({ isPlatformAdmin: true, modules: new Set() });
+        setState({ isPlatformAdmin: true, modules: new Set(), isImpersonating: !!imp });
         return;
       }
       const [{ data: roles }, { data: entitlements }] = await Promise.all([
@@ -150,7 +164,7 @@ function useMyModuleAccess() {
       const roleModules = new Set((roles ?? []).map((r) => r.module as string));
       const entitledModules = new Set((entitlements ?? []).map((e) => e.module as string));
       const effectiveModules = new Set([...roleModules].filter((m) => entitledModules.has(m)));
-      setState({ isPlatformAdmin: false, modules: effectiveModules });
+      setState({ isPlatformAdmin: false, modules: effectiveModules, isImpersonating: false });
     };
 
     // Fetch once on mount for the fast path, but also re-fetch on any auth
@@ -581,7 +595,7 @@ function TreeItem({ node, depth = 0, pathname }: { node: TreeNode; depth?: numbe
 // or if it's directly accessible itself. This is nav visibility only --
 // RequireModule/has_module_role is what actually enforces access if
 // someone still hits the URL directly.
-function filterNodesByAccess(nodes: TreeNode[], access: { isPlatformAdmin: boolean; modules: Set<string> }): TreeNode[] {
+function filterNodesByAccess(nodes: TreeNode[], access: { isPlatformAdmin: boolean; modules: Set<string>; isImpersonating: boolean }): TreeNode[] {
   const canSee = (m?: ModuleKey) => !m || access.isPlatformAdmin || access.modules.has(m);
   const walk = (list: TreeNode[]): TreeNode[] =>
     list
@@ -614,6 +628,13 @@ export default function ModuleTree() {
   // always show, with node-level filtering applied below.
   const visiblePortals = useMemo(() => {
     if (!access) return portals;
+    // Platform-admin isolation: when NOT impersonating a company, only the
+    // Platform Administration portal is visible -- setup + analytics only.
+    // No company procurement/finance/HR reachable from nav unless the
+    // admin explicitly "View as"-es into a company (see PlatformDashboard).
+    if (access.isPlatformAdmin && !access.isImpersonating) {
+      return portals.filter((p) => p.id === "platform-admin");
+    }
     return portals.filter((p) => !p.requiredModule || access.isPlatformAdmin || access.modules.has(p.requiredModule));
   }, [access]);
 

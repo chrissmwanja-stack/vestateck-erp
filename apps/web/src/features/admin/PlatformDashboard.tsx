@@ -52,8 +52,6 @@ import {
   Legend,
 } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
-import { usePlatformAdminAccess } from '../../lib/usePlatformAdminAccess';
-import { resendInvite } from '../team/inviteActions';
 import CompanyCreateWizard from './CompanyCreateWizard';
 
 interface PlatformStats {
@@ -98,42 +96,16 @@ const MODULE_LABEL: Record<string, string> = {
 
 const PIE_COLORS = ['#123B44', '#C4872B', '#4C818B', '#8F5D14', '#DCE8EA', '#5B6C71', '#E0B368', '#0A2530'];
 
-function KpiCard({
-  icon,
-  label,
-  value,
-  sub,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub?: string;
-  color?: string;
-}) {
+function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string }) {
   return (
     <Card variant="outlined" sx={{ flex: '1 1 180px', minWidth: 180, borderRadius: 2 }}>
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 1.5,
-              bgcolor: color ? `${color}15` : 'primary.main',
-              color: color || 'primary.contrastText',
-              display: 'grid',
-              placeItems: 'center',
-            }}
-          >
+          <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: color ? `${color}15` : 'primary.main', color: color || 'primary.contrastText', display: 'grid', placeItems: 'center' }}>
             {icon}
           </Box>
           <Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11 }}
-            >
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11 }}>
               {label}
             </Typography>
             <Typography variant="h6" sx={{ lineHeight: 1.1 }}>{value}</Typography>
@@ -146,7 +118,6 @@ function KpiCard({
 }
 
 export default function PlatformDashboard() {
-  const isPlatformAdmin = usePlatformAdminAccess();
   const navigate = useNavigate();
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,15 +131,14 @@ export default function PlatformDashboard() {
     setError(null);
     const { data, error: err } = await (supabase.rpc as any)('get_platform_dashboard_stats');
     if (err) {
-      // Fallback while migration 20260818140000 hasn't reached this environment yet --
-      // builds a minimal stats shape from the older per-tenant overview RPC so the
-      // page still renders something useful instead of a bare error screen.
+      // Fallback: try the older RPC if this new one hasn't migrated yet
       const { data: fallback, error: fallbackErr } = await supabase.rpc('get_companies_overview');
       if (fallbackErr) {
         setError(err.message || fallbackErr.message);
         setLoading(false);
         return;
       }
+      // Build a minimal stats shape from the fallback
       const rows = (fallback ?? []) as any[];
       const minimal: PlatformStats = {
         totals: {
@@ -193,14 +163,11 @@ export default function PlatformDashboard() {
         requests_by_month: [],
         module_adoption: [],
         recent_companies: rows.slice(0, 5).map((r) => ({ id: r.tenant_id, name: r.name, status: r.status, created_at: r.created_at })),
-        top_companies_by_requests: [...rows]
-          .sort((a, b) => Number(b.request_count_30d) - Number(a.request_count_30d))
-          .slice(0, 5)
-          .map((r) => ({ name: r.name, count: Number(r.request_count_30d), tenant_id: r.tenant_id })),
+        top_companies_by_requests: [...rows].sort((a, b) => Number(b.request_count_30d) - Number(a.request_count_30d)).slice(0, 5).map((r) => ({ name: r.name, count: Number(r.request_count_30d), tenant_id: r.tenant_id })),
         pending_invites_list: [],
       };
       setStats(minimal);
-      setError(`Live stats RPC not migrated on this environment yet — showing a limited view. Apply migration 20260818140000: ${err.message}`);
+      setError(`Live stats RPC not yet migrated — showing limited view. Apply migration 20260818140000: ${err.message}`);
       setLoading(false);
       return;
     }
@@ -214,22 +181,22 @@ export default function PlatformDashboard() {
 
   const handleViewAs = async (tenantId: string) => {
     setImpersonatingId(tenantId);
-    const { error } = await supabase.rpc('start_impersonation', { p_tenant_id: tenantId });
+    const { data: _impData, error } = await (supabase.rpc as any)('start_impersonation', { p_tenant_id: tenantId });
     if (error) {
       alert(error.message);
       setImpersonatingId(null);
       return;
     }
-    // After impersonation, tenant-scoped RPCs resolve to the target company --
-    // send the admin to a screen that makes the new context obvious.
-    navigate('/requests/new');
+    // After impersonation, tenant-scoped get_my_tenant_id() resolves to the target.
+    // Navigate to that company's Purchasing dashboard to make the context obvious.
+    navigate('/purchasing/dashboard');
     setImpersonatingId(null);
   };
 
   const handleResend = async (invite: { id: string }) => {
     setResendId(invite.id);
-    const { error } = await resendInvite(invite.id);
-    if (error) alert(error);
+    const { error } = await supabase.functions.invoke('resend-invite', { body: { invitation_id: invite.id } });
+    if (error) alert(error.message);
     else load();
     setResendId(null);
   };
@@ -251,18 +218,7 @@ export default function PlatformDashboard() {
     return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
   }, [stats]);
 
-  // Consistent with every other admin screen's own gate (CompaniesConsole,
-  // CompanySetupChecklist, InviteMember) rather than a separate route guard --
-  // real enforcement is server-side via is_platform_admin() on the RPC itself.
-  if (isPlatformAdmin === false) {
-    return (
-      <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
-        The Platform Dashboard is only available to platform admins.
-      </Alert>
-    );
-  }
-
-  if (loading || isPlatformAdmin === null) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={6}>
         <CircularProgress />
@@ -283,10 +239,7 @@ export default function PlatformDashboard() {
 
   return (
     <Box sx={{ maxWidth: 1280 }}>
-      {/* Distinct header -- deliberately not the white tenant-dashboard chrome,
-          so it reads as "you're in the tower overseeing every company", same
-          intent as AdminLayout's ochre strip on the Companies/CompanyDetail
-          screens, just with more visual weight since this is the landing page. */}
+      {/* DISTINCT HEADER — Harbor Slate, not the white company dashboards */}
       <Paper
         sx={{
           background: 'linear-gradient(135deg, #0A2530 0%, #123B44 55%, #1B5560 100%)',
@@ -314,12 +267,10 @@ export default function PlatformDashboard() {
             <Chip label="Platform-only" size="small" sx={{ bgcolor: 'rgba(224,179,104,0.2)', color: '#F6E7CE', fontSize: 11, height: 20 }} />
           </Stack>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#FFFFFF' }}>
-            VestaTeck ERP — all companies
+            VestaPortal — all companies
           </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 560 }}>
-            Company setup and network analytics. This view is distinct from any company's own dashboard —
-            nothing here leaks a company's private procurement or finance data beyond the aggregates
-            platform admins are gated to.
+            Company setup and network analytics. This view is distinct from any company's own dashboard — nothing here leaks a company's private procurement or finance data beyond the aggregates platform admins are gated to.
           </Typography>
         </Box>
 
@@ -332,12 +283,7 @@ export default function PlatformDashboard() {
           >
             New Company
           </Button>
-          <Button
-            component={RouterLink}
-            to="/admin/companies"
-            variant="outlined"
-            sx={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.35)', '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' } }}
-          >
+          <Button component={RouterLink} to="/admin/companies" variant="outlined" sx={{ color: '#FFFFFF', borderColor: 'rgba(255,255,255,0.35)', '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' } }}>
             All companies
           </Button>
           <Tooltip title="Refresh stats">
@@ -347,6 +293,7 @@ export default function PlatformDashboard() {
           </Tooltip>
         </Stack>
 
+        {/* subtle arch mark */}
         <Box sx={{ position: 'absolute', right: -20, bottom: -30, opacity: 0.07, fontSize: 120, lineHeight: 1, pointerEvents: 'none' }}>◯</Box>
       </Paper>
 
@@ -354,40 +301,17 @@ export default function PlatformDashboard() {
 
       {/* KPI ROW */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>
-        <KpiCard
-          icon={<Business fontSize="small" />}
-          label="Total Companies"
-          value={t.total_companies}
-          sub={`${t.active_companies} active · ${t.pending_companies} pending · ${t.suspended_companies} suspended`}
-          color="#123B44"
-        />
+        <KpiCard icon={<Business fontSize="small" />} label="Total Companies" value={t.total_companies} sub={`${t.active_companies} active · ${t.pending_companies} pending · ${t.suspended_companies} suspended`} color="#123B44" />
         <KpiCard icon={<People fontSize="small" />} label="Total Members" value={t.total_members.toLocaleString()} sub="Across all companies" color="#1B5560" />
         <KpiCard icon={<ReceiptLong fontSize="small" />} label="Requests (30d)" value={t.requests_30d.toLocaleString()} sub={`${t.pending_requests} still open`} color="#C4872B" />
-        <KpiCard
-          icon={<AccountBalance fontSize="small" />}
-          label="PO Value (UGX)"
-          value={t.total_po_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          sub={`${t.total_pos} purchase orders`}
-          color="#0A2530"
-        />
+        <KpiCard icon={<AccountBalance fontSize="small" />} label="PO Value (UGX)" value={t.total_po_value.toLocaleString(undefined, { maximumFractionDigits: 0 })} sub={`${t.total_pos} purchase orders`} color="#0A2530" />
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 3 }}>
         <KpiCard icon={<HourglassEmpty fontSize="small" />} label="Pending Invites" value={t.pending_invites} sub="Company admin invites" />
         <KpiCard icon={<CheckCircle fontSize="small" />} label="Total Requests" value={t.total_requests.toLocaleString()} sub="All time" />
-        <KpiCard
-          icon={<WarningAmber fontSize="small" />}
-          label="Suspended"
-          value={t.suspended_companies}
-          sub={t.suspended_companies > 0 ? 'Needs review' : 'All clear'}
-          color={t.suspended_companies > 0 ? '#8F5D14' : undefined}
-        />
-        <KpiCard
-          icon={<TrendingUp fontSize="small" />}
-          label="Adoption"
-          value={`${stats!.module_adoption.length ? Math.round(stats!.module_adoption.reduce((s, m) => s + m.count, 0) / Math.max(t.total_companies, 1)) : 0} mods avg`}
-          sub="Avg modules / company"
-        />
+        <KpiCard icon={<WarningAmber fontSize="small" />} label="Suspended" value={t.suspended_companies} sub={t.suspended_companies > 0 ? 'Needs review' : 'All clear'} color={t.suspended_companies > 0 ? '#8F5D14' : undefined} />
+        <KpiCard icon={<TrendingUp fontSize="small" />} label="Adoption" value={`${stats!.module_adoption.length ? Math.round(stats!.module_adoption.reduce((s, m) => s + m.count, 0) / Math.max(t.total_companies, 1)) : 0} mods avg`} sub="Avg modules / company" />
       </Box>
 
       {/* CHARTS */}
@@ -411,9 +335,7 @@ export default function PlatformDashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <Box sx={{ height: '100%', display: 'grid', placeItems: 'center' }}>
-                <Typography variant="body2" color="text.secondary">Not enough history yet — comes alive after your first month of onboardings.</Typography>
-              </Box>
+              <Box sx={{ height: '100%', display: 'grid', placeItems: 'center' }}><Typography variant="body2" color="text.secondary">Not enough history yet — comes alive after your first month of onboardings.</Typography></Box>
             )}
           </Box>
         </Paper>
@@ -442,12 +364,7 @@ export default function PlatformDashboard() {
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
             {stats!.by_status.map((s) => (
-              <Chip
-                key={s.status}
-                size="small"
-                label={`${s.status} · ${s.count}`}
-                sx={{ bgcolor: STATUS_COLOR[s.status] || '#EEE', color: s.status === 'pending' ? '#0A2530' : '#FFFFFF' }}
-              />
+              <Chip key={s.status} size="small" label={`${s.status} · ${s.count}`} sx={{ bgcolor: STATUS_COLOR[s.status] || '#EEE', color: s.status === 'pending' ? '#0A2530' : '#FFFFFF' }} />
             ))}
           </Stack>
         </Paper>
@@ -456,9 +373,7 @@ export default function PlatformDashboard() {
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.2fr 0.8fr' }, gap: 2, mb: 3 }}>
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>Module adoption — companies per module</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            Finance + core Procurement are baseline (not shown) — this is the optional 8.
-          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Finance + core Procurement are baseline (not shown) — this is the optional 8.</Typography>
           <Box sx={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats!.module_adoption.map((m) => ({ module: MODULE_LABEL[m.module] || m.module, count: m.count }))} layout="vertical" margin={{ left: 24 }}>
@@ -503,8 +418,7 @@ export default function PlatformDashboard() {
             <Button startIcon={<AddBusiness />} variant="contained" onClick={() => setWizardOpen(true)}>New Company</Button>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Create a tenant, pick its industry template and modules, and invite its first admin. The pipeline
-            (7 stages, 5M threshold) is identical for every company — this is not per-company customizable yet.
+            Create a tenant, pick its industry template and modules, and invite its first admin. The pipeline (7 stages, 5M threshold) is identical for every company — this is not per-company customizable yet.
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button component={RouterLink} to="/admin/companies" startIcon={<Business />} variant="outlined" size="small">Companies</Button>
@@ -534,13 +448,7 @@ export default function PlatformDashboard() {
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Tooltip title="View analytics"><IconButton size="small" component={RouterLink} to={`/admin/companies/${c.id}`}><Visibility fontSize="small" /></IconButton></Tooltip>
-                        <Tooltip title="View as this company (impersonate)">
-                          <span>
-                            <IconButton size="small" onClick={() => handleViewAs(c.id)} disabled={!!impersonatingId}>
-                              <People fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
+                        <Tooltip title="View as this company (impersonate)"><span><IconButton size="small" onClick={() => handleViewAs(c.id)} disabled={!!impersonatingId}><People fontSize="small" /></IconButton></span></Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -573,11 +481,7 @@ export default function PlatformDashboard() {
                       <TableCell>{inv.email}</TableCell>
                       <TableCell>{tenantName}</TableCell>
                       <TableCell>{new Date(inv.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell align="right">
-                        <Button size="small" onClick={() => handleResend(inv)} disabled={resendId === inv.id}>
-                          {resendId === inv.id ? 'Sending…' : 'Resend'}
-                        </Button>
-                      </TableCell>
+                      <TableCell align="right"><Button size="small" onClick={() => handleResend(inv)} disabled={resendId === inv.id}>{resendId === inv.id ? 'Sending…' : 'Resend'}</Button></TableCell>
                     </TableRow>
                   );
                 })}
@@ -588,10 +492,6 @@ export default function PlatformDashboard() {
           <Typography variant="body2" color="text.secondary">No pending first-admin invites — all onboarded companies have accepted.</Typography>
         )}
       </Paper>
-
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <Button component={RouterLink} to="/admin/companies" variant="text">Go to Companies console</Button>
-      </Box>
 
       <CompanyCreateWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onCreated={load} />
     </Box>

@@ -17,6 +17,7 @@ import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
 import RequireFinanceTeam from './components/RequireFinanceTeam';
+import RequirePlatformAdmin from './components/RequirePlatformAdmin';
 import { useAuth } from './lib/authContext';
 import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
@@ -299,10 +300,18 @@ export default function App() {
               <Route path="/multiplexing/invoice-new" element={<InvoiceSubmissionForm />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
-              <Route path="/admin" element={<PlatformDashboard />} />
-              <Route element={<AdminLayout />}>
-                <Route path="/admin/companies" element={<CompaniesConsole />} />
-                <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+              {/* PLATFORM ADMIN -- distinct from every company workspace.
+                  RequirePlatformAdmin is an actual route guard (shows a
+                  "not allowed" screen), not just a screen-level check --
+                  the underlying get_platform_dashboard_stats RPC is also
+                  gated server-side via is_platform_admin(), so this is
+                  belt-and-braces rather than the only line of defense. */}
+              <Route element={<RequirePlatformAdmin />}>
+                <Route path="/admin" element={<PlatformDashboard />} />
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin/companies" element={<CompaniesConsole />} />
+                  <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+                </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
