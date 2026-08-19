@@ -60,9 +60,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Bumped from 20 -> 22: @supabase/supabase-js's package.json now
+      # declares "engines": { "node": ">=22.0.0" } (confirmed via
+      # `npm view @supabase/supabase-js engines` on 2026-08-19). CI was
+      # still green on Node 20 -- npm only warns (EBADENGINE) rather
+      # than failing the install -- but that warning was the exact
+      # signal this repo was already carrying as a known-pending gap.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install workspace dependencies
