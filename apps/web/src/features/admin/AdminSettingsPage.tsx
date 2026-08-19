@@ -14,6 +14,7 @@ import {
   Skeleton,
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import type { Json } from '@erp-platform/shared';
 
 // Mirrors the jsonb shapes documented in the platform_settings migration.
 interface BrandingSettings {
@@ -80,9 +81,9 @@ export default function AdminSettingsPage() {
     const { error: updateError } = await supabase
       .from('platform_settings')
       .update({
-        branding,
-        notifications,
-        security,
+        branding: branding as unknown as Json,
+        notifications: notifications as unknown as Json,
+        security: security as unknown as Json,
         updated_at: new Date().toISOString(),
       })
       .eq('id', true);
