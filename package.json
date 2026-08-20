@@ -15,7 +15,7 @@
   },
   
   "allowScripts": {
-    "core-js@3.49.0": true,
-    "esbuild@0.21.5": true
+    "core-js@3.50.0": true,
+    "esbuild@0.25.12": true
   }
 }

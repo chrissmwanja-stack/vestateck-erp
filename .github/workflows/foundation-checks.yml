@@ -10,9 +10,16 @@ name: Foundation checks
 # have -- an unfiltered version permanently flags ~10 views).
 #
 # migration-policy stays narrow by design (see its own comment below).
-# build and db-shadow-replay are new, independent jobs -- neither
+# build, db-shadow-replay, and test are independent jobs -- neither
 # blocks the other, so a broken migration doesn't hide a broken build
 # or vice versa.
+#
+# test (added 2026-08-20) runs Vitest against apps/web/src/lib -- the
+# small set of pure client-side logic (CSV/XLSX bulk-import parsing)
+# that isn't already covered by db-shadow-replay, since that job only
+# exercises SQL. Most business logic (approval thresholds, payroll,
+# PO settlement) lives in SECURITY DEFINER functions and is out of
+# scope for this job by design -- see apps/web/vitest.config.ts.
 
 on:
   push:
@@ -82,6 +89,22 @@ jobs:
       # to match: a silent runtime mismatch instead of a red PR check.
       - name: Typecheck + build
         run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test --workspace=apps/web
 
   db-shadow-replay:
     runs-on: ubuntu-latest
