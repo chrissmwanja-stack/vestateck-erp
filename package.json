@@ -13,11 +13,7 @@
     "dev": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web"
   },
-  "dependencies": {
-    "jspdf": "^4.2.1",
-    "recharts": "^3.10.1",
-    "xlsx": "^0.18.5"
-  },
+  
   "allowScripts": {
     "core-js@3.49.0": true,
     "esbuild@0.21.5": true
