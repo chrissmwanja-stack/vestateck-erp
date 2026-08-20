@@ -31,6 +31,7 @@ import {
   ContactPage,
   CalendarMonth,
 } from "@mui/icons-material";
+import { BD_ADMIN_ROLES } from "./business-development/access";
 
 interface TreeNode {
   id: string;
@@ -40,6 +41,10 @@ interface TreeNode {
   children?: TreeNode[];
   disabled?: boolean;
   tooltip?: string;
+  // See the matching field on ModuleTree.tsx's own TreeNode -- this local
+  // copy just needs the field to exist so node literals here can set it and
+  // stay structurally assignable to ModuleTree's TreeNode[].
+  requiredRoles?: readonly string[];
 }
 
 // Law and Compliance - modeled on MAKS Legal module
@@ -211,7 +216,7 @@ export const businessDevNodes: TreeNode[] = [
     children: [
       { id: "proposal-list", label: "Proposals", icon: <Description fontSize="small" />, to: "/business-development/proposals" },
       { id: "proposal-new", label: "New Proposal", icon: <Description fontSize="small" />, to: "/business-development/proposals/new" },
-      { id: "proposal-approvals", label: "Proposal Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/business-development/proposals/approvals" },
+      { id: "proposal-approvals", label: "Proposal Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/business-development/proposals/approvals", requiredRoles: BD_ADMIN_ROLES },
       { id: "proposal-templates", label: "Templates", icon: <Folder fontSize="small" />, to: "/business-development/proposals/templates" },
       { id: "proposal-tracking", label: "Tracking", icon: <FactCheck fontSize="small" />, to: "/business-development/proposals/tracking" },
     ],
@@ -253,6 +258,10 @@ export const businessDevNodes: TreeNode[] = [
     id: "bd-admin",
     label: "Admin",
     icon: <AdminPanelSettings fontSize="small" />,
+    // Gating the parent is enough -- filterNodesByAccess drops a node (and
+    // never walks its children) as soon as the node itself fails the role
+    // check, so the seven lookup-table screens below inherit this.
+    requiredRoles: BD_ADMIN_ROLES,
     children: [
       { id: "lead-sources", label: "Lead Sources", icon: <ReceiptLong fontSize="small" />, to: "/business-development/admin/lead-sources" },
       { id: "lead-statuses", label: "Lead Statuses", icon: <ReceiptLong fontSize="small" />, to: "/business-development/admin/lead-statuses" },

@@ -76,6 +76,14 @@ interface TreeNode {
   // shown. This mirrors, but does not replace, the real enforcement in
   // RequireModule at the route level -- this is nav visibility only.
   requiredModule?: ModuleKey;
+  // Role gate on top of requiredModule -- for a node inside a single-module
+  // portal (e.g. bd), the module checked is that portal's requiredModule;
+  // for a node that also sets its own requiredModule (mixed portals like
+  // purchasing-logistics), it's checked against that instead. Mirrors the
+  // `roles` prop on RequireModule/has_module_role -- same exact-match
+  // semantics, no admin/manager/member hierarchy. Nav visibility only; the
+  // route guard is still the real enforcement.
+  requiredRoles?: readonly string[];
 }
 
 interface Portal {
@@ -115,13 +123,23 @@ interface Portal {
 // (not just via the platform-admin-gated get_tenant_modules RPC) --
 // its own SELECT policy already allows tenant_id = get_my_tenant_id().
 function useMyModuleAccess() {
-  const [state, setState] = useState<{ isPlatformAdmin: boolean; modules: Set<string>; isImpersonating: boolean } | null>(null);
+  const [state, setState] = useState<{
+    isPlatformAdmin: boolean;
+    modules: Set<string>;
+    // Module -> the roles the caller actually holds in staff_roles for it
+    // (almost always one row per module, but staff_roles doesn't enforce
+    // that). Used for nodes with requiredRoles (e.g. BD's admin lookups /
+    // proposal approvals) -- separate from `modules`, which only answers
+    // "does this module show up in nav at all".
+    rolesByModule: Map<string, Set<string>>;
+    isImpersonating: boolean;
+  } | null>(null);
   useEffect(() => {
     let cancelled = false;
 
     const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
-        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set(), isImpersonating: false });
+        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false });
         return;
       }
       const { data: appUser } = await supabase
@@ -131,7 +149,7 @@ function useMyModuleAccess() {
         .maybeSingle();
       if (cancelled) return;
       if (!appUser) {
-        setState({ isPlatformAdmin: false, modules: new Set(), isImpersonating: false });
+        setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false });
         return;
       }
       if (appUser.is_platform_admin) {
@@ -153,18 +171,25 @@ function useMyModuleAccess() {
         // for every module, entitlement gate included -- mirror that
         // here so nav doesn't hide things the route guard would let
         // them through to anyway.
-        setState({ isPlatformAdmin: true, modules: new Set(), isImpersonating: !!imp });
+        setState({ isPlatformAdmin: true, modules: new Set(), rolesByModule: new Map(), isImpersonating: !!imp });
         return;
       }
       const [{ data: roles }, { data: entitlements }] = await Promise.all([
-        supabase.from("staff_roles").select("module").eq("user_id", userId).eq("tenant_id", appUser.tenant_id),
+        supabase.from("staff_roles").select("module, role").eq("user_id", userId).eq("tenant_id", appUser.tenant_id),
         supabase.from("tenant_modules").select("module").eq("tenant_id", appUser.tenant_id),
       ]);
       if (cancelled) return;
-      const roleModules = new Set((roles ?? []).map((r) => r.module as string));
+      const roleRows = roles ?? [];
+      const roleModules = new Set(roleRows.map((r) => r.module as string));
       const entitledModules = new Set((entitlements ?? []).map((e) => e.module as string));
       const effectiveModules = new Set([...roleModules].filter((m) => entitledModules.has(m)));
-      setState({ isPlatformAdmin: false, modules: effectiveModules, isImpersonating: false });
+      const rolesByModule = new Map<string, Set<string>>();
+      for (const r of roleRows) {
+        const m = r.module as string;
+        if (!rolesByModule.has(m)) rolesByModule.set(m, new Set());
+        rolesByModule.get(m)!.add(r.role as string);
+      }
+      setState({ isPlatformAdmin: false, modules: effectiveModules, rolesByModule, isImpersonating: false });
     };
 
     // Fetch once on mount for the fast path, but also re-fetch on any auth
@@ -586,21 +611,40 @@ function TreeItem({ node, depth = 0, pathname }: { node: TreeNode; depth?: numbe
   );
 }
 
-// Strips nodes the current user has no module access to. "Access" here
+// Strips nodes the current user has no module/role access to. "Access" here
 // is access.modules, which is already the staff_roles ∩ tenant_modules
 // intersection (see useMyModuleAccess) -- so a node also disappears if
 // the tenant simply doesn't have that module opened, not just if the
 // user lacks a role in it. Nodes without a requiredModule are always
-// kept; a parent with children is kept if it has any surviving child,
-// or if it's directly accessible itself. This is nav visibility only --
-// RequireModule/has_module_role is what actually enforces access if
-// someone still hits the URL directly.
-function filterNodesByAccess(nodes: TreeNode[], access: { isPlatformAdmin: boolean; modules: Set<string>; isImpersonating: boolean }): TreeNode[] {
-  const canSee = (m?: ModuleKey) => !m || access.isPlatformAdmin || access.modules.has(m);
+// kept (for the module check); a parent with children is kept if it has
+// any surviving child, or if it's directly accessible itself. This is nav
+// visibility only -- RequireModule/has_module_role is what actually
+// enforces access if someone still hits the URL directly.
+//
+// portalModule is the enclosing single-module portal's requiredModule
+// (e.g. "bd"), used as the module context for a node's requiredRoles when
+// the node itself doesn't set its own requiredModule -- which is the
+// normal case for single-module portals like BD, where only the portal
+// carries requiredModule and individual nodes just add requiredRoles on
+// top of it.
+function filterNodesByAccess(
+  nodes: TreeNode[],
+  access: { isPlatformAdmin: boolean; modules: Set<string>; rolesByModule: Map<string, Set<string>>; isImpersonating: boolean },
+  portalModule?: ModuleKey,
+): TreeNode[] {
+  const canSee = (n: TreeNode) => {
+    const m = n.requiredModule ?? portalModule;
+    if (m && !access.isPlatformAdmin && !access.modules.has(m)) return false;
+    if (n.requiredRoles && !access.isPlatformAdmin) {
+      const myRoles = (m && access.rolesByModule.get(m)) || new Set<string>();
+      if (!n.requiredRoles.some((r) => myRoles.has(r))) return false;
+    }
+    return true;
+  };
   const walk = (list: TreeNode[]): TreeNode[] =>
     list
       .map((n) => {
-        if (!canSee(n.requiredModule)) return null;
+        if (!canSee(n)) return null;
         if (n.children) {
           const children = walk(n.children);
           if (children.length === 0 && !n.to) return null;
@@ -654,8 +698,8 @@ export default function ModuleTree() {
 
   const accessFilteredNodes = useMemo(() => {
     if (!access) return activePortal.nodes;
-    return filterNodesByAccess(activePortal.nodes, access);
-  }, [activePortal.nodes, access]);
+    return filterNodesByAccess(activePortal.nodes, access, activePortal.requiredModule);
+  }, [activePortal.nodes, activePortal.requiredModule, access]);
 
   const filteredNodes = useMemo(() => {
     if (!search) return accessFilteredNodes;
@@ -797,3 +841,4 @@ export default function ModuleTree() {
 
 export { portals, itSupportNodes };
 export type { Portal, TreeNode };
+export { filterNodesByAccess };

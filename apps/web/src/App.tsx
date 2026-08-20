@@ -16,6 +16,7 @@ const ProcurementInfo = lazy(() => import('./features/procurement/ProcurementInf
 import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
+import { BD_ADMIN_ROLES } from './modules/portals/business-development/access';
 import RequireFinanceTeam from './components/RequireFinanceTeam';
 import RequirePlatformAdmin from './components/RequirePlatformAdmin';
 import { useAuth } from './lib/authContext';
@@ -413,7 +414,12 @@ export default function App() {
               </Route>
 
 
-              {/* BUSINESS DEVELOPMENT - NOW CONNECTED - Full 32-route shell */}
+              {/* BUSINESS DEVELOPMENT - NOW CONNECTED - Full 32-route shell.
+                  Split into two tiers (2026-08-20): day-to-day BD work stays
+                  on RequireModule's default admin/manager/member roles,
+                  while proposal approvals and the lookup-table admin screens
+                  are admin/manager only (see BD_ADMIN_ROLES in
+                  modules/portals/business-development/access.ts for why). */}
               <Route element={<RequireModule module="bd" />}>
                 <Route path="/business-development/dashboard" element={<BDDashboard />} />
 
@@ -431,7 +437,6 @@ export default function App() {
                 {/* Proposals */}
                 <Route path="/business-development/proposals" element={<ProposalsList />} />
                 <Route path="/business-development/proposals/new" element={<NewProposal />} />
-                <Route path="/business-development/proposals/approvals" element={<ProposalApprovals />} />
                 <Route path="/business-development/proposals/templates" element={<ProposalTemplates />} />
                 <Route path="/business-development/proposals/tracking" element={<ProposalTracking />} />
 
@@ -452,8 +457,13 @@ export default function App() {
                 <Route path="/business-development/reports/proposal-status" element={<ProposalStatusReport />} />
                 <Route path="/business-development/reports/lead-source" element={<LeadSourceReport />} />
                 <Route path="/business-development/reports/forecast" element={<RevenueForecast />} />
+              </Route>
 
-                {/* Admin - lookups backing dropdowns */}
+              {/* BUSINESS DEVELOPMENT - admin/manager tier: proposal
+                  approvals + the lookup tables backing BD dropdowns
+                  tenant-wide. See BD_ADMIN_ROLES for rationale. */}
+              <Route element={<RequireModule module="bd" roles={BD_ADMIN_ROLES} />}>
+                <Route path="/business-development/proposals/approvals" element={<ProposalApprovals />} />
                 <Route path="/business-development/admin/lead-sources" element={<LeadSourcesAdmin />} />
                 <Route path="/business-development/admin/lead-statuses" element={<LeadStatusesAdmin />} />
                 <Route path="/business-development/admin/opportunity-stages" element={<OpportunityStagesAdmin />} />
