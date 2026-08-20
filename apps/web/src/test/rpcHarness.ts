@@ -26,8 +26,16 @@ import type { Mock } from 'vitest';
 type RpcResult = { data?: unknown; error?: unknown };
 type RpcHandler = (args: unknown) => RpcResult | Promise<RpcResult>;
 
+type RpcCall = { fn: string; args: unknown };
+type RpcCallLog = RpcCall[] & { callsTo: (fn: string) => RpcCall[] };
+
 export function mockSupabaseRpc(mockRpc: Mock, handlers: Record<string, RpcHandler>) {
-  const calls: Array<{ fn: string; args: unknown }> = [];
+  const calls = [] as unknown as RpcCallLog;
+  // `callsTo` lives on the array itself (not just as a sibling return
+  // property) so callers can destructure either `{ calls }` and do
+  // `calls.callsTo(fn)`, or `{ calls, callsTo }` and call `callsTo(fn)`
+  // directly -- both shapes are used across the IT admin test files.
+  calls.callsTo = (fn: string) => calls.filter((c) => c.fn === fn);
 
   mockRpc.mockImplementation((fn: string, args?: unknown) => {
     calls.push({ fn, args });
@@ -42,6 +50,6 @@ export function mockSupabaseRpc(mockRpc: Mock, handlers: Record<string, RpcHandl
 
   return {
     calls,
-    callsTo: (fn: string) => calls.filter((c) => c.fn === fn),
+    callsTo: calls.callsTo,
   };
 }
