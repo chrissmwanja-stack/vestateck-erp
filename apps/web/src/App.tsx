@@ -17,6 +17,7 @@ import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
 import { BD_ADMIN_ROLES } from './modules/portals/business-development/access';
+import { IT_ADMIN_ROLES } from './features/it-support/access';
 import RequireFinanceTeam from './components/RequireFinanceTeam';
 import RequirePlatformAdmin from './components/RequirePlatformAdmin';
 import { useAuth } from './lib/authContext';
@@ -386,12 +387,19 @@ export default function App() {
                 <Route path="/warehouse/stock-balances" element={<StockBalances />} />
               </Route>
               
-              {/* IT SUPPORT - your existing work */}
+              {/* IT SUPPORT - split into two tiers (2026-08-20), same shape
+                  as the BD split above: day-to-day support work stays on
+                  RequireModule's default admin/manager/member roles, while
+                  ticket approvals and the lookup-table admin screens are
+                  admin/manager only (see IT_ADMIN_ROLES in
+                  features/it-support/access.ts for why). Previously all of
+                  this sat under a single flat RequireModule module="it" with
+                  default roles, so any it member could approve tickets or
+                  edit categories/SLAs/priorities/teams tenant-wide. */}
               <Route element={<RequireModule module="it" />}>
                 <Route path="/it-support/new-ticket" element={<NewTicket />} />
                 <Route path="/it-support/my-tickets" element={<MyTickets />} />
                 <Route path="/it-support/all-tickets" element={<AllTickets />} />
-                <Route path="/it-support/approvals" element={<TicketApprovals />} />
                 <Route path="/it-support/problems" element={<ProblemManagement />} />
                 <Route path="/it-support/dashboard" element={<ItSupportDashboard />} />
                 <Route path="/it-support/assets/hardware" element={<HardwareInventory />} />
@@ -401,16 +409,20 @@ export default function App() {
                 <Route path="/it-support/assets/request" element={<AssetRequest />} />
                 <Route path="/it-support/access/accounts" element={<AccountManagement />} />
                 <Route path="/it-support/access/groups" element={<GroupManagement />} />
-                <Route path="/it-support/admin/categories" element={<TicketCategoriesAdmin />} />
-                <Route path="/it-support/admin/slas" element={<SlaPoliciesAdmin />} />
-                <Route path="/it-support/admin/priorities" element={<PriorityLevelsAdmin />} />
-                <Route path="/it-support/admin/teams" element={<SupportTeamsAdmin />} />
                 <Route path="/it-support/reports/ticket-tracking" element={<TicketTrackingReport />} />
                 <Route path="/it-support/reports/sla" element={<SlaPerformanceReport />} />
                 <Route path="/it-support/reports/assets" element={<AssetReport />} />
                 <Route path="/it-support/kb" element={<KnowledgeBase />} />
                 <Route path="/it-support/faq" element={<Faq />} />
                 <Route path="/it-support/access/requests" element={<AccessRequests />} />
+              </Route>
+
+              <Route element={<RequireModule module="it" roles={IT_ADMIN_ROLES} />}>
+                <Route path="/it-support/approvals" element={<TicketApprovals />} />
+                <Route path="/it-support/admin/categories" element={<TicketCategoriesAdmin />} />
+                <Route path="/it-support/admin/slas" element={<SlaPoliciesAdmin />} />
+                <Route path="/it-support/admin/priorities" element={<PriorityLevelsAdmin />} />
+                <Route path="/it-support/admin/teams" element={<SupportTeamsAdmin />} />
               </Route>
 
 
