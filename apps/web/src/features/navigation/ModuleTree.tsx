@@ -76,6 +76,13 @@ interface TreeNode {
   // shown. This mirrors, but does not replace, the real enforcement in
   // RequireModule at the route level -- this is nav visibility only.
   requiredModule?: ModuleKey;
+  // Gate for access checks that aren't staff_roles/tenant_modules-based
+  // (currently just finance: can_access_finance() is the OR of
+  // is_finance_team_member() and has_po_access(), enforced at the route
+  // level by RequireFinanceTeam). Nav visibility only -- mirrors
+  // requiredModule but checked against access.canAccessFinance instead
+  // of access.modules. See useMyModuleAccess below.
+  requiredAccess?: "finance";
   // Role gate on top of requiredModule -- for a node inside a single-module
   // portal (e.g. bd), the module checked is that portal's requiredModule;
   // for a node that also sets its own requiredModule (mixed portals like
@@ -103,6 +110,10 @@ interface Portal {
   // "purchasing-logistics" mixes gated/ungated nodes so it's tagged at
   // the node level instead (see requiredModule on TreeNode).
   requiredModule?: ModuleKey;
+  // Whole-portal finance gate -- see requiredAccess on TreeNode. Used for
+  // "financial-management", which (unlike purchasing-logistics) is 100%
+  // finance-gated routes, so it's simpler to tag at the portal level.
+  requiredAccess?: "finance";
 }
 
 // Fetches the current user's own staff_roles modules, intersected with
@@ -133,13 +144,20 @@ function useMyModuleAccess() {
     // "does this module show up in nav at all".
     rolesByModule: Map<string, Set<string>>;
     isImpersonating: boolean;
+    // can_access_finance() is a separate, non-staff_roles-based check
+    // (is_finance_team_member() OR has_po_access() -- see
+    // RequireFinanceTeam.tsx, which enforces this same check at the
+    // route level). Fetched here purely so nav visibility matches what
+    // the route guard will actually allow.
+    canAccessFinance: boolean;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
 
     const fetchAccess = async (userId: string | undefined) => {
       if (!userId) {
-        if (!cancelled) setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false });
+        if (!cancelled)
+          setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false, canAccessFinance: false });
         return;
       }
       const { data: appUser } = await supabase
@@ -149,7 +167,7 @@ function useMyModuleAccess() {
         .maybeSingle();
       if (cancelled) return;
       if (!appUser) {
-        setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false });
+        setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false, canAccessFinance: false });
         return;
       }
       if (appUser.is_platform_admin) {
@@ -167,16 +185,16 @@ function useMyModuleAccess() {
           .limit(1)
           .maybeSingle();
         if (cancelled) return;
-        // has_module_role() treats platform admins as an automatic pass
-        // for every module, entitlement gate included -- mirror that
-        // here so nav doesn't hide things the route guard would let
-        // them through to anyway.
-        setState({ isPlatformAdmin: true, modules: new Set(), rolesByModule: new Map(), isImpersonating: !!imp });
+        // has_module_role() (and can_access_finance()) both treat platform
+        // admins as an automatic pass -- mirror that here so nav doesn't
+        // hide things the route guard would let them through to anyway.
+        setState({ isPlatformAdmin: true, modules: new Set(), rolesByModule: new Map(), isImpersonating: !!imp, canAccessFinance: true });
         return;
       }
-      const [{ data: roles }, { data: entitlements }] = await Promise.all([
+      const [{ data: roles }, { data: entitlements }, { data: financeAccess }] = await Promise.all([
         supabase.from("staff_roles").select("module, role").eq("user_id", userId).eq("tenant_id", appUser.tenant_id),
         supabase.from("tenant_modules").select("module").eq("tenant_id", appUser.tenant_id),
+        supabase.rpc("can_access_finance"),
       ]);
       if (cancelled) return;
       const roleRows = roles ?? [];
@@ -189,7 +207,13 @@ function useMyModuleAccess() {
         if (!rolesByModule.has(m)) rolesByModule.set(m, new Set());
         rolesByModule.get(m)!.add(r.role as string);
       }
-      setState({ isPlatformAdmin: false, modules: effectiveModules, rolesByModule, isImpersonating: false });
+      setState({
+        isPlatformAdmin: false,
+        modules: effectiveModules,
+        rolesByModule,
+        isImpersonating: false,
+        canAccessFinance: Boolean(financeAccess),
+      });
     };
 
     // Fetch once on mount for the fast path, but also re-fetch on any auth
@@ -341,7 +365,7 @@ const portals: Portal[] = [
         icon: <Folder fontSize="small" />,
         children: [
          { id: "procurement-info", label: "Procurement Info", icon: <OpenInNew fontSize="small" />, to: "/procurement/info", requiredModule: "procurement" },
-         { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/finance/purchase-orders" },
+         { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/finance/purchase-orders", requiredAccess: "finance" },
        ],
       },
       {
@@ -383,21 +407,21 @@ const portals: Portal[] = [
             label: "Cost Code Transaction",
             icon: <Build fontSize="small" />,
             children: [
-              { id: "cost-code-list", label: "Cost Code List", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes" },
-              { id: "cost-code-list-new", label: "Cost Code List New", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes/new" },
-              { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-receipt" },
+              { id: "cost-code-list", label: "Cost Code List", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes", requiredAccess: "finance" },
+              { id: "cost-code-list-new", label: "Cost Code List New", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes/new", requiredAccess: "finance" },
+              { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-receipt", requiredAccess: "finance" },
             ],
           },
-          { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-lookups" },
-          { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-catalog" },
-          { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/admin/warehouses" },
+          { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-lookups", requiredAccess: "finance" },
+          { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-catalog", requiredAccess: "finance" },
+          { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/admin/warehouses", requiredAccess: "finance" },
         ],
       },
       {
         id: "sap",
         label: "SAP Operations",
         icon: <AccountBalance fontSize="small" />,
-        children: [{ id: "payment-approvals", label: "Payment Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/sap/payment-approvals" }],
+        children: [{ id: "payment-approvals", label: "Payment Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/sap/payment-approvals", requiredAccess: "finance" }],
       },
     ],
   },
@@ -405,6 +429,10 @@ const portals: Portal[] = [
     id: "financial-management",
     label: "Financial Management and Financial Reporting",
     icon: <AttachMoney fontSize="small" />,
+    // Every route under here is wrapped in RequireFinanceTeam
+    // (can_access_finance()) in App.tsx -- gate the whole portal so it
+    // doesn't show in nav to users who'll just hit "Not available to you".
+    requiredAccess: "finance",
     nodes: [
       {
         id: "financial-dashboard",
@@ -629,12 +657,19 @@ function TreeItem({ node, depth = 0, pathname }: { node: TreeNode; depth?: numbe
 // top of it.
 function filterNodesByAccess(
   nodes: TreeNode[],
-  access: { isPlatformAdmin: boolean; modules: Set<string>; rolesByModule: Map<string, Set<string>>; isImpersonating: boolean },
+  access: {
+    isPlatformAdmin: boolean;
+    modules: Set<string>;
+    rolesByModule: Map<string, Set<string>>;
+    isImpersonating: boolean;
+    canAccessFinance: boolean;
+  },
   portalModule?: ModuleKey,
 ): TreeNode[] {
   const canSee = (n: TreeNode) => {
     const m = n.requiredModule ?? portalModule;
     if (m && !access.isPlatformAdmin && !access.modules.has(m)) return false;
+    if (n.requiredAccess === "finance" && !access.isPlatformAdmin && !access.canAccessFinance) return false;
     if (n.requiredRoles && !access.isPlatformAdmin) {
       const myRoles = (m && access.rolesByModule.get(m)) || new Set<string>();
       if (!n.requiredRoles.some((r) => myRoles.has(r))) return false;
@@ -679,7 +714,12 @@ export default function ModuleTree() {
     if (access.isPlatformAdmin && !access.isImpersonating) {
       return portals.filter((p) => p.id === "platform-admin");
     }
-    return portals.filter((p) => !p.requiredModule || access.isPlatformAdmin || access.modules.has(p.requiredModule));
+    return portals.filter((p) => {
+      if (access.isPlatformAdmin) return true;
+      if (p.requiredModule && !access.modules.has(p.requiredModule)) return false;
+      if (p.requiredAccess === "finance" && !access.canAccessFinance) return false;
+      return true;
+    });
   }, [access]);
 
   const activePortal = useMemo(
