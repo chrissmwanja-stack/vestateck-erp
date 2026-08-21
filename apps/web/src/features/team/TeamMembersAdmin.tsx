@@ -114,51 +114,32 @@ export default function TeamMembersAdmin() {
     setSaving(true);
     setSaveError(null);
 
-    try {
-      const original = new Map(editing.modules.map((g) => [g.module, g.role]));
-      for (const module of ALL_MODULES) {
-        const draft = draftModules[module];
-        const had = original.has(module);
-        if (draft.checked) {
-          if (!had || original.get(module) !== draft.role) {
-            const { error } = await supabase.rpc('set_staff_module_role', {
-              p_user_id: editing.user_id,
-              p_module: module,
-              p_role: draft.role,
-            });
-            if (error) throw error;
-          }
-        } else if (had) {
-          const { error } = await supabase.rpc('remove_staff_module', {
-            p_user_id: editing.user_id,
-            p_module: module,
-          });
-          if (error) throw error;
-        }
-      }
+    // set_member_access takes the full desired module set (not a diff)
+    // and applies modules + finance role in one transaction server-side,
+    // so this is all-or-nothing -- no risk of a partial update if one of
+    // several changes fails partway through, the way the old per-module
+    // rpc() loop could leave a member half-updated.
+    const modules = ALL_MODULES.filter((m) => draftModules[m]?.checked).map((m) => ({
+      module: m,
+      role: draftModules[m].role,
+    }));
 
-      const originalFinance = editing.finance_role ?? '';
-      if (draftFinanceRole !== originalFinance) {
-        if (draftFinanceRole) {
-          const { error } = await supabase.rpc('set_finance_role', {
-            p_user_id: editing.user_id,
-            p_role: draftFinanceRole,
-          });
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.rpc('remove_finance_role', { p_user_id: editing.user_id });
-          if (error) throw error;
-        }
-      }
+    const { error } = await supabase.rpc('set_member_access', {
+      p_user_id: editing.user_id,
+      p_modules: modules,
+      p_finance_role: draftFinanceRole || null,
+    });
 
-      setNotice(`Updated access for ${editing.email}.`);
-      setEditing(null);
-      loadMembers();
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save changes.');
-    } finally {
-      setSaving(false);
+    setSaving(false);
+
+    if (error) {
+      setSaveError(error.message);
+      return;
     }
+
+    setNotice(`Updated access for ${editing.email}.`);
+    setEditing(null);
+    loadMembers();
   };
 
   if (access?.isAdmin === false) {
