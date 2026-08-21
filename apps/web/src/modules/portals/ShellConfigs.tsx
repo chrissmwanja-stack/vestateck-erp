@@ -176,6 +176,8 @@ export const hrNodes: TreeNode[] = [
       { id: "departments", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/departments" },
       { id: "positions", label: "Positions", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/positions" },
       { id: "leave-types", label: "Leave Types", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/leave-types" },
+      { id: "hr-team-members", label: "HR Team", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/team-members" },
+      { id: "payroll-approvers", label: "Payroll Approvers", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/payroll-approvers" },
     ],
   },
 ];

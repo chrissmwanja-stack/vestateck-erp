@@ -135,6 +135,8 @@ const LeadSourceReport = lazy(() => import('./modules/portals/business-developme
 // HR - NEW REAL
 const PositionsAdmin = lazy(() => import('./modules/portals/hr/pages/admin/PositionsAdmin'));
 const LeaveTypesAdmin = lazy(() => import('./modules/portals/hr/pages/admin/LeaveTypesAdmin'));
+const HrTeamMembersAdmin = lazy(() => import('./modules/portals/hr/pages/admin/HrTeamMembersAdmin'));
+const PayrollApproversAdmin = lazy(() => import('./modules/portals/hr/pages/admin/PayrollApproversAdmin'));
 const EmployeesList = lazy(() => import('./modules/portals/hr/pages/employees/EmployeesList'));
 const LeaveRequestsList = lazy(() => import('./modules/portals/hr/pages/leaves/LeaveRequestsList'));
 const AttendanceList = lazy(() => import('./modules/portals/hr/pages/attendance/AttendanceList'));
@@ -525,6 +527,8 @@ export default function App() {
                 <Route path="/hr/admin/departments" element={<DepartmentsAdmin />} />
                 <Route path="/hr/admin/positions" element={<PositionsAdmin />} />
                 <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
+                <Route path="/hr/admin/team-members" element={<HrTeamMembersAdmin />} />
+                <Route path="/hr/admin/payroll-approvers" element={<PayrollApproversAdmin />} />
               </Route>
 
               {/* MACHINE OPERATION - 100% REAL NOW */}
