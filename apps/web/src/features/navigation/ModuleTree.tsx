@@ -560,6 +560,7 @@ const portals: Portal[] = [
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
       { id: "company-setup", label: "Company Setup", icon: <PlaylistAddCheck fontSize="small" />, to: "/setup" },
       { id: "invite-team", label: "Invite Team", icon: <PersonAdd fontSize="small" />, to: "/team/invite" },
+      { id: "team-members", label: "Manage Team", icon: <Groups fontSize="small" />, to: "/team/members" },
     ],
   },
 ];

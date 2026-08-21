@@ -30,6 +30,7 @@ const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'))
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
+const TeamMembersAdmin = lazy(() => import('./features/team/TeamMembersAdmin'));
 const CompanySetupChecklist = lazy(() => import('./features/team/CompanySetupChecklist'));
 const DelegationManager = lazy(() => import('./features/delegations/DelegationManager'));
 const InvoiceApprovalQueue = lazy(() => import('./features/multiplexing/InvoiceApprovalQueue'));
@@ -331,6 +332,7 @@ export default function App() {
                 </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />
+              <Route path="/team/members" element={<TeamMembersAdmin />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
 
