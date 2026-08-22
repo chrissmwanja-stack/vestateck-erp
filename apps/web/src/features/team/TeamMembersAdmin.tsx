@@ -80,8 +80,33 @@ export default function TeamMembersAdmin() {
     setLoading(true);
     setLoadError(null);
     const { data, error } = await supabase.rpc('get_tenant_team_members');
-    if (error) setLoadError(error.message);
-    else setMembers((data ?? []) as TeamMember[]);
+    if (error) {
+      setLoadError(error.message);
+    } else {
+      // modules comes back as generic jsonb (Json) from the generated
+      // Supabase types, since Postgres can't express "array of
+      // {module, role} objects" at the type level -- the RPC always
+      // returns it in that shape (see get_tenant_team_members /
+      // set_member_access SQL), so normalize it explicitly here rather
+      // than casting the whole row and hiding a shape mismatch if that
+      // ever stops being true.
+      const rows = (data ?? []) as unknown as Array<{
+        user_id: string;
+        name: string | null;
+        email: string;
+        role_title: string | null;
+        is_company_admin: boolean;
+        modules: unknown;
+        finance_role: string | null;
+      }>;
+      setMembers(
+        rows.map((r) => ({
+          ...r,
+          modules: Array.isArray(r.modules) ? (r.modules as ModuleGrant[]) : [],
+          finance_role: (r.finance_role as TeamMember['finance_role']) ?? null,
+        })),
+      );
+    }
     setLoading(false);
   }, []);
 
@@ -127,7 +152,10 @@ export default function TeamMembersAdmin() {
     const { error } = await supabase.rpc('set_member_access', {
       p_user_id: editing.user_id,
       p_modules: modules,
-      p_finance_role: draftFinanceRole || null,
+      // set_member_access does nullif(p_finance_role, '') server-side to
+      // clear finance access -- the RPC's own convention is '' for
+      // "none", not null (p_finance_role is a non-nullable text param).
+      p_finance_role: draftFinanceRole || '',
     });
 
     setSaving(false);

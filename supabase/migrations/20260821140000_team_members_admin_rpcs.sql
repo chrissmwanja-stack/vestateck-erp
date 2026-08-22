@@ -181,7 +181,7 @@ CREATE OR REPLACE FUNCTION "public"."get_tenant_team_members"() RETURNS TABLE(
     AS $$
   SELECT
     u.id,
-    u.full_name,
+    u.name,
     u.email,
     u.role_title,
     u.is_company_admin,
