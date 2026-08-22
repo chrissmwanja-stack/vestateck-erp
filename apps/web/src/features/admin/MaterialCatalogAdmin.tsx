@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
 
 interface LookupOption {
   id: string;
@@ -58,10 +59,9 @@ const emptyForm = {
 // Same authority as WarehousesAdmin / MaterialLookupsAdmin: reads are open
 // to every tenant member (the New Material Request form and the Request
 // Tracking / Report screens both need the catalog), writes gated to
-// has_po_access() at the RLS level -- see 20260818070000, which added the
-// insert policy this screen needed (material_catalog previously had no
-// insert policy at all; rows could only be created via
-// approve_material_request_item()).
+// has_po_access() at the RLS level -- see
+// 20260822120000_material_catalog_insert_policy.sql for INSERT and the
+// squashed baseline's material_catalog_update for UPDATE.
 function usePoAccess() {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   useEffect(() => {
@@ -79,6 +79,7 @@ function usePoAccess() {
 
 export default function MaterialCatalogAdmin() {
   const hasAccess = usePoAccess();
+  const { session } = useAuth();
   const [rows, setRows] = useState<MaterialCatalogRow[]>([]);
   const [types, setTypes] = useState<LookupOption[]>([]);
   const [groups, setGroups] = useState<LookupOption[]>([]);
@@ -166,6 +167,35 @@ export default function MaterialCatalogAdmin() {
     }
     setSaveError(null);
     setSaving(true);
+
+    // tenant_id is required by the generated Insert type, has no default,
+    // and -- as of the 2026-08-19 migration squash -- no trigger fills it
+    // either (see 20260822120000_material_catalog_insert_policy.sql for the
+    // history). Resolve it client-side on create, same pattern as
+    // AccountsAdmin.tsx / EmployeesList.tsx use for their own no-default
+    // tenant_id columns, rather than relying on server-side infrastructure
+    // that isn't actually there right now.
+    let tenant_id: string | undefined;
+    if (!editTarget) {
+      const userId = session?.user?.id;
+      if (!userId) {
+        setSaveError('Could not determine your session. Please refresh and try again.');
+        setSaving(false);
+        return;
+      }
+      const { data: appUser, error: appUserErr } = await supabase
+        .from('app_users')
+        .select('tenant_id')
+        .eq('id', userId)
+        .single();
+      if (appUserErr || !appUser?.tenant_id) {
+        setSaveError('Could not determine your organization. Please refresh and try again.');
+        setSaving(false);
+        return;
+      }
+      tenant_id = appUser.tenant_id;
+    }
+
     const payload = {
       code: form.code.trim() || null,
       name: form.name.trim(),
@@ -175,12 +205,9 @@ export default function MaterialCatalogAdmin() {
       material_group_id: form.material_group_id || null,
       is_active: form.is_active,
     };
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by trg_set_material_catalog_defaults (BEFORE INSERT
-    // trigger added alongside the insert policy in 20260818070000).
     const { error: err } = editTarget
       ? await supabase.from('material_catalog').update(payload).eq('id', editTarget.id)
-      : await supabase.from('material_catalog').insert({ ...payload, tenant_id: '' });
+      : await supabase.from('material_catalog').insert({ ...payload, tenant_id: tenant_id! });
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

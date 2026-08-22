@@ -45,8 +45,21 @@ your repo at the matching paths, overwriting what's there.
 ## Not touched (flagged for later, per the earlier audit)
 - BD → Clients bulk import (parallels Leads, not built yet)
 - Cost Centers/Cost Codes bulk import
-- `material_catalog` has no CRUD screen at all yet, so bulk import doesn't
-  apply there until create/edit exists
+- ~~`material_catalog` has no CRUD screen at all yet, so bulk import doesn't
+  apply there until create/edit exists~~ **Resolved 2026-08-22.**
+  `MaterialCatalogAdmin.tsx` (added 2026-08-18) is a full CRUD screen, and
+  its previously-broken "New material" create path is now fixed --
+  `20260822120000_material_catalog_insert_policy.sql` restores the
+  INSERT RLS policy the 2026-08-19 squash dropped, and the client now
+  resolves `tenant_id` itself via `app_users` (same pattern as
+  `AccountsAdmin.tsx`/`EmployeesList.tsx`) instead of relying on a
+  trigger that no longer exists. Covered by
+  `MaterialCatalogAdmin.test.tsx` (6 tests, including a direct
+  regression check that the insert payload's `tenant_id` is real, not
+  `''`). Bulk import for this screen is now unblocked -- CSV columns
+  would be `code, name, unit, old_material_code, type, group`, with
+  `type`/`group` resolved by code against `material_types`/
+  `material_groups`, same shape as the other four wired-up screens.
 
 ## Adding a bulk import to a new screen later
 Only three things are needed per screen — everything else is shared:
