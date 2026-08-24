@@ -235,6 +235,13 @@ export default function GanttChart() {
                 variant="outlined"
               />
             )}
+            {rows.length > 0 && (
+              <Chip
+                label={`${formatShort(rangeStart)} – ${formatShort(rangeEnd)}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
           </Box>
 
           {rows.length === 0 ? (
