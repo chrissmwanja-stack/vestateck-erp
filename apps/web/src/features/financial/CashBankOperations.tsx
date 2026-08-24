@@ -243,7 +243,7 @@ export default function CashBankOperations() {
     // for type uuid") and the trigger never gets the chance to run at
     // all. Resolve the real tenant_id client-side instead.
     const tenantResult = await resolveTenantId(session);
-    if (tenantResult.error) {
+    if (!tenantResult.ok) {
       setSaving(false);
       setSaveError(tenantResult.error);
       return;

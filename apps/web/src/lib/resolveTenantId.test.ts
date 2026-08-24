@@ -20,7 +20,7 @@ beforeEach(() => {
 describe('resolveTenantId', () => {
   it('returns an error, and never queries app_users, when there is no session', async () => {
     const result = await resolveTenantId(null);
-    expect(result).toEqual({ error: 'Could not determine your session. Please refresh and try again.' });
+    expect(result).toEqual({ ok: false, error: 'Could not determine your session. Please refresh and try again.' });
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
@@ -30,7 +30,7 @@ describe('resolveTenantId', () => {
 
     const result = await resolveTenantId(session);
 
-    expect(result).toEqual({ tenantId: 't1' });
+    expect(result).toEqual({ ok: true, tenantId: 't1' });
     expect(mockFrom).toHaveBeenCalledWith('app_users');
   });
 
@@ -40,7 +40,7 @@ describe('resolveTenantId', () => {
 
     const result = await resolveTenantId(session);
 
-    expect(result).toEqual({ error: 'Could not determine your organization. Please refresh and try again.' });
+    expect(result).toEqual({ ok: false, error: 'Could not determine your organization. Please refresh and try again.' });
   });
 
   it('returns an error when app_users has no row or a null tenant_id', async () => {
@@ -49,6 +49,6 @@ describe('resolveTenantId', () => {
 
     const result = await resolveTenantId(session);
 
-    expect(result).toEqual({ error: 'Could not determine your organization. Please refresh and try again.' });
+    expect(result).toEqual({ ok: false, error: 'Could not determine your organization. Please refresh and try again.' });
   });
 });

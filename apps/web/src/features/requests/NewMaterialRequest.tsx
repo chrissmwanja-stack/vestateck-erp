@@ -136,7 +136,7 @@ export default function NewMaterialRequest() {
     // this same no-default-tenant_id shape -- see its own comment for
     // the history of why this used to be duplicated per-screen instead).
     const tenantResult = await resolveTenantId(session);
-    if (tenantResult.error) {
+    if (!tenantResult.ok) {
       setSaving(false);
       setError(tenantResult.error);
       return;

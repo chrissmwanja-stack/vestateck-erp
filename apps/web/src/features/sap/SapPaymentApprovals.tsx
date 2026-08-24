@@ -114,7 +114,7 @@ export default function SapPaymentApprovals() {
     // their column type before any row-level trigger runs -- resolve
     // the real tenant_id client-side instead of sending a placeholder.
     const tenantResult = await resolveTenantId(session);
-    if (tenantResult.error) {
+    if (!tenantResult.ok) {
       setPaymentSubmitting(false);
       setPaymentError(tenantResult.error);
       return;

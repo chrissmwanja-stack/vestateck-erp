@@ -1,7 +1,16 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabaseClient';
 
-export type ResolveTenantIdResult = { tenantId: string; error?: undefined } | { tenantId?: undefined; error: string };
+// `ok` is a literal-boolean discriminant on purpose. TS narrows a union on
+// a property only when that property's type is a "unit" type (a literal,
+// or `undefined`/`null`) across every member -- `error?: undefined` /
+// `error: string` looked like it should discriminate the same way, but
+// `string` isn't a unit type, so `if (result.error)` narrowed `error`
+// itself without narrowing `result`, leaving `tenantId` as
+// `string | undefined` at every call site (caught as 9 tsc errors across
+// 7 screens). `ok: true`/`ok: false` are unit types, so `if (!result.ok)`
+// narrows the whole union correctly.
+export type ResolveTenantIdResult = { ok: true; tenantId: string; error?: undefined } | { ok: false; tenantId?: undefined; error: string };
 
 // Every "New X" create screen whose target table has tenant_id as
 // `uuid NOT NULL` with no column-level DEFAULT needs to resolve and send
@@ -27,11 +36,11 @@ export type ResolveTenantIdResult = { tenantId: string; error?: undefined } | { 
 export async function resolveTenantId(session: Session | null): Promise<ResolveTenantIdResult> {
   const userId = session?.user?.id;
   if (!userId) {
-    return { error: 'Could not determine your session. Please refresh and try again.' };
+    return { ok: false, error: 'Could not determine your session. Please refresh and try again.' };
   }
   const { data: appUser, error } = await supabase.from('app_users').select('tenant_id').eq('id', userId).single();
   if (error || !appUser?.tenant_id) {
-    return { error: 'Could not determine your organization. Please refresh and try again.' };
+    return { ok: false, error: 'Could not determine your organization. Please refresh and try again.' };
   }
-  return { tenantId: appUser.tenant_id };
+  return { ok: true, tenantId: appUser.tenant_id };
 }

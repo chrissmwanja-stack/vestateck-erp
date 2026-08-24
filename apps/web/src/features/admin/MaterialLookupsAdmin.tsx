@@ -131,7 +131,7 @@ function LookupTable({ table, canEdit }: { table: TableName; canEdit: boolean })
       ({ error: err } = await supabase.from(table).update(payload).eq('id', editTarget.id));
     } else {
       const tenantResult = await resolveTenantId(session);
-      if (tenantResult.error) {
+      if (!tenantResult.ok) {
         setSaving(false);
         setSaveError(tenantResult.error);
         return;

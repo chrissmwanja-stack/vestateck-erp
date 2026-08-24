@@ -189,7 +189,7 @@ export default function DepartmentsAdmin() {
       // their column type before any row-level trigger runs -- resolve
       // the real tenant_id client-side instead of sending a placeholder.
       const tenantResult = await resolveTenantId(session);
-      if (tenantResult.error) {
+      if (!tenantResult.ok) {
         setSaving(false);
         setSaveError(tenantResult.error);
         return;
@@ -238,7 +238,7 @@ export default function DepartmentsAdmin() {
     // Resolve once, outside the loop -- every inserted row in this
     // import shares the same tenant_id (the importer's own tenant).
     const tenantResult = await resolveTenantId(session);
-    if (tenantResult.error) {
+    if (!tenantResult.ok) {
       setImporting(false);
       setImportError(tenantResult.error);
       return;
