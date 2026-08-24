@@ -94,14 +94,16 @@ const emptyAssignmentForm = {
 
 // This screen is company-admin only -- each tenant defines its own
 // approval process, so it's scoped by useTenantAdminAccess the same way
-// TeamMembersAdmin is, not by a module grant.
+// TeamMembersAdmin is, not by a module grant. Write RLS for both tables
+// (workflow_stages, approval_assignments) is in
+// 20260824110310_workflow_stages_and_assignments_admin_write.sql.
 //
-// NOTE: workflow_stages currently only has a tenant-scoped SELECT policy,
-// and approval_assignments' only policy is "select your own assignments"
-// (user_id = auth.uid()). Until the write RLS + RPCs land (next step
-// after this screen), New/Edit/Delete here will fail with a permission
-// error and the Assignments tab will only ever show the signed-in
-// admin's own rows -- both are expected for now, not bugs in this file.
+// Editing a stage's routing (threshold_amount, next_stage_low_id/high_id)
+// or deactivating it doesn't corrupt data -- see
+// count_open_items_at_workflow_stage() -- but it does silently change
+// behavior for requests/invoices already sitting at that stage the next
+// time they advance. saveStage() checks for that and shows a confirm-
+// before-saving warning rather than blocking the edit outright.
 export default function ApprovalWorkflowAdmin() {
   const access = useTenantAdminAccess();
   const { session } = useAuth();
@@ -123,6 +125,16 @@ export default function ApprovalWorkflowAdmin() {
   const [stageForm, setStageForm] = useState(emptyStageForm);
   const [stageSaving, setStageSaving] = useState(false);
   const [stageSaveError, setStageSaveError] = useState<string | null>(null);
+  // Set once a routing-relevant field changes on a stage that has open
+  // requests/invoices sitting at it right now -- see
+  // count_open_items_at_workflow_stage() for why this can't be answered
+  // by just filtering the rows already loaded client-side. Cleared
+  // whenever the dialog (re)opens or the admin edits the form again, so
+  // a stale count from a previous edit can't be silently reused.
+  const [occupancyWarning, setOccupancyWarning] = useState<{ openRequests: number; openInvoices: number } | null>(
+    null,
+  );
+  const [occupancyChecking, setOccupancyChecking] = useState(false);
 
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [editAssignment, setEditAssignment] = useState<Assignment | null>(null);
@@ -217,6 +229,7 @@ export default function ApprovalWorkflowAdmin() {
       is_active: stage.is_active,
     });
     setStageSaveError(null);
+    setOccupancyWarning(null);
     setStageDialogOpen(true);
   };
 
@@ -226,7 +239,24 @@ export default function ApprovalWorkflowAdmin() {
 
   const hasThreshold = stageForm.threshold_amount.trim() !== '';
 
-  const saveStage = async () => {
+  // Routing-relevant fields: changing any of these takes effect the next
+  // time an in-flight item advances (routing is evaluated live, not
+  // stored -- see the RPC comment). Renaming a stage or toggling the
+  // "requires offer entry"-style flags doesn't retroactively change
+  // anything for items already sitting there, so those don't warrant the
+  // warning.
+  const routingFieldsChanged = (): boolean => {
+    if (!editStage) return false;
+    const newThreshold = hasThreshold ? Number(stageForm.threshold_amount) : null;
+    return (
+      newThreshold !== editStage.threshold_amount ||
+      (stageForm.next_stage_low_id || null) !== editStage.next_stage_low_id ||
+      (hasThreshold ? stageForm.next_stage_high_id || null : null) !== editStage.next_stage_high_id ||
+      (editStage.is_active && !stageForm.is_active)
+    );
+  };
+
+  const saveStage = async (skipOccupancyCheck = false) => {
     setStageSaveError(null);
     if (!stageForm.name.trim()) {
       setStageSaveError('Name is required.');
@@ -243,6 +273,24 @@ export default function ApprovalWorkflowAdmin() {
     if (hasThreshold && !stageForm.next_stage_high_id) {
       setStageSaveError('A threshold needs an "above threshold" next stage as well as an "at or below" one.');
       return;
+    }
+
+    if (!skipOccupancyCheck && editStage && routingFieldsChanged()) {
+      setOccupancyChecking(true);
+      const { data, error: rpcError } = await supabase
+        .rpc('count_open_items_at_workflow_stage', { p_stage_id: editStage.id })
+        .single();
+      setOccupancyChecking(false);
+      if (!rpcError && data) {
+        const counts = data as { open_requests: number; open_invoices: number };
+        if (counts.open_requests > 0 || counts.open_invoices > 0) {
+          setOccupancyWarning({ openRequests: counts.open_requests, openInvoices: counts.open_invoices });
+          return;
+        }
+      }
+      // On an RPC error, fall through and save anyway rather than
+      // blocking the admin on a check that itself failed -- the warning
+      // is an FYI, not the source of truth for whether the save is safe.
     }
 
     setStageSaving(true);
@@ -647,6 +695,24 @@ export default function ApprovalWorkflowAdmin() {
               }
               label="Active"
             />
+            {occupancyWarning && (
+              <Alert severity="warning">
+                {occupancyWarning.openRequests > 0 && (
+                  <>
+                    {occupancyWarning.openRequests} open request{occupancyWarning.openRequests === 1 ? '' : 's'}
+                  </>
+                )}
+                {occupancyWarning.openRequests > 0 && occupancyWarning.openInvoices > 0 && ' and '}
+                {occupancyWarning.openInvoices > 0 && (
+                  <>
+                    {occupancyWarning.openInvoices} open invoice{occupancyWarning.openInvoices === 1 ? '' : 's'}
+                  </>
+                )}{' '}
+                {occupancyWarning.openRequests + occupancyWarning.openInvoices === 1 ? 'is' : 'are'} currently
+                sitting at this stage. This change applies the next time each one advances — it won't move or
+                reroute anything that's already there.
+              </Alert>
+            )}
             {stageSaveError && <Alert severity="error">{stageSaveError}</Alert>}
           </Stack>
         </DialogContent>
@@ -654,9 +720,15 @@ export default function ApprovalWorkflowAdmin() {
           <Button onClick={closeStageDialog} disabled={stageSaving}>
             Cancel
           </Button>
-          <Button onClick={saveStage} variant="contained" disabled={stageSaving}>
-            {stageSaving ? 'Saving…' : 'Save'}
-          </Button>
+          {occupancyWarning ? (
+            <Button onClick={() => saveStage(true)} variant="contained" color="warning" disabled={stageSaving}>
+              {stageSaving ? 'Saving…' : 'Save anyway'}
+            </Button>
+          ) : (
+            <Button onClick={() => saveStage()} variant="contained" disabled={stageSaving || occupancyChecking}>
+              {occupancyChecking ? 'Checking…' : stageSaving ? 'Saving…' : 'Save'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
