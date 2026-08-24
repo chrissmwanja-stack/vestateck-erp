@@ -24,6 +24,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 
 interface Organization {
   id: string;
@@ -56,6 +58,7 @@ function useFinanceAccess() {
 
 export default function OrganizationsAdmin() {
   const isFinance = useFinanceAccess();
+  const { session } = useAuth();
   const [rows, setRows] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,11 +115,22 @@ export default function OrganizationsAdmin() {
       site_name: form.site_name.trim(),
       is_active: form.is_active,
     };
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by trg_set_organization_defaults (BEFORE INSERT trigger).
-    const { error: err } = editTarget
-      ? await supabase.from('organizations').update(payload).eq('id', editTarget.id)
-      : await supabase.from('organizations').insert({ ...payload, tenant_id: '' });
+    let err;
+    if (editTarget) {
+      ({ error: err } = await supabase.from('organizations').update(payload).eq('id', editTarget.id));
+    } else {
+      // tenant_id is `uuid NOT NULL` with no column default. A BEFORE
+      // INSERT trigger exists, but Postgres coerces insert values to
+      // their column type before any row-level trigger runs -- resolve
+      // the real tenant_id client-side instead of sending a placeholder.
+      const tenantResult = await resolveTenantId(session);
+      if (tenantResult.error) {
+        setSaving(false);
+        setSaveError(tenantResult.error);
+        return;
+      }
+      ({ error: err } = await supabase.from('organizations').insert({ ...payload, tenant_id: tenantResult.tenantId }));
+    }
     setSaving(false);
     if (err) {
       setSaveError(

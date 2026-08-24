@@ -6,6 +6,8 @@ import {
   TextField, Typography,
 } from "@mui/material";
 import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../lib/authContext";
+import { resolveTenantId } from "../../lib/ResolveTenantId";
 
 interface SapPayment {
   id: string;
@@ -41,6 +43,7 @@ function statusChip(po: PurchaseOrderRow) {
 }
 
 export default function SapPaymentApprovals() {
+  const { session } = useAuth();
   const [orders, setOrders] = useState<PurchaseOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,14 +109,22 @@ export default function SapPaymentApprovals() {
     }
 
     setPaymentSubmitting(true);
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by trg_set_sap_payment_defaults (BEFORE INSERT trigger).
+    // tenant_id is `uuid NOT NULL` with no column default. A BEFORE
+    // INSERT trigger exists, but Postgres coerces insert values to
+    // their column type before any row-level trigger runs -- resolve
+    // the real tenant_id client-side instead of sending a placeholder.
+    const tenantResult = await resolveTenantId(session);
+    if (tenantResult.error) {
+      setPaymentSubmitting(false);
+      setPaymentError(tenantResult.error);
+      return;
+    }
     const { error } = await supabase.from("sap_payments").insert({
       purchase_order_id: paymentTarget.id,
       amount,
       status: paymentStatus,
       sap_reference: paymentRef.trim() || null,
-      tenant_id: '',
+      tenant_id: tenantResult.tenantId,
     });
     setPaymentSubmitting(false);
 

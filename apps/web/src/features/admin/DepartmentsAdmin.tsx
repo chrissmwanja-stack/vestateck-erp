@@ -25,6 +25,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 
 interface Department {
   id: string;
@@ -109,6 +111,7 @@ function useFinanceAccess() {
 
 export default function DepartmentsAdmin() {
   const isFinance = useFinanceAccess();
+  const { session } = useAuth();
   const [rows, setRows] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,11 +180,22 @@ export default function DepartmentsAdmin() {
       parent_department_id: form.parent_department_id || null,
       is_active: form.is_active,
     };
-    const { error: err } = editTarget
-      ? await supabase.from('departments').update(payload).eq('id', editTarget.id)
-      // tenant_id is required by the generated Insert type but is filled
-      // unconditionally by trg_set_department_defaults (BEFORE INSERT trigger).
-      : await supabase.from('departments').insert({ ...payload, tenant_id: '' });
+    let err;
+    if (editTarget) {
+      ({ error: err } = await supabase.from('departments').update(payload).eq('id', editTarget.id));
+    } else {
+      // tenant_id is `uuid NOT NULL` with no column default. A BEFORE
+      // INSERT trigger exists, but Postgres coerces insert values to
+      // their column type before any row-level trigger runs -- resolve
+      // the real tenant_id client-side instead of sending a placeholder.
+      const tenantResult = await resolveTenantId(session);
+      if (tenantResult.error) {
+        setSaving(false);
+        setSaveError(tenantResult.error);
+        return;
+      }
+      ({ error: err } = await supabase.from('departments').insert({ ...payload, tenant_id: tenantResult.tenantId }));
+    }
     setSaving(false);
     if (err) {
       setSaveError(err.message);
@@ -221,6 +235,14 @@ export default function DepartmentsAdmin() {
     }
 
     setImporting(true);
+    // Resolve once, outside the loop -- every inserted row in this
+    // import shares the same tenant_id (the importer's own tenant).
+    const tenantResult = await resolveTenantId(session);
+    if (tenantResult.error) {
+      setImporting(false);
+      setImportError(tenantResult.error);
+      return;
+    }
     const nameToId = new Map<string, string>(rows.map((r) => [r.name.trim().toLowerCase(), r.id]));
     const skipped: string[] = [];
     const created: string[] = [];
@@ -240,13 +262,13 @@ export default function DepartmentsAdmin() {
       const resolvable = pending.filter((row) => !row.parentName || nameToId.has(row.parentName.trim().toLowerCase()));
       if (resolvable.length === 0) break;
 
-      // tenant_id is required by the generated Insert type but is filled
-      // unconditionally by trg_set_department_defaults (BEFORE INSERT trigger).
+      // tenant_id is `uuid NOT NULL` with no column default -- resolved
+      // once above, reused for every row in this import.
       const insertPayload = resolvable.map((row) => ({
         name: row.name,
         parent_department_id: row.parentName ? nameToId.get(row.parentName.trim().toLowerCase()) ?? null : null,
         is_active: row.is_active,
-        tenant_id: '',
+        tenant_id: tenantResult.tenantId,
       }));
 
       const { data, error: err } = await supabase.from('departments').insert(insertPayload).select('id, name');

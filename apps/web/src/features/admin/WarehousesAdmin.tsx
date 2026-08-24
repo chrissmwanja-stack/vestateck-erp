@@ -24,6 +24,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 
 interface DepartmentOption {
   id: string;
@@ -57,6 +59,7 @@ function useFinanceAccess() {
 
 export default function WarehousesAdmin() {
   const isFinance = useFinanceAccess();
+  const { session } = useAuth();
   const [rows, setRows] = useState<WarehouseRow[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,11 +145,22 @@ export default function WarehousesAdmin() {
       department_id: form.department_id || null,
       is_active: form.is_active,
     };
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by set_warehouse_defaults_trigger (BEFORE INSERT trigger).
-    const { error: err } = editTarget
-      ? await supabase.from('warehouses').update(payload).eq('id', editTarget.id)
-      : await supabase.from('warehouses').insert({ ...payload, tenant_id: '' });
+    let err;
+    if (editTarget) {
+      ({ error: err } = await supabase.from('warehouses').update(payload).eq('id', editTarget.id));
+    } else {
+      // tenant_id is `uuid NOT NULL` with no column default. A BEFORE
+      // INSERT trigger exists, but Postgres coerces insert values to
+      // their column type before any row-level trigger runs -- resolve
+      // the real tenant_id client-side instead of sending a placeholder.
+      const tenantResult = await resolveTenantId(session);
+      if (tenantResult.error) {
+        setSaving(false);
+        setSaveError(tenantResult.error);
+        return;
+      }
+      ({ error: err } = await supabase.from('warehouses').insert({ ...payload, tenant_id: tenantResult.tenantId }));
+    }
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

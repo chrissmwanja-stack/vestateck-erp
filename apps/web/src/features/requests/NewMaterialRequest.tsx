@@ -18,6 +18,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Save as SaveIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 
 interface LookupOption {
   id: string;
@@ -76,6 +78,7 @@ function useLookups() {
 
 export default function NewMaterialRequest() {
   const { types, groups, externalGroups, loading } = useLookups();
+  const { session } = useAuth();
   const [rows, setRows] = useState<DraftRow[]>([emptyRow()]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -120,12 +123,35 @@ export default function NewMaterialRequest() {
 
     setSaving(true);
 
-    // requester_id and tenant_id are required by the generated Insert type
-    // but are filled unconditionally by trg_set_material_request_batch_defaults
-    // (BEFORE INSERT trigger).
+    // requester_id and material_request_batches.tenant_id, plus
+    // material_request_items.tenant_id below, are `uuid NOT NULL` with
+    // no column default. A BEFORE INSERT trigger exists for each table,
+    // but Postgres coerces literal insert values to their column type
+    // before any row-level trigger runs -- sending a placeholder '' for
+    // a uuid column fails outright ("invalid input syntax for type
+    // uuid"), regardless of what the trigger would otherwise fill in.
+    // Resolve the real values client-side instead: requester_id is just
+    // the caller's own id (no round trip needed), tenant_id via
+    // resolveTenantId (shared with every other create screen that has
+    // this same no-default-tenant_id shape -- see its own comment for
+    // the history of why this used to be duplicated per-screen instead).
+    const tenantResult = await resolveTenantId(session);
+    if (tenantResult.error) {
+      setSaving(false);
+      setError(tenantResult.error);
+      return;
+    }
+    const tenantId = tenantResult.tenantId;
+    const requesterId = session?.user?.id;
+    if (!requesterId) {
+      setSaving(false);
+      setError('Could not determine your session. Please refresh and try again.');
+      return;
+    }
+
     const { data: batch, error: batchErr } = await supabase
       .from('material_request_batches')
-      .insert({ requester_id: '', tenant_id: '' })
+      .insert({ requester_id: requesterId, tenant_id: tenantId })
       .select('id')
       .single();
 
@@ -135,9 +161,6 @@ export default function NewMaterialRequest() {
       return;
     }
 
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by trg_set_material_request_item_defaults (BEFORE
-    // INSERT trigger).
     const payload = usableRows.map((r) => ({
       batch_id: batch.id,
       material_type_id: r.material_type_id || null,
@@ -149,7 +172,7 @@ export default function NewMaterialRequest() {
       description_en: r.description_en.trim() || null,
       description_fr: r.description_fr.trim() || null,
       old_material_code: r.old_material_code.trim() || null,
-      tenant_id: '',
+      tenant_id: tenantId,
     }));
 
     const { error: itemsErr } = await supabase.from('material_request_items').insert(payload);

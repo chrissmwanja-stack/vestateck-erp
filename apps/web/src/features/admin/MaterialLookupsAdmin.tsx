@@ -26,6 +26,8 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 
 interface LookupRow {
   id: string;
@@ -67,6 +69,7 @@ const TAB_LABELS: Record<TableName, string> = {
 };
 
 function LookupTable({ table, canEdit }: { table: TableName; canEdit: boolean }) {
+  const { session } = useAuth();
   const [rows, setRows] = useState<LookupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,12 +119,25 @@ function LookupTable({ table, canEdit }: { table: TableName; canEdit: boolean })
     }
     setSaving(true);
     const payload = { code: form.code.trim(), name: form.name.trim(), is_active: form.is_active };
-    // tenant_id is required by the generated Insert type but is filled
-    // unconditionally by trg_set_material_types_defaults / trg_set_material_groups_defaults
-    // / trg_set_external_material_groups_defaults (BEFORE INSERT triggers).
-    const { error: err } = editTarget
-      ? await supabase.from(table).update(payload).eq('id', editTarget.id)
-      : await supabase.from(table).insert({ ...payload, tenant_id: '' });
+    // tenant_id is `uuid NOT NULL` with no column default on all three of
+    // these tables. Each has a BEFORE INSERT trigger, but Postgres
+    // coerces insert values to their column type before any row-level
+    // trigger runs -- a placeholder '' fails outright regardless of the
+    // trigger. Resolve the real tenant_id client-side instead, only on
+    // create (edit never touches tenant_id, since a row's tenant never
+    // changes after creation).
+    let err;
+    if (editTarget) {
+      ({ error: err } = await supabase.from(table).update(payload).eq('id', editTarget.id));
+    } else {
+      const tenantResult = await resolveTenantId(session);
+      if (tenantResult.error) {
+        setSaving(false);
+        setSaveError(tenantResult.error);
+        return;
+      }
+      ({ error: err } = await supabase.from(table).insert({ ...payload, tenant_id: tenantResult.tenantId }));
+    }
     setSaving(false);
     if (err) {
       setSaveError(err.message.includes('duplicate key') ? `Code "${form.code}" is already in use.` : err.message);

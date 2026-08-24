@@ -22,6 +22,8 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon, Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/authContext';
+import { resolveTenantId } from '../../lib/ResolveTenantId';
 import type { Database } from '@erp-platform/shared';
 
 type ReferenceType = 'supplier_invoice' | 'expenditure_slip' | 'receivable_invoice' | 'payroll_run';
@@ -92,6 +94,7 @@ function embedOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export default function CashBankOperations() {
+  const { session } = useAuth();
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [rows, setRows] = useState<CashBankTransactionRow[]>([]);
   const [refLabels, setRefLabels] = useState<Record<string, string>>({});
@@ -231,12 +234,22 @@ export default function CashBankOperations() {
     }
 
     setSaving(true);
+    // tenant_id is `uuid NOT NULL` with no column default. The comment
+    // this replaced claimed set_cash_bank_transaction_defaults_trigger
+    // "unconditionally overwrites it server-side... this value is never
+    // actually used" -- that's not correct: Postgres coerces insert
+    // values to their column type before any row-level trigger ever
+    // runs, so a placeholder '' fails outright ("invalid input syntax
+    // for type uuid") and the trigger never gets the chance to run at
+    // all. Resolve the real tenant_id client-side instead.
+    const tenantResult = await resolveTenantId(session);
+    if (tenantResult.error) {
+      setSaving(false);
+      setSaveError(tenantResult.error);
+      return;
+    }
     const { error: insertError } = await supabase.from('cash_bank_transactions').insert({
-      // tenant_id is required by the generated Insert type (NOT NULL, no
-      // column default), but set_cash_bank_transaction_defaults_trigger
-      // unconditionally overwrites it server-side with get_my_tenant_id()
-      // before the row lands — this value is never actually used.
-      tenant_id: '',
+      tenant_id: tenantResult.tenantId,
       transaction_type: entry.transaction_type,
       payment_method: entry.payment_method,
       reference_type: entry.reference_type,
