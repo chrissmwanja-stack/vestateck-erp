@@ -29,6 +29,7 @@ const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
+const ApprovalWorkflowAdmin = lazy(() => import('./features/admin/ApprovalWorkflowAdmin'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
 const TeamMembersAdmin = lazy(() => import('./features/team/TeamMembersAdmin'));
 const CompanySetupChecklist = lazy(() => import('./features/team/CompanySetupChecklist'));
@@ -333,6 +334,10 @@ export default function App() {
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />
               <Route path="/team/members" element={<TeamMembersAdmin />} />
+              {/* Company-admin only, like Manage Team above -- gated inside
+                  the component via useTenantAdminAccess, not a route guard,
+                  same pattern as TeamMembersAdmin. */}
+              <Route path="/admin/approval-workflow" element={<ApprovalWorkflowAdmin />} />
               <Route path="/setup" element={<CompanySetupChecklist />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
 

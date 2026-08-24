@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.is_company_admin() FROM anon;
