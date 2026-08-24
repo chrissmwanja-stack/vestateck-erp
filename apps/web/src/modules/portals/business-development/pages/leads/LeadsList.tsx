@@ -6,6 +6,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  Alert,
   IconButton,
   Table,
   TableBody,
@@ -28,10 +34,12 @@ interface Lead {
   company_name: string;
   contact_name: string;
   email: string | null;
+  phone: string | null;
   source_id: string;
   status: string;
   estimated_value: number | null;
   currency: string;
+  notes: string | null;
   created_at: string;
   bd_lead_sources?: { name: string } | null;
 }
@@ -49,6 +57,22 @@ export default function LeadsList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    company_name: "",
+    contact_name: "",
+    email: "",
+    phone: "",
+    source_id: "",
+    status: "new",
+    estimated_value: "",
+    currency: "UGX",
+    notes: "",
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -92,6 +116,55 @@ export default function LeadsList() {
       case "lost": return "error";
       default: return "default";
     }
+  };
+
+  const handleOpenEdit = (lead: Lead) => {
+    setEditingId(lead.id);
+    setEditError(null);
+    setForm({
+      company_name: lead.company_name,
+      contact_name: lead.contact_name,
+      email: lead.email || "",
+      phone: lead.phone || "",
+      source_id: lead.source_id || "",
+      status: lead.status,
+      estimated_value: lead.estimated_value != null ? String(lead.estimated_value) : "",
+      currency: lead.currency,
+      notes: lead.notes || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setEditError(null);
+    if (!form.company_name.trim() || !form.contact_name.trim() || !form.source_id) {
+      setEditError("Company name, Contact name, and Source are required.");
+      return;
+    }
+    setSaving(true);
+    const { error: updateError } = await supabase
+      .from("bd_leads")
+      .update({
+        company_name: form.company_name.trim(),
+        contact_name: form.contact_name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        source_id: form.source_id,
+        status: form.status,
+        estimated_value: form.estimated_value ? parseFloat(form.estimated_value) : null,
+        currency: form.currency,
+        notes: form.notes.trim() || null,
+      })
+      .eq("id", editingId);
+    setSaving(false);
+    if (updateError) {
+      setEditError(`Failed to update lead: ${updateError.message}`);
+      return;
+    }
+    setEditOpen(false);
+    setEditingId(null);
+    fetchData();
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
@@ -170,8 +243,8 @@ export default function LeadsList() {
                     <TableCell>{lead.estimated_value ? `${lead.currency} ${Number(lead.estimated_value).toLocaleString()}` : "-"}</TableCell>
                     <TableCell><Typography variant="caption">{new Date(lead.created_at).toLocaleDateString()}</Typography></TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View"><IconButton size="small"><Visibility fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small"><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View"><IconButton size="small" onClick={() => navigate(`/business-development/leads/${lead.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton size="small" onClick={() => handleOpenEdit(lead)}><Edit fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Convert to Opportunity">
                         <IconButton size="small" color="primary" onClick={() => navigate(`/business-development/opportunities/new?lead_id=${lead.id}`)}>
                           <TrendingUp fontSize="small" />
@@ -185,6 +258,63 @@ export default function LeadsList() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={editOpen} onClose={() => !saving && setEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Lead</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Company Name *" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} fullWidth required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Contact Name *" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} fullWidth required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} fullWidth />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} fullWidth />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField select label="Source *" value={form.source_id} onChange={(e) => setForm({ ...form, source_id: e.target.value })} fullWidth required>
+                {sources.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} fullWidth>
+                <MenuItem value="new">New</MenuItem>
+                <MenuItem value="contacted">Contacted</MenuItem>
+                <MenuItem value="qualified">Qualified</MenuItem>
+                <MenuItem value="unqualified">Unqualified</MenuItem>
+                <MenuItem value="converted">Converted</MenuItem>
+                <MenuItem value="lost">Lost</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Estimated Value" type="number" value={form.estimated_value} onChange={(e) => setForm({ ...form, estimated_value: e.target.value })} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">{form.currency}</InputAdornment> }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField select label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} fullWidth>
+                <MenuItem value="USD">USD</MenuItem>
+                <MenuItem value="UGX">UGX</MenuItem>
+                <MenuItem value="EUR">EUR</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} fullWidth multiline rows={3} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveEdit} disabled={saving || !form.company_name.trim() || !form.contact_name.trim() || !form.source_id}>
+            {saving ? "Saving..." : "Update Lead"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
