@@ -40,7 +40,7 @@ describe('ProposalTypesAdmin', () => {
     await waitFor(() => expect(screen.getByText(/No types yet/)).toBeInTheDocument());
   });
 
-  it('creates a type against bd_proposal_types with the session tenant_id', async () => {
+  it('creates a type against bd_proposal_types with the resolved tenant_id', async () => {
     const user = userEvent.setup();
     const { calls } = mockSupabaseTable(mockFrom, 'bd_proposal_types', { rows: [] });
 
@@ -53,7 +53,7 @@ describe('ProposalTypesAdmin', () => {
 
     await waitFor(() =>
       expect(calls.inserts).toEqual([
-        { name: 'BOQ', description: null, is_active: true, tenant_id: 'tenant-5' },
+        { name: 'BOQ', description: null, is_active: true, tenant_id: 't1' },
       ]),
     );
   });

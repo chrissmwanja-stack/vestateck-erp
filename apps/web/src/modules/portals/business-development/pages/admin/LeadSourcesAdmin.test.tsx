@@ -67,15 +67,14 @@ describe('LeadSourcesAdmin', () => {
     expect(createButton).toBeEnabled();
     await user.click(createButton);
 
-    await waitFor(() => expect(calls.inserts).toEqual([{ name: 'Website', is_active: true }]));
+    await waitFor(() => expect(calls.inserts).toEqual([{ name: 'Website', is_active: true, tenant_id: 't1' }]));
     // dialog closes and the list is refetched after a successful save
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument());
     expect(calls.selectCount).toBe(2);
   });
 
-  it('includes tenant_id on insert when present in the session', async () => {
+  it('includes tenant_id on insert, resolved from app_users', async () => {
     const user = userEvent.setup();
-    mockUseAuth.mockReturnValue({ session: { user: { id: 'u1', user_metadata: { tenant_id: 'tenant-9' } } } });
     const { calls } = mockSupabaseTable(mockFrom, 'bd_lead_sources', { rows: [] });
 
     render(<LeadSourcesAdmin />);
@@ -86,7 +85,7 @@ describe('LeadSourcesAdmin', () => {
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() =>
-      expect(calls.inserts).toEqual([{ name: 'Cold Call', is_active: true, tenant_id: 'tenant-9' }]),
+      expect(calls.inserts).toEqual([{ name: 'Cold Call', is_active: true, tenant_id: 't1' }]),
     );
   });
 

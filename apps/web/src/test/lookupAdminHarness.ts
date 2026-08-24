@@ -11,8 +11,10 @@ import type { Mock } from 'vitest';
 // every call so a test can assert on payloads without caring about the
 // page's internal query-builder plumbing.
 //
-// Each page queries exactly one table, so the mock throws if
-// supabase.from() is ever called with a different table name -- that's
+// Each page queries exactly one domain table plus `app_users`, which
+// resolveTenantId() reads to resolve the caller's tenant on insert --
+// the mock answers that lookup with `tenantId` (default "t1") so create
+// flows keep working, and throws for any other table name -- that's
 // usually a copy-paste bug in the page itself (wrong table name), which
 // is exactly the kind of thing worth catching here.
 
@@ -22,6 +24,7 @@ interface TableMockOptions {
   insertError?: { message: string } | null;
   updateError?: { message: string } | null;
   deleteError?: { message: string } | null;
+  tenantId?: string;
 }
 
 export function mockSupabaseTable(mockFrom: Mock, table: string, options: TableMockOptions = {}) {
@@ -31,6 +34,7 @@ export function mockSupabaseTable(mockFrom: Mock, table: string, options: TableM
     insertError: options.insertError ?? null,
     updateError: options.updateError ?? null,
     deleteError: options.deleteError ?? null,
+    tenantId: options.tenantId ?? 't1',
   };
 
   const calls = {
@@ -41,6 +45,15 @@ export function mockSupabaseTable(mockFrom: Mock, table: string, options: TableM
   };
 
   mockFrom.mockImplementation((calledTable: string) => {
+    if (calledTable === 'app_users') {
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({ data: { tenant_id: state.tenantId }, error: null }),
+          }),
+        }),
+      };
+    }
     if (calledTable !== table) {
       throw new Error(
         `mockSupabaseTable: expected supabase.from("${table}"), got supabase.from("${calledTable}")`,

@@ -66,7 +66,7 @@ describe('ClientCategoriesAdmin', () => {
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() =>
-      expect(calls.inserts).toEqual([{ name: 'Private Sector', description: null, is_active: true }]),
+      expect(calls.inserts).toEqual([{ name: 'Private Sector', description: null, is_active: true, tenant_id: 't1' }]),
     );
   });
 

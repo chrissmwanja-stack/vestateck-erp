@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress, Alert, Stack } from "@mui/material";
 import { Add, Edit, Delete, UploadFile } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Position {
@@ -85,9 +86,9 @@ export default function PositionsAdmin() {
       const { error } = await supabase.from("hr_positions").update(payload).eq("id", editing.id);
       if (error) { alert(error.message); return; }
     } else {
-      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || positions[0]?.tenant_id;
-      const insertPayload: any = { ...payload };
-      if (tenant_id) insertPayload.tenant_id = tenant_id;
+      const tenantResult = await resolveTenantId(session);
+      if (!tenantResult.ok) { alert(tenantResult.error); return; }
+      const insertPayload: any = { ...payload, tenant_id: tenantResult.tenantId };
       const { error } = await supabase.from("hr_positions").insert(insertPayload);
       if (error) { alert(error.message); return; }
     }
@@ -119,11 +120,12 @@ export default function PositionsAdmin() {
     const existingTitles = new Set(positions.map((p) => p.title.trim().toLowerCase()));
     const skipped: string[] = [];
     const toInsert: { title: string; description: string | null; is_active: boolean; tenant_id: string }[] = [];
-    const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || positions[0]?.tenant_id;
+    const tenantResult = await resolveTenantId(session);
+    const tenant_id = tenantResult.ok ? tenantResult.tenantId : null;
 
     if (!tenant_id) {
       setImporting(false);
-      setImportError("Could not determine your organization. Please refresh and try again.");
+      setImportError(tenantResult.ok ? "Could not determine your organization. Please refresh and try again." : tenantResult.error);
       return;
     }
 
