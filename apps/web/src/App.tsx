@@ -110,6 +110,7 @@ const ProposalStatusesAdmin = lazy(() => import('./modules/portals/business-deve
 const TenderTypesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/TenderTypesAdmin'));
 const LeadStatusesAdmin = lazy(() => import('./modules/portals/business-development/pages/admin/LeadStatusesAdmin'));
 const NewLead = lazy(() => import('./modules/portals/business-development/pages/leads/NewLead'));
+const LeadDetail = lazy(() => import('./modules/portals/business-development/pages/leads/LeadDetail'));
 const LeadsList = lazy(() => import('./modules/portals/business-development/pages/leads/LeadsList'));
 const QualifiedLeads = lazy(() => import('./modules/portals/business-development/pages/leads/QualifiedLeads'));
 const ImportLeads = lazy(() => import('./modules/portals/business-development/pages/leads/ImportLeads'));
@@ -121,11 +122,13 @@ const OpportunitiesList = lazy(() => import('./modules/portals/business-developm
 const PipelineBoard = lazy(() => import('./modules/portals/business-development/pages/opportunities/PipelineBoard'));
 const ProposalsList = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalsList'));
 const NewProposal = lazy(() => import('./modules/portals/business-development/pages/proposals/NewProposal'));
+const ProposalDetail = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalDetail'));
 const ProposalApprovals = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalApprovals'));
 const ProposalTemplates = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalTemplates'));
 const ProposalTracking = lazy(() => import('./modules/portals/business-development/pages/proposals/ProposalTracking'));
 const TendersList = lazy(() => import('./modules/portals/business-development/pages/tenders/TendersList'));
 const NewTender = lazy(() => import('./modules/portals/business-development/pages/tenders/NewTender'));
+const TenderDetail = lazy(() => import('./modules/portals/business-development/pages/tenders/TenderDetail'));
 const SubmissionsList = lazy(() => import('./modules/portals/business-development/pages/tenders/SubmissionsList'));
 const TenderTracking = lazy(() => import('./modules/portals/business-development/pages/tenders/TenderTracking'));
 const PipelineReport = lazy(() => import('./modules/portals/business-development/pages/reports/PipelineReport'));
@@ -159,8 +162,11 @@ const ContractTypesAdmin = lazy(() => import('./modules/portals/law-compliance/p
 const CaseTypesAdmin = lazy(() => import('./modules/portals/law-compliance/pages/admin/CaseTypesAdmin'));
 const ContractsList = lazy(() => import('./modules/portals/law-compliance/pages/contracts/ContractsList'));
 const NewContract = lazy(() => import('./modules/portals/law-compliance/pages/contracts/NewContract'));
+const ContractDetail = lazy(() => import('./modules/portals/law-compliance/pages/contracts/ContractDetail'));
 const ContractApprovals = lazy(() => import('./modules/portals/law-compliance/pages/contracts/ContractApprovals'));
 const CasesList = lazy(() => import('./modules/portals/law-compliance/pages/cases/CasesList'));
+const NewCase = lazy(() => import('./modules/portals/law-compliance/pages/cases/NewCase'));
+const CaseDetail = lazy(() => import('./modules/portals/law-compliance/pages/cases/CaseDetail'));
 const HearingsList = lazy(() => import('./modules/portals/law-compliance/pages/cases/HearingsList'));
 const ComplianceRegister = lazy(() => import('./modules/portals/law-compliance/pages/compliance/ComplianceRegister'));
 const FilingsList = lazy(() => import('./modules/portals/law-compliance/pages/compliance/FilingsList'));
@@ -449,6 +455,7 @@ export default function App() {
                 <Route path="/business-development/leads/new" element={<NewLead />} />
                 <Route path="/business-development/leads/qualified" element={<QualifiedLeads />} />
                 <Route path="/business-development/leads/import" element={<ImportLeads />} />
+                <Route path="/business-development/leads/:id" element={<LeadDetail />} />
 
                 {/* Opportunity Management */}
                 <Route path="/business-development/opportunities" element={<OpportunitiesList />} />
@@ -460,6 +467,7 @@ export default function App() {
                 <Route path="/business-development/proposals/new" element={<NewProposal />} />
                 <Route path="/business-development/proposals/templates" element={<ProposalTemplates />} />
                 <Route path="/business-development/proposals/tracking" element={<ProposalTracking />} />
+                <Route path="/business-development/proposals/:id" element={<ProposalDetail />} />
 
                 {/* Client Management */}
                 <Route path="/business-development/clients" element={<ClientsList />} />
@@ -471,6 +479,7 @@ export default function App() {
                 <Route path="/business-development/tenders/new" element={<NewTender />} />
                 <Route path="/business-development/tenders/submissions" element={<SubmissionsList />} />
                 <Route path="/business-development/tenders/tracking" element={<TenderTracking />} />
+                <Route path="/business-development/tenders/:id" element={<TenderDetail />} />
 
                 {/* Reports */}
                 <Route path="/business-development/reports/pipeline" element={<PipelineReport />} />
@@ -502,8 +511,11 @@ export default function App() {
                 <Route path="/law-compliance/contracts" element={<ContractsList />} />
                 <Route path="/law-compliance/contracts/new" element={<NewContract />} />
                 <Route path="/law-compliance/contracts/approvals" element={<ContractApprovals />} />
+                <Route path="/law-compliance/contracts/:id" element={<ContractDetail />} />
                 <Route path="/law-compliance/cases" element={<CasesList />} />
+                <Route path="/law-compliance/cases/new" element={<NewCase />} />
                 <Route path="/law-compliance/cases/hearings" element={<HearingsList />} />
+                <Route path="/law-compliance/cases/:id" element={<CaseDetail />} />
                 <Route path="/law-compliance/compliance/register" element={<ComplianceRegister />} />
                 <Route path="/law-compliance/compliance/filings" element={<FilingsList />} />
                 <Route path="/law-compliance/reports/expiry" element={<ExpiryReport />} />
