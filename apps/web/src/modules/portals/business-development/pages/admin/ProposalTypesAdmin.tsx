@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ProposalType { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; created_at: string; }
@@ -32,9 +33,9 @@ export default function ProposalTypesAdmin() {
       const { error } = await supabase.from("bd_proposal_types").update(payload).eq("id", editing.id);
       if (error) { alert(error.message); return; }
     } else {
-      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || types[0]?.tenant_id;
-      const insertPayload: any = { ...payload };
-      if (tenant_id) insertPayload.tenant_id = tenant_id;
+      const tenantResult = await resolveTenantId(session);
+      if (!tenantResult.ok) { alert(tenantResult.error); return; }
+      const insertPayload = { ...payload, tenant_id: tenantResult.tenantId };
       const { error } = await supabase.from("bd_proposal_types").insert(insertPayload);
       if (error) { alert(error.message); return; }
     }

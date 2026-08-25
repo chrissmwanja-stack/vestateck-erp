@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface LeadSource {
@@ -77,11 +78,6 @@ export default function LeadSourcesAdmin() {
   const handleSave = async () => {
     if (!form.name.trim()) return;
 
-    // Get tenant_id from session user metadata or from existing profile
-    // For now, try to get from auth user - adjust to your actual tenant logic
-    // If RLS inserts tenant_id via trigger, you can omit it
-    const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || sources[0]?.tenant_id;
-
     if (editing) {
       const { error } = await supabase
         .from("bd_lead_sources")
@@ -96,17 +92,17 @@ export default function LeadSourcesAdmin() {
         return;
       }
     } else {
-      // Insert - if your DB sets tenant_id via default or trigger, this might work without tenant_id
-      // If not, you need to provide tenant_id from your appUser table
-      const payload: any = {
+      const tenantResult = await resolveTenantId(session);
+      if (!tenantResult.ok) { alert(tenantResult.error); return; }
+      const payload = {
         name: form.name.trim(),
         is_active: form.is_active,
+        tenant_id: tenantResult.tenantId,
       };
-      if (tenant_id) payload.tenant_id = tenant_id;
 
       const { error } = await supabase.from("bd_lead_sources").insert(payload);
       if (error) {
-        alert(`Error creating: ${error.message}\n\nIf tenant_id required, add logic to fetch appUser.tenant_id from your AppUser table like MaterialLookupsAdmin does.`);
+        alert(`Error creating: ${error.message}`);
         return;
       }
     }

@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, DragIndicator } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 type OpportunityStageEnum = 'identification' | 'qualification' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost';
@@ -139,10 +140,10 @@ export default function OpportunityStagesAdmin() {
       const { error } = await supabase.from("bd_opportunity_stages").update(payload).eq("id", editing.id);
       if (error) { alert(error.message); return; }
     } else {
-      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || stages[0]?.tenant_id;
-      const insertPayload: any = { ...payload };
-      if (tenant_id) insertPayload.tenant_id = tenant_id;
-      
+      const tenantResult = await resolveTenantId(session);
+      if (!tenantResult.ok) { alert(tenantResult.error); return; }
+      const insertPayload = { ...payload, tenant_id: tenantResult.tenantId };
+
       const { error } = await supabase.from("bd_opportunity_stages").insert(insertPayload);
       if (error) { alert(`Error: ${error.message}`); return; }
     }
@@ -156,6 +157,23 @@ export default function OpportunityStagesAdmin() {
     const { error } = await supabase.from("bd_opportunity_stages").delete().eq("id", id);
     if (error) alert(`Cannot delete: ${error.message}`);
     else fetchStages();
+  };
+
+  const handleSeedDefaults = async () => {
+    const tenantResult = await resolveTenantId(session);
+    if (!tenantResult.ok) { alert(tenantResult.error); return; }
+    for (const [idx, opt] of STAGE_OPTIONS.entries()) {
+      await supabase.from("bd_opportunity_stages").insert({
+        stage: opt.value,
+        label: opt.label,
+        order_index: idx,
+        probability_default: opt.defaultProb,
+        color: opt.color,
+        is_active: true,
+        tenant_id: tenantResult.tenantId,
+      });
+    }
+    setTimeout(fetchStages, 1000);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
@@ -192,21 +210,7 @@ export default function OpportunityStagesAdmin() {
                 <TableRow>
                   <TableCell colSpan={8} sx={{ textAlign: "center", py: 4 }}>
                     <Typography color="text.secondary">No stages yet. Create Identification, Qualification, Proposal, Negotiation, Closed Won, Closed Lost — same pattern as IT SLA Policies.</Typography>
-                    <Button sx={{ mt: 2 }} variant="outlined" onClick={() => {
-                      // Seed defaults button
-                      STAGE_OPTIONS.forEach(async (opt, idx) => {
-                        await supabase.from("bd_opportunity_stages").insert({
-                          stage: opt.value,
-                          label: opt.label,
-                          order_index: idx,
-                          probability_default: opt.defaultProb,
-                          color: opt.color,
-                          is_active: true,
-                          tenant_id: (session?.user?.user_metadata as any)?.tenant_id || undefined,
-                        });
-                      });
-                      setTimeout(fetchStages, 1000);
-                    }}>Seed Default 6 Stages</Button>
+                    <Button sx={{ mt: 2 }} variant="outlined" onClick={handleSeedDefaults}>Seed Default 6 Stages</Button>
                   </TableCell>
                 </TableRow>
               ) : (

@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ClientCategory {
@@ -73,9 +74,9 @@ export default function ClientCategoriesAdmin() {
       const { error } = await supabase.from("bd_client_categories").update(payload).eq("id", editing.id);
       if (error) { alert(error.message); return; }
     } else {
-      const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || cats[0]?.tenant_id;
-      const insertPayload: any = { ...payload };
-      if (tenant_id) insertPayload.tenant_id = tenant_id;
+      const tenantResult = await resolveTenantId(session);
+      if (!tenantResult.ok) { alert(tenantResult.error); return; }
+      const insertPayload = { ...payload, tenant_id: tenantResult.tenantId };
       const { error } = await supabase.from("bd_client_categories").insert(insertPayload);
       if (error) { alert(error.message); return; }
     }
