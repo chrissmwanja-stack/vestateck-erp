@@ -19,9 +19,10 @@ apps/web             React + Vite + TypeScript + MUI frontend
   src/modules/portals   Module UIs, one folder per business area (see below)
   src/features          Shared cross-module features (financial, procurement,
                          approvals, requests, offers, reports, IT support, etc.)
-supabase/migrations   SQL schema and RLS policies (100+ migrations; tenants,
-                       departments, users, workflow, requests, approvals, and
-                       one or more migrations per module as it's built out)
+supabase/migrations   SQL schema and RLS policies — a single squashed baseline
+                       (tenants, departments, users, workflow, requests,
+                       approvals, and every module through mid-Aug 2026) plus
+                       incremental migrations layered on top as work continues
 supabase/functions    Edge Functions (e.g. generate-po; others are deployed
                        directly via the Supabase CLI/dashboard as they're added)
 packages/shared       TypeScript types shared between the web app and edge functions
@@ -90,3 +91,6 @@ before treating any given table as safe for broad client-side access.
   not just free text. Seed data for the Test Company tenant (6 sample materials across
   Consumable/Equipment types) lives in a dedicated, idempotent migration for local dev and
   demo purposes.
+- Bulk-import tooling (Employees, Accounts, Equipment, Leads) shares one RFC4180 CSV parser
+  and a reusable `BulkImportDialog` (validate → preview per-row errors → import full file →
+  per-row results). See `BULK_IMPORT_NOTES.md` for the file list and per-screen column specs.
