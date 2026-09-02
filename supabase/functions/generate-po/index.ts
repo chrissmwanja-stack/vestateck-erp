@@ -4,7 +4,7 @@
 // at its final workflow stage. This function does NOT create the
 // purchase_orders row — per this session's design decision, it's kept
 // separate: given a request_id whose PO already exists, it renders a
-// PDF, uploads it to the private 'purchase-order-documents' bucket, and
+// PDF, uploads it to the private 'po-documents' bucket, and
 // emails it (via Resend) to the requester. Returns a signed URL either
 // way, so it can be called again later without re-emailing side effects
 // mattering much (upload + email both just re-run).
@@ -26,7 +26,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL');
 
-const PO_BUCKET = 'purchase-order-documents';
+const PO_BUCKET = 'po-documents';
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 interface GeneratePoBody {

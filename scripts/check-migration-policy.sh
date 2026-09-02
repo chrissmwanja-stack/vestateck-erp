@@ -60,6 +60,15 @@ for f in $NEW_MIGRATIONS; do
     echo "FAIL: $f adds a tenant_id column with no 'references tenants(id)' FK in the same file. (MIGRATION_POLICY.md, rule 5)"
     FAIL=1
   fi
+
+  # Filename check, not content -- a Studio/db-dump remote_schema file
+  # is identified by how it was generated, not by any single SQL
+  # pattern inside it. The three pre-existing dumps are grandfathered
+  # (MIGRATION_POLICY.md, rule 6); this only fires on new ones.
+  if [[ "$(basename "$f")" =~ remote_schema\.sql$ ]]; then
+    echo "FAIL: $f looks like a 'supabase db dump'/Studio-generated remote_schema file, not a hand-authored migration. Write the actual diff instead. (MIGRATION_POLICY.md, rule 6)"
+    FAIL=1
+  fi
 done
 
 if [ "$FAIL" -eq 1 ]; then

@@ -11,3 +11,9 @@ shadow_port = 50200
 [studio]
 enabled = true
 port = 54323
+
+[storage]
+enabled = true
+
+[storage.buckets.po-documents]
+public = false
