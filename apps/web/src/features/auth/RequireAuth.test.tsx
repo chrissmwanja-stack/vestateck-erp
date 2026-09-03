@@ -15,10 +15,23 @@ vi.mock('../../lib/authContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-const mockRpc = vi.fn();
+// get_security_settings() is queried via .rpc(...).single() (see
+// useSecuritySettings), while get_my_tenant_status() is queried via a
+// plain .rpc(...).then(...) -- so the mock has to branch per function
+// name; only the tenant-status shape gets awaited directly.
+let securitySettingsResult: { data: unknown; error: unknown } = { data: null, error: null };
+let tenantStatusResult: { data: unknown; error: unknown } = { data: null, error: null };
+
+const mockRpc = vi.fn((fnName: string) => {
+  if (fnName === 'get_security_settings') {
+    return { single: () => Promise.resolve(securitySettingsResult) };
+  }
+  return Promise.resolve(tenantStatusResult);
+});
+
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
-    rpc: (...args: unknown[]) => mockRpc(...args),
+    rpc: (...args: [string, ...unknown[]]) => mockRpc(...args),
   },
 }));
 
@@ -37,7 +50,9 @@ function renderRequireAuth() {
 
 beforeEach(() => {
   mockUseAuth.mockReset();
-  mockRpc.mockReset();
+  mockRpc.mockClear();
+  securitySettingsResult = { data: null, error: null };
+  tenantStatusResult = { data: null, error: null };
 });
 
 describe('RequireAuth', () => {
@@ -49,7 +64,7 @@ describe('RequireAuth', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
     // Shouldn't even attempt the tenant-status check without a session yet.
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalledWith('get_my_tenant_status');
   });
 
   it('redirects to /login when there is no session', () => {
@@ -59,12 +74,12 @@ describe('RequireAuth', () => {
 
     expect(screen.getByText('Login page')).toBeInTheDocument();
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalledWith('get_my_tenant_status');
   });
 
   it('renders the protected route once a session exists and the tenant is active', async () => {
     mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } }, loading: false, signOut: vi.fn() });
-    mockRpc.mockResolvedValue({ data: 'active', error: null });
+    tenantStatusResult = { data: 'active', error: null };
 
     renderRequireAuth();
 
@@ -74,7 +89,7 @@ describe('RequireAuth', () => {
 
   it('shows a suspension notice instead of the protected route when the tenant is suspended', async () => {
     mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } }, loading: false, signOut: vi.fn() });
-    mockRpc.mockResolvedValue({ data: 'suspended', error: null });
+    tenantStatusResult = { data: 'suspended', error: null };
 
     renderRequireAuth();
 
@@ -92,7 +107,7 @@ describe('RequireAuth', () => {
     // tenant is suspended, so this shouldn't silently lock a healthy
     // user out of the app.
     mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } }, loading: false, signOut: vi.fn() });
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    tenantStatusResult = { data: null, error: { message: 'boom' } };
 
     renderRequireAuth();
 
