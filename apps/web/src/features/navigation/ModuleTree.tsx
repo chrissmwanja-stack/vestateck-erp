@@ -492,6 +492,7 @@ const portals: Portal[] = [
         children: [
           { id: "accounts-admin", label: "Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounts" },
           { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/chart-of-accounts" },
+          { id: "accounting-periods-admin", label: "Accounting Periods", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounting-periods" },
           { id: "organizations-admin", label: "Organizations", icon: <ReceiptLong fontSize="small" />, to: "/admin/organizations" },
           { id: "departments-admin", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/admin/departments" },
           { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/admin/account-categories" },
