@@ -48,6 +48,8 @@ interface SupplierInvoiceRow {
   invoice_date: string;
   amount_incl_vat: number;
   vat_amount: number;
+  wht_rate: number | null;
+  wht_amount: number;
   currency: string;
   description: string | null;
   created_at: string;
@@ -73,6 +75,8 @@ interface EntryState {
   invoice_date: string;
   amount_incl_vat: string;
   vat_amount: string;
+  wht_rate: string;
+  wht_amount: string;
   currency: string;
   description: string;
 }
@@ -85,6 +89,8 @@ const emptyEntry: EntryState = {
   invoice_date: '',
   amount_incl_vat: '',
   vat_amount: '0',
+  wht_rate: '',
+  wht_amount: '0',
   currency: 'UGX',
   description: '',
 };

@@ -72,9 +72,10 @@ interface ControlAccountsRow {
   vat_output_account_id: string;
   default_expense_account_id: string;
   default_revenue_account_id: string;
+  wht_payable_account_id: string | null;
 }
 
-const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id'>; label: string }[] = [
+const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id' | 'wht_payable_account_id'>; label: string }[] = [
   { key: 'bank_account_id', label: 'Bank' },
   { key: 'cash_account_id', label: 'Cash' },
   { key: 'ap_control_account_id', label: 'Accounts Payable Control' },
@@ -84,6 +85,17 @@ const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id'>; label:
   { key: 'default_expense_account_id', label: 'Default Expense' },
   { key: 'default_revenue_account_id', label: 'Default Revenue' },
 ];
+
+// wht_payable_account_id is deliberately excluded from CONTROL_FIELDS (and its
+// required-field validation) -- it's nullable on gl_control_accounts because not
+// every tenant is a URA-designated withholding agent. trg_post_supplier_invoice()
+// skips WHT posting when this is unset, same "skip, don't guess" pattern as a
+// missing control-accounts row entirely.
+const OPTIONAL_CONTROL_FIELDS: { key: 'wht_payable_account_id'; label: string }[] = [
+  { key: 'wht_payable_account_id', label: 'WHT Payable (optional — only if you withhold tax on supplier invoices)' },
+];
+
+const ALL_CONTROL_FIELDS = [...CONTROL_FIELDS, ...OPTIONAL_CONTROL_FIELDS];
 
 export default function ChartOfAccountsAdmin() {
   const { session } = useAuth();
@@ -126,7 +138,7 @@ export default function ChartOfAccountsAdmin() {
     if (data) {
       setControlAccounts(data as ControlAccountsRow);
       setControlForm(
-        Object.fromEntries(CONTROL_FIELDS.map((f) => [f.key, (data as any)[f.key] as string]))
+        Object.fromEntries(ALL_CONTROL_FIELDS.map((f) => [f.key, ((data as any)[f.key] as string) ?? '']))
       );
     } else {
       setControlAccounts(null);
@@ -235,7 +247,12 @@ export default function ChartOfAccountsAdmin() {
     }
 
     setControlSaving(true);
-    const payload = Object.fromEntries(CONTROL_FIELDS.map((f) => [f.key, controlForm[f.key]])) as ControlAccountsUpdate;
+    // Required fields are already validated non-empty above. The optional WHT
+    // field sends null (not '') when unset -- gl_control_accounts.wht_payable_account_id
+    // is a nullable uuid column, and an empty string would fail uuid parsing.
+    const payload = Object.fromEntries(
+      ALL_CONTROL_FIELDS.map((f) => [f.key, controlForm[f.key] || null])
+    ) as ControlAccountsUpdate;
 
     let err;
     if (controlAccounts) {
@@ -443,6 +460,32 @@ export default function ChartOfAccountsAdmin() {
           <Box component="form" onSubmit={handleSaveControlAccounts} noValidate>
             <Stack direction="row" flexWrap="wrap" gap={2}>
               {CONTROL_FIELDS.map((f) => (
+                <TextField
+                  key={f.key}
+                  select
+                  label={f.label}
+                  sx={{ flex: '1 1 260px' }}
+                  value={controlForm[f.key] ?? ''}
+                  onChange={(e) => setControlForm((v) => ({ ...v, [f.key]: e.target.value }))}
+                >
+                  <MenuItem value="">Not set</MenuItem>
+                  {rows.map((a) => (
+                    <MenuItem key={a.id} value={a.id}>
+                      {a.account_code} — {a.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ))}
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Withholding tax — leave unset if you're not a URA-designated withholding agent. Supplier
+              invoices with WHT withheld won't post the WHT line to the ledger until this is set.
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" gap={2}>
+              {OPTIONAL_CONTROL_FIELDS.map((f) => (
                 <TextField
                   key={f.key}
                   select

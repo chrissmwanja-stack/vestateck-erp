@@ -55,6 +55,8 @@ interface SupplierInvoiceRow {
   due_date: string | null;
   amount_incl_vat: number;
   vat_amount: number;
+  wht_rate: number | null;
+  wht_amount: number;
   currency: string;
   description: string | null;
   created_at: string;
@@ -82,6 +84,8 @@ interface EntryState {
   due_date: string;
   amount_incl_vat: string;
   vat_amount: string;
+  wht_rate: string;
+  wht_amount: string;
   currency: string;
   description: string;
 }
@@ -95,6 +99,8 @@ const emptyEntry: EntryState = {
   due_date: '',
   amount_incl_vat: '',
   vat_amount: '0',
+  wht_rate: '',
+  wht_amount: '0',
   currency: 'UGX',
   description: '',
 };
@@ -130,7 +136,7 @@ export default function SupplierInvoices() {
       let query = supabase
         .from('supplier_invoices')
         .select(
-          'id, invoice_number, invoice_date, due_date, amount_incl_vat, vat_amount, currency, description, created_at, purchase_orders(po_number), vendor_account:accounts!vendor_account_id(name, account_code), organization:organizations!organization_id(company_code, site_name), recorded_by_user:app_users!recorded_by(name)'
+          'id, invoice_number, invoice_date, due_date, amount_incl_vat, vat_amount, wht_rate, wht_amount, currency, description, created_at, purchase_orders(po_number), vendor_account:accounts!vendor_account_id(name, account_code), organization:organizations!organization_id(company_code, site_name), recorded_by_user:app_users!recorded_by(name)'
         )
         .eq('invoice_type', 'po_related')
         .order('created_at', { ascending: false });
@@ -303,6 +309,16 @@ export default function SupplierInvoices() {
       return;
     }
 
+    const parsedWhtAmount = Number(entry.wht_amount || 0);
+    if (Number.isNaN(parsedWhtAmount) || parsedWhtAmount < 0) {
+      setSaveError('WHT amount must be a valid number of 0 or more.');
+      return;
+    }
+    if (parsedWhtAmount > parsedAmount) {
+      setSaveError('WHT amount cannot exceed the invoice amount.');
+      return;
+    }
+
     setSaving(true);
 
     const {
@@ -332,6 +348,8 @@ export default function SupplierInvoices() {
       due_date: entry.due_date || null,
       amount_incl_vat: parsedAmount,
       vat_amount: Number(entry.vat_amount || 0),
+      wht_rate: entry.wht_rate ? Number(entry.wht_rate) : null,
+      wht_amount: parsedWhtAmount,
       currency: entry.currency,
       description: entry.description.trim() || null,
     });
@@ -570,6 +588,25 @@ export default function SupplierInvoices() {
                   </TextField>
                 </Stack>
 
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="WHT Rate (%)"
+                    type="number"
+                    sx={{ flex: 1 }}
+                    helperText="Leave blank if not subject to withholding tax"
+                    value={entry.wht_rate}
+                    onChange={(e) => setEntry((v) => ({ ...v, wht_rate: e.target.value }))}
+                  />
+                  <TextField
+                    label="WHT Amount"
+                    type="number"
+                    sx={{ flex: 1 }}
+                    helperText="Withheld from the vendor payment; posted to WHT Payable"
+                    value={entry.wht_amount}
+                    onChange={(e) => setEntry((v) => ({ ...v, wht_amount: e.target.value }))}
+                  />
+                </Stack>
+
                 <TextField
                   label="Description"
                   fullWidth
@@ -618,6 +655,7 @@ export default function SupplierInvoices() {
                   <TableCell align="right">Amount (incl. VAT)</TableCell>
                   <TableCell>Currency</TableCell>
                   <TableCell align="right">VAT Amount</TableCell>
+                  <TableCell align="right">WHT Amount</TableCell>
                   <TableCell>Recorded By</TableCell>
                 </TableRow>
               </TableHead>
@@ -637,13 +675,14 @@ export default function SupplierInvoices() {
                       <TableCell align="right">{row.amount_incl_vat.toLocaleString()}</TableCell>
                       <TableCell>{row.currency}</TableCell>
                       <TableCell align="right">{row.vat_amount.toLocaleString()}</TableCell>
+                      <TableCell align="right">{row.wht_amount.toLocaleString()}</TableCell>
                       <TableCell>{embedOne(row.recorded_by_user)?.name ?? '—'}</TableCell>
                     </TableRow>
                   );
                 })}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={12} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No supplier invoices found.
                     </TableCell>
                   </TableRow>
