@@ -22,7 +22,7 @@ vi.mock('../../lib/authContext', () => ({
 let securitySettingsResult: { data: unknown; error: unknown } = { data: null, error: null };
 let tenantStatusResult: { data: unknown; error: unknown } = { data: null, error: null };
 
-const mockRpc = vi.fn((fnName: string) => {
+const mockRpc = vi.fn((fnName: string, ..._rest: unknown[]) => {
   if (fnName === 'get_security_settings') {
     return { single: () => Promise.resolve(securitySettingsResult) };
   }
