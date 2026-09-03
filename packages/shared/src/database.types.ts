@@ -2158,6 +2158,7 @@ export type Database = {
           updated_at: string
           vat_input_account_id: string
           vat_output_account_id: string
+          wht_payable_account_id: string | null
         }
         Insert: {
           ap_control_account_id: string
@@ -2170,6 +2171,7 @@ export type Database = {
           updated_at?: string
           vat_input_account_id: string
           vat_output_account_id: string
+          wht_payable_account_id?: string | null
         }
         Update: {
           ap_control_account_id?: string
@@ -2182,6 +2184,7 @@ export type Database = {
           updated_at?: string
           vat_input_account_id?: string
           vat_output_account_id?: string
+          wht_payable_account_id?: string | null
         }
         Relationships: [
           {
@@ -2299,6 +2302,20 @@ export type Database = {
           {
             foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
             columns: ["vat_output_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_wht_payable_account_id_fkey"
+            columns: ["wht_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_wht_payable_account_id_fkey"
+            columns: ["wht_payable_account_id"]
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
@@ -6406,6 +6423,8 @@ export type Database = {
           updated_at: string
           vat_amount: number
           vendor_account_id: string | null
+          wht_amount: number
+          wht_rate: number | null
         }
         Insert: {
           amount_incl_vat: number
@@ -6426,6 +6445,8 @@ export type Database = {
           updated_at?: string
           vat_amount?: number
           vendor_account_id?: string | null
+          wht_amount?: number
+          wht_rate?: number | null
         }
         Update: {
           amount_incl_vat?: number
@@ -6446,6 +6467,8 @@ export type Database = {
           updated_at?: string
           vat_amount?: number
           vendor_account_id?: string | null
+          wht_amount?: number
+          wht_rate?: number | null
         }
         Relationships: [
           {
@@ -7514,6 +7537,26 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_wht_report: {
+        Row: {
+          amount_incl_vat: number | null
+          currency: string | null
+          invoice_date: string | null
+          invoice_number: string | null
+          net_payable: number | null
+          organization_id: string | null
+          remittance_due_date: string | null
+          source_id: string | null
+          tenant_id: string | null
+          vendor_account_code: string | null
+          vendor_account_id: string | null
+          vendor_name: string | null
+          vendor_tax_id: string | null
+          wht_amount: number | null
+          wht_rate: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
