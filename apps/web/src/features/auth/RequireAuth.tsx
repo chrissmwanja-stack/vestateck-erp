@@ -3,6 +3,40 @@ import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/ma
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
+import { useSecuritySettings } from '../../hooks/useSecuritySettings';
+
+// require_mfa is org-wide (platform_settings, not per-tenant), so this
+// applies the same regardless of which company the user belongs to.
+// Exempts /account/security itself -- that's the redirect target, and
+// exempting it here (rather than only skipping the *link* to it
+// elsewhere) is what actually prevents the redirect loop.
+function useMfaEnrollmentGate(session: unknown, pathname: string) {
+  const { requireMfa, loading: settingsLoading } = useSecuritySettings();
+  const [hasVerifiedFactor, setHasVerifiedFactor] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!session || !requireMfa) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    supabase.auth.mfa.listFactors().then(({ data, error }) => {
+      if (cancelled) return;
+      setHasVerifiedFactor(!error && Boolean(data?.totp.some((f) => f.status === 'verified')));
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, requireMfa]);
+
+  const needsEnrollment =
+    Boolean(session) && requireMfa && hasVerifiedFactor === false && pathname !== '/account/security';
+
+  return { needsEnrollment, loading: settingsLoading || loading };
+}
 
 // Complements the get_my_tenant_id() suspension lockout (backend):
 // once a tenant is suspended, every tenant-scoped RLS policy already
@@ -45,6 +79,7 @@ function useTenantStatus(session: unknown) {
 export default function RequireAuth() {
   const { session, loading, signOut } = useAuth();
   const location = useLocation();
+  const { needsEnrollment, loading: mfaLoading } = useMfaEnrollmentGate(session, location.pathname);
   const { status: tenantStatus, loading: statusLoading } = useTenantStatus(session);
 
   if (loading) {
@@ -57,6 +92,18 @@ export default function RequireAuth() {
 
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (mfaLoading) {
+    return (
+      <Box display="flex" justifyContent="center" py={6}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (needsEnrollment) {
+    return <Navigate to="/account/security" state={{ from: location }} replace />;
   }
 
   if (statusLoading) {

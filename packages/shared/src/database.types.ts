@@ -8155,6 +8155,13 @@ export type Database = {
           vendor_name: string
         }[]
       }
+      get_security_settings: {
+        Args: never
+        Returns: {
+          session_timeout_minutes: number
+          require_mfa: boolean
+        }[]
+      }
       get_my_tenant_id: { Args: never; Returns: string }
       get_my_tenant_status: { Args: never; Returns: string }
       get_my_tickets: {
