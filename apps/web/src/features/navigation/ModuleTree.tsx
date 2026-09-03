@@ -475,6 +475,7 @@ const portals: Portal[] = [
           { id: "durations", label: "Durations", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/durations" },
           { id: "payment-plan-report", label: "Payment Plan Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/payment-plan" },
           { id: "vat-report", label: "VAT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/vat-report" },
+          { id: "wht-report", label: "WHT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/wht-report" },
         ],
       },
       {

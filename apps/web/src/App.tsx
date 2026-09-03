@@ -57,6 +57,7 @@ const GeneralLedger = lazy(() => import('./features/finance/GeneralLedger'));
 const ChartOfAccountsAdmin = lazy(() => import('./features/admin/ChartOfAccountsAdmin'));
 const AccountingPeriodsAdmin = lazy(() => import('./features/admin/AccountingPeriodsAdmin'));
 const VatReport = lazy(() => import('./features/financial/VatReport'));
+const WhtReport = lazy(() => import('./features/financial/WhtReport'));
 const Durations = lazy(() => import('./features/financial/Durations'));
 const AdvancePayments = lazy(() => import('./features/financial/AdvancePayments'));
 const PayrollDisbursement = lazy(() => import('./features/financial/PayrollDisbursement'));
@@ -377,6 +378,7 @@ export default function App() {
                 <Route path="/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
                 <Route path="/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
                 <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
+                <Route path="/financial-management/reports/wht-report" element={<WhtReport />} />
                 <Route path="/financial-management/reports/durations" element={<Durations />} />
                 <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />
                 <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
