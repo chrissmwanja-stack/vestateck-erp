@@ -11,7 +11,7 @@
 //   1. No platform admin may already exist (one-shot; closes itself).
 //   2. Caller must supply BOOTSTRAP_ADMIN_CODE, a secret only Chris has
 //      (set via `supabase secrets set BOOTSTRAP_ADMIN_CODE=... --project-ref
-//      xownbroirovedkmqyybc`), so a stranger who signs up during the
+//      <your-project-ref>`), so a stranger who signs up during the
 //      window before the code is known can't race for admin.
 //
 // Deliberately does NOT create a real business tenant -- platform admins

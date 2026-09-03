@@ -1,6 +1,14 @@
 -- Canonical local/dev test roster for the Test Construction Co tenant
 -- (00000000-0000-0000-0000-000000000001).
 --
+-- *** LOCAL ONLY. NEVER apply this file to the linked/remote project ***
+-- (`supabase db reset --linked`, or hand-running this against production
+-- via psql/Studio). The password below is public (this repo is public),
+-- and once a real tenant's data lives in this project, seeding these
+-- accounts there hands out live logins. `supabase db reset` without
+-- `--linked` only touches your local Postgres container -- that's the
+-- only safe way to run this file.
+--
 -- Runs automatically after migrations on `supabase db reset`. Idempotent:
 -- every insert is `on conflict do nothing`, so it is safe to run against
 -- a database that already has some or all of this roster from the

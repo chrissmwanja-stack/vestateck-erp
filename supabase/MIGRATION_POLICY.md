@@ -16,7 +16,11 @@ forward. Established by Foundation Playbook Phase 0. See
    migration or seed file needs a demo login, the convention in this
    repo is `Tester123` for every account, documented once in
    `seed.sql`'s header comment -- do not repeat the literal string in
-   new files; reference the existing convention instead.
+   new files; reference the existing convention instead. That
+   convention only stays safe if `seed.sql` never runs against the
+   linked/remote project -- see the warning at the top of that file
+   before running `supabase db reset` with `--linked`, or hand-running
+   it via psql/Studio.
 
 3. **No dashboard-only SQL.** If you run something in the Supabase
    Studio SQL editor, Table Editor, or Auth panel that changes schema

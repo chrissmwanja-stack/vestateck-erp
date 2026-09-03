@@ -122,6 +122,10 @@ export default function DepartmentsAdmin() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importing, setImporting] = useState(false);
@@ -202,6 +206,41 @@ export default function DepartmentsAdmin() {
       return;
     }
     setDialogOpen(false);
+    load();
+  };
+
+  const openDelete = (row: Department) => {
+    setDeleteTarget(row);
+    setDeleteError(null);
+  };
+
+  const closeDelete = () => {
+    if (!deleting) {
+      setDeleteTarget(null);
+      setDeleteError(null);
+    }
+  };
+
+  // Departments are referenced by employees, requests, and cost routing,
+  // so a hard delete can hit an FK constraint -- surfaced here rather than
+  // in a native alert() (see P1.6). "Deactivate instead" mirrors the old
+  // HR copy's guidance: the Edit dialog's Active switch is the soft-delete
+  // path when a department is still in use elsewhere.
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const { error: err } = await supabase.from('departments').delete().eq('id', deleteTarget.id);
+    setDeleting(false);
+    if (err) {
+      setDeleteError(
+        err.code === '23503'
+          ? 'This department is still in use (employees, requests, or cost routing reference it) and cannot be deleted. Deactivate it instead via Edit.'
+          : err.message
+      );
+      return;
+    }
+    setDeleteTarget(null);
     load();
   };
 
@@ -346,6 +385,9 @@ export default function DepartmentsAdmin() {
                         <Button size="small" onClick={() => openEdit(row)}>
                           Edit
                         </Button>
+                        <Button size="small" color="error" onClick={() => openDelete(row)}>
+                          Delete
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>
@@ -397,6 +439,32 @@ export default function DepartmentsAdmin() {
           </Button>
           <Button onClick={save} variant="contained" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onClose={closeDelete} maxWidth="sm" fullWidth>
+        <DialogTitle>Delete department?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {deleteTarget && (
+              <>
+                This will permanently delete <strong>{deleteTarget.name}</strong>. This can't be undone.
+              </>
+            )}
+          </Typography>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDelete} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} variant="contained" color="error" disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
