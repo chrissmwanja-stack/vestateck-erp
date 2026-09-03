@@ -470,6 +470,7 @@ const portals: Portal[] = [
           { id: "cost-transactions-inquiry", label: "Cost Transactions Inquiry", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/cost-transactions-inquiry" },
           { id: "current-account-extract", label: "Current Account Extract", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/current-account-extract" },
           { id: "trial-balance", label: "Trial Balance", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/trial-balance" },
+          { id: "general-ledger", label: "General Ledger", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/general-ledger" },
           { id: "advance-payments", label: "Advance Payments", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/advance-payments" },
           { id: "durations", label: "Durations", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/durations" },
           { id: "payment-plan-report", label: "Payment Plan Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/payment-plan" },
@@ -490,6 +491,7 @@ const portals: Portal[] = [
         icon: <AdminPanelSettings fontSize="small" />,
         children: [
           { id: "accounts-admin", label: "Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounts" },
+          { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/chart-of-accounts" },
           { id: "organizations-admin", label: "Organizations", icon: <ReceiptLong fontSize="small" />, to: "/admin/organizations" },
           { id: "departments-admin", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/admin/departments" },
           { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/admin/account-categories" },

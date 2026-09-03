@@ -53,6 +53,8 @@ const PettyCashRegister = lazy(() => import('./features/financial/PettyCashRegis
 const CostTransactionsInquiry = lazy(() => import('./features/financial/CostTransactionsInquiry'));
 const CurrentAccountExtract = lazy(() => import('./features/financial/CurrentAccountExtract'));
 const TrialBalance = lazy(() => import('./features/financial/TrialBalance'));
+const GeneralLedger = lazy(() => import('./features/finance/GeneralLedger'));
+const ChartOfAccountsAdmin = lazy(() => import('./features/admin/ChartOfAccountsAdmin'));
 const VatReport = lazy(() => import('./features/financial/VatReport'));
 const Durations = lazy(() => import('./features/financial/Durations'));
 const AdvancePayments = lazy(() => import('./features/financial/AdvancePayments'));
@@ -370,6 +372,8 @@ export default function App() {
                 <Route path="/financial-management/reports/cost-transactions-inquiry" element={<CostTransactionsInquiry />} />
                 <Route path="/financial-management/reports/current-account-extract" element={<CurrentAccountExtract />} />
                 <Route path="/financial-management/reports/trial-balance" element={<TrialBalance />} />
+                <Route path="/financial-management/reports/general-ledger" element={<GeneralLedger />} />
+                <Route path="/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
                 <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
                 <Route path="/financial-management/reports/durations" element={<Durations />} />
                 <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -308,13 +308,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "advance_payments_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "advance_payments_account_id_fkey"
@@ -2064,6 +2057,206 @@ export type Database = {
           },
         ]
       }
+      gl_accounts: {
+        Row: {
+          account_code: string
+          account_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_control_account: boolean
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          account_code: string
+          account_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_control_account?: boolean
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          account_code?: string
+          account_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_control_account?: boolean
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gl_control_accounts: {
+        Row: {
+          ap_control_account_id: string
+          ar_control_account_id: string
+          bank_account_id: string
+          cash_account_id: string
+          default_expense_account_id: string
+          default_revenue_account_id: string
+          tenant_id: string
+          updated_at: string
+          vat_input_account_id: string
+          vat_output_account_id: string
+        }
+        Insert: {
+          ap_control_account_id: string
+          ar_control_account_id: string
+          bank_account_id: string
+          cash_account_id: string
+          default_expense_account_id: string
+          default_revenue_account_id: string
+          tenant_id: string
+          updated_at?: string
+          vat_input_account_id: string
+          vat_output_account_id: string
+        }
+        Update: {
+          ap_control_account_id?: string
+          ar_control_account_id?: string
+          bank_account_id?: string
+          cash_account_id?: string
+          default_expense_account_id?: string
+          default_revenue_account_id?: string
+          tenant_id?: string
+          updated_at?: string
+          vat_input_account_id?: string
+          vat_output_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
+            columns: ["ap_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
+            columns: ["ap_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
+            columns: ["ar_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
+            columns: ["ar_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
+            columns: ["cash_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
+            columns: ["cash_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
+            columns: ["default_revenue_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
+            columns: ["default_revenue_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
+            columns: ["vat_input_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
+            columns: ["vat_input_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
+            columns: ["vat_output_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
+            columns: ["vat_output_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
       goods_issue_items: {
         Row: {
           cost_center_id: string | null
@@ -2182,150 +2375,6 @@ export type Database = {
             columns: ["warehouse_officer_id"]
             isOneToOne: false
             referencedRelation: "app_users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gl_accounts: {
-        Row: {
-          account_code: string
-          account_type: string
-          created_at: string
-          id: string
-          is_active: boolean
-          is_control_account: boolean
-          name: string
-          tenant_id: string
-        }
-        Insert: {
-          account_code: string
-          account_type: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_control_account?: boolean
-          name: string
-          tenant_id: string
-        }
-        Update: {
-          account_code?: string
-          account_type?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_control_account?: boolean
-          name?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gl_control_accounts: {
-        Row: {
-          ap_control_account_id: string
-          ar_control_account_id: string
-          bank_account_id: string
-          cash_account_id: string
-          default_expense_account_id: string
-          default_revenue_account_id: string
-          tenant_id: string
-          updated_at: string
-          vat_input_account_id: string
-          vat_output_account_id: string
-        }
-        Insert: {
-          ap_control_account_id: string
-          ar_control_account_id: string
-          bank_account_id: string
-          cash_account_id: string
-          default_expense_account_id: string
-          default_revenue_account_id: string
-          tenant_id: string
-          updated_at?: string
-          vat_input_account_id: string
-          vat_output_account_id: string
-        }
-        Update: {
-          ap_control_account_id?: string
-          ar_control_account_id?: string
-          bank_account_id?: string
-          cash_account_id?: string
-          default_expense_account_id?: string
-          default_revenue_account_id?: string
-          tenant_id?: string
-          updated_at?: string
-          vat_input_account_id?: string
-          vat_output_account_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_control_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
-            columns: ["ap_control_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
-            columns: ["ar_control_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
-            columns: ["cash_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
-            columns: ["vat_input_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
-            columns: ["vat_output_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
-            columns: ["default_expense_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
-            columns: ["default_revenue_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -3380,6 +3429,112 @@ export type Database = {
           },
           {
             foreignKeyName: "it_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          entry_date: string
+          id: string
+          posted_by: string | null
+          source_id: string | null
+          source_type: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entry_date: string
+          id?: string
+          posted_by?: string | null
+          source_id?: string | null
+          source_type: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          id?: string
+          posted_by?: string | null
+          source_id?: string | null
+          source_type?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entry_lines: {
+        Row: {
+          credit: number
+          currency: string
+          debit: number
+          description: string | null
+          gl_account_id: string
+          id: string
+          journal_entry_id: string
+          tenant_id: string
+        }
+        Insert: {
+          credit?: number
+          currency?: string
+          debit?: number
+          description?: string | null
+          gl_account_id: string
+          id?: string
+          journal_entry_id: string
+          tenant_id: string
+        }
+        Update: {
+          credit?: number
+          currency?: string
+          debit?: number
+          description?: string | null
+          gl_account_id?: string
+          id?: string
+          journal_entry_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5568,13 +5723,6 @@ export type Database = {
             foreignKeyName: "purchase_orders_vendor_account_id_fkey"
             columns: ["vendor_account_id"]
             isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "purchase_orders_vendor_account_id_fkey"
-            columns: ["vendor_account_id"]
-            isOneToOne: false
             referencedRelation: "v_vendor_evaluation"
             referencedColumns: ["vendor_account_id"]
           },
@@ -5645,13 +5793,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receivable_invoices_client_account_id_fkey"
-            columns: ["client_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "receivable_invoices_client_account_id_fkey"
@@ -5809,13 +5950,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "request_offers_vendor_account_id_fkey"
-            columns: ["vendor_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "request_offers_vendor_account_id_fkey"
@@ -6314,13 +6448,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "supplier_invoices_vendor_account_id_fkey"
-            columns: ["vendor_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "supplier_invoices_vendor_account_id_fkey"
@@ -7118,7 +7245,29 @@ export type Database = {
           tenant_id: string | null
           transaction_date: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_gl_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_gl_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_advance_payments: {
         Row: {
@@ -7143,13 +7292,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "advance_payments_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "advance_payments_account_id_fkey"
@@ -7274,7 +7416,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "accounts_tenant_id_fkey"
+            foreignKeyName: "gl_accounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -8299,14 +8441,6 @@ export type Database = {
           vendor_name: string
         }[]
       }
-      get_security_settings: {
-        Args: never
-        Returns: {
-          session_timeout_minutes: number
-          require_mfa: boolean
-        }[]
-      }
-      seed_default_chart_of_accounts: { Args: never; Returns: undefined }
       get_my_tenant_id: { Args: never; Returns: string }
       get_my_tenant_status: { Args: never; Returns: string }
       get_my_tickets: {
@@ -8606,6 +8740,13 @@ export type Database = {
           subcontractor: string
         }[]
       }
+      get_security_settings: {
+        Args: never
+        Returns: {
+          require_mfa: boolean
+          session_timeout_minutes: number
+        }[]
+      }
       get_sla_policies: {
         Args: never
         Returns: {
@@ -8802,6 +8943,33 @@ export type Database = {
       next_problem_number: { Args: { p_tenant_id: string }; Returns: string }
       next_ticket_number: { Args: { p_tenant_id: string }; Returns: string }
       platform_has_admin: { Args: never; Returns: boolean }
+      post_journal_entry: {
+        Args: {
+          p_description: string
+          p_entry_date: string
+          p_lines: Json
+          p_source_id: string
+          p_source_type: string
+          p_tenant_id: string
+        }
+        Returns: {
+          created_at: string
+          description: string | null
+          entry_date: string
+          id: string
+          posted_by: string | null
+          source_id: string | null
+          source_type: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "journal_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_approval_decision: {
         Args: {
           p_acting_on_behalf_of?: string
@@ -9098,6 +9266,7 @@ export type Database = {
         Returns: undefined
       }
       revoke_receipt_access: { Args: { p_user_id: string }; Returns: undefined }
+      seed_default_chart_of_accounts: { Args: never; Returns: undefined }
       seed_tenant_defaults: {
         Args: { p_industry_template: string; p_tenant_id: string }
         Returns: undefined
@@ -9644,12 +9813,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9673,11 +9842,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9698,11 +9867,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9723,11 +9892,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9740,11 +9909,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
