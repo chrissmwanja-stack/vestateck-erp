@@ -2186,6 +2186,150 @@ export type Database = {
           },
         ]
       }
+      gl_accounts: {
+        Row: {
+          account_code: string
+          account_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_control_account: boolean
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          account_code: string
+          account_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_control_account?: boolean
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          account_code?: string
+          account_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_control_account?: boolean
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gl_control_accounts: {
+        Row: {
+          ap_control_account_id: string
+          ar_control_account_id: string
+          bank_account_id: string
+          cash_account_id: string
+          default_expense_account_id: string
+          default_revenue_account_id: string
+          tenant_id: string
+          updated_at: string
+          vat_input_account_id: string
+          vat_output_account_id: string
+        }
+        Insert: {
+          ap_control_account_id: string
+          ar_control_account_id: string
+          bank_account_id: string
+          cash_account_id: string
+          default_expense_account_id: string
+          default_revenue_account_id: string
+          tenant_id: string
+          updated_at?: string
+          vat_input_account_id: string
+          vat_output_account_id: string
+        }
+        Update: {
+          ap_control_account_id?: string
+          ar_control_account_id?: string
+          bank_account_id?: string
+          cash_account_id?: string
+          default_expense_account_id?: string
+          default_revenue_account_id?: string
+          tenant_id?: string
+          updated_at?: string
+          vat_input_account_id?: string
+          vat_output_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_control_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
+            columns: ["ap_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
+            columns: ["ar_control_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
+            columns: ["cash_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
+            columns: ["vat_input_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
+            columns: ["vat_output_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
+            columns: ["default_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
+            columns: ["default_revenue_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_appraisals: {
         Row: {
           comments: string | null
@@ -8162,6 +8306,7 @@ export type Database = {
           require_mfa: boolean
         }[]
       }
+      seed_default_chart_of_accounts: { Args: never; Returns: undefined }
       get_my_tenant_id: { Args: never; Returns: string }
       get_my_tenant_status: { Args: never; Returns: string }
       get_my_tickets: {
