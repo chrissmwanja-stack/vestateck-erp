@@ -285,11 +285,13 @@ export default function StatutoryRatesAdmin() {
               )}
 
               <TextField
+                id="statutory-rate-percent"
                 label="Rate (%)"
                 type="number"
                 required
                 sx={{ maxWidth: 240 }}
                 value={form.rate}
+                inputProps={{ 'aria-label': 'Rate (%)' }}
                 onChange={(e) => setForm((v) => ({ ...v, rate: e.target.value }))}
               />
 
