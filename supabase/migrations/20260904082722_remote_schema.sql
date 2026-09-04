@@ -158,18 +158,6 @@ drop trigger if exists "trg_sustain_initiatives_upd" on "public"."sustainability
 
 drop trigger if exists "set_warehouse_defaults_trigger" on "public"."warehouses";
 
-drop policy "bank_reconciliations_select" on "public"."bank_reconciliations";
-
-drop policy "bank_statement_lines_select" on "public"."bank_statement_lines";
-
-drop policy "statutory_rate_tables_delete" on "public"."statutory_rate_tables";
-
-drop policy "statutory_rate_tables_insert" on "public"."statutory_rate_tables";
-
-drop policy "statutory_rate_tables_select" on "public"."statutory_rate_tables";
-
-drop policy "statutory_rate_tables_update" on "public"."statutory_rate_tables";
-
 drop policy "access_requests_select" on "public"."access_requests";
 
 drop policy "account_categories_delete" on "public"."account_categories";
@@ -874,148 +862,6 @@ drop policy "workflow_stages_admin_update" on "public"."workflow_stages";
 
 drop policy "workflow_stages_select_tenant" on "public"."workflow_stages";
 
-revoke delete on table "public"."bank_reconciliations" from "anon";
-
-revoke insert on table "public"."bank_reconciliations" from "anon";
-
-revoke references on table "public"."bank_reconciliations" from "anon";
-
-revoke select on table "public"."bank_reconciliations" from "anon";
-
-revoke trigger on table "public"."bank_reconciliations" from "anon";
-
-revoke truncate on table "public"."bank_reconciliations" from "anon";
-
-revoke update on table "public"."bank_reconciliations" from "anon";
-
-revoke delete on table "public"."bank_reconciliations" from "authenticated";
-
-revoke insert on table "public"."bank_reconciliations" from "authenticated";
-
-revoke references on table "public"."bank_reconciliations" from "authenticated";
-
-revoke select on table "public"."bank_reconciliations" from "authenticated";
-
-revoke trigger on table "public"."bank_reconciliations" from "authenticated";
-
-revoke truncate on table "public"."bank_reconciliations" from "authenticated";
-
-revoke update on table "public"."bank_reconciliations" from "authenticated";
-
-revoke delete on table "public"."bank_reconciliations" from "service_role";
-
-revoke insert on table "public"."bank_reconciliations" from "service_role";
-
-revoke references on table "public"."bank_reconciliations" from "service_role";
-
-revoke select on table "public"."bank_reconciliations" from "service_role";
-
-revoke trigger on table "public"."bank_reconciliations" from "service_role";
-
-revoke truncate on table "public"."bank_reconciliations" from "service_role";
-
-revoke update on table "public"."bank_reconciliations" from "service_role";
-
-revoke delete on table "public"."bank_statement_lines" from "anon";
-
-revoke insert on table "public"."bank_statement_lines" from "anon";
-
-revoke references on table "public"."bank_statement_lines" from "anon";
-
-revoke select on table "public"."bank_statement_lines" from "anon";
-
-revoke trigger on table "public"."bank_statement_lines" from "anon";
-
-revoke truncate on table "public"."bank_statement_lines" from "anon";
-
-revoke update on table "public"."bank_statement_lines" from "anon";
-
-revoke delete on table "public"."bank_statement_lines" from "authenticated";
-
-revoke insert on table "public"."bank_statement_lines" from "authenticated";
-
-revoke references on table "public"."bank_statement_lines" from "authenticated";
-
-revoke select on table "public"."bank_statement_lines" from "authenticated";
-
-revoke trigger on table "public"."bank_statement_lines" from "authenticated";
-
-revoke truncate on table "public"."bank_statement_lines" from "authenticated";
-
-revoke update on table "public"."bank_statement_lines" from "authenticated";
-
-revoke delete on table "public"."bank_statement_lines" from "service_role";
-
-revoke insert on table "public"."bank_statement_lines" from "service_role";
-
-revoke references on table "public"."bank_statement_lines" from "service_role";
-
-revoke select on table "public"."bank_statement_lines" from "service_role";
-
-revoke trigger on table "public"."bank_statement_lines" from "service_role";
-
-revoke truncate on table "public"."bank_statement_lines" from "service_role";
-
-revoke update on table "public"."bank_statement_lines" from "service_role";
-
-revoke delete on table "public"."statutory_rate_tables" from "anon";
-
-revoke insert on table "public"."statutory_rate_tables" from "anon";
-
-revoke references on table "public"."statutory_rate_tables" from "anon";
-
-revoke select on table "public"."statutory_rate_tables" from "anon";
-
-revoke trigger on table "public"."statutory_rate_tables" from "anon";
-
-revoke truncate on table "public"."statutory_rate_tables" from "anon";
-
-revoke update on table "public"."statutory_rate_tables" from "anon";
-
-revoke delete on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke insert on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke references on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke select on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke trigger on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke truncate on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke update on table "public"."statutory_rate_tables" from "authenticated";
-
-revoke delete on table "public"."statutory_rate_tables" from "service_role";
-
-revoke insert on table "public"."statutory_rate_tables" from "service_role";
-
-revoke references on table "public"."statutory_rate_tables" from "service_role";
-
-revoke select on table "public"."statutory_rate_tables" from "service_role";
-
-revoke trigger on table "public"."statutory_rate_tables" from "service_role";
-
-revoke truncate on table "public"."statutory_rate_tables" from "service_role";
-
-revoke update on table "public"."statutory_rate_tables" from "service_role";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_bank_statement_line_id_fkey";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_cash_bank_transaction_id_fkey";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_match_type_check";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_statement_line_unique";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_tenant_id_fkey";
-
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_transaction_unique";
-
-alter table "public"."bank_statement_lines" drop constraint "bank_statement_lines_amount_nonzero_check";
-
-alter table "public"."bank_statement_lines" drop constraint "bank_statement_lines_tenant_id_fkey";
-
 alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_nssf_payable_account_id_fkey";
 
 alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_paye_payable_account_id_fkey";
@@ -1029,14 +875,6 @@ alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_nssf_e
 alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_nssf_employer_check";
 
 alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_paye_amount_check";
-
-alter table "public"."statutory_rate_tables" drop constraint "statutory_rate_tables_bounds_check";
-
-alter table "public"."statutory_rate_tables" drop constraint "statutory_rate_tables_rate_check";
-
-alter table "public"."statutory_rate_tables" drop constraint "statutory_rate_tables_rate_type_check";
-
-alter table "public"."statutory_rate_tables" drop constraint "statutory_rate_tables_tenant_id_fkey";
 
 alter table "public"."access_requests" drop constraint "access_requests_decided_by_fkey";
 
@@ -1688,12 +1526,6 @@ drop view if exists "public"."v_cash_bank_unmatched";
 
 drop view if exists "public"."v_paye_nssf_remittance";
 
-alter table "public"."bank_reconciliations" drop constraint "bank_reconciliations_pkey";
-
-alter table "public"."bank_statement_lines" drop constraint "bank_statement_lines_pkey";
-
-alter table "public"."statutory_rate_tables" drop constraint "statutory_rate_tables_pkey";
-
 drop index if exists "public"."bank_reconciliations_pkey";
 
 drop index if exists "public"."bank_reconciliations_statement_line_unique";
@@ -1709,12 +1541,6 @@ drop index if exists "public"."bank_statement_lines_tenant_account_date_idx";
 drop index if exists "public"."statutory_rate_tables_lookup_idx";
 
 drop index if exists "public"."statutory_rate_tables_pkey";
-
-drop table "public"."bank_reconciliations";
-
-drop table "public"."bank_statement_lines";
-
-drop table "public"."statutory_rate_tables";
 
 alter table "public"."gl_control_accounts" drop column "nssf_payable_account_id";
 
