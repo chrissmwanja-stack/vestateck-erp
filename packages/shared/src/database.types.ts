@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_reconciliations: {
+        Row: {
+          id: string
+          tenant_id: string
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          match_type: string
+          variance: number
+          matched_by: string | null
+          matched_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          match_type?: string
+          variance?: number
+          matched_by?: string | null
+          matched_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          bank_statement_line_id?: string
+          cash_bank_transaction_id?: string
+          match_type?: string
+          variance?: number
+          matched_by?: string | null
+          matched_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_cash_bank_transaction_id_fkey"
+            columns: ["cash_bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "cash_bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_lines: {
+        Row: {
+          id: string
+          tenant_id: string
+          bank_account: string
+          statement_date: string
+          description: string | null
+          reference: string | null
+          amount: number
+          currency: string
+          imported_by: string | null
+          imported_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          bank_account: string
+          statement_date: string
+          description?: string | null
+          reference?: string | null
+          amount: number
+          currency?: string
+          imported_by?: string | null
+          imported_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          bank_account?: string
+          statement_date?: string
+          description?: string | null
+          reference?: string | null
+          amount?: number
+          currency?: string
+          imported_by?: string | null
+          imported_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       access_requests: {
         Row: {
           access_level: string | null
@@ -7304,6 +7406,57 @@ export type Database = {
           },
         ]
       }
+      v_bank_reconciliation_variance: {
+        Row: {
+          reconciliation_id: string | null
+          tenant_id: string | null
+          match_type: string | null
+          variance: number | null
+          matched_at: string | null
+          bank_account: string | null
+          statement_date: string | null
+          statement_description: string | null
+          statement_amount: number | null
+          transaction_date: string | null
+          transaction_description: string | null
+          transaction_amount: number | null
+          transaction_type: string | null
+        }
+        Relationships: []
+      }
+      v_bank_statement_unmatched: {
+        Row: {
+          id: string | null
+          tenant_id: string | null
+          bank_account: string | null
+          statement_date: string | null
+          description: string | null
+          reference: string | null
+          amount: number | null
+          currency: string | null
+          imported_by: string | null
+          imported_at: string | null
+        }
+        Relationships: []
+      }
+      v_cash_bank_unmatched: {
+        Row: {
+          id: string | null
+          tenant_id: string | null
+          bank_account: string | null
+          transaction_date: string | null
+          transaction_type: string | null
+          amount: number | null
+          currency: string | null
+          description: string | null
+          reference_id: string | null
+          reference_type: string | null
+          payment_method: string | null
+          created_at: string | null
+          recorded_by: string | null
+        }
+        Relationships: []
+      }
       v_account_ledger: {
         Row: {
           account_id: string | null
@@ -7563,6 +7716,10 @@ export type Database = {
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
+      }
+      auto_match_bank_statement: {
+        Args: { p_bank_account: string; p_date_from: string; p_date_to: string }
+        Returns: number
       }
       add_support_team_member: {
         Args: { p_team_id: string; p_user_id: string }
@@ -9002,6 +9159,46 @@ export type Database = {
       is_payroll_approver: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: never; Returns: boolean }
+      import_bank_statement_lines: {
+        Args: { p_bank_account: string; p_lines: Json }
+        Returns: {
+          id: string
+          tenant_id: string
+          bank_account: string
+          statement_date: string
+          description: string | null
+          reference: string | null
+          amount: number
+          currency: string
+          imported_by: string | null
+          imported_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "bank_statement_lines"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      match_bank_statement_line: {
+        Args: { p_statement_line_id: string; p_cash_bank_transaction_id: string }
+        Returns: {
+          id: string
+          tenant_id: string
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          match_type: string
+          variance: number
+          matched_by: string | null
+          matched_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       link_ticket_to_problem: {
         Args: { p_problem_id: string; p_ticket_id: string }
         Returns: undefined
@@ -9863,6 +10060,10 @@ export type Database = {
       }
       update_workflow_stage_threshold: {
         Args: { p_stage_id: string; p_threshold_amount: number }
+        Returns: undefined
+      }
+      unmatch_bank_reconciliation: {
+        Args: { p_reconciliation_id: string }
         Returns: undefined
       }
       upsert_sla_policy: {
