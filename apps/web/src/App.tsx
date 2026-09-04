@@ -57,6 +57,7 @@ const TrialBalance = lazy(() => import('./features/financial/TrialBalance'));
 const GeneralLedger = lazy(() => import('./features/finance/GeneralLedger'));
 const ChartOfAccountsAdmin = lazy(() => import('./features/admin/ChartOfAccountsAdmin'));
 const AccountingPeriodsAdmin = lazy(() => import('./features/admin/AccountingPeriodsAdmin'));
+const StatutoryRatesAdmin = lazy(() => import('./features/admin/StatutoryRatesAdmin'));
 const VatReport = lazy(() => import('./features/financial/VatReport'));
 const WhtReport = lazy(() => import('./features/financial/WhtReport'));
 const PayeNssfRemittance = lazy(() => import('./features/financial/PayeNssfRemittance'));
@@ -380,6 +381,7 @@ export default function App() {
                 <Route path="/financial-management/reports/general-ledger" element={<GeneralLedger />} />
                 <Route path="/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
                 <Route path="/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
+                <Route path="/admin/statutory-rates" element={<StatutoryRatesAdmin />} />
                 <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
                 <Route path="/financial-management/reports/wht-report" element={<WhtReport />} />
                 <Route path="/financial-management/reports/paye-nssf-remittance" element={<PayeNssfRemittance />} />

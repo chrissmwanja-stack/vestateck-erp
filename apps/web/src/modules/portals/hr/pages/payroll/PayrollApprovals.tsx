@@ -49,6 +49,9 @@ interface PayrollItem {
   basic_salary: number;
   allowances: number;
   deductions: number;
+  paye_amount: number;
+  nssf_employee: number;
+  nssf_employer: number;
   net_pay: number;
   employee_name: string;
   employee_no: string;
@@ -61,7 +64,9 @@ function RunReview({ run }: { run: PayrollRun }) {
   useEffect(() => {
     supabase
       .from("hr_payroll_items")
-      .select("id, basic_salary, allowances, deductions, net_pay, hr_employees(first_name, last_name, employee_no)")
+      .select(
+        "id, basic_salary, allowances, deductions, paye_amount, nssf_employee, nssf_employer, net_pay, hr_employees(first_name, last_name, employee_no)"
+      )
       .eq("payroll_run_id", run.id)
       .order("id")
       .then(({ data }) => {
@@ -71,6 +76,9 @@ function RunReview({ run }: { run: PayrollRun }) {
             basic_salary: r.basic_salary,
             allowances: r.allowances,
             deductions: r.deductions,
+            paye_amount: r.paye_amount,
+            nssf_employee: r.nssf_employee,
+            nssf_employer: r.nssf_employer,
             net_pay: r.net_pay,
             employee_name: r.hr_employees ? `${r.hr_employees.first_name} ${r.hr_employees.last_name}` : "—",
             employee_no: r.hr_employees?.employee_no ?? "—",
@@ -81,6 +89,8 @@ function RunReview({ run }: { run: PayrollRun }) {
   }, [run.id]);
 
   const totalNet = items.reduce((sum, i) => sum + Number(i.net_pay), 0);
+  const totalPaye = items.reduce((sum, i) => sum + Number(i.paye_amount), 0);
+  const totalNssf = items.reduce((sum, i) => sum + Number(i.nssf_employee) + Number(i.nssf_employer), 0);
 
   if (loading) {
     return (
@@ -100,6 +110,8 @@ function RunReview({ run }: { run: PayrollRun }) {
               <TableCell align="right">Basic</TableCell>
               <TableCell align="right">Allowances</TableCell>
               <TableCell align="right">Deductions</TableCell>
+              <TableCell align="right">PAYE</TableCell>
+              <TableCell align="right">NSSF (Employee)</TableCell>
               <TableCell align="right">Net Pay</TableCell>
             </TableRow>
           </TableHead>
@@ -113,6 +125,8 @@ function RunReview({ run }: { run: PayrollRun }) {
                 <TableCell align="right">{Number(item.basic_salary).toLocaleString()}</TableCell>
                 <TableCell align="right">{Number(item.allowances).toLocaleString()}</TableCell>
                 <TableCell align="right">{Number(item.deductions).toLocaleString()}</TableCell>
+                <TableCell align="right">{Number(item.paye_amount).toLocaleString()}</TableCell>
+                <TableCell align="right">{Number(item.nssf_employee).toLocaleString()}</TableCell>
                 <TableCell align="right"><Typography fontWeight={700}>{Number(item.net_pay).toLocaleString()}</Typography></TableCell>
               </TableRow>
             ))}
@@ -120,7 +134,8 @@ function RunReview({ run }: { run: PayrollRun }) {
         </Table>
       </TableContainer>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        {items.length} employee{items.length === 1 ? "" : "s"} · Total net {totalNet.toLocaleString()}
+        {items.length} employee{items.length === 1 ? "" : "s"} · Total net {totalNet.toLocaleString()} · Total PAYE{" "}
+        {totalPaye.toLocaleString()} · Total NSSF (employee + employer) {totalNssf.toLocaleString()}
       </Typography>
     </Box>
   );

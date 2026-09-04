@@ -73,9 +73,20 @@ interface ControlAccountsRow {
   default_expense_account_id: string;
   default_revenue_account_id: string;
   wht_payable_account_id: string | null;
+  salaries_payable_account_id: string | null;
+  paye_payable_account_id: string | null;
+  nssf_payable_account_id: string | null;
+  salaries_expense_account_id: string | null;
 }
 
-const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id' | 'wht_payable_account_id'>; label: string }[] = [
+type OptionalControlKey =
+  | 'wht_payable_account_id'
+  | 'salaries_payable_account_id'
+  | 'paye_payable_account_id'
+  | 'nssf_payable_account_id'
+  | 'salaries_expense_account_id';
+
+const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id' | OptionalControlKey>; label: string }[] = [
   { key: 'bank_account_id', label: 'Bank' },
   { key: 'cash_account_id', label: 'Cash' },
   { key: 'ap_control_account_id', label: 'Accounts Payable Control' },
@@ -91,9 +102,24 @@ const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id' | 'wht_p
 // every tenant is a URA-designated withholding agent. trg_post_supplier_invoice()
 // skips WHT posting when this is unset, same "skip, don't guess" pattern as a
 // missing control-accounts row entirely.
-const OPTIONAL_CONTROL_FIELDS: { key: 'wht_payable_account_id'; label: string }[] = [
+const WHT_FIELDS: { key: 'wht_payable_account_id'; label: string }[] = [
   { key: 'wht_payable_account_id', label: 'WHT Payable (optional — only if you withhold tax on supplier invoices)' },
 ];
+
+// Also excluded from CONTROL_FIELDS -- not every tenant runs payroll through
+// this platform yet. trg_post_payroll_run_approval() requires all four of
+// these set together: it posts nothing for a payroll run approval if even one
+// is missing, same "skip, don't guess" pattern as a missing control-accounts
+// row entirely. (The disbursement leg, via trg_post_cash_bank_transaction(),
+// then settles Salaries Payable when the run is paid out.)
+const PAYROLL_FIELDS: { key: Exclude<OptionalControlKey, 'wht_payable_account_id'>; label: string }[] = [
+  { key: 'salaries_payable_account_id', label: 'Salaries Payable' },
+  { key: 'paye_payable_account_id', label: 'PAYE Payable' },
+  { key: 'nssf_payable_account_id', label: 'NSSF Payable' },
+  { key: 'salaries_expense_account_id', label: 'Salaries Expense' },
+];
+
+const OPTIONAL_CONTROL_FIELDS: { key: OptionalControlKey; label: string }[] = [...WHT_FIELDS, ...PAYROLL_FIELDS];
 
 const ALL_CONTROL_FIELDS = [...CONTROL_FIELDS, ...OPTIONAL_CONTROL_FIELDS];
 
@@ -485,7 +511,34 @@ export default function ChartOfAccountsAdmin() {
               invoices with WHT withheld won't post the WHT line to the ledger until this is set.
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={2}>
-              {OPTIONAL_CONTROL_FIELDS.map((f) => (
+              {WHT_FIELDS.map((f) => (
+                <TextField
+                  key={f.key}
+                  select
+                  label={f.label}
+                  sx={{ flex: '1 1 260px' }}
+                  value={controlForm[f.key] ?? ''}
+                  onChange={(e) => setControlForm((v) => ({ ...v, [f.key]: e.target.value }))}
+                >
+                  <MenuItem value="">Not set</MenuItem>
+                  {rows.map((a) => (
+                    <MenuItem key={a.id} value={a.id}>
+                      {a.account_code} — {a.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ))}
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Payroll — leave unset if you don't run payroll through this platform yet. All four must be
+              set before a payroll run's approval posts to the ledger; disbursement (cash/bank payment)
+              then settles Salaries Payable. Partial setup posts nothing rather than guessing.
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" gap={2}>
+              {PAYROLL_FIELDS.map((f) => (
                 <TextField
                   key={f.key}
                   select
