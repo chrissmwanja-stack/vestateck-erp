@@ -31,8 +31,7 @@ import { resolveTenantId } from '../../lib/ResolveTenantId';
 type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
 type GlAccountInsert = Database['public']['Tables']['gl_accounts']['Insert'];
 type GlAccountUpdate = Database['public']['Tables']['gl_accounts']['Update'];
-type ControlAccountsInsert = Database['public']['Tables']['gl_control_accounts']['Insert'];
-type ControlAccountsUpdate = Database['public']['Tables']['gl_control_accounts']['Update'];
+type PostingRuleRow = Database['public']['Tables']['gl_posting_rules']['Row'];
 
 interface GlAccountRow {
   id: string;
@@ -59,69 +58,60 @@ const emptyForm: FormState = {
   is_active: true,
 };
 
-// One row per tenant -- the auto-posting triggers (supplier_invoices,
-// receivable_invoices, cash_bank_transactions) read this to know which
-// GL accounts to post to. Nothing posts to the ledger until this exists.
-interface ControlAccountsRow {
-  tenant_id: string;
-  ap_control_account_id: string;
-  ar_control_account_id: string;
-  bank_account_id: string;
-  cash_account_id: string;
-  vat_input_account_id: string;
-  vat_output_account_id: string;
-  default_expense_account_id: string;
-  default_revenue_account_id: string;
-  wht_payable_account_id: string | null;
-  salaries_payable_account_id: string | null;
-  paye_payable_account_id: string | null;
-  nssf_payable_account_id: string | null;
-  salaries_expense_account_id: string | null;
-}
+// One gl_posting_rules row per (tenant, account_role) -- the auto-posting
+// triggers (supplier_invoices, receivable_invoices, cash_bank_transactions,
+// hr_payroll_runs) call get_posting_account(tenant_id, role) to know which
+// GL account fills each role. Nothing posts to the ledger until the
+// required roles below are mapped. account_role values are enforced by a
+// CHECK constraint on gl_posting_rules -- these must match it exactly.
+type RequiredRole =
+  | 'bank'
+  | 'cash'
+  | 'ap_control'
+  | 'ar_control'
+  | 'vat_input'
+  | 'vat_output'
+  | 'default_expense'
+  | 'default_revenue';
 
-type OptionalControlKey =
-  | 'wht_payable_account_id'
-  | 'salaries_payable_account_id'
-  | 'paye_payable_account_id'
-  | 'nssf_payable_account_id'
-  | 'salaries_expense_account_id';
+type OptionalRole = 'wht_payable' | 'salaries_payable' | 'paye_payable' | 'nssf_payable' | 'salaries_expense';
 
-const CONTROL_FIELDS: { key: keyof Omit<ControlAccountsRow, 'tenant_id' | OptionalControlKey>; label: string }[] = [
-  { key: 'bank_account_id', label: 'Bank' },
-  { key: 'cash_account_id', label: 'Cash' },
-  { key: 'ap_control_account_id', label: 'Accounts Payable Control' },
-  { key: 'ar_control_account_id', label: 'Accounts Receivable Control' },
-  { key: 'vat_input_account_id', label: 'VAT Input' },
-  { key: 'vat_output_account_id', label: 'VAT Output' },
-  { key: 'default_expense_account_id', label: 'Default Expense' },
-  { key: 'default_revenue_account_id', label: 'Default Revenue' },
+const REQUIRED_ROLES: { key: RequiredRole; label: string }[] = [
+  { key: 'bank', label: 'Bank' },
+  { key: 'cash', label: 'Cash' },
+  { key: 'ap_control', label: 'Accounts Payable Control' },
+  { key: 'ar_control', label: 'Accounts Receivable Control' },
+  { key: 'vat_input', label: 'VAT Input' },
+  { key: 'vat_output', label: 'VAT Output' },
+  { key: 'default_expense', label: 'Default Expense' },
+  { key: 'default_revenue', label: 'Default Revenue' },
 ];
 
-// wht_payable_account_id is deliberately excluded from CONTROL_FIELDS (and its
-// required-field validation) -- it's nullable on gl_control_accounts because not
-// every tenant is a URA-designated withholding agent. trg_post_supplier_invoice()
-// skips WHT posting when this is unset, same "skip, don't guess" pattern as a
-// missing control-accounts row entirely.
-const WHT_FIELDS: { key: 'wht_payable_account_id'; label: string }[] = [
-  { key: 'wht_payable_account_id', label: 'WHT Payable (optional — only if you withhold tax on supplier invoices)' },
+// wht_payable is deliberately excluded from REQUIRED_ROLES (and its
+// required-field validation) -- it's optional because not every tenant is
+// a URA-designated withholding agent. trg_post_supplier_invoice() skips
+// WHT posting when this role is unmapped, same "skip, don't guess" pattern
+// as no posting rules existing at all.
+const WHT_ROLES: { key: 'wht_payable'; label: string }[] = [
+  { key: 'wht_payable', label: 'WHT Payable (optional — only if you withhold tax on supplier invoices)' },
 ];
 
-// Also excluded from CONTROL_FIELDS -- not every tenant runs payroll through
+// Also excluded from REQUIRED_ROLES -- not every tenant runs payroll through
 // this platform yet. trg_post_payroll_run_approval() requires all four of
-// these set together: it posts nothing for a payroll run approval if even one
-// is missing, same "skip, don't guess" pattern as a missing control-accounts
-// row entirely. (The disbursement leg, via trg_post_cash_bank_transaction(),
-// then settles Salaries Payable when the run is paid out.)
-const PAYROLL_FIELDS: { key: Exclude<OptionalControlKey, 'wht_payable_account_id'>; label: string }[] = [
-  { key: 'salaries_payable_account_id', label: 'Salaries Payable' },
-  { key: 'paye_payable_account_id', label: 'PAYE Payable' },
-  { key: 'nssf_payable_account_id', label: 'NSSF Payable' },
-  { key: 'salaries_expense_account_id', label: 'Salaries Expense' },
+// these mapped together: it posts nothing for a payroll run approval if
+// even one is missing, same "skip, don't guess" pattern. (The disbursement
+// leg, via trg_post_cash_bank_transaction(), then settles Salaries Payable
+// when the run is paid out.)
+const PAYROLL_ROLES: { key: Exclude<OptionalRole, 'wht_payable'>; label: string }[] = [
+  { key: 'salaries_payable', label: 'Salaries Payable' },
+  { key: 'paye_payable', label: 'PAYE Payable' },
+  { key: 'nssf_payable', label: 'NSSF Payable' },
+  { key: 'salaries_expense', label: 'Salaries Expense' },
 ];
 
-const OPTIONAL_CONTROL_FIELDS: { key: OptionalControlKey; label: string }[] = [...WHT_FIELDS, ...PAYROLL_FIELDS];
+const OPTIONAL_ROLES: { key: OptionalRole; label: string }[] = [...WHT_ROLES, ...PAYROLL_ROLES];
 
-const ALL_CONTROL_FIELDS = [...CONTROL_FIELDS, ...OPTIONAL_CONTROL_FIELDS];
+const ALL_ROLES: { key: RequiredRole | OptionalRole; label: string }[] = [...REQUIRED_ROLES, ...OPTIONAL_ROLES];
 
 export default function ChartOfAccountsAdmin() {
   const { session } = useAuth();
@@ -138,7 +128,11 @@ export default function ChartOfAccountsAdmin() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [controlAccounts, setControlAccounts] = useState<ControlAccountsRow | null>(null);
+  // Map of account_role -> gl_account_id, one entry per gl_posting_rules
+  // row for this tenant. Empty object (not null) means "no rules mapped
+  // yet" -- there's no separate "row exists" concept to track like the old
+  // single gl_control_accounts row had, since each role is its own row.
+  const [postingRules, setPostingRules] = useState<Record<string, string>>({});
   const [controlForm, setControlForm] = useState<Record<string, string>>({});
   const [controlSaving, setControlSaving] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
@@ -159,23 +153,18 @@ export default function ChartOfAccountsAdmin() {
     setLoading(false);
   }, []);
 
-  const loadControlAccounts = useCallback(async () => {
-    const { data } = await supabase.from('gl_control_accounts').select('*').maybeSingle();
-    if (data) {
-      setControlAccounts(data as ControlAccountsRow);
-      setControlForm(
-        Object.fromEntries(ALL_CONTROL_FIELDS.map((f) => [f.key, ((data as any)[f.key] as string) ?? '']))
-      );
-    } else {
-      setControlAccounts(null);
-      setControlForm({});
-    }
+  const loadPostingRules = useCallback(async () => {
+    const { data } = await supabase.from('gl_posting_rules').select('account_role, gl_account_id');
+    const rows = (data ?? []) as Pick<PostingRuleRow, 'account_role' | 'gl_account_id'>[];
+    const map = Object.fromEntries(rows.map((r) => [r.account_role, r.gl_account_id]));
+    setPostingRules(map);
+    setControlForm(Object.fromEntries(ALL_ROLES.map((f) => [f.key, map[f.key] ?? ''])));
   }, []);
 
   useEffect(() => {
     loadAccounts();
-    loadControlAccounts();
-  }, [loadAccounts, loadControlAccounts]);
+    loadPostingRules();
+  }, [loadAccounts, loadPostingRules]);
 
   async function handleSeedDefaults() {
     setSeeding(true);
@@ -187,7 +176,7 @@ export default function ChartOfAccountsAdmin() {
       return;
     }
     await loadAccounts();
-    await loadControlAccounts();
+    await loadPostingRules();
   }
 
   function handleOpenNew() {
@@ -266,43 +255,63 @@ export default function ChartOfAccountsAdmin() {
     e.preventDefault();
     setControlError(null);
 
-    const missing = CONTROL_FIELDS.filter((f) => !controlForm[f.key]);
+    const missing = REQUIRED_ROLES.filter((f) => !controlForm[f.key]);
     if (missing.length > 0) {
       setControlError(`Set an account for: ${missing.map((f) => f.label).join(', ')}.`);
       return;
     }
 
     setControlSaving(true);
-    // Required fields are already validated non-empty above. The optional WHT
-    // field sends null (not '') when unset -- gl_control_accounts.wht_payable_account_id
-    // is a nullable uuid column, and an empty string would fail uuid parsing.
-    const payload = Object.fromEntries(
-      ALL_CONTROL_FIELDS.map((f) => [f.key, controlForm[f.key] || null])
-    ) as ControlAccountsUpdate;
+
+    const tenantResult = await resolveTenantId(session);
+    if (!tenantResult.ok) {
+      setControlError(tenantResult.error);
+      setControlSaving(false);
+      return;
+    }
+    const tenant_id = tenantResult.tenantId;
+
+    // Every role with a value set is upserted as its own gl_posting_rules
+    // row (one row per role, not one row per tenant like the old
+    // gl_control_accounts) -- onConflict on the (tenant_id, account_role)
+    // unique constraint means re-mapping an already-mapped role just
+    // updates that row instead of erroring.
+    const toUpsert = ALL_ROLES.filter((f) => controlForm[f.key]).map((f) => ({
+      tenant_id,
+      account_role: f.key,
+      gl_account_id: controlForm[f.key],
+    }));
 
     let err;
-    if (controlAccounts) {
-      ({ error: err } = await supabase.from('gl_control_accounts').update(payload).eq('tenant_id', controlAccounts.tenant_id));
-    } else {
-      const tenantResult = await resolveTenantId(session);
-      if (!tenantResult.ok) {
-        setControlError(tenantResult.error);
-        setControlSaving(false);
-        return;
-      }
+    if (toUpsert.length > 0) {
       ({ error: err } = await supabase
-        .from('gl_control_accounts')
-        .insert({ ...payload, tenant_id: tenantResult.tenantId } as ControlAccountsInsert));
+        .from('gl_posting_rules')
+        .upsert(toUpsert, { onConflict: 'tenant_id,account_role' }));
     }
+
+    // An optional role that was previously mapped (present in
+    // postingRules) but is now blank in the form means the user cleared
+    // it -- delete that row rather than leaving a stale mapping behind.
+    if (!err) {
+      const toDelete = OPTIONAL_ROLES.filter((f) => postingRules[f.key] && !controlForm[f.key]).map((f) => f.key);
+      if (toDelete.length > 0) {
+        ({ error: err } = await supabase
+          .from('gl_posting_rules')
+          .delete()
+          .eq('tenant_id', tenant_id)
+          .in('account_role', toDelete));
+      }
+    }
+
     setControlSaving(false);
 
     if (err) {
-      setControlError(err.message ?? 'Could not save the control account mapping.');
+      setControlError(err.message ?? 'Could not save the posting rules.');
       return;
     }
 
     setControlSavedAt(Date.now());
-    loadControlAccounts();
+    loadPostingRules();
   }
 
   const hasAccounts = rows.length > 0;
@@ -475,7 +484,7 @@ export default function ChartOfAccountsAdmin() {
       {hasAccounts && (
         <Paper sx={{ p: 3 }} variant="outlined">
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Control Account Mapping
+            Posting Rules
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Supplier invoices, receivable invoices, and cash/bank transactions post to these accounts
@@ -485,7 +494,7 @@ export default function ChartOfAccountsAdmin() {
           <Divider sx={{ mb: 2 }} />
           <Box component="form" onSubmit={handleSaveControlAccounts} noValidate>
             <Stack direction="row" flexWrap="wrap" gap={2}>
-              {CONTROL_FIELDS.map((f) => (
+              {REQUIRED_ROLES.map((f) => (
                 <TextField
                   key={f.key}
                   select
@@ -511,7 +520,7 @@ export default function ChartOfAccountsAdmin() {
               invoices with WHT withheld won't post the WHT line to the ledger until this is set.
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={2}>
-              {WHT_FIELDS.map((f) => (
+              {WHT_ROLES.map((f) => (
                 <TextField
                   key={f.key}
                   select
@@ -538,7 +547,7 @@ export default function ChartOfAccountsAdmin() {
               then settles Salaries Payable. Partial setup posts nothing rather than guessing.
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={2}>
-              {PAYROLL_FIELDS.map((f) => (
+              {PAYROLL_ROLES.map((f) => (
                 <TextField
                   key={f.key}
                   select
