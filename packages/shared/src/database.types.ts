@@ -2256,6 +2256,10 @@ export type Database = {
           cash_account_id: string
           default_expense_account_id: string
           default_revenue_account_id: string
+          nssf_payable_account_id: string | null
+          paye_payable_account_id: string | null
+          salaries_expense_account_id: string | null
+          salaries_payable_account_id: string | null
           tenant_id: string
           updated_at: string
           vat_input_account_id: string
@@ -2269,6 +2273,10 @@ export type Database = {
           cash_account_id: string
           default_expense_account_id: string
           default_revenue_account_id: string
+          nssf_payable_account_id?: string | null
+          paye_payable_account_id?: string | null
+          salaries_expense_account_id?: string | null
+          salaries_payable_account_id?: string | null
           tenant_id: string
           updated_at?: string
           vat_input_account_id: string
@@ -2282,6 +2290,10 @@ export type Database = {
           cash_account_id?: string
           default_expense_account_id?: string
           default_revenue_account_id?: string
+          nssf_payable_account_id?: string | null
+          paye_payable_account_id?: string | null
+          salaries_expense_account_id?: string | null
+          salaries_payable_account_id?: string | null
           tenant_id?: string
           updated_at?: string
           vat_input_account_id?: string
@@ -2421,6 +2433,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_salaries_payable_account_id_fkey"
+            columns: ["salaries_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_paye_payable_account_id_fkey"
+            columns: ["paye_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_nssf_payable_account_id_fkey"
+            columns: ["nssf_payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gl_control_accounts_salaries_expense_account_id_fkey"
+            columns: ["salaries_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3039,6 +3079,9 @@ export type Database = {
           id: string
           net_pay: number | null
           note: string | null
+          nssf_employee: number
+          nssf_employer: number
+          paye_amount: number
           payroll_run_id: string
         }
         Insert: {
@@ -3049,6 +3092,9 @@ export type Database = {
           id?: string
           net_pay?: number | null
           note?: string | null
+          nssf_employee?: number
+          nssf_employer?: number
+          paye_amount?: number
           payroll_run_id: string
         }
         Update: {
@@ -3059,6 +3105,9 @@ export type Database = {
           id?: string
           net_pay?: number | null
           note?: string | null
+          nssf_employee?: number
+          nssf_employer?: number
+          paye_amount?: number
           payroll_run_id?: string
         }
         Relationships: [
@@ -6373,6 +6422,53 @@ export type Database = {
           },
         ]
       }
+      statutory_rate_tables: {
+        Row: {
+          band_order: number
+          base_tax: number
+          created_at: string
+          effective_date: string
+          id: string
+          lower_bound: number
+          rate: number
+          rate_type: string
+          tenant_id: string
+          upper_bound: number | null
+        }
+        Insert: {
+          band_order?: number
+          base_tax?: number
+          created_at?: string
+          effective_date: string
+          id?: string
+          lower_bound?: number
+          rate: number
+          rate_type: string
+          tenant_id: string
+          upper_bound?: number | null
+        }
+        Update: {
+          band_order?: number
+          base_tax?: number
+          created_at?: string
+          effective_date?: string
+          id?: string
+          lower_bound?: number
+          rate?: number
+          rate_type?: string
+          tenant_id?: string
+          upper_bound?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statutory_rate_tables_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_balances: {
         Row: {
           id: string
@@ -7560,6 +7656,24 @@ export type Database = {
         }
         Relationships: []
       }
+      v_paye_nssf_remittance: {
+        Row: {
+          approved_at: string | null
+          employee_count: number | null
+          payroll_run_id: string | null
+          period: string | null
+          remittance_due_date: string | null
+          status: string | null
+          tenant_id: string | null
+          total_gross: number | null
+          total_net_pay: number | null
+          total_nssf: number | null
+          total_nssf_employee: number | null
+          total_nssf_employer: number | null
+          total_paye: number | null
+        }
+        Relationships: []
+      }
       v_payment_plan: {
         Row: {
           currency: string | null
@@ -7887,6 +8001,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      calculate_statutory_deductions: {
+        Args: { p_as_of_date?: string; p_gross: number }
+        Returns: {
+          nssf_employee: number
+          nssf_employer: number
+          paye_amount: number
+        }[]
       }
       can_access_finance: { Args: never; Returns: boolean }
       can_act_on_stage: { Args: { check_stage_id: string }; Returns: boolean }
@@ -8352,6 +8474,9 @@ export type Database = {
           id: string
           net_pay: number | null
           note: string | null
+          nssf_employee: number
+          nssf_employer: number
+          paye_amount: number
           payroll_run_id: string
         }[]
         SetofOptions: {
@@ -9555,6 +9680,10 @@ export type Database = {
       }
       revoke_receipt_access: { Args: { p_user_id: string }; Returns: undefined }
       seed_default_chart_of_accounts: { Args: never; Returns: undefined }
+      seed_statutory_rate_table: {
+        Args: { p_effective_date?: string }
+        Returns: undefined
+      }
       seed_tenant_defaults: {
         Args: { p_industry_template: string; p_tenant_id: string }
         Returns: undefined
@@ -9924,6 +10053,9 @@ export type Database = {
           id: string
           net_pay: number | null
           note: string | null
+          nssf_employee: number
+          nssf_employer: number
+          paye_amount: number
           payroll_run_id: string
         }
         SetofOptions: {

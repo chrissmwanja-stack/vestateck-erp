@@ -68,6 +68,9 @@ interface PayrollItem {
   basic_salary: number;
   allowances: number;
   deductions: number;
+  paye_amount: number;
+  nssf_employee: number;
+  nssf_employer: number;
   net_pay: number;
   note: string | null;
   employee_name: string;
@@ -88,7 +91,9 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
     setLoading(true);
     const { data, error: err } = await supabase
       .from("hr_payroll_items")
-      .select("id, employee_id, basic_salary, allowances, deductions, net_pay, note, hr_employees(first_name, last_name, employee_no)")
+      .select(
+        "id, employee_id, basic_salary, allowances, deductions, paye_amount, nssf_employee, nssf_employer, net_pay, note, hr_employees(first_name, last_name, employee_no)"
+      )
       .eq("payroll_run_id", run.id)
       .order("id");
     if (err) {
@@ -100,6 +105,9 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
         basic_salary: r.basic_salary,
         allowances: r.allowances,
         deductions: r.deductions,
+        paye_amount: r.paye_amount,
+        nssf_employee: r.nssf_employee,
+        nssf_employer: r.nssf_employer,
         net_pay: r.net_pay,
         note: r.note,
         employee_name: r.hr_employees ? `${r.hr_employees.first_name} ${r.hr_employees.last_name}` : "—",
@@ -159,6 +167,8 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
 
   const isDraft = run.status === "draft";
   const totalNet = items.reduce((sum, i) => sum + Number(i.net_pay), 0);
+  const totalPaye = items.reduce((sum, i) => sum + Number(i.paye_amount), 0);
+  const totalNssf = items.reduce((sum, i) => sum + Number(i.nssf_employee) + Number(i.nssf_employer), 0);
 
   if (loading) {
     return (
@@ -191,6 +201,8 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
               <TableCell align="right">Basic</TableCell>
               <TableCell align="right">Allowances</TableCell>
               <TableCell align="right">Deductions</TableCell>
+              <TableCell align="right">PAYE</TableCell>
+              <TableCell align="right">NSSF (Employee)</TableCell>
               <TableCell align="right">Net Pay</TableCell>
               <TableCell>Note</TableCell>
               {isDraft && <TableCell />}
@@ -232,6 +244,8 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
                     Number(item.deductions).toLocaleString()
                   )}
                 </TableCell>
+                <TableCell align="right">{Number(item.paye_amount).toLocaleString()}</TableCell>
+                <TableCell align="right">{Number(item.nssf_employee).toLocaleString()}</TableCell>
                 <TableCell align="right">
                   <Typography fontWeight={700}>{Number(item.net_pay).toLocaleString()}</Typography>
                 </TableCell>
@@ -253,7 +267,7 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
             ))}
             {items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isDraft ? 7 : 6} align="center" sx={{ color: "text.secondary", py: 2 }}>
+                <TableCell colSpan={isDraft ? 9 : 8} align="center" sx={{ color: "text.secondary", py: 2 }}>
                   No line items yet. {isDraft ? 'Click "Generate items" to pull in active employees.' : ""}
                 </TableCell>
               </TableRow>
@@ -264,7 +278,8 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
-          {items.length} employee{items.length === 1 ? "" : "s"} · Total net {totalNet.toLocaleString()}
+          {items.length} employee{items.length === 1 ? "" : "s"} · Total net {totalNet.toLocaleString()} · PAYE{" "}
+          {totalPaye.toLocaleString()} · NSSF (employee + employer) {totalNssf.toLocaleString()}
         </Typography>
         {isDraft && (
           <Button variant="contained" size="small" disabled={submitting || items.length === 0} onClick={handleSubmit}>

@@ -456,7 +456,10 @@ const portals: Portal[] = [
         id: "cash-and-bank-operations",
         label: "Cash and Bank Operations",
         icon: <Folder fontSize="small" />,
-        children: [{ id: "cash-and-bank-payments", label: "Cash and Bank Payments", icon: <AccountBalance fontSize="small" />, to: "/financial-management/cash-bank-operations" }],
+        children: [
+          { id: "cash-and-bank-payments", label: "Cash and Bank Payments", icon: <AccountBalance fontSize="small" />, to: "/financial-management/cash-bank-operations" },
+          { id: "bank-reconciliation", label: "Bank Reconciliation", icon: <AccountBalance fontSize="small" />, to: "/financial-management/bank-reconciliation" },
+        ],
       },
       { id: "petty-cash-floats", label: "Petty Cash Floats", icon: <Payments fontSize="small" />, to: "/financial-management/petty-cash-floats" },
       { id: "petty-cash-register", label: "Petty Cash Register", icon: <Payments fontSize="small" />, to: "/financial-management/petty-cash-register" },
@@ -476,6 +479,7 @@ const portals: Portal[] = [
           { id: "payment-plan-report", label: "Payment Plan Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/payment-plan" },
           { id: "vat-report", label: "VAT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/vat-report" },
           { id: "wht-report", label: "WHT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/wht-report" },
+          { id: "paye-nssf-remittance", label: "PAYE/NSSF Remittance", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/paye-nssf-remittance" },
         ],
       },
       {

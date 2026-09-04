@@ -43,6 +43,7 @@ const SupplierInvoices = lazy(() => import('./features/financial/SupplierInvoice
 const FinancialDashboard = lazy(() => import('./features/financial/FinancialDashboard'));
 const SupplierInvoiceNonPO = lazy(() => import('./features/financial/SupplierInvoiceNonPO'));
 const CashBankOperations = lazy(() => import('./features/financial/CashBankOperations'));
+const BankReconciliation = lazy(() => import('./features/financial/BankReconciliation'));
 const EditInvoice = lazy(() => import('./features/financial/EditInvoice'));
 const ExpenditureSlips = lazy(() => import('./features/financial/ExpenditureSlips'));
 const FinancialReports = lazy(() => import('./features/financial/FinancialReports'));
@@ -58,6 +59,7 @@ const ChartOfAccountsAdmin = lazy(() => import('./features/admin/ChartOfAccounts
 const AccountingPeriodsAdmin = lazy(() => import('./features/admin/AccountingPeriodsAdmin'));
 const VatReport = lazy(() => import('./features/financial/VatReport'));
 const WhtReport = lazy(() => import('./features/financial/WhtReport'));
+const PayeNssfRemittance = lazy(() => import('./features/financial/PayeNssfRemittance'));
 const Durations = lazy(() => import('./features/financial/Durations'));
 const AdvancePayments = lazy(() => import('./features/financial/AdvancePayments'));
 const PayrollDisbursement = lazy(() => import('./features/financial/PayrollDisbursement'));
@@ -364,6 +366,7 @@ export default function App() {
                 <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
                 <Route path="/financial-management/invoices/supplier-invoice-non-po" element={<SupplierInvoiceNonPO />} />
                 <Route path="/financial-management/cash-bank-operations" element={<CashBankOperations />} />
+                <Route path="/financial-management/bank-reconciliation" element={<BankReconciliation />} />
                 <Route path="/financial-management/invoices/receivable-invoice" element={<ReceivableInvoice />} />
                 <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
                 <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />
@@ -379,6 +382,7 @@ export default function App() {
                 <Route path="/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
                 <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
                 <Route path="/financial-management/reports/wht-report" element={<WhtReport />} />
+                <Route path="/financial-management/reports/paye-nssf-remittance" element={<PayeNssfRemittance />} />
                 <Route path="/financial-management/reports/durations" element={<Durations />} />
                 <Route path="/financial-management/reports/advance-payments" element={<AdvancePayments />} />
                 <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
