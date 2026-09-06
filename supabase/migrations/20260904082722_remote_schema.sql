@@ -1556,7 +1556,13 @@ alter table "public"."hr_payroll_items" drop column if exists "nssf_employer";
 
 alter table "public"."hr_payroll_items" drop column if exists "paye_amount";
 
-alter table "public"."hr_payroll_items" alter column "net_pay" set default ((basic_salary + allowances) - deductions);
+-- Removed: "alter table hr_payroll_items alter column net_pay set default
+-- (...)" -- net_pay has been a GENERATED ALWAYS AS (...) STORED column
+-- since the squashed baseline (20260819122921), and Postgres rejects
+-- SET DEFAULT on a generated column outright (42601). Harmless to drop:
+-- a generated column's value always comes from its expression, never a
+-- default, so this statement never had any effect even on environments
+-- where it happened not to error.
 
 alter table "public"."access_requests" add constraint "access_requests_decided_by_fkey" FOREIGN KEY (decided_by) REFERENCES public.app_users(id) not valid;
 
