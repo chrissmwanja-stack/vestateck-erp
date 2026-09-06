@@ -152,7 +152,7 @@ jobs:
       # its own fixtures in BEGIN/ROLLBACK -- safe to run repeatedly,
       # local/CI database only (see each file's own header; never run
       # against a linked/remote project).
-      - name: Functional tests -- GL posting, period close, statutory deductions
+      - name: Functional tests -- GL posting, period close, statutory deductions, bank reconciliation
         run: |
           for f in supabase/tests/*.sql; do
             echo "::group::$f"
