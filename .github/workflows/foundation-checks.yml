@@ -141,3 +141,21 @@ jobs:
             exit 1
           fi
           echo "Tenant FK audit clean -- no BASE TABLE with an unconstrained tenant_id column."
+
+      # Functional coverage for the accounting workstreams (A/B/F):
+      # db-shadow-replay above only proves the migrations apply
+      # cleanly -- it says nothing about whether GL posting actually
+      # balances, whether a closed period actually blocks a write, or
+      # whether the PAYE/NSSF math is right. \set ON_ERROR_STOP means
+      # any RAISE EXCEPTION inside these files (an assertion failure)
+      # makes psql exit non-zero and fails this step. Each file wraps
+      # its own fixtures in BEGIN/ROLLBACK -- safe to run repeatedly,
+      # local/CI database only (see each file's own header; never run
+      # against a linked/remote project).
+      - name: Functional tests -- GL posting, period close, statutory deductions
+        run: |
+          for f in supabase/tests/*.sql; do
+            echo "::group::$f"
+            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f "$f"
+            echo "::endgroup::"
+          done
