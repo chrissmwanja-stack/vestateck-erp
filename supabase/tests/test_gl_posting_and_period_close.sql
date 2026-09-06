@@ -30,6 +30,7 @@ declare
   v_cost_center_id uuid;
   v_expense_account uuid;
   v_ap_account uuid;
+  v_vat_account uuid;
   v_invoice_id uuid;
   v_entry_id uuid;
   v_line_sum numeric;
@@ -81,10 +82,15 @@ begin
   values (v_tenant_id, '2000', 'Test AP Control', 'liability')
   returning id into v_ap_account;
 
+  insert into gl_accounts (tenant_id, account_code, name, account_type)
+  values (v_tenant_id, '1500', 'Test VAT Input', 'asset')
+  returning id into v_vat_account;
+
   insert into gl_posting_rules (tenant_id, account_role, gl_account_id)
   values
     (v_tenant_id, 'default_expense', v_expense_account),
-    (v_tenant_id, 'ap_control', v_ap_account);
+    (v_tenant_id, 'ap_control', v_ap_account),
+    (v_tenant_id, 'vat_input', v_vat_account);
 
   -- cost_centers' INSERT policy requires has_po_access() (a procurement
   -- approval-chain check), which a plain finance-team member legitimately
