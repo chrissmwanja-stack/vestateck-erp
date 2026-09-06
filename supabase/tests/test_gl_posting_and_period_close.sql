@@ -59,6 +59,15 @@ begin
   insert into finance_team_members (tenant_id, user_id, role)
   values (v_tenant_id, v_user_id, 'finance');
 
+  -- Impersonate the finance user from here on, since get_my_tenant_id()/
+  -- is_finance_team_member() both read auth.uid() from session-local JWT
+  -- claims, not a parameter -- and organizations' set_organization_defaults()
+  -- trigger unconditionally overwrites tenant_id via get_my_tenant_id(),
+  -- raising if it can't resolve one. So this must happen before the
+  -- organizations insert below, not after it.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_user_id)::text, true);
+  set local role authenticated;
+
   insert into organizations (tenant_id, company_code, site_name)
   values (v_tenant_id, 'GLT', 'GL Test Site')
   returning id into v_org_id;
@@ -75,12 +84,6 @@ begin
   values
     (v_tenant_id, 'default_expense', v_expense_account),
     (v_tenant_id, 'ap_control', v_ap_account);
-
-  -- Impersonate the finance user for the rest of this test, since
-  -- get_my_tenant_id()/is_finance_team_member() both read auth.uid()
-  -- from session-local JWT claims, not a parameter.
-  perform set_config('request.jwt.claims', json_build_object('sub', v_user_id)::text, true);
-  set local role authenticated;
 
   -------------------------------------------------------------------
   -- 1. A supplier invoice should auto-post a BALANCED journal entry.
