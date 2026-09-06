@@ -27,6 +27,7 @@ declare
   v_tenant_id uuid := gen_random_uuid();
   v_user_id uuid := gen_random_uuid();
   v_org_id uuid := gen_random_uuid();
+  v_cost_center_id uuid;
   v_expense_account uuid;
   v_ap_account uuid;
   v_invoice_id uuid;
@@ -85,15 +86,27 @@ begin
     (v_tenant_id, 'default_expense', v_expense_account),
     (v_tenant_id, 'ap_control', v_ap_account);
 
+  -- cost_centers' INSERT policy requires has_po_access() (a procurement
+  -- approval-chain check), which a plain finance-team member legitimately
+  -- doesn't have -- so this one fixture row is inserted with RLS bypassed
+  -- via reset role. Its own set_cost_center_defaults() trigger still needs
+  -- auth.uid() resolvable, which the JWT claims set above already provide
+  -- regardless of role.
+  reset role;
+  insert into cost_centers (tenant_id, name)
+  values (v_tenant_id, 'GL Test Cost Center')
+  returning id into v_cost_center_id;
+  set local role authenticated;
+
   -------------------------------------------------------------------
   -- 1. A supplier invoice should auto-post a BALANCED journal entry.
   -------------------------------------------------------------------
   insert into supplier_invoices (
     tenant_id, organization_id, invoice_number, invoice_date,
-    amount_incl_vat, vat_amount, wht_amount
+    amount_incl_vat, vat_amount, wht_amount, cost_center_id
   ) values (
     v_tenant_id, v_org_id, 'INV-TEST-001', current_date,
-    118000, 18000, 0
+    118000, 18000, 0, v_cost_center_id
   )
   returning id into v_invoice_id;
 
