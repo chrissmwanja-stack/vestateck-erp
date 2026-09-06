@@ -862,19 +862,19 @@ drop policy "workflow_stages_admin_update" on "public"."workflow_stages";
 
 drop policy "workflow_stages_select_tenant" on "public"."workflow_stages";
 
-alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_nssf_payable_account_id_fkey";
+alter table "public"."gl_control_accounts" drop constraint if exists "gl_control_accounts_nssf_payable_account_id_fkey";
 
-alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_paye_payable_account_id_fkey";
+alter table "public"."gl_control_accounts" drop constraint if exists "gl_control_accounts_paye_payable_account_id_fkey";
 
-alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_salaries_expense_account_id_fkey";
+alter table "public"."gl_control_accounts" drop constraint if exists "gl_control_accounts_salaries_expense_account_id_fkey";
 
-alter table "public"."gl_control_accounts" drop constraint "gl_control_accounts_salaries_payable_account_id_fkey";
+alter table "public"."gl_control_accounts" drop constraint if exists "gl_control_accounts_salaries_payable_account_id_fkey";
 
-alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_nssf_employee_check";
+alter table "public"."hr_payroll_items" drop constraint if exists "hr_payroll_items_nssf_employee_check";
 
-alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_nssf_employer_check";
+alter table "public"."hr_payroll_items" drop constraint if exists "hr_payroll_items_nssf_employer_check";
 
-alter table "public"."hr_payroll_items" drop constraint "hr_payroll_items_paye_amount_check";
+alter table "public"."hr_payroll_items" drop constraint if exists "hr_payroll_items_paye_amount_check";
 
 alter table "public"."access_requests" drop constraint "access_requests_decided_by_fkey";
 
@@ -1542,19 +1542,19 @@ drop index if exists "public"."statutory_rate_tables_lookup_idx";
 
 drop index if exists "public"."statutory_rate_tables_pkey";
 
-alter table "public"."gl_control_accounts" drop column "nssf_payable_account_id";
+alter table "public"."gl_control_accounts" drop column if exists "nssf_payable_account_id";
 
-alter table "public"."gl_control_accounts" drop column "paye_payable_account_id";
+alter table "public"."gl_control_accounts" drop column if exists "paye_payable_account_id";
 
-alter table "public"."gl_control_accounts" drop column "salaries_expense_account_id";
+alter table "public"."gl_control_accounts" drop column if exists "salaries_expense_account_id";
 
-alter table "public"."gl_control_accounts" drop column "salaries_payable_account_id";
+alter table "public"."gl_control_accounts" drop column if exists "salaries_payable_account_id";
 
-alter table "public"."hr_payroll_items" drop column "nssf_employee";
+alter table "public"."hr_payroll_items" drop column if exists "nssf_employee";
 
-alter table "public"."hr_payroll_items" drop column "nssf_employer";
+alter table "public"."hr_payroll_items" drop column if exists "nssf_employer";
 
-alter table "public"."hr_payroll_items" drop column "paye_amount";
+alter table "public"."hr_payroll_items" drop column if exists "paye_amount";
 
 alter table "public"."hr_payroll_items" alter column "net_pay" set default ((basic_salary + allowances) - deductions);
 
@@ -9175,6 +9175,3 @@ using (((bucket_id = 'po-documents'::text) AND ((storage.foldername(name))[1] = 
   for update
   to authenticated
 using (((bucket_id = 'po-documents'::text) AND ((storage.foldername(name))[1] = (public.get_my_tenant_id())::text)));
-
-
-
