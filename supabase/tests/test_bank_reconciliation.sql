@@ -107,9 +107,10 @@ begin
   -- 1. Manual match: exact-amount match produces a zero-variance,
   --    match_type = 'manual' row.
   -------------------------------------------------------------------
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, description, amount)
-  values (v_tenant_id, 'ACC-001', current_date, 'Customer deposit', 50000)
-  returning id into v_line_id;
+  select id into v_line_id from import_bank_statement_lines(
+    'ACC-001',
+    jsonb_build_array(jsonb_build_object('statement_date', current_date, 'description', 'Customer deposit', 'amount', 50000))
+  );
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
@@ -138,9 +139,10 @@ begin
   --    bank-method transactions can be reconciled against a
   --    statement).
   -------------------------------------------------------------------
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, description, amount)
-  values (v_tenant_id, 'ACC-001', current_date, 'Unmatchable line', 7500)
-  returning id into v_line_id;
+  select id into v_line_id from import_bank_statement_lines(
+    'ACC-001',
+    jsonb_build_array(jsonb_build_object('statement_date', current_date, 'description', 'Unmatchable line', 'amount', 7500))
+  );
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
@@ -284,9 +286,10 @@ begin
   -- 8. auto_match_bank_statement: exactly one candidate -> auto-match
   --    with match_type = 'auto' and variance = 0.
   -------------------------------------------------------------------
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, description, amount)
-  values (v_tenant_id, 'ACC-AUTO', current_date, 'Single unambiguous candidate', 12345)
-  returning id into v_line_id;
+  select id into v_line_id from import_bank_statement_lines(
+    'ACC-AUTO',
+    jsonb_build_array(jsonb_build_object('statement_date', current_date, 'description', 'Single unambiguous candidate', 'amount', 12345))
+  );
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
@@ -322,9 +325,10 @@ begin
   -- 9. auto_match_bank_statement: zero candidates (amount doesn't
   --    match anything) -> left unmatched, matched count 0.
   -------------------------------------------------------------------
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, description, amount)
-  values (v_tenant_id, 'ACC-AUTO', current_date, 'No candidate exists for this amount', 999111)
-  returning id into v_line_id;
+  select id into v_line_id from import_bank_statement_lines(
+    'ACC-AUTO',
+    jsonb_build_array(jsonb_build_object('statement_date', current_date, 'description', 'No candidate exists for this amount', 'amount', 999111))
+  );
 
   v_matched_count := auto_match_bank_statement('ACC-AUTO', current_date - 10, current_date + 10);
 
@@ -342,9 +346,10 @@ begin
   --     (same amount, both within the date window) -> ambiguous, so
   --     the pass must leave it for a human rather than guess.
   -------------------------------------------------------------------
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, description, amount)
-  values (v_tenant_id, 'ACC-AUTO', current_date, 'Ambiguous: two equally good candidates', 44000)
-  returning id into v_line_id;
+  select id into v_line_id from import_bank_statement_lines(
+    'ACC-AUTO',
+    jsonb_build_array(jsonb_build_object('statement_date', current_date, 'description', 'Ambiguous: two equally good candidates', 'amount', 44000))
+  );
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
