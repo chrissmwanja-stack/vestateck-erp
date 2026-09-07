@@ -262,7 +262,13 @@ describe('MassSlip', () => {
     await user.click(screen.getByRole('button', { name: /import 1 valid row/i }));
 
     await waitFor(() => expect(result.insertCalls).toHaveLength(1));
-    expect(await screen.findByText('Import Results')).toBeInTheDocument();
-    expect(screen.getByText('Imported')).toBeInTheDocument();
+    // "Import Results" shares a Typography with " — N row(s) parsed" as a
+    // sibling text node, so match on the substring rather than the exact
+    // (unmatchable) full node text.
+    expect(await screen.findByText(/Import Results/)).toBeInTheDocument();
+    // The status Chip's label text and its ancestor <td> both have
+    // "Imported" as their full text content, so plain getByText is
+    // ambiguous; scope to the Chip's own span.
+    expect(screen.getByText('Imported', { selector: 'span' })).toBeInTheDocument();
   });
 });
