@@ -32,7 +32,8 @@ export default function NotificationBell({ userId }: { userId: string }) {
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
   const loadNotifications = useCallback(async () => {
-    // IMPROVEMENT: explicit filter for defense in depth (RLS should also enforce)
+   // Explicit filter for defense in depth; RLS also enforces this
+   // (notifications_select_own policy scopes rows to recipient_id = auth.uid())
     const { data, error } = await supabase
       .from("notifications")
       .select("id, type, title, body, request_id, purchase_order_id, recipient_id, read_at, created_at")
