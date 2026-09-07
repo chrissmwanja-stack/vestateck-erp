@@ -32,19 +32,16 @@ packages/shared       TypeScript types shared between the web app and edge funct
 
 | Module | Status |
 |---|---|
-| Procurement (`src/features/procurement`) | Most mature — full threshold-based approval workflow, PO generation, email delivery |
-| IT Support | Complete — admin, report screens, RLS/RPC patterns in place |
-| Business Development | Schema and numbering layer complete; leads, opportunities, tenders, proposals, clients, reports UI built; RPCs and some screens still in progress |
-| HR | Employees, org, attendance, leaves, payroll, performance, recruitment, reports; RLS policies still being resolved on some tables |
-| Law & Compliance | Cases, contracts, compliance, reports |
-| PMO | Projects, tasks, resources, reports |
-| Machine Operation | Equipment, logs, maintenance, reports |
-| Sustainability | Metrics, audits, initiatives, reports |
-
-This list reflects the modules present in the codebase as of writing — some are
-further along than others. Check `supabase/migrations/` (sorted by timestamp)
-for the most current picture of what schema exists per module.
-
+| Procurement → PO (`src/features/procurement`) | Most mature — request → cost control → offers → threshold approvals → PO → receipts → goods issue → stock, with email delivery via edge function and component test coverage |
+| Finance / GL | Very strong — supplier/receivable invoices, advances, expenditure slips, petty cash, bank ops + reconciliation, full GL (chart of accounts, posting rules, period close), payroll disbursement, PAYE/NSSF/WHT/VAT reports, trial balance; deepest SQL test coverage in the repo |
+| Platform / Admin | Complete — companies console, orgs, departments, approval workflow admin, delegations, impersonation, invites/bootstrap, module entitlements, accounting-period/chart admin |
+| IT Support | Complete — tickets, SLAs, teams, access, assets, KB/FAQs, full RLS/RPC coverage |
+| Business Development | Broad but uneven — leads, clients, opportunities, tenders, proposals fully surfaced (incl. report exports); some RPCs and deeper workflows (opportunity math, tender submission management) still landing |
+| HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS hardening still landing on a few tables (compensation, team members, payroll approvers) |
+| Law & Compliance | CRUD-level — cases, contracts, compliance register, filings, approvals screen; contract approval flow and filings depth still to come |
+| PMO | CRUD-level — projects, tasks, milestones, resources, Gantt; no approval workflow yet, cost/time tracking depth still to come |
+| Machine Operation | CRUD-level — equipment, logs, fuel, maintenance; no scheduling/notifications or cost rollup into finance yet |
+| Sustainability | CRUD-level — metrics, audits, certifications, initiatives; edit depth and report exports still to come |
 ## Getting started
 
 1. Install dependencies from the repo root:
