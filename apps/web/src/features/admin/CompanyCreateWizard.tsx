@@ -188,10 +188,13 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
           <Stack spacing={2} alignItems="center" sx={{ py: 2 }}>
             <CheckCircle color="success" sx={{ fontSize: 48 }} />
             <Typography variant="h6">Company created</Typography>
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              <b>{name.trim()}</b> is ready. An invite has been sent to <b>{adminEmail.trim()}</b>. They’ll appear as the company admin once they accept.
-              {seedWarning ? <><br /><em>{seedWarning}</em></> : null}
-            </Typography>
+            {!error && (
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                <b>{name.trim()}</b> is ready. An invite has been sent to <b>{adminEmail.trim()}</b>. They’ll appear as the company admin once they accept.
+                {seedWarning ? <><br /><em>{seedWarning}</em></> : null}
+              </Typography>
+            )}
+            {error && <Alert severity="warning">{error}</Alert>}
             <Alert severity="info">Tip: find them instantly in <b>Companies → {name.trim()}</b> or the Platform Dashboard’s recent list.</Alert>
           </Stack>
         ) : step === 0 ? (
