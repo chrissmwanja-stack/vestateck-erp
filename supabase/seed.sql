@@ -70,6 +70,18 @@ insert into tenants (id, name, industry_template, created_at) values
   ('00000000-0000-0000-0000-000000000001', 'Test Construction Co', 'construction', '2026-07-30 11:30:48.602762+00')
 on conflict (id) do nothing;
 
+-- trg_set_department_defaults (BEFORE INSERT) unconditionally overwrites
+-- NEW.tenant_id via get_my_tenant_id() and raises 'could not determine
+-- tenant_id for current user' if that resolves to null -- and at this
+-- point in the file no app_users row exists for ANY user in this tenant
+-- yet (the tenant itself was only just created above), so there is no
+-- auth context to impersonate our way out of, unlike organizations/
+-- cost_centers below where a real tenant member already exists by the
+-- time those fixtures run. Disable the trigger for this one insert only;
+-- the explicit tenant_id values above are exactly what it would have
+-- set anyway.
+alter table departments disable trigger trg_set_department_defaults;
+
 insert into departments (id, tenant_id, name, created_at) values
   ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'Cost Control', '2026-07-30 11:30:48.602762+00'),
   ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001', 'Procurement & Logistics', '2026-07-30 11:30:48.602762+00'),
@@ -78,6 +90,8 @@ insert into departments (id, tenant_id, name, created_at) values
   ('00000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000001', 'IT Support', '2026-07-30 11:30:48.602762+00'),
   ('00000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000001', 'Human Resources', '2026-07-30 11:30:48.602762+00')
 on conflict (id) do nothing;
+
+alter table departments enable trigger trg_set_department_defaults;
 
 -- Workflow stages, original shape. next_stage_low_id/next_stage_high_id are
 -- backfilled via UPDATE afterward, same as the original, purely to
@@ -251,14 +265,28 @@ begin
      '2026-08-06 14:39:37.733784+00', '2026-08-06 14:39:37.733784+00', '', '');
   end if;
 
-  insert into app_users (id, tenant_id, department_id, name, email, role_title, is_platform_admin)
+  insert into app_users (id, tenant_id, department_id, name, email, role_title)
   values
-    (v_it_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000014', 'Test IT Manager', 'it@test.local', 'IT Manager', true),
-    (v_hr_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000015', 'Test HR Manager', 'hr@test.local', 'HR Manager', false)
+    (v_it_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000014', 'Test IT Manager', 'it@test.local', 'IT Manager'),
+    (v_hr_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000015', 'Test HR Manager', 'hr@test.local', 'HR Manager')
   on conflict (id) do update set
     department_id = excluded.department_id,
-    role_title = excluded.role_title,
-    is_platform_admin = excluded.is_platform_admin;
+    role_title = excluded.role_title;
+
+  -- app_users_single_platform_admin is a partial unique index allowing
+  -- at most ONE true row across the whole table (all tenants), not just
+  -- this one -- so unconditionally setting it@test.local's is_platform_admin
+  -- to true (as the insert above used to) raises a duplicate-key error
+  -- the moment any other row already holds that flag: a branch cloned
+  -- from data that already has a real platform admin, or simply re-running
+  -- this file after it already succeeded once. Grant it here only if no
+  -- *other* row currently holds the flag, and skip quietly otherwise --
+  -- seed.sql needs to be safe to run against varying starting states, not
+  -- just a truly empty database.
+  update app_users
+  set is_platform_admin = true
+  where id = v_it_user_id
+    and not exists (select 1 from app_users where is_platform_admin = true and id != v_it_user_id);
 
   insert into staff_roles (tenant_id, user_id, module, role)
   values (v_tenant_id, v_hr_user_id, 'hr', 'admin')
