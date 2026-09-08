@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from '../../lib/reportExport';
 
 interface Organization {
   id: string;
@@ -76,12 +77,28 @@ export default function VatReport() {
   }, []);
 
   const totalsByCurrency = rows.reduce<Record<string, { vat: number; gross: number }>>((acc, r) => {
-    const key = r.currency;
-    if (!acc[key]) acc[key] = { vat: 0, gross: 0 };
-    acc[key].vat += Number(r.vat_amount);
-    acc[key].gross += Number(r.amount_incl_vat);
+    if (!acc[r.currency]) acc[r.currency] = { vat: 0, gross: 0 };
+    acc[r.currency].vat += Number(r.vat_amount);
+    acc[r.currency].gross += Number(r.amount_incl_vat);
     return acc;
   }, {});
+
+  const exportColumns: ReportExportColumn<VatRow>[] = [
+    { header: 'Type', accessor: (r) => SOURCE_LABELS[r.source_type] },
+    { header: 'Invoice No', accessor: (r) => r.invoice_number },
+    { header: 'Date', accessor: (r) => r.invoice_date },
+    { header: 'VAT Amount', accessor: (r) => Number(r.vat_amount), align: 'right' },
+    { header: 'Amount (incl. VAT)', accessor: (r) => Number(r.amount_incl_vat), align: 'right' },
+    { header: 'Currency', accessor: (r) => r.currency },
+  ];
+
+  const activeOrg = organizations.find((o) => o.id === organizationId);
+  const filterSubtitle = [
+    activeOrg ? `Organization: ${activeOrg.company_code} — ${activeOrg.site_name}` : 'All organizations',
+    dateFrom || dateTo ? `${dateFrom || '…'} to ${dateTo || '…'}` : null,
+  ]
+    .filter(Boolean)
+    .join('  |  ');
 
   return (
     <Box>
@@ -134,6 +151,20 @@ export default function VatReport() {
             }}
           >
             Clear
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={rows.length === 0}
+            onClick={() => exportReportToExcel('vat-report', 'VAT Report', exportColumns, rows)}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={rows.length === 0}
+            onClick={() => exportReportToPdf('vat-report', 'VAT Report', exportColumns, rows, filterSubtitle)}
+          >
+            Export PDF
           </Button>
         </Box>
       </Paper>

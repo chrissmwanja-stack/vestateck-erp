@@ -23,6 +23,12 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import {
+  exportMultiSectionToExcel,
+  exportMultiSectionToPdf,
+  type ReportExportColumn,
+  type ReportSection,
+} from '../../lib/reportExport';
 
 interface OrganizationOption {
   id: string;
@@ -291,6 +297,84 @@ export default function FinancialReports() {
     runReport(emptyFilters);
   }
 
+  const orgBreakdownColumns: ReportExportColumn<OrgBreakdownRow>[] = [
+    { header: 'Organization', accessor: (r) => r.organization_label },
+    { header: 'Count', accessor: (r) => r.count, align: 'right' },
+    { header: 'Total', accessor: (r) => r.total, align: 'right' },
+  ];
+
+  const sections: ReportSection<any>[] = [];
+
+  if (supplierSummary) {
+    sections.push({
+      title: 'Supplier Invoices',
+      summaryLines: [
+        `${supplierSummary.count} invoices | ${supplierSummary.totalInclVat.toLocaleString()} total incl. VAT | ${supplierSummary.totalVat.toLocaleString()} VAT`,
+        `${supplierSummary.poRelatedCount} PO-related | ${supplierSummary.nonPoCount} non-PO`,
+      ],
+      columns: orgBreakdownColumns,
+      rows: supplierSummary.byOrg,
+    });
+  }
+
+  if (receivableSummary) {
+    sections.push({
+      title: 'Receivable Invoices',
+      summaryLines: [
+        `${receivableSummary.openCount} open — ${receivableSummary.openTotal.toLocaleString()}`,
+        `${receivableSummary.paidCount} paid — ${receivableSummary.paidTotal.toLocaleString()}`,
+      ],
+      columns: orgBreakdownColumns,
+      rows: receivableSummary.byOrg,
+    });
+  }
+
+  if (cashBankSummary) {
+    sections.push({
+      title: 'Cash and Bank Movement',
+      summaryLines: [
+        `Receipts: ${cashBankSummary.receiptsTotal.toLocaleString()} | Payments: ${cashBankSummary.paymentsTotal.toLocaleString()} | Net: ${cashBankSummary.netMovement.toLocaleString()}`,
+        `Cash: ${cashBankSummary.cashTotal.toLocaleString()} | Bank: ${cashBankSummary.bankTotal.toLocaleString()}`,
+        `Not organization-scoped — cash and bank transactions aren't currently tied to an organization in the schema.`,
+      ],
+      columns: [{ header: 'Metric', accessor: () => '' }],
+      rows: [],
+    });
+  }
+
+  if (expenditureSummary) {
+    sections.push({
+      title: 'Expenditure Slips',
+      summaryLines: [`${expenditureSummary.count} slips | ${expenditureSummary.total.toLocaleString()} total`],
+      columns: [
+        { header: 'Cost Center', accessor: (r: { cost_center_label: string }) => r.cost_center_label },
+        { header: 'Count', accessor: (r: { count: number }) => r.count, align: 'right' },
+        { header: 'Total', accessor: (r: { total: number }) => r.total, align: 'right' },
+      ],
+      rows: expenditureSummary.byCostCenter,
+    });
+  }
+
+  sections.push({
+    title: 'Petty Cash Floats',
+    summaryLines: ['Current snapshot — not date-filtered.'],
+    columns: [
+      { header: 'Float', accessor: (r: PettyCashRow) => r.float_name },
+      { header: 'Ceiling', accessor: (r: PettyCashRow) => `${r.ceiling_amount.toLocaleString()} ${r.currency}`, align: 'right' },
+      { header: 'Current Balance', accessor: (r: PettyCashRow) => `${r.current_balance.toLocaleString()} ${r.currency}`, align: 'right' },
+      { header: 'Status', accessor: (r: PettyCashRow) => (r.is_active ? 'Active' : 'Inactive') },
+    ],
+    rows: pettyCashRows,
+  });
+
+  const activeOrgLabel = organizationOptions.find((o) => o.id === filters.organizationId)?.label ?? 'All organizations';
+  const filterSubtitle = [
+    `Organization (invoices only): ${activeOrgLabel}`,
+    filters.dateFrom || filters.dateTo ? `${filters.dateFrom || '…'} to ${filters.dateTo || '…'}` : null,
+  ]
+    .filter(Boolean)
+    .join('  |  ');
+
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 2 }}>
@@ -349,6 +433,20 @@ export default function FinancialReports() {
             </Button>
             <Button variant="outlined" startIcon={<ClearIcon />} onClick={handleClear} disabled={loading}>
               Clear
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!hasRun || loading}
+              onClick={() => exportMultiSectionToExcel('financial-reports', sections)}
+            >
+              Export Excel
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!hasRun || loading}
+              onClick={() => exportMultiSectionToPdf('financial-reports', 'Financial Reports', sections, filterSubtitle)}
+            >
+              Export PDF
             </Button>
           </Stack>
         </Box>

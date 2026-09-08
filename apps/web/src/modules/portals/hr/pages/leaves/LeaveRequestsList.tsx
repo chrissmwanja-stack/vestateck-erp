@@ -96,7 +96,10 @@ export default function LeaveRequestsList() {
 
   const handleDecision = async (id: string, status: 'approved' | 'rejected') => {
     if (!confirm(`Mark leave as ${status}?`)) return;
-    const { error } = await supabase.from("hr_leave_requests").update({ status }).eq("id", id);
+    const { error } = await supabase
+      .from("hr_leave_requests")
+      .update({ status, approver_id: session?.user.id ?? null })
+      .eq("id", id);
     if (!error) fetchData();
   };
 
