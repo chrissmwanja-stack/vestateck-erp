@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useAuth } from "../../../../../lib/authContext";
 
 interface Proposal { id: string; proposal_no: string; title: string; status: string; total_value: number; currency: string; created_at: string; bd_clients?: { name: string } | null; }
 
 export default function ProposalApprovals() {
+  const { session } = useAuth();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +21,12 @@ export default function ProposalApprovals() {
 
   const handleDecision = async (id: string, decision: 'approved' | 'rejected') => {
     if (!confirm(`Mark proposal as ${decision}?`)) return;
-    const { error } = await supabase.from("bd_proposals").update({ status: decision }).eq("id", id);
+    // decided_by/decided_at existed on the table but were never set by this
+    // screen -- same gap as the HR leave approver_id bug, fixed the same way.
+    const { error } = await supabase
+      .from("bd_proposals")
+      .update({ status: decision, decided_by: session?.user.id ?? null, decided_at: new Date().toISOString() })
+      .eq("id", id);
     if (!error) fetchData();
   };
 

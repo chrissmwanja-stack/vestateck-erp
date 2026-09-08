@@ -9,6 +9,11 @@ vi.mock('../../../../../lib/supabaseClient', () => ({
   },
 }));
 
+const mockUseAuth = vi.fn();
+vi.mock('../../../../../lib/authContext', () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
 const PROPOSAL_A = {
   id: 'p1',
   proposal_no: 'PRO-0001',
@@ -65,6 +70,7 @@ function setupSupabase(selectResults: Array<{ data: unknown; error: unknown }>, 
 
 beforeEach(() => {
   mockFrom.mockReset();
+  mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } } });
   vi.restoreAllMocks();
 });
 
@@ -110,7 +116,9 @@ describe('ProposalApprovals', () => {
     screen.getByRole('button', { name: 'Approve' }).click();
 
     await waitFor(() => expect(screen.getByText(/No proposals pending approval/)).toBeInTheDocument());
-    expect(updateCalls).toEqual([{ patch: { status: 'approved' }, id: 'p1' }]);
+    expect(updateCalls).toEqual([
+      { patch: { status: 'approved', decided_by: 'u1', decided_at: expect.any(String) }, id: 'p1' },
+    ]);
     expect(selectCallCount()).toBe(2); // initial fetch + refetch after a successful decision
   });
 
@@ -127,7 +135,9 @@ describe('ProposalApprovals', () => {
     screen.getByRole('button', { name: 'Reject' }).click();
 
     await waitFor(() => expect(screen.getByText(/No proposals pending approval/)).toBeInTheDocument());
-    expect(updateCalls).toEqual([{ patch: { status: 'rejected' }, id: 'p1' }]);
+    expect(updateCalls).toEqual([
+      { patch: { status: 'rejected', decided_by: 'u1', decided_at: expect.any(String) }, id: 'p1' },
+    ]);
   });
 
   it('cancelling the confirm dialog makes no update call and does not refetch', async () => {
@@ -158,7 +168,9 @@ describe('ProposalApprovals', () => {
 
     screen.getByRole('button', { name: 'Approve' }).click();
 
-    await waitFor(() => expect(updateCalls).toEqual([{ patch: { status: 'approved' }, id: 'p1' }]));
+    await waitFor(() => expect(updateCalls).toEqual([
+      { patch: { status: 'approved', decided_by: 'u1', decided_at: expect.any(String) }, id: 'p1' },
+    ]));
     // fetchData is only called again on success -- a failed update should
     // leave the select call count at 1 (no refetch triggered).
     expect(selectCallCount()).toBe(1);

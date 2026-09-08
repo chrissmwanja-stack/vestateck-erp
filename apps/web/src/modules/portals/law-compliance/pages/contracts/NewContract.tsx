@@ -57,6 +57,9 @@ export default function NewContract() {
       end_date: form.end_date || null,
       value: form.value ? parseFloat(form.value) : null,
       currency: form.currency,
+      // was never set before -- left every contract with no submitter on
+      // record, so approval-decision notifications had no one to notify.
+      created_by: session?.user?.id ?? null,
     };
     if (tenant_id) payload.tenant_id = tenant_id;
 
