@@ -21,22 +21,24 @@ test.describe('Finance invoice + payment', () => {
       await page.goto('/financial-management/invoices/supplier-invoice-non-po');
       await page.getByRole('button', { name: /new supplier invoice/i }).click();
 
-      const dialog = page.getByRole('dialog');
-      await expect(dialog.getByRole('heading', { name: 'New Supplier Invoice' })).toBeVisible();
+      // The entry form is an inline Card toggled by state, not a MUI
+      // Dialog -- there's no role="dialog" wrapper to scope into here.
+      const formHeading = page.getByRole('heading', { name: 'New Supplier Invoice' });
+      await expect(formHeading).toBeVisible();
 
       for (const label of ['Organization', /cost center/i, /vendor account/i]) {
-        await dialog.getByLabel(label).click();
+        await page.getByLabel(label).click();
         const option = page.getByRole('option').first();
         await expect(option).toBeVisible({ timeout: 10_000 });
         await option.click();
       }
 
-      await dialog.getByLabel(/invoice no/i).fill(invoiceNo);
-      await dialog.getByLabel(/invoice date/i).fill('2026-09-08');
-      await dialog.getByLabel(/amount \(incl\. vat\)/i).fill('80000');
+      await page.getByLabel(/invoice no/i).fill(invoiceNo);
+      await page.getByLabel(/invoice date/i).fill('2026-09-08');
+      await page.getByLabel(/amount \(incl\. vat\)/i).fill('80000');
 
-      await dialog.getByRole('button', { name: 'Save' }).click();
-      await expect(dialog).toBeHidden({ timeout: 15_000 });
+      await page.getByRole('button', { name: 'Save' }).click();
+      await expect(formHeading).toBeHidden({ timeout: 15_000 });
       await expect(page.getByText(invoiceNo)).toBeVisible({ timeout: 10_000 });
     });
 
