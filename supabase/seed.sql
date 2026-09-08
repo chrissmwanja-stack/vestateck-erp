@@ -142,6 +142,34 @@ from (values ('hr'), ('legal'), ('bd'), ('it'), ('pmo'),
              ('machine_operation'), ('sustainability'), ('procurement')) as m(module)
 on conflict (tenant_id, module) do nothing;
 
+-- Finance lookup data: organizations, cost centers, and a vendor account.
+-- These used to be referenced by a comment above ("cost_centers below
+-- where a real tenant member already exists") that implied fixtures for
+-- them existed in this file -- they never actually landed, so every
+-- Autocomplete backed by these three tables (Supplier Invoice,
+-- Request Submission, etc.) has been silently empty on a fresh replay.
+-- These inserts run before the seeded app_users rows exist. Their default
+-- triggers derive tenant_id from auth.uid(), so preserve the explicit seed
+-- tenant while loading this bootstrap data.
+alter table organizations disable trigger trg_set_organization_defaults;
+alter table cost_centers disable trigger trg_set_cost_center_defaults;
+
+insert into organizations (id, tenant_id, company_code, site_name) values
+  ('00000000-0000-0000-0000-000000000040', '00000000-0000-0000-0000-000000000001', 'HQ', 'Head Office')
+on conflict (id) do nothing;
+
+insert into cost_centers (id, tenant_id, name, project_code, budget_amount) values
+  ('00000000-0000-0000-0000-000000000041', '00000000-0000-0000-0000-000000000001', 'Head Office', 'HQ-001', 50000000.00),
+  ('00000000-0000-0000-0000-000000000042', '00000000-0000-0000-0000-000000000001', 'Site A', 'STA-001', 20000000.00)
+on conflict (id) do nothing;
+
+alter table organizations enable trigger trg_set_organization_defaults;
+alter table cost_centers enable trigger trg_set_cost_center_defaults;
+
+insert into accounts (id, tenant_id, account_code, name, account_type, is_active) values
+  ('00000000-0000-0000-0000-000000000043', '00000000-0000-0000-0000-000000000001', 'VEND-001', 'Test Vendor Ltd', 'vendor', true)
+on conflict (id) do nothing;
+
 -- ============================================================================
 -- 2. The other 9 documented test accounts. Ported from the archived
 --    migrations named in the header above -- same pinned IDs (or,
@@ -291,6 +319,15 @@ begin
   insert into staff_roles (tenant_id, user_id, module, role)
   values (v_tenant_id, v_hr_user_id, 'hr', 'admin')
   on conflict (tenant_id, user_id, module) do nothing;
+
+  -- is_hr_team_member() (used to gate Payroll's "New run" button, among
+  -- other HR screens) checks hr_team_members, NOT staff_roles -- the two
+  -- are separate membership patterns in this codebase (see the bd/it
+  -- module RBAC unification note). The staff_roles row above alone does
+  -- not make hr@test.local an HR team member; this insert does.
+  insert into hr_team_members (tenant_id, user_id, role)
+  values (v_tenant_id, v_hr_user_id, 'admin')
+  on conflict (tenant_id, user_id) do nothing;
 
   -- PMO Manager and Machine Operations Manager, plus their starter
   -- lookup data, matching the empty-state hints already in the UI copy.
