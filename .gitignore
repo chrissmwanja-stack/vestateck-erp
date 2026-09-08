@@ -20,3 +20,8 @@ apps/web/tsconfig.tsbuildinfo
 # Local diagnostic output — regenerated on demand, goes stale immediately
 migration-scan-report.txt
 function-signature-diff.txt
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/e2e/.auth/
