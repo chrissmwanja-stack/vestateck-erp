@@ -142,8 +142,9 @@ from (values ('hr'), ('legal'), ('bd'), ('it'), ('pmo'),
              ('machine_operation'), ('sustainability'), ('procurement')) as m(module)
 on conflict (tenant_id, module) do nothing;
 
--- Finance lookup data: organizations, cost centers, and a vendor account.
--- These used to be referenced by a comment above ("cost_centers below
+-- Finance/procurement lookup data: organizations, cost centers, a vendor
+-- account, PAYE/NSSF statutory rates, and demo catalog materials. These
+-- used to be referenced by a comment above ("cost_centers below
 -- where a real tenant member already exists") that implied fixtures for
 -- them existed in this file -- they never actually landed, so every
 -- Autocomplete backed by these three tables (Supplier Invoice,
@@ -170,6 +171,43 @@ insert into accounts (id, tenant_id, account_code, name, account_type, is_active
   ('00000000-0000-0000-0000-000000000043', '00000000-0000-0000-0000-000000000001', 'VEND-001', 'Test Vendor Ltd', 'vendor', true)
 on conflict (id) do nothing;
 
+-- PAYE/NSSF rate table for the demo tenant, so payroll generation
+-- computes real statutory deductions instead of zeros. Same 4-band
+-- PAYE schedule seed_statutory_rate_table() ships and the payroll
+-- SQL tests use (see test_payroll_generation.sql / test_statutory_
+-- deductions.sql headers: reasonable for test fixtures, unconfirmed
+-- against URA). statutory_rate_tables has no unique constraint, so
+-- idempotency is delete-then-insert scoped to this tenant + date.
+-- Effective current_date - 60 keeps the rows in force for any run
+-- period from the current month on (generate_payroll_items computes
+-- deductions as of current_date).
+delete from statutory_rate_tables
+where tenant_id = '00000000-0000-0000-0000-000000000001'
+  and effective_date = current_date - 60;
+
+insert into statutory_rate_tables (tenant_id, rate_type, effective_date, band_order, lower_bound, upper_bound, rate, base_tax) values
+  ('00000000-0000-0000-0000-000000000001', 'paye', current_date - 60, 1, 0, 335000, 0, 0),
+  ('00000000-0000-0000-0000-000000000001', 'paye', current_date - 60, 2, 335000, 410000, 10, 0),
+  ('00000000-0000-0000-0000-000000000001', 'paye', current_date - 60, 3, 410000, 10000000, 20, 7500),
+  ('00000000-0000-0000-0000-000000000001', 'paye', current_date - 60, 4, 10000000, null, 30, 1927500),
+  ('00000000-0000-0000-0000-000000000001', 'nssf_employee', current_date - 60, 1, 0, null, 5, 0),
+  ('00000000-0000-0000-0000-000000000001', 'nssf_employer', current_date - 60, 1, 0, null, 10, 0);
+
+-- A few demo catalog materials for the Test Construction Co tenant, so
+-- the procurement request form's "Type or pick from catalog"
+-- freeSolo picker has real suggestions (and MaterialCatalogAdmin has
+-- rows to show). material_catalog carries no BEFORE INSERT trigger --
+-- the client resolves tenant_id itself (see
+-- 20260822120000_material_catalog_insert_policy.sql) -- so these
+-- inserts are safe under the seed's postgres role. material_type_id /
+-- material_group_id stay NULL; the join in the request form tolerates
+-- that.
+insert into material_catalog (id, tenant_id, name, code, unit, is_active) values
+  ('00000000-0000-0000-0000-000000000044', '00000000-0000-0000-0000-000000000001', 'Portland Cement (50kg bag)', 'MAT-CEM-001', 'Bag', true),
+  ('00000000-0000-0000-0000-000000000045', '00000000-0000-0000-0000-000000000001', 'Reinforcing Steel Bar 12mm (per m)', 'MAT-STL-012', 'm', true),
+  ('00000000-0000-0000-0000-000000000046', '00000000-0000-0000-0000-000000000001', 'River Sand (per trip)', 'MAT-SND-001', 'Trip', true)
+on conflict (id) do nothing;
+
 -- ============================================================================
 -- 2. The other 9 documented test accounts. Ported from the archived
 --    migrations named in the header above -- same pinned IDs (or,
@@ -188,6 +226,8 @@ declare
   v_hr_user_id uuid := '53665127-5662-442b-bf63-92e930ff40ef';
   v_pmo_user_id uuid := '87b890d6-27b7-4ca9-9a96-41906881037d';
   v_machine_user_id uuid := 'b98b4fe4-2a3e-49ec-8e71-7704c9eef640';
+  v_emp1 uuid;
+  v_emp2 uuid;
 begin
   -- Cost Control Manager, Finance Officer, Procurement & Logistics Chief
   -- (the three original test accounts).
@@ -216,6 +256,18 @@ begin
     (v_finance_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000012', 'Test Finance Officer', 'finance@test.local', 'Finance Officer', '2026-07-30 11:30:48.602762+00'),
     (v_procurement_user_id, v_tenant_id, '00000000-0000-0000-0000-000000000011', 'Test Procurement Lead', 'procurement@test.local', 'Procurement & Logistics Chief', '2026-07-30 11:30:48.602762+00')
   on conflict (id) do nothing;
+
+  -- finance@test.local must be a finance team member, not just an
+  -- app_user with a Finance role_title: the accounts/organizations/
+  -- statutory_rate_tables RLS SELECT policies (and the finance write
+  -- policies) all key off is_finance_team_member(), the same
+  -- membership-table pattern as hr_team_members below. Without this
+  -- row, finance@test.local sees an EMPTY accounts/organizations
+  -- dropdown on the supplier-invoice screen even though the fixture
+  -- rows above exist -- exactly what the e2e finance spec hits.
+  insert into finance_team_members (tenant_id, user_id, role)
+  values (v_tenant_id, v_finance_user_id, 'finance')
+  on conflict (tenant_id, user_id, role) do nothing;
 
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max, created_at) values
     (v_tenant_id, v_cost_control_user_id, '00000000-0000-0000-0000-000000000031', 'global', null, '2026-07-30 11:30:48.602762+00'),
@@ -329,6 +381,34 @@ begin
   values (v_tenant_id, v_hr_user_id, 'admin')
   on conflict (tenant_id, user_id) do nothing;
 
+  -- Two demo employees with compensation records, mirroring the
+  -- payroll SQL-test fixtures (test_payroll_generation.sql). Payroll's
+  -- generate_payroll_items() pulls active employees joined to
+  -- hr_employee_current_compensation -- with zero rows there, the e2e
+  -- payroll spec's "generate items" step silently produces nothing
+  -- (the run submits and approves, but there is no payroll behind it).
+  -- generate_hr_employee_no() derives the number from NEW.tenant_id
+  -- (no auth context needed), so these inserts are safe at this point
+  -- in the file. employee emails are deliberately NOT @test.local
+  -- login accounts -- these are just payrolled staff records.
+  if not exists (select 1 from hr_employees where email = 'alice.anyanzwa@example.com') then
+    insert into hr_employees (tenant_id, first_name, last_name, email, department_id, hire_date)
+    values (v_tenant_id, 'Alice', 'Anyanzwa', 'alice.anyanzwa@example.com',
+            '00000000-0000-0000-0000-000000000015', current_date - interval '1 year')
+    returning id into v_emp1;
+    insert into hr_employee_compensation (tenant_id, employee_id, basic_salary, effective_date, created_by)
+    values (v_tenant_id, v_emp1, 300000, current_date - 30, v_hr_user_id);
+  end if;
+
+  if not exists (select 1 from hr_employees where email = 'brian.byaruhanga@example.com') then
+    insert into hr_employees (tenant_id, first_name, last_name, email, department_id, hire_date)
+    values (v_tenant_id, 'Brian', 'Byaruhanga', 'brian.byaruhanga@example.com',
+            '00000000-0000-0000-0000-000000000015', current_date - interval '1 year')
+    returning id into v_emp2;
+    insert into hr_employee_compensation (tenant_id, employee_id, basic_salary, effective_date, created_by)
+    values (v_tenant_id, v_emp2, 1200000, current_date - 30, v_hr_user_id);
+  end if;
+
   -- PMO Manager and Machine Operations Manager, plus their starter
   -- lookup data, matching the empty-state hints already in the UI copy.
   if not exists (select 1 from auth.users where id = v_pmo_user_id) then
@@ -427,6 +507,16 @@ begin
   insert into app_users (id, tenant_id, name, email, role_title)
   values (v_pm_user_id, v_tenant_id, 'Test Project Manager', 'pm@test.local', 'Project Manager')
   on conflict (id) do nothing;
+
+  -- pm@test.local as a payroll approver so the payroll e2e spec can
+  -- approve runs without a manual one-time grant in the UI. Payroll
+  -- approval rights live in payroll_approvers (checked by
+  -- is_payroll_approver()), a separate tier from staff_roles -- same
+  -- pattern as hr_team_members/finance_team_members above. Role
+  -- matches what grant_payroll_approver() inserts.
+  insert into payroll_approvers (tenant_id, user_id, role, is_active)
+  values (v_tenant_id, v_pm_user_id, 'approver', true)
+  on conflict (tenant_id, user_id) do update set is_active = true;
 
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max)
   values (v_tenant_id, v_pm_user_id, '00000000-0000-0000-0000-000000000035', 'global', null)

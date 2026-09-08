@@ -27,11 +27,10 @@ npx playwright install --with-deps chromium
    `cce@test.local`, `cost.control@test.local`,
    `procurement.offer@test.local`, `procurement@test.local`,
    `finance@test.local`, `hr@test.local`, `pm@test.local`.
-3. **`pm@test.local` must be a configured payroll approver** — payroll
-   approval rights are granted per-user via
-   `/hr/admin/payroll-approvers`, not implied by job title. If it isn't
-   already, log in as an HR admin and grant it once before running the
-   payroll spec.
+3. **`pm@test.local` is seeded as a payroll approver** directly in
+   `supabase/seed.sql` (payroll approval rights are a separate grant
+   from job title/`approval_assignments`, via `/hr/admin/payroll-approvers`
+   normally). No manual step needed as long as seed.sql has been applied.
 4. None of the seeded accounts have MFA enabled. If you've since enrolled
    one of them in TOTP, the login helper doesn't handle the challenge
    screen — use a non-MFA account or extend `loginAs()`.

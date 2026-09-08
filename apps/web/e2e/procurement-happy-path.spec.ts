@@ -36,7 +36,15 @@ test.describe('Procurement happy path', () => {
       // cost center comes up first, since real seeded cost centers vary
       // by environment and we don't want this test coupled to one name.
       const firstOption = page.getByRole('option').first();
-      await expect(firstOption).toBeVisible({ timeout: 10_000 });
+      // Two cost centers are seeded for the demo tenant (seed.sql). If
+      // none render, the app is talking to a project that wasn't reset
+      // (check apps/web/.env + no stale dev server on :5173) or the
+      // seeded rows are missing.
+      await expect(
+        firstOption,
+        'No cost center options rendered. seed.sql seeds 2 for the demo tenant; ' +
+          'check that apps/web/.env points at the project you just "supabase db reset".'
+      ).toBeVisible({ timeout: 10_000 });
       await firstOption.click();
 
       const materialInput = page.getByPlaceholder('Type or pick from catalog').first();

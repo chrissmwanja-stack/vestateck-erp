@@ -27,10 +27,21 @@ test.describe('Finance invoice + payment', () => {
       await expect(formHeading).toBeVisible();
 
       for (const label of ['Organization', /cost center/i, /vendor account/i]) {
-        await page.getByLabel(label).click();
-        const option = page.getByRole('option').first();
-        await expect(option).toBeVisible({ timeout: 10_000 });
-        await option.click();
+        await test.step(`pick ${String(label)}`, async () => {
+          await page.getByLabel(label).click();
+          const option = page.getByRole('option').first();
+          // The three lookup tables are RLS-gated to finance team
+          // members; if this times out, finance@test.local is probably
+          // missing its finance_team_members row (seed.sql adds it) or
+          // the app isn't pointed at the DB that was just reset.
+          await expect(
+            option,
+            `No '${String(label)}' options rendered. Seeded lookup rows exist for the demo tenant; ` +
+              `check that (1) apps/web/.env points at the project you 'supabase db reset', and ` +
+              `(2) finance@test.local has a finance_team_members row (fresh seed adds it).`
+          ).toBeVisible({ timeout: 10_000 });
+          await option.click();
+        });
       }
 
       await page.getByLabel(/invoice no/i).fill(invoiceNo);

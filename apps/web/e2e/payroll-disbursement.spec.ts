@@ -9,9 +9,11 @@ import { loginAs, logout } from './utils/auth';
  *
  * NOTE: payroll approval rights are granted per-user via the
  * PayrollApproversAdmin screen (/hr/admin/payroll-approvers), not implied
- * by a job title. This spec assumes pm@test.local is already configured
- * as an approver in the target environment -- if it isn't, the "approve"
- * step will fail with "nothing waiting on you". Grant it there first.
+ * by a job title. A FRESH `supabase db reset` now seeds pm@test.local
+ * as an active approver (seed.sql), so no manual grant is needed on a
+ * fresh stack. Environments that predate that seed addition still need
+ * a one-time grant: log in as hr@test.local, open
+ * /hr/admin/payroll-approvers, and add pm@test.local.
  *
  * Period is derived from the current date so reruns on a new calendar
  * month don't collide with a prior run; reruns within the same month
@@ -26,6 +28,16 @@ test.describe('Payroll disbursement', () => {
       await loginAs(page, 'hr');
       await page.goto('/hr/payroll');
 
+      // "New run" only renders for HR team members (is_hr_team_member()).
+      // Fresh seeds give hr@test.local an hr_team_members row; if the
+      // button never appears, either that row is missing on the target
+      // project or the app is pointed at a project that wasn't reset.
+      await expect(
+        page.getByRole('button', { name: 'New run' }),
+        '"New run" never appeared -- hr@test.local is not an HR team member here. ' +
+          'A fresh seed adds hr_team_members; check apps/web/.env points at the ' +
+          'project you just "supabase db reset".'
+      ).toBeVisible({ timeout: 30_000 });
       await page.getByRole('button', { name: 'New run' }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel('Period').fill(period);
