@@ -16,6 +16,7 @@ const ProcurementInfo = lazy(() => import('./features/procurement/ProcurementInf
 import LoginPage from './features/auth/LoginPage';
 import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
+import RequireRpcAccess from './components/RequireRpcAccess';
 import { BD_ADMIN_ROLES } from './modules/portals/business-development/access';
 import { IT_ADMIN_ROLES } from './features/it-support/access';
 import RequireFinanceTeam from './components/RequireFinanceTeam';
@@ -552,7 +553,6 @@ export default function App() {
                 <Route path="/hr/recruitment/applications" element={<ApplicationsList />} />
                 <Route path="/hr/payroll" element={<PayrollList />} />
                 <Route path="/hr/payroll/compensation-history" element={<CompensationHistory />} />
-                <Route path="/hr/payroll/approvals" element={<PayrollApprovals />} />
                 <Route path="/hr/performance/appraisals" element={<AppraisalsList />} />
                 <Route path="/hr/training" element={<TrainingList />} />
                 <Route path="/hr/reports/headcount" element={<HeadcountReport />} />
@@ -562,6 +562,18 @@ export default function App() {
                 <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
                 <Route path="/hr/admin/team-members" element={<HrTeamMembersAdmin />} />
                 <Route path="/hr/admin/payroll-approvers" element={<PayrollApproversAdmin />} />
+              </Route>
+
+              {/* Payroll approvals: deliberately NOT behind RequireModule
+                  module="hr" -- payroll_approvers is a separate,
+                  by-design non-HR grant (see 20260821090000_hr_team_and_
+                  payroll_approver_admin_rpcs.sql and the RLS fix in
+                  20260819141503_hr_payroll_approver_select_access.sql),
+                  so a designated approver who isn't HR staff must still
+                  reach this page. can_view_payroll_approvals() = is_hr_
+                  team_member() OR is_payroll_approver(). */}
+              <Route element={<RequireRpcAccess rpc="can_view_payroll_approvals" />}>
+                <Route path="/hr/payroll/approvals" element={<PayrollApprovals />} />
               </Route>
 
               {/* MACHINE OPERATION - 100% REAL NOW */}

@@ -29,7 +29,10 @@ test.describe('Procurement happy path', () => {
 
       await page.getByLabel('Description').fill(marker);
 
-      const costCenterInput = page.getByLabel('Cost center');
+      // getByLabel matches both the combobox input and, once opened, the
+      // MUI listbox (it's aria-labelledby the same label). getByRole with
+      // the combobox role disambiguates regardless of open/closed state.
+      const costCenterInput = page.getByRole('combobox', { name: 'Cost center' });
       await costCenterInput.click();
       await costCenterInput.fill('');
       // Type nothing further -- just open the list and take whichever

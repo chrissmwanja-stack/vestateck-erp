@@ -44,7 +44,10 @@ test.describe('Finance invoice + payment', () => {
         });
       }
 
-      await page.getByLabel(/invoice no/i).fill(invoiceNo);
+      // The search filter bar above also has a field labelled "Invoice No"
+      // (not required, no asterisk) -- MUI appends " *" to the accessible
+      // name of required fields, which is what disambiguates this one.
+      await page.getByLabel('Invoice No *').fill(invoiceNo);
       await page.getByLabel(/invoice date/i).fill('2026-09-08');
       await page.getByLabel(/amount \(incl\. vat\)/i).fill('80000');
 
