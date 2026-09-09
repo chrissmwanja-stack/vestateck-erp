@@ -17,11 +17,27 @@ npx playwright install --with-deps chromium
 
 ## What they need to run
 
-1. **A reachable app + Supabase project.** Point `.env` (or whatever the
-   dev server picks up) at the Supabase project you want to test against —
-   a local `supabase start` stack, or a live test tenant. These specs
-   don't care which, as long as `supabase/seed.sql` has been applied to it
-   so the accounts below exist.
+1. **Your own local `supabase start` stack, seeded via `supabase db reset`.**
+   Do **not** point these at a live/linked project — `supabase/seed.sql`
+   has a hard warning against ever being applied there (the seeded
+   password is public in this repo).
+
+   ```bash
+   supabase start        # boots the local stack if not already running
+   supabase status        # copy the API URL and anon key it prints
+   supabase db reset      # (re)applies migrations + seed.sql locally
+   ```
+
+   Then, in `apps/web/`, copy `.env.e2e.example` to `.env.e2e` and paste
+   in those values. `playwright.config.ts` loads `.env.e2e` and passes it
+   to the `npm run dev` server it boots for the test run — it does **not**
+   touch `apps/web/.env`, so your normal day-to-day dev setup (which may
+   point at a live project) is untouched.
+
+   If you already have a `npm run dev` running on :5173 from earlier,
+   **stop it first** — Playwright will otherwise reuse that already-running
+   instance (started with whatever `.env` said at the time) instead of
+   booting a fresh one with `.env.e2e` applied.
 2. **Seeded @test.local accounts**, all with password `Tester123` unless
    overridden (see `e2e/utils/auth.ts`):
    `cce@test.local`, `cost.control@test.local`,

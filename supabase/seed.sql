@@ -20,6 +20,18 @@
 --
 -- Password for every account below: Tester123
 --
+-- Every auth.users insert below explicitly sets email_change,
+-- email_change_token_new, email_change_token_current, phone_change,
+-- phone_change_token, and reauthentication_token to '' (alongside the
+-- pre-existing confirmation_token/recovery_token). GoTrue's Go code scans
+-- these columns as non-nullable strings; leaving them at their actual
+-- Postgres default (NULL) makes every login for a hand-seeded user fail
+-- with a 500 ("error finding user: sql: Scan error ... converting NULL
+-- to string is unsupported"), even though the user row itself looks
+-- completely normal in the DB. This never surfaced before because
+-- nothing exercised real GoTrue login end-to-end until the Playwright
+-- e2e specs (everything else mocks supabase-js).
+--
 -- *** Why this file now creates the tenant/departments/workflow_stages
 -- itself, instead of assuming they already exist ***
 --
@@ -235,20 +247,22 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values
     ('00000000-0000-0000-0000-000000000000', v_cost_control_user_id, 'authenticated', 'authenticated',
      'cost.control@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
-     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '', '', '', '', '', '', ''),
     ('00000000-0000-0000-0000-000000000000', v_finance_user_id, 'authenticated', 'authenticated',
      'finance@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
-     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', ''),
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '', '', '', '', '', '', ''),
     ('00000000-0000-0000-0000-000000000000', v_procurement_user_id, 'authenticated', 'authenticated',
      'procurement@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-07-30 11:30:48.602762+00', '{"provider":"email","providers":["email"]}', '{}',
-     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '');
+     '2026-07-30 11:30:48.602762+00', '2026-07-30 11:30:48.602762+00', '', '', '', '', '', '', '', '');
   end if;
 
   insert into app_users (id, tenant_id, department_id, name, email, role_title, created_at) values
@@ -280,12 +294,14 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values (
       '00000000-0000-0000-0000-000000000000', v_cce_user_id, 'authenticated', 'authenticated',
       'cce@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
       '2026-07-30 15:03:09.838892+00', '{"provider":"email","providers":["email"]}', '{}',
-      '2026-07-30 15:03:09.838892+00', '2026-07-30 15:03:09.838892+00', '', ''
+      '2026-07-30 15:03:09.838892+00', '2026-07-30 15:03:09.838892+00', '', '', '', '', '', '', '', ''
     );
   end if;
 
@@ -304,12 +320,14 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values (
       '00000000-0000-0000-0000-000000000000', v_proc_offer_user_id, 'authenticated', 'authenticated',
       'procurement.offer@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
       '2026-07-30 15:03:09.838892+00', '{"provider":"email","providers":["email"]}', '{}',
-      '2026-07-30 15:03:09.838892+00', '2026-07-30 15:03:09.838892+00', '', ''
+      '2026-07-30 15:03:09.838892+00', '2026-07-30 15:03:09.838892+00', '', '', '', '', '', '', '', ''
     );
   end if;
 
@@ -333,16 +351,18 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values
     ('00000000-0000-0000-0000-000000000000', v_it_user_id, 'authenticated', 'authenticated',
      'it@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-08-06 14:39:37.733784+00', '{"provider":"email","providers":["email"]}', '{}',
-     '2026-08-06 14:39:37.733784+00', '2026-08-06 14:39:37.733784+00', '', ''),
+     '2026-08-06 14:39:37.733784+00', '2026-08-06 14:39:37.733784+00', '', '', '', '', '', '', '', ''),
     ('00000000-0000-0000-0000-000000000000', v_hr_user_id, 'authenticated', 'authenticated',
      'hr@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
      '2026-08-06 14:39:37.733784+00', '{"provider":"email","providers":["email"]}', '{}',
-     '2026-08-06 14:39:37.733784+00', '2026-08-06 14:39:37.733784+00', '', '');
+     '2026-08-06 14:39:37.733784+00', '2026-08-06 14:39:37.733784+00', '', '', '', '', '', '', '', '');
   end if;
 
   insert into app_users (id, tenant_id, department_id, name, email, role_title)
@@ -415,14 +435,16 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values
     ('00000000-0000-0000-0000-000000000000', v_pmo_user_id, 'authenticated', 'authenticated',
      'pmo@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
-     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''),
+     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', ''),
     ('00000000-0000-0000-0000-000000000000', v_machine_user_id, 'authenticated', 'authenticated',
      'machine.ops@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
-     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '');
+     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', '');
   end if;
 
   insert into app_users (id, tenant_id, name, email, role_title) values
@@ -475,11 +497,13 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values (
       '00000000-0000-0000-0000-000000000000', v_gm_user_id, 'authenticated', 'authenticated',
       'gm@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
-      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
+      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', ''
     );
   end if;
 
@@ -496,11 +520,13 @@ begin
     insert into auth.users (
       instance_id, id, aud, role, email, encrypted_password,
       email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-      created_at, updated_at, confirmation_token, recovery_token
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) values (
       '00000000-0000-0000-0000-000000000000', v_pm_user_id, 'authenticated', 'authenticated',
       'pm@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
-      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
+      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', ''
     );
   end if;
 
@@ -521,6 +547,18 @@ begin
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max)
   values (v_tenant_id, v_pm_user_id, '00000000-0000-0000-0000-000000000035', 'global', null)
   on conflict (tenant_id, user_id, workflow_stage_id) do nothing;
+
+  -- is_payroll_approver() (gates approve_payroll_run/reject_payroll_run)
+  -- checks payroll_approvers, which is a separate grant from the
+  -- workflow-stage approval_assignments row above -- role_title alone
+  -- does not make pm@test.local a payroll approver. Matches the row
+  -- shape grant_payroll_approver() would insert (role='approver').
+  -- Without this, e2e/payroll-disbursement.spec.ts's approval step fails
+  -- with "nothing waiting on you" until an HR admin grants it manually
+  -- via /hr/admin/payroll-approvers, per e2e/README.md.
+  insert into payroll_approvers (tenant_id, user_id, role, is_active)
+  values (v_tenant_id, v_pm_user_id, 'approver', true)
+  on conflict (tenant_id, user_id) do nothing;
 end $$;
 
 -- Note on is_platform_admin for gm@test.local: the live project currently
