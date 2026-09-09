@@ -556,6 +556,23 @@ const portals: Portal[] = [
     requiredModule: "sustainability",
   },
   {
+    // Not gated here, deliberately -- this is exactly the case
+    // requiredModule can't express. Some approval rights (payroll
+    // today, see can_view_payroll_approvals()) are granted outside the
+    // module whose nav tree the screen sits under, so a per-module gate
+    // would hide this from the very people it's for. Visibility is left
+    // entirely to the destination screen: list_my_approval_surfaces()
+    // (20260909080000_my_approval_surfaces.sql) already mirrors each
+    // linked route's real access check, so a user with nothing to
+    // approve just sees an empty state here, never a broken link.
+    id: "my-approvals",
+    label: "My Approvals",
+    icon: <AssignmentTurnedIn fontSize="small" />,
+    nodes: [
+      { id: "my-approvals-home", label: "My Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/my-approvals" },
+    ],
+  },
+  {
     // Not gated here -- like every other portal in this file, visibility
     // is left to the destination screen (usePlatformAdminAccess /
     // useTenantAdminAccess in CompaniesConsole / CompanySetupChecklist /

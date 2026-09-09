@@ -8,6 +8,7 @@ const PlatformDashboard = lazy(() => import('./features/admin/PlatformDashboard'
 
 const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
 const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
+const MyApprovals = lazy(() => import('./features/approvals/MyApprovals'));
 const PurchaseOrders = lazy(() => import('./features/finance/PurchaseOrders'));
 const ProcurementTrack = lazy(() => import('./features/procurement/ProcurementTrack'));
 const PurchasingDashboard = lazy(() => import('./features/procurement/PurchasingDashboard'));
@@ -316,6 +317,13 @@ export default function App() {
               <Route path="/" element={<RootRedirect />} />
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
               <Route path="/approvals" element={<ApprovalQueue />} />
+              {/* Cross-module aggregator -- see list_my_approval_surfaces()
+                  (20260909080000_my_approval_surfaces.sql). Ungated at the
+                  route level like /approvals: the page itself only ever
+                  lists surfaces the RPC says this user can already reach,
+                  so anyone landing here with nothing to approve just sees
+                  an empty state, not a "not available to you" bounce. */}
+              <Route path="/my-approvals" element={<MyApprovals />} />
               <Route
                 path="/delegations"
                 element={session ? <DelegationManager userId={session.user.id} /> : null}

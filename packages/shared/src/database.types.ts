@@ -14,150 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      bank_reconciliations: {
-        Row: {
-          id: string
-          tenant_id: string
-          bank_statement_line_id: string
-          cash_bank_transaction_id: string
-          match_type: string
-          variance: number
-          matched_by: string | null
-          matched_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          bank_statement_line_id: string
-          cash_bank_transaction_id: string
-          match_type?: string
-          variance?: number
-          matched_by?: string | null
-          matched_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          bank_statement_line_id?: string
-          cash_bank_transaction_id?: string
-          match_type?: string
-          variance?: number
-          matched_by?: string | null
-          matched_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bank_reconciliations_bank_statement_line_id_fkey"
-            columns: ["bank_statement_line_id"]
-            isOneToOne: false
-            referencedRelation: "bank_statement_lines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bank_reconciliations_cash_bank_transaction_id_fkey"
-            columns: ["cash_bank_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "cash_bank_transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bank_reconciliations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      bank_statement_lines: {
-        Row: {
-          id: string
-          tenant_id: string
-          bank_account: string
-          statement_date: string
-          description: string | null
-          reference: string | null
-          amount: number
-          currency: string
-          imported_by: string | null
-          imported_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          bank_account: string
-          statement_date: string
-          description?: string | null
-          reference?: string | null
-          amount: number
-          currency?: string
-          imported_by?: string | null
-          imported_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          bank_account?: string
-          statement_date?: string
-          description?: string | null
-          reference?: string | null
-          amount?: number
-          currency?: string
-          imported_by?: string | null
-          imported_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bank_statement_lines_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gl_posting_rules: {
-        Row: {
-          id: string
-          tenant_id: string
-          account_role: string
-          gl_account_id: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          account_role: string
-          gl_account_id: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          account_role?: string
-          gl_account_id?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_posting_rules_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_posting_rules_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       access_requests: {
         Row: {
           access_level: string | null
@@ -292,13 +148,6 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "accounting_periods_closed_by_fkey"
-            columns: ["closed_by"]
-            isOneToOne: false
-            referencedRelation: "app_users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "accounting_periods_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -506,6 +355,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "advance_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
             referencedColumns: ["vendor_account_id"]
           },
           {
@@ -975,6 +831,122 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "assets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliations: {
+        Row: {
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          id: string
+          match_type: string
+          matched_at: string
+          matched_by: string | null
+          tenant_id: string
+          variance: number
+        }
+        Insert: {
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          id?: string
+          match_type?: string
+          matched_at?: string
+          matched_by?: string | null
+          tenant_id: string
+          variance?: number
+        }
+        Update: {
+          bank_statement_line_id?: string
+          cash_bank_transaction_id?: string
+          id?: string
+          match_type?: string
+          matched_at?: string
+          matched_by?: string | null
+          tenant_id?: string
+          variance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: true
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: true
+            referencedRelation: "v_bank_statement_unmatched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_cash_bank_transaction_id_fkey"
+            columns: ["cash_bank_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "cash_bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_cash_bank_transaction_id_fkey"
+            columns: ["cash_bank_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "v_cash_bank_unmatched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_lines: {
+        Row: {
+          amount: number
+          bank_account: string
+          currency: string
+          description: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          reference: string | null
+          statement_date: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          bank_account: string
+          currency?: string
+          description?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          reference?: string | null
+          statement_date: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          bank_account?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          reference?: string | null
+          statement_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2290,218 +2262,51 @@ export type Database = {
           },
         ]
       }
-      gl_control_accounts: {
+      gl_posting_rules: {
         Row: {
-          ap_control_account_id: string
-          ar_control_account_id: string
-          bank_account_id: string
-          cash_account_id: string
-          default_expense_account_id: string
-          default_revenue_account_id: string
-          nssf_payable_account_id: string | null
-          paye_payable_account_id: string | null
-          salaries_expense_account_id: string | null
-          salaries_payable_account_id: string | null
+          account_role: string
+          created_at: string
+          gl_account_id: string
+          id: string
           tenant_id: string
           updated_at: string
-          vat_input_account_id: string
-          vat_output_account_id: string
-          wht_payable_account_id: string | null
         }
         Insert: {
-          ap_control_account_id: string
-          ar_control_account_id: string
-          bank_account_id: string
-          cash_account_id: string
-          default_expense_account_id: string
-          default_revenue_account_id: string
-          nssf_payable_account_id?: string | null
-          paye_payable_account_id?: string | null
-          salaries_expense_account_id?: string | null
-          salaries_payable_account_id?: string | null
+          account_role: string
+          created_at?: string
+          gl_account_id: string
+          id?: string
           tenant_id: string
           updated_at?: string
-          vat_input_account_id: string
-          vat_output_account_id: string
-          wht_payable_account_id?: string | null
         }
         Update: {
-          ap_control_account_id?: string
-          ar_control_account_id?: string
-          bank_account_id?: string
-          cash_account_id?: string
-          default_expense_account_id?: string
-          default_revenue_account_id?: string
-          nssf_payable_account_id?: string | null
-          paye_payable_account_id?: string | null
-          salaries_expense_account_id?: string | null
-          salaries_payable_account_id?: string | null
+          account_role?: string
+          created_at?: string
+          gl_account_id?: string
+          id?: string
           tenant_id?: string
           updated_at?: string
-          vat_input_account_id?: string
-          vat_output_account_id?: string
-          wht_payable_account_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
-            columns: ["ap_control_account_id"]
+            foreignKeyName: "gl_posting_rules_gl_account_id_fkey"
+            columns: ["gl_account_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gl_control_accounts_ap_control_account_id_fkey"
-            columns: ["ap_control_account_id"]
+            foreignKeyName: "gl_posting_rules_gl_account_id_fkey"
+            columns: ["gl_account_id"]
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
           },
           {
-            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
-            columns: ["ar_control_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_ar_control_account_id_fkey"
-            columns: ["ar_control_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
-            columns: ["cash_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_cash_account_id_fkey"
-            columns: ["cash_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
-            columns: ["default_expense_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_expense_account_id_fkey"
-            columns: ["default_expense_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
-            columns: ["default_revenue_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_default_revenue_account_id_fkey"
-            columns: ["default_revenue_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_tenant_id_fkey"
+            foreignKeyName: "gl_posting_rules_tenant_id_fkey"
             columns: ["tenant_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
-            columns: ["vat_input_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_input_account_id_fkey"
-            columns: ["vat_input_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
-            columns: ["vat_output_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_vat_output_account_id_fkey"
-            columns: ["vat_output_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_wht_payable_account_id_fkey"
-            columns: ["wht_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_wht_payable_account_id_fkey"
-            columns: ["wht_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "v_trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_salaries_payable_account_id_fkey"
-            columns: ["salaries_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_paye_payable_account_id_fkey"
-            columns: ["paye_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_nssf_payable_account_id_fkey"
-            columns: ["nssf_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_control_accounts_salaries_expense_account_id_fkey"
-            columns: ["salaries_expense_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -3166,6 +2971,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_payroll_runs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_items_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "v_paye_nssf_remittance"
+            referencedColumns: ["payroll_run_id"]
           },
         ]
       }
@@ -5984,6 +5796,13 @@ export type Database = {
             referencedRelation: "v_vendor_evaluation"
             referencedColumns: ["vendor_account_id"]
           },
+          {
+            foreignKeyName: "purchase_orders_vendor_account_id_fkey"
+            columns: ["vendor_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
+            referencedColumns: ["vendor_account_id"]
+          },
         ]
       }
       receivable_invoices: {
@@ -6057,6 +5876,13 @@ export type Database = {
             columns: ["client_account_id"]
             isOneToOne: false
             referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "receivable_invoices_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
             referencedColumns: ["vendor_account_id"]
           },
           {
@@ -6214,6 +6040,13 @@ export type Database = {
             columns: ["vendor_account_id"]
             isOneToOne: false
             referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "request_offers_vendor_account_id_fkey"
+            columns: ["vendor_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
             referencedColumns: ["vendor_account_id"]
           },
         ]
@@ -6765,6 +6598,13 @@ export type Database = {
             columns: ["vendor_account_id"]
             isOneToOne: false
             referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "supplier_invoices_vendor_account_id_fkey"
+            columns: ["vendor_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
             referencedColumns: ["vendor_account_id"]
           },
         ]
@@ -7544,57 +7384,6 @@ export type Database = {
           },
         ]
       }
-      v_bank_reconciliation_variance: {
-        Row: {
-          reconciliation_id: string | null
-          tenant_id: string | null
-          match_type: string | null
-          variance: number | null
-          matched_at: string | null
-          bank_account: string | null
-          statement_date: string | null
-          statement_description: string | null
-          statement_amount: number | null
-          transaction_date: string | null
-          transaction_description: string | null
-          transaction_amount: number | null
-          transaction_type: string | null
-        }
-        Relationships: []
-      }
-      v_bank_statement_unmatched: {
-        Row: {
-          id: string | null
-          tenant_id: string | null
-          bank_account: string | null
-          statement_date: string | null
-          description: string | null
-          reference: string | null
-          amount: number | null
-          currency: string | null
-          imported_by: string | null
-          imported_at: string | null
-        }
-        Relationships: []
-      }
-      v_cash_bank_unmatched: {
-        Row: {
-          id: string | null
-          tenant_id: string | null
-          bank_account: string | null
-          transaction_date: string | null
-          transaction_type: string | null
-          amount: number | null
-          currency: string | null
-          description: string | null
-          reference_id: string | null
-          reference_type: string | null
-          payment_method: string | null
-          created_at: string | null
-          recorded_by: string | null
-        }
-        Relationships: []
-      }
       v_account_ledger: {
         Row: {
           account_id: string | null
@@ -7663,7 +7452,96 @@ export type Database = {
             referencedColumns: ["vendor_account_id"]
           },
           {
+            foreignKeyName: "advance_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
             foreignKeyName: "advance_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_bank_reconciliation_variance: {
+        Row: {
+          bank_account: string | null
+          match_type: string | null
+          matched_at: string | null
+          reconciliation_id: string | null
+          statement_amount: number | null
+          statement_date: string | null
+          statement_description: string | null
+          tenant_id: string | null
+          transaction_amount: number | null
+          transaction_date: string | null
+          transaction_description: string | null
+          transaction_type: string | null
+          variance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_bank_statement_unmatched: {
+        Row: {
+          amount: number | null
+          bank_account: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          imported_at: string | null
+          imported_by: string | null
+          reference: string | null
+          statement_date: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_cash_bank_unmatched: {
+        Row: {
+          amount: number | null
+          bank_account: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          id: string | null
+          payment_method: string | null
+          recorded_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          tenant_id: string | null
+          transaction_date: string | null
+          transaction_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_bank_transactions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_bank_transactions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7714,7 +7592,15 @@ export type Database = {
           total_nssf_employer: number | null
           total_paye: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_payment_plan: {
         Row: {
@@ -7865,17 +7751,28 @@ export type Database = {
           wht_amount: number | null
           wht_rate: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
-      }
-      auto_match_bank_statement: {
-        Args: { p_bank_account: string; p_date_from: string; p_date_to: string }
-        Returns: number
       }
       add_support_team_member: {
         Args: { p_team_id: string; p_user_id: string }
@@ -8044,6 +7941,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      auto_match_bank_statement: {
+        Args: { p_bank_account: string; p_date_from: string; p_date_to: string }
+        Returns: number
+      }
       calculate_statutory_deductions: {
         Args: { p_as_of_date?: string; p_gross: number }
         Returns: {
@@ -8058,6 +7959,7 @@ export type Database = {
         Args: { p_purchase_order_id: string }
         Returns: boolean
       }
+      can_view_payroll_approvals: { Args: never; Returns: boolean }
       cancel_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: {
@@ -8997,6 +8899,10 @@ export type Database = {
           terms_of_delivery: string
         }[]
       }
+      get_posting_account: {
+        Args: { p_role: string; p_tenant_id: string }
+        Returns: string
+      }
       get_priority_levels: {
         Args: never
         Returns: {
@@ -9317,6 +9223,27 @@ export type Database = {
       }
       has_po_access: { Args: never; Returns: boolean }
       has_receipt_access: { Args: never; Returns: boolean }
+      import_bank_statement_lines: {
+        Args: { p_bank_account: string; p_lines: Json }
+        Returns: {
+          amount: number
+          bank_account: string
+          currency: string
+          description: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          reference: string | null
+          statement_date: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "bank_statement_lines"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       is_any_module_admin: { Args: never; Returns: boolean }
       is_business_dev: { Args: never; Returns: boolean }
       is_company_admin: { Args: never; Returns: boolean }
@@ -9326,49 +9253,18 @@ export type Database = {
       is_payroll_approver: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: never; Returns: boolean }
-      import_bank_statement_lines: {
-        Args: { p_bank_account: string; p_lines: Json }
-        Returns: {
-          id: string
-          tenant_id: string
-          bank_account: string
-          statement_date: string
-          description: string | null
-          reference: string | null
-          amount: number
-          currency: string
-          imported_by: string | null
-          imported_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "bank_statement_lines"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      match_bank_statement_line: {
-        Args: { p_statement_line_id: string; p_cash_bank_transaction_id: string }
-        Returns: {
-          id: string
-          tenant_id: string
-          bank_statement_line_id: string
-          cash_bank_transaction_id: string
-          match_type: string
-          variance: number
-          matched_by: string | null
-          matched_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "bank_reconciliations"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       link_ticket_to_problem: {
         Args: { p_problem_id: string; p_ticket_id: string }
         Returns: undefined
+      }
+      list_my_approval_surfaces: {
+        Args: never
+        Returns: {
+          label: string
+          pending_count: number
+          route: string
+          surface_key: string
+        }[]
       }
       list_receipt_assignees: {
         Args: never
@@ -9379,6 +9275,28 @@ export type Database = {
           user_id: string
           user_name: string
         }[]
+      }
+      match_bank_statement_line: {
+        Args: {
+          p_cash_bank_transaction_id: string
+          p_statement_line_id: string
+        }
+        Returns: {
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string
+          id: string
+          match_type: string
+          matched_at: string
+          matched_by: string | null
+          tenant_id: string
+          variance: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       next_asset_tag: { Args: { p_tenant_id: string }; Returns: string }
       next_doc_number: {
@@ -9940,6 +9858,10 @@ export type Database = {
         Args: { p_problem_id: string; p_ticket_id: string }
         Returns: undefined
       }
+      unmatch_bank_reconciliation: {
+        Args: { p_reconciliation_id: string }
+        Returns: undefined
+      }
       update_app_user: {
         Args: {
           p_department_id?: string
@@ -10234,10 +10156,6 @@ export type Database = {
       }
       update_workflow_stage_threshold: {
         Args: { p_stage_id: string; p_threshold_amount: number }
-        Returns: undefined
-      }
-      unmatch_bank_reconciliation: {
-        Args: { p_reconciliation_id: string }
         Returns: undefined
       }
       upsert_sla_policy: {
