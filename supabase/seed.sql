@@ -139,6 +139,15 @@ update workflow_stages set name = 'General Manager'
 where id = '00000000-0000-0000-0000-000000000036'; -- was "Deputy General Manager"
 update workflow_stages set is_finance_terminal_stage = true
 where id = '00000000-0000-0000-0000-000000000034'; -- Finance
+-- Offer-flow behavior flags. Both default to false and both are load-bearing:
+-- requires_offer_entry (...032) gates the /offers/entry queue filter and the
+-- request_offers insert RLS; requires_offer_selection (...033) gates whether
+-- OfferApprovalPO.tsx's winner-picker radio group renders at all -- without
+-- it the Chief's approval dialog never shows offers to choose between.
+update workflow_stages set requires_offer_entry = true
+where id = '00000000-0000-0000-0000-000000000032'; -- Procurement: Offer Entry
+update workflow_stages set requires_offer_selection = true
+where id = '00000000-0000-0000-0000-000000000033'; -- Budget Controller
 
 -- Module entitlements. Ported from the archived
 -- 20260815075105_tenant_module_entitlements.sql's "every existing
@@ -283,9 +292,15 @@ begin
   values (v_tenant_id, v_finance_user_id, 'finance')
   on conflict (tenant_id, user_id, role) do nothing;
 
+  -- procurement@test.local (Test Procurement Lead, "Procurement & Logistics
+  -- Chief") had no assignment on the Budget Controller stage (...033) at
+  -- all -- every other stage in this seed has one, this one was just
+  -- missing. Without it, no user can act on that stage regardless of the
+  -- requires_offer_selection flag above.
   insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max, created_at) values
     (v_tenant_id, v_cost_control_user_id, '00000000-0000-0000-0000-000000000031', 'global', null, '2026-07-30 11:30:48.602762+00'),
-    (v_tenant_id, v_finance_user_id, '00000000-0000-0000-0000-000000000034', 'global', null, '2026-07-30 11:30:48.602762+00')
+    (v_tenant_id, v_finance_user_id, '00000000-0000-0000-0000-000000000034', 'global', null, '2026-07-30 11:30:48.602762+00'),
+    (v_tenant_id, v_procurement_user_id, '00000000-0000-0000-0000-000000000033', 'global', null, '2026-07-30 11:30:48.602762+00')
   on conflict (tenant_id, user_id, workflow_stage_id) do nothing;
 
   -- Cost Control Engineer and Procurement: Offer Entry (the stage-gap

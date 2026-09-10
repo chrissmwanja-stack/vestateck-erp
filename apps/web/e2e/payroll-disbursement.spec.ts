@@ -72,6 +72,11 @@ test.describe('Payroll disbursement', () => {
       await expect(page.getByText(period)).toBeVisible({ timeout: 15_000 });
       const row = page.getByText(period, { exact: false });
       const card = row.locator('xpath=ancestor::*[.//button[normalize-space()="Record Disbursement"]][1]');
+      // The dialog prefills Amount with the remaining balance, computed
+      // from per-item totals that load just after the run rows -- wait
+      // until they arrive (Total net > 0) before opening it, otherwise
+      // the prefill is empty and validation rejects the submit.
+      await expect(card.getByText(/Total net [1-9]/)).toBeVisible({ timeout: 15_000 });
       await card.getByRole('button', { name: 'Record Disbursement' }).click();
 
       const dialog = page.getByRole('dialog');
@@ -83,11 +88,12 @@ test.describe('Payroll disbursement', () => {
       // number (e.g. '1') leaves amount_disbursed short of total_net, so
       // check_payroll_disbursement() never flips status to 'disbursed'
       // and the run just sits at "Approved · awaiting disbursement".
+      await expect(dialog.getByLabel(/amount/i)).not.toHaveValue('', { timeout: 10_000 });
       await dialog.getByLabel('Description').fill('E2E smoke disbursement');
 
       await dialog.getByRole('button', { name: 'Record Disbursement' }).click();
       await expect(dialog).toBeHidden({ timeout: 15_000 });
-      await expect(page.getByText('Disbursed')).toBeVisible({ timeout: 10_000 });
+      await expect(card.getByText('Disbursed')).toBeVisible({ timeout: 10_000 });
     });
   });
 });

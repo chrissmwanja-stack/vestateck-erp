@@ -538,6 +538,7 @@ export default function CashBankOperations() {
                   <TableCell align="right">Amount</TableCell>
                   <TableCell>Currency</TableCell>
                   <TableCell>Bank Account</TableCell>
+                  <TableCell>Description</TableCell>
                   <TableCell>Recorded By</TableCell>
                 </TableRow>
               </TableHead>
@@ -559,13 +560,14 @@ export default function CashBankOperations() {
                       <TableCell align="right">{row.amount.toLocaleString()}</TableCell>
                       <TableCell>{row.currency}</TableCell>
                       <TableCell>{row.bank_account ?? '—'}</TableCell>
+                      <TableCell>{row.description ?? '—'}</TableCell>
                       <TableCell>{embedOne(row.recorded_by_user)?.name ?? '—'}</TableCell>
                     </TableRow>
                   );
                 })}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={9} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No transactions found.
                     </TableCell>
                   </TableRow>

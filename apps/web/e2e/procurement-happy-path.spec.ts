@@ -81,6 +81,7 @@ test.describe('Procurement happy path', () => {
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: /confirm/i }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
+      await expect(row).toBeHidden({ timeout: 10_000 });
       await logout(page);
     });
 
@@ -96,6 +97,7 @@ test.describe('Procurement happy path', () => {
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('button', { name: /confirm/i }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
+      await expect(row).toBeHidden({ timeout: 10_000 });
       await logout(page);
     });
 
@@ -113,10 +115,21 @@ test.describe('Procurement happy path', () => {
         await page.getByLabel('Vendor name').fill(vendor);
         await page.getByLabel('Quotation amount').fill(amount);
         await page.getByRole('button', { name: /save offer/i }).click();
+        // Wait for the save round-trip to finish (dialog closes) before
+        // opening it again -- otherwise the second "Add offer" click can
+        // land while the first save is still in flight and clobber it.
+        await expect(page.getByRole('dialog')).toBeHidden({ timeout: 10_000 });
       }
 
       await expect(page.getByText('2 offers logged')).toBeVisible({ timeout: 10_000 });
       await page.getByRole('button', { name: /send to budget controller/i }).click();
+      // "Send to Budget Controller" only opens a confirmation dialog --
+      // the request stays at offer entry until "Send for approval" runs
+      // submit_offers_for_approval() and moves it to Budget Controller.
+      const sendDialog = page.getByRole('dialog');
+      await sendDialog.getByRole('button', { name: /send for approval/i }).click();
+      await expect(sendDialog).toBeHidden({ timeout: 10_000 });
+      await expect(page.getByText(marker, { exact: true })).toBeHidden({ timeout: 10_000 });
       await logout(page);
     });
 
@@ -124,12 +137,17 @@ test.describe('Procurement happy path', () => {
       await loginAs(page, 'procurementChief');
       await page.goto('/offers/approval-po');
 
-      await expect(page.getByText(marker, { exact: true })).toBeVisible({ timeout: 15_000 });
-      await page.getByRole('button', { name: 'Approve' }).click();
+      // Scope the Approve click to this run's row -- other requests from
+      // earlier runs may legitimately share this queue.
+      const row = page.getByText(marker, { exact: true });
+      await expect(row).toBeVisible({ timeout: 15_000 });
+      const tableRow = row.locator('xpath=ancestor::tr[1]');
+      await tableRow.getByRole('button', { name: 'Approve' }).click();
 
       const dialog = page.getByRole('dialog');
       // Cheapest offer (E2E Vendor B, 4200) should be selectable as the winner.
       await dialog.getByText(/E2E Vendor B/i).click();
+      await expect(dialog.getByRole('radio', { name: /E2E Vendor B/i })).toBeChecked({ timeout: 5_000 });
       await dialog.getByRole('button', { name: /confirm/i }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await logout(page);
