@@ -407,6 +407,24 @@ begin
   values (v_tenant_id, v_hr_user_id, 'hr', 'admin')
   on conflict (tenant_id, user_id, module) do nothing;
 
+  -- Procurement module membership for the four accounts in the
+  -- procurement workflow. /offers/entry and /offers/approval-po sit
+  -- behind RequireModule module="procurement", which checks
+  -- has_module_role() -> staff_roles (NOT approval_assignments -- those
+  -- only grant the right to act on a workflow stage). Without these
+  -- rows the offer-entry and offer-approval screens render "Not
+  -- available to you" for the seeded accounts and the procurement e2e
+  -- flow can never reach them. The first two are load-bearing for the
+  -- e2e flow (offer entry + Budget Controller approval); the Cost
+  -- Control pair is added so the full roster is consistent.
+  insert into staff_roles (tenant_id, user_id, module, role)
+  values
+    (v_tenant_id, v_proc_offer_user_id, 'procurement', 'member'),
+    (v_tenant_id, v_procurement_user_id, 'procurement', 'manager'),
+    (v_tenant_id, v_cce_user_id, 'procurement', 'member'),
+    (v_tenant_id, v_cost_control_user_id, 'procurement', 'member')
+  on conflict (tenant_id, user_id, module) do nothing;
+
   -- is_hr_team_member() (used to gate Payroll's "New run" button, among
   -- other HR screens) checks hr_team_members, NOT staff_roles -- the two
   -- are separate membership patterns in this codebase (see the bd/it

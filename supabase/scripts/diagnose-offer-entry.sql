@@ -1,23 +1,30 @@
--- Diagnostic for the e2e procurement failure: "offer-entry queue is empty
--- for procurement.offer@test.local" (procurement-happy-path.spec.ts,
--- "Procurement logs 2 competing offers" step).
+-- Diagnostic for the e2e procurement failure at the "Procurement logs 2
+-- competing offers" step (procurement-happy-path.spec.ts).
 --
 -- Run this in the LOCAL Supabase Studio SQL editor (default:
 -- http://localhost:54323) after `supabase start`, or via psql against the
 -- local stack. Do NOT run against the linked/remote project.
 --
--- The offer-entry worklist depends on two things that only seed.sql sets
--- (they are NOT in any migration):
---   1. workflow_stages.requires_offer_entry = true  on the "Procurement:
+-- Three independent things must all be true for the offer-entry worklist
+-- to show the request, and all three are seeded in supabase/seed.sql
+-- (none of them are in a migration):
+--   1. Procurement MODULE ACCESS: /offers/entry and /offers/approval-po
+--      sit behind RequireModule module="procurement", which checks
+--      has_module_role() -> staff_roles. Each procurement workflow
+--      account needs a staff_roles row with module='procurement' (plus
+--      the tenant_modules 'procurement' entitlement). Without it the
+--      route renders "Not available to you" and the marker never
+--      appears -- this was the actual cause of the first failures.
+--   2. workflow_stages.requires_offer_entry = true on the "Procurement:
 --      Offer Entry" stage (pinned id ...032) for the demo tenant
 --      (00000000-0000-0000-0000-000000000001).
---   2. An approval_assignments row for procurement.offer@test.local on
---      that same stage.
+--   3. An approval_assignments row for procurement.offer@test.local on
+--      that same stage (so get_my_approval_queue() lists it).
 --
 -- If a local DB was last `supabase db reset` before those seed lines
--- landed (commit a32d255), the request advances to the Offer Entry stage
--- but this queue comes back empty and the spec times out looking for the
--- marker string.
+-- landed, the request advances to the Offer Entry stage but the page
+-- either shows the module-access denial or an empty queue, and the spec
+-- times out looking for the marker string.
 
 -- 1) Stage flags for the demo tenant. Want requires_offer_entry = true on
 --    ...032 (Offer Entry) and requires_offer_selection = true on ...033
@@ -55,7 +62,25 @@ where au.email in ('cce@test.local',
                    'finance@test.local')
 order by au.email;
 
--- 3) Where the stuck request actually sits. If the request is at the
+-- 3) Module access for the two accounts that must reach the
+--    procurement-gated routes (/offers/entry, /offers/approval-po).
+--    RequireModule -> has_module_role() checks staff_roles(module) AND
+--    tenant_modules(module) -- approval_assignments are NOT enough. Want
+--    one staff_roles row each for procurement.offer@test.local and
+--    procurement@test.local with module='procurement', plus the tenant
+--    entitlement below.
+select au.email, sr.module, sr.role
+from staff_roles sr
+join app_users au on au.id = sr.user_id
+where au.email in ('procurement.offer@test.local', 'procurement@test.local')
+order by au.email;
+
+select tm.module
+from tenant_modules tm
+where tm.tenant_id = '00000000-0000-0000-0000-000000000001'
+  and tm.module = 'procurement';
+
+-- 4) Where the stuck request actually sits. If the request is at the
 --    ...032 stage but query 1 says requires_offer_entry = false, that is
 --    the bug: the stage flag is missing. If the request is still at
 --    ...030/...031, the approval steps in the spec aren't advancing it.
@@ -73,7 +98,8 @@ where r.tenant_id = '00000000-0000-0000-0000-000000000001'
 order by r.created_at desc;
 
 -- ---------------------------------------------------------------------------
--- Fix (if queries confirm the flag/assignment are missing). Either:
+-- Fix (if queries confirm the flag/assignment/staff_roles are missing).
+-- Either:
 --   A) Preferred: `supabase db reset`  (re-runs migrations + current seed.sql)
 --   B) Or apply just the missing bits:
 -- ---------------------------------------------------------------------------

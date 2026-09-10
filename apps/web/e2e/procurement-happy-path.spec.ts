@@ -105,15 +105,23 @@ test.describe('Procurement happy path', () => {
       await loginAs(page, 'procurementOfferEntry');
       await page.goto('/offers/entry');
 
-      // This worklist is gated by two things, both seeded in
-      // supabase/seed.sql (not in a migration): the
-      // workflow_stages.requires_offer_entry flag on the "Procurement:
-      // Offer Entry" stage (...032), and the procurement.offer@test.local
-      // approval_assignment on that stage. If the local DB was last
-      // reset before those seed lines landed, the request reaches this
+      // This worklist sits behind RequireModule module="procurement"
+      // (App.tsx), which checks has_module_role() -> staff_roles -- not
+      // approval_assignments. If the seeded account lacks a staff_roles
+      // row for 'procurement', the route renders "Not available to you"
+      // and the marker never appears. seed.sql now grants procurement
+      // staff_roles to all four workflow accounts; a DB last reset before
+      // that landed needs another `supabase db reset`.
+      await expect(
+        page.getByText(/Not available to you/i),
+        'Offer entry is blocked by the procurement module guard (RequireModule/has_module_role). Rerun `supabase db reset` so seed.sql re-applies procurement staff_roles for procurement.offer@test.local.'
+      ).toBeHidden({ timeout: 15_000 });
+
+      // This worklist is also gated by the workflow_stages
+      // requires_offer_entry flag on the "Procurement: Offer Entry"
+      // stage (...032), seeded in supabase/seed.sql (not a migration).
+      // If the local DB predates that seed line, the request reaches the
       // stage but the queue renders empty ("Nothing waiting on a quote").
-      // Rerun `supabase db reset` (seed re-applies both), or see
-      // supabase/scripts/diagnose-offer-entry.sql.
       await expect(
         page.getByText(/Nothing waiting on a quote right now/i),
         'Offer-entry queue is empty for procurement.offer@test.local — rerun `supabase db reset` so seed.sql re-applies requires_offer_entry and the offer-entry assignment.'
@@ -149,6 +157,14 @@ test.describe('Procurement happy path', () => {
     await test.step('Procurement Chief picks the winning offer and approves', async () => {
       await loginAs(page, 'procurementChief');
       await page.goto('/offers/approval-po');
+
+      // Same procurement module guard as /offers/entry — if the seeded
+      // chief account lacks a procurement staff_roles row, this renders
+      // "Not available to you" instead of the worklist.
+      await expect(
+        page.getByText(/Not available to you/i),
+        'Offer approval is blocked by the procurement module guard. Rerun `supabase db reset` so seed.sql re-applies procurement staff_roles for procurement@test.local.'
+      ).toBeHidden({ timeout: 15_000 });
 
       // Scope the Approve click to this run's row -- other requests from
       // earlier runs may legitimately share this queue.
