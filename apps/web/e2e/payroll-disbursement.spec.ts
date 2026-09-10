@@ -78,7 +78,11 @@ test.describe('Payroll disbursement', () => {
       await dialog.getByLabel('Payment Method').click();
       await page.getByRole('option').first().click();
       await dialog.getByLabel('Bank Account').fill('E2E Test Payroll Account');
-      await dialog.getByLabel(/amount/i).fill('1');
+      // Leave Amount as-is: openDisburse() pre-fills it with the run's
+      // actual remaining balance. Overwriting it with an arbitrary small
+      // number (e.g. '1') leaves amount_disbursed short of total_net, so
+      // check_payroll_disbursement() never flips status to 'disbursed'
+      // and the run just sits at "Approved · awaiting disbursement".
       await dialog.getByLabel('Description').fill('E2E smoke disbursement');
 
       await dialog.getByRole('button', { name: 'Record Disbursement' }).click();

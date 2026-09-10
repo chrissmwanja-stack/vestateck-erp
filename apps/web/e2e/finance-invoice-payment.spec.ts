@@ -82,6 +82,9 @@ test.describe('Finance invoice + payment', () => {
       await refOption.click();
 
       await page.getByLabel('Amount').fill('80000');
+      // Required by handleSaveEntry's client-side validation -- no
+      // default, so the save silently no-ops without this.
+      await page.getByLabel('Transaction Date').fill('2026-09-08');
       await page.getByLabel('Bank Account').fill('E2E Test Account');
       await page.getByLabel('Description').fill('E2E smoke settlement');
 

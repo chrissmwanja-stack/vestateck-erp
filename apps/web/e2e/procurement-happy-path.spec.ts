@@ -62,6 +62,28 @@ test.describe('Procurement happy path', () => {
       await logout(page);
     });
 
+    await test.step('Cost Control Engineer approves their own submission', async () => {
+      // set_request_defaults() puts a new request at the LOWEST
+      // sequence_order workflow stage, which is "Cost Control Engineer"
+      // itself (seq 1) -- the same role as the submitter, not "Cost
+      // Control Manager" (seq 2). approval_assignments only grants
+      // cce@test.local rights on that first stage, so the request sits
+      // there until they sign off on it themselves; only then does it
+      // advance into the Manager's queue.
+      await loginAs(page, 'costControlEngineer');
+      await page.goto('/approvals');
+
+      const row = page.getByText(marker, { exact: true });
+      await expect(row).toBeVisible({ timeout: 15_000 });
+      const card = row.locator('xpath=ancestor::*[.//button[normalize-space()="Approve"]][1]');
+      await card.getByRole('button', { name: 'Approve' }).click();
+
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('button', { name: /confirm/i }).click();
+      await expect(dialog).toBeHidden({ timeout: 10_000 });
+      await logout(page);
+    });
+
     await test.step('Cost Control Manager approves the request', async () => {
       await loginAs(page, 'costControlManager');
       await page.goto('/approvals');
