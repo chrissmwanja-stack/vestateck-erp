@@ -105,6 +105,19 @@ test.describe('Procurement happy path', () => {
       await loginAs(page, 'procurementOfferEntry');
       await page.goto('/offers/entry');
 
+      // This worklist is gated by two things, both seeded in
+      // supabase/seed.sql (not in a migration): the
+      // workflow_stages.requires_offer_entry flag on the "Procurement:
+      // Offer Entry" stage (...032), and the procurement.offer@test.local
+      // approval_assignment on that stage. If the local DB was last
+      // reset before those seed lines landed, the request reaches this
+      // stage but the queue renders empty ("Nothing waiting on a quote").
+      // Rerun `supabase db reset` (seed re-applies both), or see
+      // supabase/scripts/diagnose-offer-entry.sql.
+      await expect(
+        page.getByText(/Nothing waiting on a quote right now/i),
+        'Offer-entry queue is empty for procurement.offer@test.local — rerun `supabase db reset` so seed.sql re-applies requires_offer_entry and the offer-entry assignment.'
+      ).toBeHidden({ timeout: 15_000 });
       await expect(page.getByText(marker, { exact: true })).toBeVisible({ timeout: 15_000 });
 
       for (const [vendor, amount] of [
