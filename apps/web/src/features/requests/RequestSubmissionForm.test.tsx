@@ -176,6 +176,33 @@ describe('RequestSubmissionForm', () => {
     expect((screen.getByLabelText('Description') as HTMLInputElement).value).not.toBe('');
   });
 
+  it("sends null (not '') for p_delivery_date when no delivery date is picked", async () => {
+    // Regression test: p_delivery_date is typed `date` in the RPC
+    // signature. PostgREST rejects an empty string while binding a
+    // date-typed argument (Postgres: invalid input syntax for type
+    // date: "") *before* the function body ever runs, so leaving the
+    // (optional, per headerSchema) delivery date blank always failed
+    // the submission -- caught by e2e/procurement-happy-path.spec.ts
+    // against a real backend, not by this mocked component test, since
+    // the mock never actually attempts the cast.
+    const user = userEvent.setup();
+    const { mockRpc } = setup();
+
+    render(<RequestSubmissionForm />);
+    await fillHeader(user);
+    const materialInputs = screen.getAllByPlaceholderText('Type or pick from catalog');
+    await user.type(materialInputs[0], 'Rebar 12mm');
+    const qtyInputs = screen.getAllByRole('spinbutton');
+    await user.type(qtyInputs[0], '5');
+    // Delivery date intentionally left blank.
+
+    await user.click(screen.getByRole('button', { name: /submit request/i }));
+
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledTimes(1));
+    const [, payload] = mockRpc.mock.calls[0] as [string, Record<string, unknown>];
+    expect(payload.p_delivery_date).toBeNull();
+  });
+
   it("defaults the first row's place of use to the requester's department once, without clobbering a typed value", async () => {
     setup({ userDepartmentId: 'd1', departments: [DEPARTMENT_A] });
 

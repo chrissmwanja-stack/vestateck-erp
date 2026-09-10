@@ -69,7 +69,12 @@ test.describe('Finance invoice + payment', () => {
       await page.getByLabel('Settles Against').click();
       await page.getByRole('option', { name: 'Supplier Invoice' }).click();
 
-      const refField = page.getByLabel(/Supplier Invoice No\./i);
+      // Same MUI Autocomplete label-collision as the Cost center fix in
+      // procurement-happy-path.spec.ts: getByLabel matches both the
+      // combobox input and, once opened, the listbox (aria-labelledby
+      // the same label). getByRole with the combobox role disambiguates
+      // regardless of open/closed state.
+      const refField = page.getByRole('combobox', { name: /Supplier Invoice No\./i });
       await refField.click();
       await refField.fill(invoiceNo);
       const refOption = page.getByRole('option', { name: new RegExp(invoiceNo) });

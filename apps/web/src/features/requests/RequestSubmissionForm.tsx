@@ -212,7 +212,14 @@ export default function RequestSubmissionForm({ onSubmitted }: { onSubmitted?: (
       p_item_description: values.item_description,
       p_quantity: totalQuantity,
       p_cost_center_id: values.cost_center_id,
-      p_delivery_date: values.delivery_date || '',
+      // p_delivery_date is typed `date` in the RPC signature -- PostgREST
+      // rejects an empty string while binding the argument (Postgres:
+      // invalid input syntax for type date: "") before submit_request_with_line_items
+      // ever runs, so every submission with no delivery date picked
+      // failed unconditionally. null is a valid date-typed argument;
+      // '' never was. (p_subcontractor stays '' -- it's typed text, so
+      // no cast happens and the RPC's own coalesce/trim handles it.)
+      p_delivery_date: (values.delivery_date || null) as string,
       p_subcontractor: values.subcontractor?.trim() || '',
       p_line_items: validRows.map((row) => ({
         material_service: row.materialService.trim(),
