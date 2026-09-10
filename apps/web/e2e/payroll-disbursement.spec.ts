@@ -71,6 +71,11 @@ test.describe('Payroll disbursement', () => {
 
       await expect(page.getByText(period)).toBeVisible({ timeout: 15_000 });
       const row = page.getByText(period, { exact: false });
+      // Scope pre-save actions to this run's card via the "Record
+      // Disbursement" button. That button is removed the moment the run
+      // flips to 'disbursed', so nothing scoped through it resolves
+      // after the save -- the post-save assertion below uses `runRow`
+      // (anchored on the persistent "Total net" line) instead.
       const card = row.locator('xpath=ancestor::*[.//button[normalize-space()="Record Disbursement"]][1]');
       // The dialog prefills Amount with the remaining balance, computed
       // from per-item totals that load just after the run rows -- wait
@@ -93,7 +98,11 @@ test.describe('Payroll disbursement', () => {
 
       await dialog.getByRole('button', { name: 'Record Disbursement' }).click();
       await expect(dialog).toBeHidden({ timeout: 15_000 });
-      await expect(card.getByText('Disbursed')).toBeVisible({ timeout: 10_000 });
+      // The run's card now shows the 'Disbursed' chip and the "Record
+      // Disbursement" button is gone. Anchor on the persistent "Total net"
+      // line (present in both states) rather than the vanished button.
+      const runRow = row.locator('xpath=ancestor::*[.//*[starts-with(normalize-space(),"Total net")]][1]');
+      await expect(runRow.getByText('Disbursed')).toBeVisible({ timeout: 10_000 });
     });
   });
 });
