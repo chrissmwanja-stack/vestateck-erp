@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Card, CardContent, Typography, Chip, Tooltip, CircularProgress, Alert } from "@mui/material";
+import { AccountTree } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 
 interface Task {
@@ -18,6 +19,11 @@ interface Milestone {
   due_date: string | null;
   completion_percent: number;
   pmo_projects?: { name: string } | null;
+}
+
+interface Dependency {
+  predecessor_task_id: string;
+  successor_task_id: string;
 }
 
 // Chart-ready row: tasks and milestones normalized to a shared shape so the
@@ -63,6 +69,7 @@ function formatShort(d: Date): string {
 export default function GanttChart() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,13 +77,16 @@ export default function GanttChart() {
     const fetch = async () => {
       setLoading(true);
       setError(null);
-      const [tasksRes, milestonesRes] = await Promise.all([
+      const [tasksRes, milestonesRes, dependenciesRes] = await Promise.all([
         supabase.from("pmo_tasks").select("id, title, status, start_date, due_date, completion_percent, pmo_projects(name)").order("due_date", { ascending: true }).limit(200),
         supabase.from("pmo_milestones").select("id, title, due_date, completion_percent, pmo_projects(name)").order("due_date", { ascending: true }).limit(100),
+        supabase.from("pmo_task_dependencies").select("predecessor_task_id, successor_task_id").order("created_at", { ascending: true }).limit(500),
       ]);
 
-      if (tasksRes.error || milestonesRes.error) {
-        setError(tasksRes.error?.message ?? milestonesRes.error?.message ?? 'Failed to load Gantt data.');
+      if (tasksRes.error || milestonesRes.error || dependenciesRes.error) {
+        setError(
+          tasksRes.error?.message ?? milestonesRes.error?.message ?? dependenciesRes.error?.message ?? 'Failed to load Gantt data.',
+        );
         setLoading(false);
         return;
       }
@@ -94,6 +104,7 @@ export default function GanttChart() {
 
       setTasks(normalizedTasks);
       setMilestones(normalizedMilestones);
+      setDependencies((dependenciesRes.data as Dependency[]) || []);
       setLoading(false);
     };
     fetch();
@@ -138,6 +149,98 @@ export default function GanttChart() {
     });
     return [...taskRows, ...milestoneRows].filter((r) => r.start && r.end);
   }, [tasks, milestones]);
+
+  // Dependencies only ever link two tasks (see pmo_task_dependencies'
+  // FKs), and only tasks with dates appear in `rows` at all, so an edge
+  // referencing a hidden/undated task is dropped here rather than
+  // crashing the walk below.
+  const { predecessorsOf, successorsOf, titleById } = useMemo(() => {
+    const titles = new Map(rows.filter((r) => r.type === 'task').map((r) => [r.id, r.title]));
+    const preds = new Map<string, string[]>();
+    const succs = new Map<string, string[]>();
+    for (const d of dependencies) {
+      if (!titles.has(d.predecessor_task_id) || !titles.has(d.successor_task_id)) continue;
+      preds.set(d.successor_task_id, [...(preds.get(d.successor_task_id) ?? []), d.predecessor_task_id]);
+      succs.set(d.predecessor_task_id, [...(succs.get(d.predecessor_task_id) ?? []), d.successor_task_id]);
+    }
+    return { predecessorsOf: preds, successorsOf: succs, titleById: titles };
+  }, [rows, dependencies]);
+
+  // Critical path = the longest chain of dependent tasks by duration
+  // (classic CPM longest-path-in-a-DAG, using each task's own
+  // start_date/due_date span as its duration rather than a computed
+  // schedule -- dates here are set by whoever plans the task, not
+  // derived, so this highlights the longest *actual* chain rather than
+  // an idealized one). The DB trigger on pmo_task_dependencies rejects
+  // cycles at write time, but this still guards against one slipping
+  // through (e.g. a race) by bailing out to "no critical path" instead
+  // of an infinite loop.
+  const { criticalTaskIds, criticalPathDays } = useMemo(() => {
+    const taskRowMap = new Map(rows.filter((r) => r.type === 'task').map((r) => [r.id, r]));
+    const nodes = Array.from(titleById.keys());
+    if (nodes.length === 0) return { criticalTaskIds: new Set<string>(), criticalPathDays: 0 };
+
+    const duration = (id: string) => {
+      const r = taskRowMap.get(id)!;
+      return Math.max(daysBetween(r.start!, r.end!) + 1, 1);
+    };
+
+    const inDegree = new Map(nodes.map((id) => [id, (predecessorsOf.get(id) ?? []).length]));
+    const queue = nodes.filter((id) => (inDegree.get(id) ?? 0) === 0);
+    const topoOrder: string[] = [];
+    while (queue.length) {
+      const n = queue.shift()!;
+      topoOrder.push(n);
+      for (const s of successorsOf.get(n) ?? []) {
+        inDegree.set(s, (inDegree.get(s) ?? 0) - 1);
+        if (inDegree.get(s) === 0) queue.push(s);
+      }
+    }
+    if (topoOrder.length < nodes.length) return { criticalTaskIds: new Set<string>(), criticalPathDays: 0 };
+
+    const earliestFinish = new Map<string, number>();
+    const criticalPred = new Map<string, string | null>();
+    for (const id of topoOrder) {
+      const preds = predecessorsOf.get(id) ?? [];
+      if (preds.length === 0) {
+        earliestFinish.set(id, duration(id));
+        criticalPred.set(id, null);
+      } else {
+        let best = -1;
+        let bestPred: string | null = null;
+        for (const p of preds) {
+          const ef = earliestFinish.get(p) ?? 0;
+          if (ef > best) {
+            best = ef;
+            bestPred = p;
+          }
+        }
+        earliestFinish.set(id, best + duration(id));
+        criticalPred.set(id, bestPred);
+      }
+    }
+
+    let endNode: string | null = null;
+    let maxFinish = 0;
+    for (const [id, ef] of earliestFinish) {
+      if (ef > maxFinish) {
+        maxFinish = ef;
+        endNode = id;
+      }
+    }
+
+    const critical = new Set<string>();
+    let cur = endNode;
+    while (cur) {
+      critical.add(cur);
+      cur = criticalPred.get(cur) ?? null;
+    }
+    // A lone task with no dependency edges "wins" the longest-path walk
+    // trivially -- only worth flagging as a critical *path* once it's
+    // actually chained to something else.
+    if (critical.size <= 1) return { criticalTaskIds: new Set<string>(), criticalPathDays: 0 };
+    return { criticalTaskIds: critical, criticalPathDays: maxFinish };
+  }, [rows, predecessorsOf, successorsOf, titleById]);
 
   const groups = useMemo(() => {
     const byProject = new Map<string, ChartRow[]>();
@@ -210,7 +313,9 @@ export default function GanttChart() {
       <Typography variant="h5" fontWeight={700} gutterBottom>Gantt Chart</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Timeline view of {tasks.length} tasks and {milestones.length} milestones, grouped by project. Bars run
-        start_date → due_date; milestones and tasks without a start_date show as a marker at their due date.
+        start_date → due_date; milestones and tasks without a start_date show as a marker at their due date. Tasks
+        with dependencies show a link icon (hover for what they wait on or block), and the longest dependency chain
+        is outlined as the critical path.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -231,6 +336,14 @@ export default function GanttChart() {
               <Chip
                 label={`${formatShort(rangeStart)} – ${formatShort(rangeEnd)}`}
                 size="small"
+                variant="outlined"
+              />
+            )}
+            {criticalTaskIds.size > 0 && (
+              <Chip
+                label={`Critical path: ${criticalPathDays}d across ${criticalTaskIds.size} tasks`}
+                size="small"
+                color="error"
                 variant="outlined"
               />
             )}
@@ -374,11 +487,36 @@ export default function GanttChart() {
                           {item.type === "milestone" ? (
                             <Box sx={{ width: 10, height: 10, bgcolor: "warning.main", transform: "rotate(45deg)", flexShrink: 0 }} />
                           ) : (
-                            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: getStatusColor(item.status), flexShrink: 0 }} />
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                bgcolor: getStatusColor(item.status),
+                                flexShrink: 0,
+                                ...(criticalTaskIds.has(item.id) && { outline: "2px solid", outlineColor: "error.main", outlineOffset: "1px" }),
+                              }}
+                            />
                           )}
                           <Typography variant="body2" noWrap title={item.title}>
                             {item.title}
                           </Typography>
+                          {item.type === "task" && (predecessorsOf.has(item.id) || successorsOf.has(item.id)) && (
+                            <Tooltip
+                              title={[
+                                predecessorsOf.get(item.id)?.length
+                                  ? `Waits on: ${predecessorsOf.get(item.id)!.map((id) => titleById.get(id)).join(', ')}`
+                                  : null,
+                                successorsOf.get(item.id)?.length
+                                  ? `Blocks: ${successorsOf.get(item.id)!.map((id) => titleById.get(id)).join(', ')}`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' • ')}
+                            >
+                              <AccountTree sx={{ fontSize: 14, color: "text.secondary", flexShrink: 0 }} />
+                            </Tooltip>
+                          )}
                         </Box>
                         <Box sx={{ position: "relative", flex: 1, height: "100%" }}>
                           {item.type === "milestone" ? (
@@ -399,7 +537,7 @@ export default function GanttChart() {
                             </Tooltip>
                           ) : (
                             <Tooltip
-                              title={`${item.title} — ${item.start ? formatShort(item.start) : ''} to ${item.end ? formatShort(item.end) : ''} (${item.progress}%)`}
+                              title={`${item.title} — ${item.start ? formatShort(item.start) : ''} to ${item.end ? formatShort(item.end) : ''} (${item.progress}%)${criticalTaskIds.has(item.id) ? ' — critical path' : ''}`}
                             >
                               <Box
                                 sx={{
@@ -413,6 +551,7 @@ export default function GanttChart() {
                                   borderRadius: 0.5,
                                   bgcolor: "grey.200",
                                   overflow: "hidden",
+                                  ...(criticalTaskIds.has(item.id) && { border: "1px solid", borderColor: "error.main" }),
                                 }}
                               >
                                 <Box
@@ -454,6 +593,14 @@ export default function GanttChart() {
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <Box sx={{ width: 10, height: 2, bgcolor: "error.main", opacity: 0.6 }} />
               <Typography variant="caption" color="text.secondary">Today</Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, border: "1px solid", borderColor: "error.main", bgcolor: "grey.200" }} />
+              <Typography variant="caption" color="text.secondary">Critical path</Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <AccountTree sx={{ fontSize: 12, color: "text.secondary" }} />
+              <Typography variant="caption" color="text.secondary">Has dependencies</Typography>
             </Box>
           </Box>
         </CardContent>

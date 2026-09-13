@@ -5387,6 +5387,52 @@ export type Database = {
           },
         ]
       }
+      pmo_task_dependencies: {
+        Row: {
+          created_at: string
+          id: string
+          predecessor_task_id: string
+          successor_task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          predecessor_task_id: string
+          successor_task_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          predecessor_task_id?: string
+          successor_task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_task_dependencies_predecessor_task_id_fkey"
+            columns: ["predecessor_task_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_task_dependencies_successor_task_id_fkey"
+            columns: ["successor_task_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_task_dependencies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pmo_task_types: {
         Row: {
           created_at: string

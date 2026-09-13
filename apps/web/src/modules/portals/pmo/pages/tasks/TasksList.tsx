@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert } from "@mui/material";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, Autocomplete } from "@mui/material";
 import { Add, Edit } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
@@ -33,6 +33,11 @@ export default function TasksList() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "", completion_percent: "0" });
+  // Predecessor task ids this task depends on. Only meaningful once the
+  // task exists (dependencies reference pmo_tasks.id), so it's editable
+  // in the edit dialog only -- see the disabled Autocomplete below.
+  const [dependsOn, setDependsOn] = useState<string[]>([]);
+  const [dependsOnOriginal, setDependsOnOriginal] = useState<string[]>([]);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -69,7 +74,11 @@ export default function TasksList() {
     return 'default';
   };
 
-  const resetForm = () => setForm({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "", completion_percent: "0" });
+  const resetForm = () => {
+    setForm({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "", completion_percent: "0" });
+    setDependsOn([]);
+    setDependsOnOriginal([]);
+  };
 
   const openCreate = () => {
     setError(null);
@@ -78,7 +87,7 @@ export default function TasksList() {
     setOpen(true);
   };
 
-  const openEdit = (t: Task) => {
+  const openEdit = async (t: Task) => {
     setError(null);
     setEditingId(t.id);
     setForm({
@@ -91,6 +100,10 @@ export default function TasksList() {
       due_date: t.due_date ?? "",
       completion_percent: String(t.completion_percent ?? 0),
     });
+    const { data: depRows } = await supabase.from("pmo_task_dependencies").select("predecessor_task_id").eq("successor_task_id", t.id);
+    const predecessorIds = ((depRows as { predecessor_task_id: string }[]) ?? []).map((r) => r.predecessor_task_id);
+    setDependsOn(predecessorIds);
+    setDependsOnOriginal(predecessorIds);
     setOpen(true);
   };
 
@@ -117,11 +130,57 @@ export default function TasksList() {
         due_date: form.due_date || null,
         completion_percent: completionPercent,
       }).eq("id", editingId);
-      setSaving(false);
       if (updateError) {
+        setSaving(false);
         setError(updateError.message);
         return;
       }
+
+      // Dependency edges are a separate table (pmo_task_dependencies),
+      // written only if the picker's selection actually changed --
+      // diffing against the snapshot taken when the dialog opened rather
+      // than replacing wholesale, so an unrelated edit (e.g. just status)
+      // doesn't touch dependency rows at all.
+      const toAdd = dependsOn.filter((id) => !dependsOnOriginal.includes(id));
+      const toRemove = dependsOnOriginal.filter((id) => !dependsOn.includes(id));
+      if (toRemove.length > 0) {
+        const { error: removeError } = await supabase
+          .from("pmo_task_dependencies")
+          .delete()
+          .eq("successor_task_id", editingId)
+          .in("predecessor_task_id", toRemove);
+        if (removeError) {
+          setSaving(false);
+          setError(removeError.message);
+          return;
+        }
+      }
+      if (toAdd.length > 0) {
+        const { data: projectRow } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+        if (!projectRow?.tenant_id) {
+          setSaving(false);
+          setError("Task saved, but dependencies weren't updated: couldn't resolve the project's tenant.");
+          return;
+        }
+        const addRows = toAdd.map((predecessorId) => ({
+          predecessor_task_id: predecessorId,
+          successor_task_id: editingId,
+          tenant_id: projectRow.tenant_id,
+        }));
+        const { error: addError } = await supabase.from("pmo_task_dependencies").insert(addRows);
+        if (addError) {
+          setSaving(false);
+          // The task's own fields already saved successfully above --
+          // only the dependency change failed (e.g. a cycle rejected by
+          // the DB trigger, or an RLS check since only pmo admin/manager
+          // can write this table), so say so rather than implying
+          // nothing was saved.
+          setError(`Task saved, but dependencies weren't updated: ${addError.message}`);
+          return;
+        }
+      }
+
+      setSaving(false);
       setOpen(false);
       setEditingId(null);
       resetForm();
@@ -237,6 +296,27 @@ export default function TasksList() {
             fullWidth
             inputProps={{ min: 0, max: 100, step: 5 }}
             helperText="0-100. Drives the progress bar on the Gantt chart and project detail page."
+          />
+          <Autocomplete
+            multiple
+            disabled={!editingId}
+            options={tasks.filter(t => t.project_id === form.project_id && t.id !== editingId)}
+            getOptionLabel={(t) => t.title}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={tasks.filter(t => dependsOn.includes(t.id))}
+            onChange={(_, newValue) => setDependsOn(newValue.map(t => t.id))}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Depends on"
+                placeholder={editingId ? "Predecessor tasks" : undefined}
+                helperText={
+                  editingId
+                    ? "This task can't start until these finish. Only tasks in the same project can be picked; the Gantt chart uses this to compute the critical path."
+                    : "Save the task first, then add dependencies from Edit."
+                }
+              />
+            )}
           />
         </DialogContent>
         <DialogActions>

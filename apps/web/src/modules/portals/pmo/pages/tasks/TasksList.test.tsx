@@ -3,14 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import TasksList from './TasksList';
 
-// TasksList touches three tables (pmo_tasks, pmo_projects, pmo_task_types)
-// with a different select/order/eq chain shape per call site -- fetchTasks
-// conditionally chains .eq() onto .order() depending on the status filter,
-// the tenant lookup on create is a one-off .select().eq().single(), and
-// edit uses .update().eq(). That doesn't fit the shared mockSupabaseTable
-// harness (built for one table's worth of select().order() + CRUD), so
-// this mocks supabase.from() directly per table, same approach as
-// GanttChart.test.tsx.
+// TasksList touches four tables (pmo_tasks, pmo_projects, pmo_task_types,
+// pmo_task_dependencies) with a different select/order/eq chain shape per
+// call site -- fetchTasks conditionally chains .eq() onto .order()
+// depending on the status filter, the tenant lookup on create is a one-off
+// .select().eq().single(), edit uses .update().eq(), and dependency edits
+// use .select().eq() / .delete().eq().in() / .insert(). That doesn't fit
+// the shared mockSupabaseTable harness (built for one table's worth of
+// select().order() + CRUD), so this mocks supabase.from() directly per
+// table, same approach as GanttChart.test.tsx.
 
 const mockFrom = vi.fn();
 vi.mock('../../../../../lib/supabaseClient', () => ({
@@ -37,16 +38,35 @@ const TASK = {
   task_types: null,
 };
 
+const TASK2 = {
+  id: 't2',
+  project_id: 'p1',
+  title: 'Frame roof',
+  status: 'todo',
+  priority: 'medium',
+  type_id: null,
+  start_date: '2026-08-11',
+  due_date: '2026-08-20',
+  completion_percent: 0,
+  created_at: '2026-08-01T00:00:00Z',
+  projects: { name: 'Kampala Tower' },
+  task_types: null,
+};
+
 function setup(
   options: {
     tasks?: unknown[];
     updateError?: { message: string } | null;
     insertError?: { message: string } | null;
+    existingDependencies?: string[];
+    dependencyInsertError?: { message: string } | null;
   } = {},
 ) {
   const tasks = options.tasks ?? [TASK];
   const updates: Array<{ payload: any; id: string }> = [];
   const inserts: unknown[] = [];
+  const dependencyInserts: unknown[] = [];
+  const dependencyRemovals: Array<{ successorId: string; predecessorIds: string[] }> = [];
 
   mockFrom.mockImplementation((table: string) => {
     if (table === 'pmo_tasks') {
@@ -89,10 +109,28 @@ function setup(
         select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
       };
     }
+    if (table === 'pmo_task_dependencies') {
+      const existing = (options.existingDependencies ?? []).map((predecessor_task_id) => ({ predecessor_task_id }));
+      return {
+        select: () => ({ eq: () => Promise.resolve({ data: existing, error: null }) }),
+        delete: () => ({
+          eq: (_col: string, successorId: string) => ({
+            in: (_col2: string, predecessorIds: string[]) => {
+              dependencyRemovals.push({ successorId, predecessorIds });
+              return Promise.resolve({ error: null });
+            },
+          }),
+        }),
+        insert: (payload: unknown) => {
+          dependencyInserts.push(payload);
+          return Promise.resolve({ error: options.dependencyInsertError ?? null });
+        },
+      };
+    }
     throw new Error(`TasksList test mock: unexpected table "${table}"`);
   });
 
-  return { updates, inserts };
+  return { updates, inserts, dependencyInserts, dependencyRemovals };
 }
 
 beforeEach(() => {
@@ -178,5 +216,84 @@ describe('TasksList', () => {
       tenant_id: 't1',
       assignee_id: 'u1',
     });
+  });
+
+  it('disables the dependency picker for a brand-new (unsaved) task', async () => {
+    setup({ tasks: [] });
+    const user = userEvent.setup();
+    render(<TasksList />);
+
+    await waitFor(() => expect(screen.getByText(/No tasks yet/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'New Task' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText(/Depends on/)).toBeDisabled();
+    expect(within(dialog).getByText(/Save the task first/)).toBeInTheDocument();
+  });
+
+  it('adds a predecessor dependency on save and only writes the added edge', async () => {
+    const { dependencyInserts, dependencyRemovals } = setup({ tasks: [TASK, TASK2], existingDependencies: [] });
+    const user = userEvent.setup();
+    render(<TasksList />);
+
+    await waitFor(() => expect(screen.getByText('Pour foundation')).toBeInTheDocument());
+    await user.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByLabelText(/Depends on/));
+    await user.click(await screen.findByRole('option', { name: 'Frame roof' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(dependencyInserts).toHaveLength(1));
+    expect(dependencyInserts[0]).toEqual([
+      { predecessor_task_id: 't2', successor_task_id: 't1', tenant_id: 't1' },
+    ]);
+    expect(dependencyRemovals).toHaveLength(0);
+  });
+
+  it('removes a predecessor dependency the user clears, without touching the task fields it did not change', async () => {
+    const { updates, dependencyRemovals, dependencyInserts } = setup({
+      tasks: [TASK, TASK2],
+      existingDependencies: ['t2'],
+    });
+    const user = userEvent.setup();
+    render(<TasksList />);
+
+    await waitFor(() => expect(screen.getByText('Pour foundation')).toBeInTheDocument());
+    await user.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('Frame roof')).toBeInTheDocument());
+    // The dependency chip's delete affordance is an icon-only SVG with no
+    // accessible name (MUI renders it aria-hidden) -- there's exactly one
+    // chip here, so its delete icon is unambiguous by test id.
+    await user.click(within(dialog).getByTestId('CancelIcon'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(dependencyRemovals).toHaveLength(1));
+    expect(dependencyRemovals[0]).toEqual({ successorId: 't1', predecessorIds: ['t2'] });
+    expect(dependencyInserts).toHaveLength(0);
+    expect(updates).toHaveLength(1);
+  });
+
+  it('reports a dependency write failure without hiding that the task fields themselves saved', async () => {
+    const { updates } = setup({
+      tasks: [TASK, TASK2],
+      existingDependencies: [],
+      dependencyInsertError: { message: 'pmo_task_dependencies: this dependency would create a cycle' },
+    });
+    const user = userEvent.setup();
+    render(<TasksList />);
+
+    await waitFor(() => expect(screen.getByText('Pour foundation')).toBeInTheDocument());
+    await user.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByLabelText(/Depends on/));
+    await user.click(await screen.findByRole('option', { name: 'Frame roof' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(await within(dialog).findByText(/Task saved, but dependencies weren't updated/)).toBeInTheDocument();
+    expect(updates).toHaveLength(1);
   });
 });
