@@ -22,7 +22,9 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       incremental migrations layered on top as work continues
+                       44 incremental migrations layered on top as work
+                       continues (supabase/migrations_archive holds the 201
+                       pre-squash migrations, kept for history)
 supabase/functions    Edge Functions (e.g. generate-po; others are deployed
                        directly via the Supabase CLI/dashboard as they're added)
 packages/shared       TypeScript types shared between the web app and edge functions
@@ -70,6 +72,31 @@ get_my_tenant_id()` isolation, `SECURITY DEFINER` RPCs); other modules (e.g. HR)
 have partial coverage and are still being hardened. Don't assume a table is
 RLS-protected just because the platform is live — check the relevant migration
 before treating any given table as safe for broad client-side access.
+
+## Testing & CI
+
+`npm run build --workspace=apps/web` (`tsc -b && vite build`) and
+`npm run test --workspace=apps/web` (Vitest) both run clean — 43 test files,
+309 tests, all passing. Coverage is concentrated where it matters most:
+Procurement, Finance/GL, IT Support, and Platform/Admin have the deepest
+component and SQL test coverage; shallower modules (PMO, Machine Operation,
+Sustainability) have less.
+
+Two GitHub Actions workflows run on every push/PR to `main`:
+`foundation-checks.yml` (migration policy diff, build+typecheck,
+from-scratch migration replay against a local Supabase stack, and the
+tenant_id FK audit from `scripts/audit_tenant_fk.sql`) and `e2e.yml`
+(Playwright specs in `apps/web/e2e/` covering the procurement happy path,
+finance invoice payment, and payroll disbursement money-flow smoke tests).
+
+## Known issues
+
+- `xlsx` (SheetJS), used by the bulk-import tooling, has an unfixed
+  high-severity advisory (prototype pollution + ReDoS — no upstream patch
+  available as of this writing). Low risk in practice since it only parses
+  files uploaded by the tenant's own users, but flagged here so it isn't
+  mistaken for an oversight in `npm audit` output.
+- No LICENSE file yet.
 
 ## Notes on the schema
 
