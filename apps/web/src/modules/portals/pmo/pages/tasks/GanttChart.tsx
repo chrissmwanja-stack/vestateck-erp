@@ -71,7 +71,7 @@ export default function GanttChart() {
       setLoading(true);
       setError(null);
       const [tasksRes, milestonesRes] = await Promise.all([
-        supabase.from("pmo_tasks").select("id, title, status, start_date, due_date, pmo_projects(name)").order("due_date", { ascending: true }).limit(200),
+        supabase.from("pmo_tasks").select("id, title, status, start_date, due_date, completion_percent, pmo_projects(name)").order("due_date", { ascending: true }).limit(200),
         supabase.from("pmo_milestones").select("id, title, due_date, completion_percent, pmo_projects(name)").order("due_date", { ascending: true }).limit(100),
       ]);
 
@@ -106,15 +106,7 @@ export default function GanttChart() {
     return 'grey.400';
   };
 
-  // pmo_tasks has no completion_percent column (only pmo_milestones does),
-  // so task progress is estimated from status until that column exists.
-  const getProgress = (t: Task) => {
-    if (t.completion_percent !== undefined && t.completion_percent !== null) return t.completion_percent;
-    if (t.status === 'done') return 100;
-    if (t.status === 'in_progress') return 50;
-    if (t.status === 'review') return 75;
-    return 10;
-  };
+  const getProgress = (t: Task) => t.completion_percent ?? 0;
 
   const rows: ChartRow[] = useMemo(() => {
     const taskRows: ChartRow[] = tasks.map((t) => {

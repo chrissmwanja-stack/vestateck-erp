@@ -5425,6 +5425,7 @@ export type Database = {
       pmo_tasks: {
         Row: {
           assignee_id: string | null
+          completion_percent: number
           created_at: string
           due_date: string | null
           id: string
@@ -5439,6 +5440,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          completion_percent?: number
           created_at?: string
           due_date?: string | null
           id?: string
@@ -5453,6 +5455,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          completion_percent?: number
           created_at?: string
           due_date?: string | null
           id?: string

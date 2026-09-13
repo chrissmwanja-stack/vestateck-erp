@@ -24,6 +24,7 @@ interface Task {
   status: string;
   priority: string;
   due_date: string | null;
+  completion_percent: number;
   pmo_task_types?: { name: string } | null;
 }
 
@@ -60,7 +61,7 @@ export default function ProjectDetail() {
       setLoading(true);
       const [projectRes, tasksRes, milestonesRes, allocRes] = await Promise.all([
         supabase.from("pmo_projects").select("*, pmo_project_categories(name)").eq("id", id).single(),
-        supabase.from("pmo_tasks").select("id, title, status, priority, due_date, pmo_task_types(name)").eq("project_id", id).order("due_date", { ascending: true }),
+        supabase.from("pmo_tasks").select("id, title, status, priority, due_date, completion_percent, pmo_task_types(name)").eq("project_id", id).order("due_date", { ascending: true }),
         supabase.from("pmo_milestones").select("id, title, due_date, completion_percent, status").eq("project_id", id).order("due_date", { ascending: true }),
         supabase.from("pmo_resource_allocations").select("id, allocation_percent, start_date, end_date, status, hr_employees(first_name, last_name)").eq("project_id", id).order("created_at", { ascending: false }),
       ]);
@@ -154,8 +155,8 @@ export default function ProjectDetail() {
 
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Tasks ({tasks.length})</Typography>
       <Card sx={{ mb: 3 }}><CardContent sx={{ p: 0 }}>
-        <Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Due Date</TableCell></TableRow></TableHead>
-        <TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={5} sx={{ textAlign: "center", py: 3 }}><Typography color="text.secondary">No tasks for this project yet.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell>{t.title}</TableCell><TableCell>{t.pmo_task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell sx={{ textTransform: "capitalize" }}>{t.priority}</TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell></TableRow>)}</TableBody></Table>
+        <Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Progress</TableCell><TableCell>Due Date</TableCell></TableRow></TableHead>
+        <TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={6} sx={{ textAlign: "center", py: 3 }}><Typography color="text.secondary">No tasks for this project yet.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell>{t.title}</TableCell><TableCell>{t.pmo_task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell sx={{ textTransform: "capitalize" }}>{t.priority}</TableCell><TableCell><Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 120 }}><LinearProgress variant="determinate" value={t.completion_percent || 0} sx={{ flex: 1, height: 6 }} /><Typography variant="caption">{t.completion_percent || 0}%</Typography></Box></TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell></TableRow>)}</TableBody></Table>
       </CardContent></Card>
 
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Milestones ({milestones.length})</Typography>

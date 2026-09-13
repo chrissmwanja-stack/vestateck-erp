@@ -40,6 +40,7 @@ const TASK_WITH_RANGE = {
   status: 'in_progress',
   start_date: '2026-08-01',
   due_date: '2026-08-10',
+  completion_percent: 40,
   pmo_projects: { name: 'Kampala Tower' },
 };
 

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert } from "@mui/material";
-import { Add } from "@mui/icons-material";
+import { Add, Edit } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Task {
   id: string;
+  project_id?: string;
   title: string;
   status: string;
   priority: string;
+  type_id?: string | null;
+  start_date?: string | null;
   due_date: string | null;
+  completion_percent: number;
   created_at: string;
   projects?: { name: string } | null;
   task_types?: { name: string } | null;
@@ -25,9 +29,10 @@ export default function TasksList() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "" });
+  const [form, setForm] = useState({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "", completion_percent: "0" });
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -64,13 +69,65 @@ export default function TasksList() {
     return 'default';
   };
 
-  const resetForm = () => setForm({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "" });
+  const resetForm = () => setForm({ project_id: "", title: "", type_id: "", status: "todo", priority: "medium", start_date: "", due_date: "", completion_percent: "0" });
+
+  const openCreate = () => {
+    setError(null);
+    setEditingId(null);
+    resetForm();
+    setOpen(true);
+  };
+
+  const openEdit = (t: Task) => {
+    setError(null);
+    setEditingId(t.id);
+    setForm({
+      project_id: t.project_id ?? "",
+      title: t.title,
+      type_id: t.type_id ?? "",
+      status: t.status,
+      priority: t.priority,
+      start_date: t.start_date ?? "",
+      due_date: t.due_date ?? "",
+      completion_percent: String(t.completion_percent ?? 0),
+    });
+    setOpen(true);
+  };
 
   const handleSave = async () => {
     setError(null);
     if (!form.project_id) { setError("Select a project."); return; }
     if (!form.title.trim()) { setError("Task title is required."); return; }
+    const completionPercent = Number(form.completion_percent);
+    if (Number.isNaN(completionPercent) || completionPercent < 0 || completionPercent > 100) {
+      setError("Completion % must be a number between 0 and 100.");
+      return;
+    }
     setSaving(true);
+
+    if (editingId) {
+      // Editing an existing task -- project/tenant don't change here, only
+      // the fields the dialog exposes.
+      const { error: updateError } = await supabase.from("pmo_tasks").update({
+        title: form.title.trim(),
+        type_id: form.type_id || null,
+        status: form.status,
+        priority: form.priority,
+        start_date: form.start_date || null,
+        due_date: form.due_date || null,
+        completion_percent: completionPercent,
+      }).eq("id", editingId);
+      setSaving(false);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      setOpen(false);
+      setEditingId(null);
+      resetForm();
+      fetchTasks();
+      return;
+    }
 
     // tenant_id has no direct column on the form -- read it off the
     // parent project (same tenant scoping used by ResourceAllocation.tsx),
@@ -85,6 +142,7 @@ export default function TasksList() {
       priority: form.priority,
       start_date: form.start_date || null,
       due_date: form.due_date || null,
+      completion_percent: completionPercent,
       assignee_id: session?.user?.id || null,
     };
     if (projectRow?.tenant_id) payload.tenant_id = projectRow.tenant_id;
@@ -106,7 +164,7 @@ export default function TasksList() {
     <Box sx={{ p: 3, maxWidth: 1200 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Box><Typography variant="h5" fontWeight={700}>Tasks</Typography><Typography variant="body2" color="text.secondary">{tasks.length} tasks across projects</Typography></Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => { setError(null); setOpen(true); }}>New Task</Button>
+        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>New Task</Button>
       </Box>
 
       <Card sx={{ mb: 2 }}>
@@ -121,13 +179,22 @@ export default function TasksList() {
         </CardContent>
       </Card>
 
-      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Project</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Due Date</TableCell></TableRow></TableHead><TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={6} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No tasks yet. Create tasks linked to projects.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell><Typography fontWeight={600}>{t.title}</Typography></TableCell><TableCell>{t.projects?.name || "-"}</TableCell><TableCell>{t.task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Chip label={t.priority} size="small" color={getPriorityColor(t.priority) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Project</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Progress</TableCell><TableCell>Due Date</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No tasks yet. Create tasks linked to projects.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell><Typography fontWeight={600}>{t.title}</Typography></TableCell><TableCell>{t.projects?.name || "-"}</TableCell><TableCell>{t.task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Chip label={t.priority} size="small" color={getPriorityColor(t.priority) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Typography variant="body2">{t.completion_percent ?? 0}%</Typography></TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell><TableCell align="right"><Button size="small" startIcon={<Edit fontSize="small" />} onClick={() => openEdit(t)}>Edit</Button></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Task</DialogTitle>
+        <DialogTitle>{editingId ? "Edit Task" : "New Task"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField select label="Project *" value={form.project_id} onChange={e => setForm({ ...form, project_id: e.target.value })} fullWidth required>
+          <TextField
+            select
+            label="Project *"
+            value={form.project_id}
+            onChange={e => setForm({ ...form, project_id: e.target.value })}
+            fullWidth
+            required
+            disabled={!!editingId}
+            helperText={editingId ? "Project can't be changed after a task is created." : undefined}
+          >
             <MenuItem value="">-- Select Project --</MenuItem>
             {projects.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
           </TextField>
@@ -162,10 +229,19 @@ export default function TasksList() {
               <TextField label="Due Date" type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} fullWidth InputLabelProps={{ shrink: true }} />
             </Grid>
           </Grid>
+          <TextField
+            label="Completion %"
+            type="number"
+            value={form.completion_percent}
+            onChange={e => setForm({ ...form, completion_percent: e.target.value })}
+            fullWidth
+            inputProps={{ min: 0, max: 100, step: 5 }}
+            helperText="0-100. Drives the progress bar on the Gantt chart and project detail page."
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving || !form.project_id || !form.title.trim()}>{saving ? "Saving..." : "Create"}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !form.project_id || !form.title.trim()}>{saving ? "Saving..." : editingId ? "Save" : "Create"}</Button>
         </DialogActions>
       </Dialog>
     </Box>
