@@ -59,6 +59,21 @@ forward. Established by Foundation Playbook Phase 0. See
    it too (`.github/workflows/foundation-checks.yml`), but catching it
    locally is faster than waiting on a failed check.
 
+8. **No `DROP COLUMN` or `DROP TABLE` on an existing table in a new
+   migration.** `db-shadow-replay` applies migrations to an empty
+   database, so a drop-then-recreate sequence looks harmless there --
+   it's invisible on a database with no rows to lose. On a database
+   *with* data (production), the same sequence silently destroys
+   whatever was stored in that column or table before recreating it
+   empty. This is exactly what happened in
+   `20260904082722_remote_schema.sql` /
+   `20260904090500_payroll_paye_nssf_workstream_f.sql`, which dropped
+   and recreated `hr_payroll_items.{paye_amount,nssf_employee,
+   nssf_employer}` back to back. Deprecate instead: rename the column
+   to `<name>_deprecated`, stop reading/writing it in application code,
+   and drop it in a separate, human-reviewed migration one release
+   later, once you've confirmed nothing still depends on it.
+
 ## What this does not cover
 
 This policy is about what goes **into** new migrations. It does not

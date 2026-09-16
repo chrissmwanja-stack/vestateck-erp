@@ -69,6 +69,25 @@ for f in $NEW_MIGRATIONS; do
     echo "FAIL: $f looks like a 'supabase db dump'/Studio-generated remote_schema file, not a hand-authored migration. Write the actual diff instead. (MIGRATION_POLICY.md, rule 6)"
     FAIL=1
   fi
+
+  # Destructive DDL on an existing table. This is invisible to
+  # db-shadow-replay (which runs against an empty DB) but destroys
+  # real data on any database that already has rows -- see the
+  # hr_payroll_items paye/nssf drop-then-recreate incident this rule
+  # was added for. Matches "drop column" and "drop column if exists"
+  # regardless of quoting; deliberately does not match DROP on brand
+  # new objects created earlier in the same file (e.g. a scratch temp
+  # table), since grep can't tell "existing" from "just-created" --
+  # reviewers should still eyeball any DROP TABLE this doesn't catch.
+  if echo "$CODE" | grep -qiE '\bdrop\s+column\b'; then
+    echo "FAIL: $f contains DROP COLUMN. Deprecate instead: rename to <name>_deprecated, stop reading it, drop it in a separate migration next release. (MIGRATION_POLICY.md, rule 8)"
+    FAIL=1
+  fi
+
+  if echo "$CODE" | grep -qiE '\bdrop\s+table\b(\s+if\s+exists)?\s+"?public"?\."?[a-z_]+"?\s*;' && ! echo "$CODE" | grep -qiE '\bcreate\s+(table|temp\s+table|temporary\s+table)\b'; then
+    echo "FAIL: $f contains DROP TABLE on what looks like an existing table (no matching CREATE TABLE earlier in this file). Deprecate instead, or confirm with a human reviewer that this table is genuinely being retired. (MIGRATION_POLICY.md, rule 8)"
+    FAIL=1
+  fi
 done
 
 if [ "$FAIL" -eq 1 ]; then
