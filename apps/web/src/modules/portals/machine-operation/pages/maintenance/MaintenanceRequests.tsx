@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Alert } from "@mui/material";
-import { Add } from "@mui/icons-material";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Alert, IconButton, Tooltip } from "@mui/material";
+import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 
 interface Machine { id: string; name: string; machine_no: string; }
@@ -20,6 +20,7 @@ interface MaintenanceRequest {
 }
 
 const STATUS_OPTIONS = ["scheduled", "in_progress", "completed", "cancelled"] as const;
+const emptyForm = { machine_id: "", type: "", description: "", status: "scheduled", scheduled_date: "" };
 
 export default function MaintenanceRequests() {
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
@@ -27,14 +28,15 @@ export default function MaintenanceRequests() {
   const [types, setTypes] = useState<MaintenanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<MaintenanceRequest | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ machine_id: "", type: "", description: "", status: "scheduled", scheduled_date: "" });
+  const [form, setForm] = useState(emptyForm);
 
   const fetchData = async () => {
     setLoading(true);
     const [reqRes, machinesRes, typesRes] = await Promise.all([
-      supabase.from("maintenance_requests").select("*, machines(name, machine_no)").order("created_at", { ascending: false }).limit(100),
+      supabase.from("maintenance_requests").select("*, machines(name, machine_no)").order("created_at", { ascending: false }).limit(200),
       supabase.from("machines").select("id, name, machine_no").order("name"),
       supabase.from("maintenance_types").select("id, name").eq("is_active", true).order("name"),
     ]);
@@ -52,54 +54,50 @@ export default function MaintenanceRequests() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const resetForm = () => setForm({ machine_id: "", type: "", description: "", status: "scheduled", scheduled_date: "" });
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setError(null); setOpen(true); };
+  const openEdit = (row: MaintenanceRequest) => {
+    setEditing(row);
+    setForm({ machine_id: row.machine_id || "", type: row.type || "", description: row.description || "", status: row.status || "scheduled", scheduled_date: row.scheduled_date || "" });
+    setError(null);
+    setOpen(true);
+  };
 
   const handleSave = async () => {
     setError(null);
     if (!form.machine_id) { setError("Select a machine."); return; }
     if (!form.type) { setError("Select a maintenance type."); return; }
     setSaving(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setSaving(false);
-      setError("You need to be signed in to file a maintenance request.");
-      return;
+    let res;
+    if (editing) {
+      const payload: any = { machine_id: form.machine_id, type: form.type, description: form.description.trim() || null, status: form.status, scheduled_date: form.scheduled_date || null };
+      res = await supabase.from("maintenance_requests").update(payload).eq("id", editing.id);
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setSaving(false); setError("You need to be signed in."); return; }
+      const { data: profile, error: profileError } = await supabase.from("app_users").select("tenant_id").eq("id", user.id).single();
+      if (profileError || !profile?.tenant_id) { setSaving(false); setError(profileError?.message || "Could not determine organization."); return; }
+      const payload: any = { machine_id: form.machine_id, type: form.type, description: form.description.trim() || null, status: form.status, requested_by: user.id, scheduled_date: form.scheduled_date || null, tenant_id: profile.tenant_id };
+      res = await supabase.from("maintenance_requests").insert(payload);
     }
-
-    // tenant_id is read from the requester's own app_users row, same
-    // pattern used for it_tickets in NewTicket.tsx -- requested_by is the
-    // auth uid directly since app_users.id === auth.uid().
-    const { data: profile, error: profileError } = await supabase
-      .from("app_users")
-      .select("tenant_id")
-      .eq("id", user.id)
-      .single();
-
-    const payload: any = {
-      machine_id: form.machine_id,
-      type: form.type,
-      description: form.description.trim() || null,
-      status: form.status,
-      requested_by: user.id,
-      scheduled_date: form.scheduled_date || null,
-    };
-    if (profile?.tenant_id) payload.tenant_id = profile.tenant_id;
-    else if (profileError) {
-      setSaving(false);
-      setError(profileError.message);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("maintenance_requests").insert(payload);
     setSaving(false);
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
+    if (res.error) { setError(res.error.message); return; }
     setOpen(false);
-    resetForm();
+    setEditing(null);
+    setForm(emptyForm);
     fetchData();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this request?")) return;
+    const { error } = await supabase.from("maintenance_requests").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchData();
+  };
+
+  const handleStatusQuick = async (row: MaintenanceRequest, newStatus: string) => {
+    const { error } = await supabase.from("maintenance_requests").update({ status: newStatus }).eq("id", row.id);
+    if (error) alert(error.message);
+    else fetchData();
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
@@ -112,15 +110,15 @@ export default function MaintenanceRequests() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100 }}>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Box><Typography variant="h5" fontWeight={700}>Maintenance Requests</Typography><Typography variant="body2" color="text.secondary">{requests.length} requests</Typography></Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => { setError(null); setOpen(true); }}>New Request</Button>
+        <Box><Typography variant="h5" fontWeight={700}>Maintenance Requests</Typography><Typography variant="body2" color="text.secondary">{requests.length} requests • Click status chip to advance, edit to correct details.</Typography></Box>
+        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>New Request</Button>
       </Box>
-      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Machine</TableCell><TableCell>Type</TableCell><TableCell>Description</TableCell><TableCell>Status</TableCell><TableCell>Scheduled</TableCell></TableRow></TableHead><TableBody>{requests.length === 0 ? <TableRow><TableCell colSpan={5} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No maintenance requests yet. Create breakdown or preventive requests.</Typography></TableCell></TableRow> : requests.map(r => <TableRow key={r.id} hover><TableCell>{r.machines ? `${r.machines.machine_no} - ${r.machines.name}` : "-"}</TableCell><TableCell sx={{ textTransform: "capitalize" }}>{r.type}</TableCell><TableCell>{r.description?.slice(0,80) || "-"}</TableCell><TableCell><Chip label={r.status} size="small" color={statusColor(r.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell>{r.scheduled_date ? new Date(r.scheduled_date).toLocaleDateString() : "-"}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Machine</TableCell><TableCell>Type</TableCell><TableCell>Description</TableCell><TableCell>Status</TableCell><TableCell>Scheduled</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{requests.length === 0 ? <TableRow><TableCell colSpan={6} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No maintenance requests yet. Create breakdown or preventive requests.</Typography></TableCell></TableRow> : requests.map(r => <TableRow key={r.id} hover><TableCell>{r.machines ? `${r.machines.machine_no} - ${r.machines.name}` : "-"}</TableCell><TableCell sx={{ textTransform: "capitalize" }}>{r.type}</TableCell><TableCell><Typography variant="body2" sx={{ maxWidth: 300, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.description?.slice(0,80) || "-"}</Typography></TableCell><TableCell><Tooltip title="Click to change status"><Chip label={r.status} size="small" color={statusColor(r.status) as any} sx={{ textTransform: "capitalize", cursor: "pointer" }} onClick={() => { const next = r.status === "scheduled" ? "in_progress" : r.status === "in_progress" ? "completed" : "scheduled"; handleStatusQuick(r, next); }} /></Tooltip></TableCell><TableCell>{r.scheduled_date ? new Date(r.scheduled_date).toLocaleDateString() : "-"}</TableCell><TableCell align="right"><Tooltip title="Edit"><IconButton size="small" aria-label="Edit request" onClick={() => openEdit(r)}><Edit fontSize="small" /></IconButton></Tooltip><Tooltip title="Delete"><IconButton size="small" aria-label="Delete request" onClick={() => handleDelete(r.id)}><Delete fontSize="small" /></IconButton></Tooltip></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Maintenance Request</DialogTitle>
+      <Dialog open={open} onClose={() => !saving && setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editing ? "Edit Maintenance Request" : "New Maintenance Request"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField select label="Machine *" value={form.machine_id} onChange={e => setForm({ ...form, machine_id: e.target.value })} fullWidth required>
@@ -138,8 +136,8 @@ export default function MaintenanceRequests() {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving || !form.machine_id || !form.type}>{saving ? "Saving..." : "Create"}</Button>
+          <Button onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !form.machine_id || !form.type}>{saving ? "Saving..." : editing ? "Update" : "Create"}</Button>
         </DialogActions>
       </Dialog>
     </Box>
