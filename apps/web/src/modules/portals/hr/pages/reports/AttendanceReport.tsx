@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
-import { Box, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField } from "@mui/material";
+import { useEffect, useState, useMemo } from "react";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, Grid } from "@mui/material";
+import { Download, FileDownload } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 
 interface Attendance { id: string; status: string; attendance_date: string; hr_employees?: { first_name: string; last_name: string; departments?: { name: string } | null } | null; }
 
@@ -13,21 +16,15 @@ export default function AttendanceReport() {
     setLoading(true);
     const start = `${dateFilter}-01`;
     const end = `${dateFilter}-31`;
-    // NOTE: was "hr_departments", which does not exist -- departments live
-    // in the shared `departments` table (same issue fixed in
-    // EmployeesList.tsx / OrgChart.tsx / HRDashboard.tsx this session).
     const { data } = await supabase
       .from("hr_attendance")
       .select("*, hr_employees(first_name, last_name, departments(name))")
       .gte("attendance_date", start)
       .lte("attendance_date", end)
-      .order("attendance_date", { ascending: false });
+      .order("attendance_date", { ascending: false })
+      .limit(500);
 
     if (data) {
-      // PostgREST returns nested to-one joins as arrays in this schema
-      // (same quirk as CaseStatusReport.tsx / OrgChart.tsx) -- normalize
-      // both the employee and department levels to the singular shape
-      // the UI expects.
       const normalized = (data as any[]).map((row) => {
         const empRaw = Array.isArray(row.hr_employees) ? row.hr_employees[0] ?? null : row.hr_employees ?? null;
         const emp = empRaw
@@ -46,13 +43,32 @@ export default function AttendanceReport() {
 
   useEffect(() => { fetchReport(); }, [dateFilter]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: attendance.length,
     present: attendance.filter(a => a.status === 'present').length,
     absent: attendance.filter(a => a.status === 'absent').length,
     late: attendance.filter(a => a.status === 'late').length,
     onLeave: attendance.filter(a => a.status === 'on_leave').length,
-  };
+  }), [attendance]);
+
+  const pieData = useMemo(() => [
+    { name: "Present", value: stats.present, color: "#2e7d32" },
+    { name: "Late", value: stats.late, color: "#ed6c02" },
+    { name: "Absent", value: stats.absent, color: "#d32f2f" },
+    { name: "On Leave", value: stats.onLeave, color: "#757575" },
+  ].filter(d => d.value > 0), [stats]);
+
+  const byDate = useMemo(() => {
+    const map: Record<string, { date: string; present: number; late: number; absent: number }> = {};
+    attendance.forEach(a => {
+      const d = a.attendance_date;
+      if (!map[d]) map[d] = { date: new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), present:0, late:0, absent:0 };
+      if (a.status === "present") map[d].present++;
+      else if (a.status === "late") map[d].late++;
+      else if (a.status === "absent") map[d].absent++;
+    });
+    return Object.values(map).sort((a,b) => a.date.localeCompare(b.date)).slice(-14);
+  }, [attendance]);
 
   const getStatusColor = (s: string) => {
     if (s === 'present') return 'success';
@@ -61,21 +77,81 @@ export default function AttendanceReport() {
     return 'default';
   };
 
+  const handleExcel = () => {
+    const cols = [
+      { header: "Date", accessor: (r: Attendance) => new Date(r.attendance_date).toLocaleDateString() },
+      { header: "Employee", accessor: (r: Attendance) => r.hr_employees ? `${r.hr_employees.first_name} ${r.hr_employees.last_name}` : "-" },
+      { header: "Department", accessor: (r: Attendance) => r.hr_employees?.departments?.name || "-" },
+      { header: "Status", accessor: (r: Attendance) => r.status },
+    ];
+    exportReportToExcel(`attendance-report-${dateFilter}`, `Attendance ${dateFilter}`, cols as any, attendance);
+  };
+  const handlePdf = () => {
+    const cols = [
+      { header: "Date", accessor: (r: Attendance) => new Date(r.attendance_date).toLocaleDateString() },
+      { header: "Employee", accessor: (r: Attendance) => r.hr_employees ? `${r.hr_employees.first_name} ${r.hr_employees.last_name}` : "-" },
+      { header: "Dept", accessor: (r: Attendance) => r.hr_employees?.departments?.name || "-" },
+      { header: "Status", accessor: (r: Attendance) => r.status },
+    ];
+    exportReportToPdf(`attendance-report-${dateFilter}.pdf`, `Attendance Report — ${dateFilter}`, cols as any, attendance, `Total ${stats.total} • Present ${stats.present} • Late ${stats.late} • Absent ${stats.absent} • On Leave ${stats.onLeave}`);
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100 }}>
-      <Typography variant="h5" fontWeight={700} gutterBottom>Attendance Report</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Attendance % by status for selected month. Filter by YYYY-MM.</Typography>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2, gap: 2, flexWrap: "wrap" }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700} gutterBottom>Attendance Report</Typography>
+          <Typography variant="body2" color="text.secondary">Attendance % by status for selected month. Export to Excel/PDF.</Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button size="small" variant="outlined" startIcon={<FileDownload />} onClick={handleExcel} disabled={attendance.length===0}>Excel</Button>
+          <Button size="small" variant="outlined" startIcon={<Download />} onClick={handlePdf} disabled={attendance.length===0}>PDF</Button>
+        </Box>
+      </Box>
 
-      <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap", alignItems: "center" }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
         <TextField label="Month" type="month" value={dateFilter} onChange={e => setDateFilter(e.target.value)} size="small" InputLabelProps={{ shrink: true }} />
         <Chip label={`Total: ${stats.total}`} size="small" />
-        <Chip label={`Present: ${stats.present}`} size="small" color="success" />
+        <Chip label={`Present: ${stats.present} (${stats.total ? ((stats.present/stats.total)*100).toFixed(0):0}%)`} size="small" color="success" />
         <Chip label={`Absent: ${stats.absent}`} size="small" color="error" />
         <Chip label={`Late: ${stats.late}`} size="small" color="warning" />
         <Chip label={`On Leave: ${stats.onLeave}`} size="small" />
       </Box>
+
+      {attendance.length > 0 && (
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={5}>
+            <Card variant="outlined"><CardContent>
+              <Typography variant="subtitle2" fontWeight={700} gutterBottom>Distribution</Typography>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name, value})=>`${name} ${value}`}>
+                    {pieData.map((e,i)=><Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <ReTooltip /><Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent></Card>
+          </Grid>
+          <Grid item xs={12} md={7}>
+            <Card variant="outlined"><CardContent>
+              <Typography variant="subtitle2" fontWeight={700} gutterBottom>Daily Trend (up to 14 days in month)</Typography>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={byDate}>
+                  <XAxis dataKey="date" fontSize={11} />
+                  <YAxis allowDecimals={false} fontSize={11} />
+                  <ReTooltip /><Legend />
+                  <Bar dataKey="present" stackId="a" fill="#2e7d32" name="Present" />
+                  <Bar dataKey="late" stackId="a" fill="#ed6c02" name="Late" />
+                  <Bar dataKey="absent" stackId="a" fill="#d32f2f" name="Absent" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent></Card>
+          </Grid>
+        </Grid>
+      )}
 
       <Card>
         <CardContent sx={{ p: 0 }}>
