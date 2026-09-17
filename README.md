@@ -22,9 +22,14 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       44 incremental migrations layered on top as work
+                       47 incremental migrations layered on top as work
                        continues (supabase/migrations_archive holds the 201
-                       pre-squash migrations, kept for history)
+                       pre-squash migrations, kept for history). Verified
+                       2026-09-16: replaying every tracked migration from an
+                       empty database reproduces production's schema exactly
+                       — same tables, function signatures and bodies, and
+                       RLS policies (including USING/WITH CHECK clauses),
+                       byte-for-byte. See "Notes on the schema" below.
 supabase/functions    Edge Functions (e.g. generate-po; others are deployed
                        directly via the Supabase CLI/dashboard as they're added)
 packages/shared       TypeScript types shared between the web app and edge functions
@@ -73,6 +78,24 @@ have partial coverage and are still being hardened. Don't assume a table is
 RLS-protected just because the platform is live — check the relevant migration
 before treating any given table as safe for broad client-side access.
 
+As of 2026-09-16, all `public` schema functions are `EXECUTE`-revoked from
+`anon` (unauthenticated) and available only to `authenticated` — closing off
+direct unauthenticated RPC calls (`/rest/v1/rpc/...`) to financial-write
+functions like `post_journal_entry` and `import_bank_statement_lines`, which
+had been exposed to `anon` by Postgres's default grant-to-PUBLIC behavior.
+`scripts/check-migration-policy.sh` also now rejects any new migration
+containing `DROP COLUMN` or `DROP TABLE` on an existing object — see
+`supabase/MIGRATION_POLICY.md` rule 8 — after a drop-then-recreate pair in
+an earlier migration was found capable of destroying payroll statutory data
+on any environment where a real payroll run had posted (production itself
+was unaffected: no payroll run or GL posting had occurred at the time).
+
+## License
+
+Proprietary — all rights reserved (see `LICENSE`). The repository is public
+for reference/visibility, not as an open-source release; no permission is
+granted to copy, modify, or redistribute without Vestateck's consent.
+
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
@@ -96,7 +119,11 @@ finance invoice payment, and payroll disbursement money-flow smoke tests).
   available as of this writing). Low risk in practice since it only parses
   files uploaded by the tenant's own users, but flagged here so it isn't
   mistaken for an oversight in `npm audit` output.
-- No LICENSE file yet.
+- The `supabase/migrations_archive/` seed-account data previously named real
+  Ugandan companies and government agencies (URA, KCCA, etc.) with invented
+  contact people; the working tree was neutralised to fictitious org names
+  on 2026-09-16. Older git commits still contain the originals — a full
+  purge needs a `git filter-repo`/BFG history rewrite, not yet done.
 
 ## Notes on the schema
 
