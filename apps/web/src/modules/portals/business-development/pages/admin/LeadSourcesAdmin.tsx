@@ -185,8 +185,8 @@ export default function LeadSourcesAdmin() {
                       <Tooltip title="Toggle active">
                         <Switch size="small" checked={s.is_active} onChange={() => handleToggleActive(s)} />
                       </Tooltip>
-                      <IconButton size="small" onClick={() => handleOpenEdit(s)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(s.id)}><Delete fontSize="small" /></IconButton>
+                      <IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(s)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label="Delete" size="small" onClick={() => handleDelete(s.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))

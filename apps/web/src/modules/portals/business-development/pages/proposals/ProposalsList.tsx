@@ -102,7 +102,7 @@ export default function ProposalsList() {
                     <TableCell>v{p.version}</TableCell>
                     <TableCell>{p.valid_until ? new Date(p.valid_until).toLocaleDateString() : "-"}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View"><IconButton size="small"><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View"><IconButton aria-label="View details" size="small"><Visibility fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))

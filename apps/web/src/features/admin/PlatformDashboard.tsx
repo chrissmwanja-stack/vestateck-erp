@@ -295,12 +295,12 @@ export default function PlatformDashboard() {
             All companies
           </Button>
           <Tooltip title="Platform settings">
-            <IconButton component={RouterLink} to="/admin/settings" sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
+            <IconButton aria-label="Settings" component={RouterLink} to="/admin/settings" sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
               <Settings fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Refresh stats">
-            <IconButton onClick={load} sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
+            <IconButton aria-label="Refresh" onClick={load} sx={{ color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.08)' }}>
               <Refresh fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -503,8 +503,8 @@ export default function PlatformDashboard() {
                     <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="View analytics"><IconButton size="small" component={RouterLink} to={`/admin/companies/${c.id}`}><Visibility fontSize="small" /></IconButton></Tooltip>
-                        <Tooltip title="View as this company (impersonate)"><span><IconButton size="small" onClick={() => handleViewAs(c.id)} disabled={!!impersonatingId}><People fontSize="small" /></IconButton></span></Tooltip>
+                        <Tooltip title="View analytics"><IconButton aria-label="View details" size="small" component={RouterLink} to={`/admin/companies/${c.id}`}><Visibility fontSize="small" /></IconButton></Tooltip>
+                        <Tooltip title="View as this company (impersonate)"><span><IconButton size="small" aria-label="View as this company" onClick={() => handleViewAs(c.id)} disabled={!!impersonatingId}><People fontSize="small" /></IconButton></span></Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>

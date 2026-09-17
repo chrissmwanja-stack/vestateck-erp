@@ -307,7 +307,7 @@ export default function ProblemManagement() {
                       <ListItem
                         key={t.id}
                         secondaryAction={
-                          <IconButton size="small" onClick={() => unlinkTicket(t.id)}>
+                          <IconButton aria-label="Close" size="small" onClick={() => unlinkTicket(t.id)}>
                             <Close fontSize="small" />
                           </IconButton>
                         }

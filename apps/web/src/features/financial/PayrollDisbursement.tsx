@@ -298,7 +298,11 @@ export default function PayrollDisbursement() {
                           Record Disbursement
                         </Button>
                       )}
-                      <IconButton size="small" onClick={() => setOpenId(openId === run.id ? null : run.id)}>
+                      <IconButton
+                        size="small"
+                        aria-label={openId === run.id ? "Collapse details" : "Expand details"}
+                        onClick={() => setOpenId(openId === run.id ? null : run.id)}
+                      >
                         {openId === run.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                       </IconButton>
                     </Stack>

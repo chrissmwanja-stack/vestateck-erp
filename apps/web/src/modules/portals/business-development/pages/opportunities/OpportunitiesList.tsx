@@ -136,7 +136,7 @@ export default function OpportunitiesList() {
                     <TableCell><Typography fontWeight={600}>{o.currency} {(Number(o.estimated_value) * o.probability / 100).toLocaleString()}</Typography></TableCell>
                     <TableCell>{o.expected_close_date ? new Date(o.expected_close_date).toLocaleDateString() : "-"}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View Pipeline Board"><IconButton size="small" onClick={() => navigate("/business-development/opportunities/pipeline")}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View Pipeline Board"><IconButton aria-label="View details" size="small" onClick={() => navigate("/business-development/opportunities/pipeline")}><Visibility fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))

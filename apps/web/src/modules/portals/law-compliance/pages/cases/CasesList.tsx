@@ -88,7 +88,7 @@ export default function CasesList() {
                     <TableCell><Chip label={c.status} size="small" color={getStatusColor(c.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell>
                     <TableCell>{c.lawyer_name || "-"}</TableCell>
                     <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell align="right"><Tooltip title="View"><IconButton size="small"><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
+                    <TableCell align="right"><Tooltip title="View"><IconButton aria-label="View details" size="small"><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
                   </TableRow>
                 ))
               )}

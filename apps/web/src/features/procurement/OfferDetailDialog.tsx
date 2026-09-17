@@ -102,7 +102,7 @@ export default function OfferDetailDialog({ open, onClose, requestId, initialPoN
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span>Offer detail{initialPoNumber ? ` — ${initialPoNumber}` : ""}</span>
-        <IconButton size="small" onClick={onClose}>
+        <IconButton aria-label="Close" size="small" onClick={onClose}>
           <Close fontSize="small" />
         </IconButton>
       </DialogTitle>

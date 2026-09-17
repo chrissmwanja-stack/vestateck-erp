@@ -243,10 +243,10 @@ export default function LeadsList() {
                     <TableCell>{lead.estimated_value ? `${lead.currency} ${Number(lead.estimated_value).toLocaleString()}` : "-"}</TableCell>
                     <TableCell><Typography variant="caption">{new Date(lead.created_at).toLocaleDateString()}</Typography></TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View"><IconButton size="small" onClick={() => navigate(`/business-development/leads/${lead.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={() => handleOpenEdit(lead)}><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/business-development/leads/${lead.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(lead)}><Edit fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Convert to Opportunity">
-                        <IconButton size="small" color="primary" onClick={() => navigate(`/business-development/opportunities/new?lead_id=${lead.id}`)}>
+                        <IconButton size="small" color="primary" aria-label="Convert to opportunity" onClick={() => navigate(`/business-development/opportunities/new?lead_id=${lead.id}`)}>
                           <TrendingUp fontSize="small" />
                         </IconButton>
                       </Tooltip>

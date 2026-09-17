@@ -186,8 +186,8 @@ export default function ProposalTemplates() {
                       </Tooltip>
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(t.id)}><Delete fontSize="small" /></IconButton>
+                      <IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label="Delete" size="small" onClick={() => handleDelete(t.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))

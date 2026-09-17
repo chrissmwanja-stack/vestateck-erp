@@ -346,7 +346,9 @@ function RequestPanel({ request, warehouses }: { request: RequestRow; warehouses
             {request.delivery_date ? ` • Delivery ${request.delivery_date}` : ''}
           </Typography>
         </Box>
-        <IconButton size="small">{open ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+        <IconButton size="small" aria-label={open ? "Collapse details" : "Expand details"}>
+          {open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
       </Box>
       <Collapse in={open} timeout="auto" unmountOnExit>
         <Box sx={{ px: 2, pb: 2 }}>

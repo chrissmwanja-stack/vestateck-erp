@@ -375,14 +375,14 @@ export default function ProcurementInfo() {
                   <TableCell align="center">
                     <Tooltip title={r.pdf_generated_at ? `Last generated ${new Date(r.pdf_generated_at).toLocaleString()}` : "Generate PO PDF"}>
                       <span>
-                        <IconButton size="small" disabled={isPdfBusy} onClick={() => viewPdf(r)}>
+                        <IconButton size="small" aria-label="View PDF" disabled={isPdfBusy} onClick={() => viewPdf(r)}>
                           {isPdfBusy ? <CircularProgress size={16} /> : <PictureAsPdf fontSize="small" color="error" />}
                         </IconButton>
                       </span>
                     </Tooltip>
                     <Tooltip title="Email PO to requester">
                       <span>
-                        <IconButton size="small" disabled={isEmailBusy} onClick={() => emailPo(r)}>
+                        <IconButton size="small" aria-label="Email purchase order" disabled={isEmailBusy} onClick={() => emailPo(r)}>
                           {isEmailBusy ? <CircularProgress size={16} /> : <Email fontSize="small" color="primary" />}
                         </IconButton>
                       </span>

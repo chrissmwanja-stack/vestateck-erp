@@ -245,8 +245,8 @@ export default function EmployeesList() {
                     <TableCell><Chip label={e.employment_status} size="small" color={e.employment_status === 'active' ? 'success' : e.employment_status === 'on_leave' ? 'warning' : 'default'} sx={{ textTransform: "capitalize" }} /></TableCell>
                     <TableCell><Chip label={e.is_active ? "Active" : "Inactive"} size="small" color={e.is_active ? "success" : "default"} /></TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(e)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(e.id)}><Delete fontSize="small" /></IconButton>
+                      <IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(e)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label="Delete" size="small" onClick={() => handleDelete(e.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))

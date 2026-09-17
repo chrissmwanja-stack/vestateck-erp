@@ -348,7 +348,7 @@ export default function GoodsIssue() {
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" onClick={() => removeItem(item.key)} disabled={items.length === 1}>
+                    <IconButton aria-label="Delete" size="small" onClick={() => removeItem(item.key)} disabled={items.length === 1}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </TableCell>

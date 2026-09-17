@@ -233,8 +233,8 @@ export default function OpportunityStagesAdmin() {
                     </TableCell>
                     <TableCell><Chip label={s.is_active ? "Active" : "Inactive"} size="small" color={s.is_active ? "success" : "default"} /></TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(s)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(s.id)}><Delete fontSize="small" /></IconButton>
+                      <IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(s)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label="Delete" size="small" onClick={() => handleDelete(s.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))

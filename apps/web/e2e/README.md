@@ -4,8 +4,10 @@ Playwright tests for the 3 money-flow paths, run against a real Supabase
 backend (no mocking): **Procurement** (request → offer entry → PO),
 **Finance** (supplier invoice → cash/bank settlement), and **Payroll**
 (run → approval → disbursement). These are separate from the Vitest
-component-test suite (`npm test`) and are not wired into CI yet — run them
-explicitly.
+component-test suite (`npm test`) and run in their own CI workflow
+(`.github/workflows/e2e.yml`, on every push/PR to `main`) — see that
+file's header for why it's separate from `foundation-checks.yml`. Run
+them locally with the steps below to debug a failure or write a new spec.
 
 ## One-time setup
 

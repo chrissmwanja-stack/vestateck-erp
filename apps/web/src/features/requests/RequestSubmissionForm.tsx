@@ -339,7 +339,7 @@ export default function RequestSubmissionForm({ onSubmitted }: { onSubmitted?: (
                           <TableCell align="right"><TextField size="small" variant="standard" type="number" inputProps={{ min: 0, style: { textAlign: "right" } }} value={row.unitPrice} onChange={(e) => updateLineItem(row.key, { unitPrice: e.target.value })} /></TableCell>
                           <TableCell align="right">{lineTotal(row) > 0 ? lineTotal(row).toLocaleString() : "—"}</TableCell>
                           <TableCell><TextField size="small" variant="standard" fullWidth value={row.currency} onChange={(e) => updateLineItem(row.key, { currency: e.target.value })} /></TableCell>
-                          <TableCell><IconButton size="small" onClick={() => removeLineItem(row.key)} disabled={lineItems.length === 1}><DeleteOutline fontSize="small" /></IconButton></TableCell>
+                          <TableCell><IconButton aria-label="Delete" size="small" onClick={() => removeLineItem(row.key)} disabled={lineItems.length === 1}><DeleteOutline fontSize="small" /></IconButton></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

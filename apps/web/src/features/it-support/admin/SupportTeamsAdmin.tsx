@@ -326,7 +326,7 @@ export default function SupportTeamsAdmin() {
                     <ListItemButton key={m.user_id} disableRipple sx={{ cursor: 'default' }}>
                       <ListItemText primary={m.name} secondary={m.email} />
                       {isItSupport && (
-                        <IconButton
+                        <IconButton aria-label="Close"
                           size="small"
                           edge="end"
                           onClick={() => removeMember(m.user_id)}

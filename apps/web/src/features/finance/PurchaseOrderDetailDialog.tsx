@@ -124,7 +124,7 @@ export default function PurchaseOrderDetailDialog({ open, onClose, purchaseOrder
         }}
       >
         PURCHASE ORDER DETAIL
-        <IconButton size="small" onClick={onClose} sx={{ color: "inherit" }}>
+        <IconButton aria-label="Close" size="small" onClick={onClose} sx={{ color: "inherit" }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>

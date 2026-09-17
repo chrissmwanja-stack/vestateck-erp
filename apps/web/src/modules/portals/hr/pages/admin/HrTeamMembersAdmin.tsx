@@ -176,7 +176,7 @@ export default function HrTeamMembersAdmin() {
                     <TableCell>{m.role}</TableCell>
                     {isHrAdmin && (
                       <TableCell align="right">
-                        <IconButton size="small" onClick={() => remove(m)}>
+                        <IconButton aria-label="Delete" size="small" onClick={() => remove(m)}>
                           <Delete fontSize="small" />
                         </IconButton>
                       </TableCell>

@@ -382,7 +382,9 @@ export default function PayrollList() {
                       </Typography>
                     )}
                   </Stack>
-                  <IconButton size="small">{openId === run.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+                  <IconButton size="small" aria-label={openId === run.id ? "Collapse details" : "Expand details"}>
+                    {openId === run.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
                 </Box>
                 <Collapse in={openId === run.id} timeout="auto" unmountOnExit>
                   <RunItems run={run} onRunChanged={load} />

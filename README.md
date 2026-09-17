@@ -96,6 +96,17 @@ Proprietary — all rights reserved (see `LICENSE`). The repository is public
 for reference/visibility, not as an open-source release; no permission is
 granted to copy, modify, or redistribute without Vestateck's consent.
 
+<<<<<<< ours
+=======
+## Health check & monitoring
+
+`public.health_check()` is a trivial, anon-executable RPC (`select
+public.health_check();` via `/rest/v1/rpc/health_check`) that does one
+real DB read and returns `{status, checked_at}` — point an uptime monitor
+(UptimeRobot, Better Stack, etc.) at it instead of just pinging
+PostgREST's root, which only proves the edge is up, not the database.
+
+>>>>>>> theirs
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
@@ -124,6 +135,13 @@ finance invoice payment, and payroll disbursement money-flow smoke tests).
   contact people; the working tree was neutralised to fictitious org names
   on 2026-09-16. Older git commits still contain the originals — a full
   purge needs a `git filter-repo`/BFG history rewrite, not yet done.
+<<<<<<< ours
+=======
+- Icon-only `IconButton`s across the app now carry `aria-label` (fixed
+  2026-09-16 — was the top accessibility gap; screen readers previously
+  announced these as unlabeled "button"). Accessibility is otherwise still
+  largely unaudited beyond this fix.
+>>>>>>> theirs
 
 ## Notes on the schema
 

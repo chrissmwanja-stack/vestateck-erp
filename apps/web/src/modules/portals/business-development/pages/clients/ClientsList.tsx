@@ -161,8 +161,8 @@ export default function ClientsList() {
                     <TableCell><Typography variant="body2">{c.email || "-"}</Typography><Typography variant="caption" color="text.secondary">{c.phone || ""}</Typography></TableCell>
                     <TableCell><Chip label={c.is_active ? "Active" : "Inactive"} size="small" color={c.is_active ? "success" : "default"} /></TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(c)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" onClick={() => handleDelete(c.id)}><Delete fontSize="small" /></IconButton>
+                      <IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(c)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label="Delete" size="small" onClick={() => handleDelete(c.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))

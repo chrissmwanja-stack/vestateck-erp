@@ -109,7 +109,7 @@ export default function ContractsList() {
                       ) : "-"}
                     </TableCell>
                     <TableCell>{c.value ? `${c.currency} ${Number(c.value).toLocaleString()}` : "-"}</TableCell>
-                    <TableCell align="right"><Tooltip title="View"><IconButton size="small"><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
+                    <TableCell align="right"><Tooltip title="View"><IconButton aria-label="View details" size="small"><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
                   </TableRow>
                 ))
               )}

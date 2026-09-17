@@ -475,6 +475,7 @@ export default function RequestTracking() {
                       <span>
                         <IconButton
                           size="small"
+                          aria-label="View PDF"
                           disabled={!r.purchase_order_id || isPdfBusy}
                           onClick={() => viewPdf(r)}
                         >
@@ -490,6 +491,7 @@ export default function RequestTracking() {
                       <span>
                         <IconButton
                           size="small"
+                          aria-label="Email purchase order"
                           disabled={!r.purchase_order_id || isEmailBusy}
                           onClick={() => emailPo(r)}
                         >

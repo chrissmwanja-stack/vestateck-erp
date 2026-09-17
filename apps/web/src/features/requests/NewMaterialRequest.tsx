@@ -237,7 +237,13 @@ export default function NewMaterialRequest() {
               {rows.map((row) => (
                 <TableRow key={row.key} hover selected={selected.has(row.key)}>
                   <TableCell padding="checkbox">
-                    <IconButton size="small" onClick={() => toggleSelected(row.key)}>
+                    <IconButton
+                      size="small"
+                      role="checkbox"
+                      aria-checked={selected.has(row.key)}
+                      aria-label={selected.has(row.key) ? "Deselect row" : "Select row"}
+                      onClick={() => toggleSelected(row.key)}
+                    >
                       <Box
                         sx={{
                           width: 16,

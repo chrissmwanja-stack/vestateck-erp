@@ -197,8 +197,8 @@ export default function TendersList() {
                     </TableCell>
                     <TableCell>{t.estimated_value ? `${t.currency} ${Number(t.estimated_value).toLocaleString()}` : "-"}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View"><IconButton size="small" onClick={() => navigate(`/business-development/tenders/${t.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/business-development/tenders/${t.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))
