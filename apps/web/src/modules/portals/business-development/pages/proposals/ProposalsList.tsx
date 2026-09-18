@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, IconButton, Tooltip } from "@mui/material";
-import { Add, Visibility } from "@mui/icons-material";
+import { Add, Visibility, Delete } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
 
@@ -29,7 +29,14 @@ export default function ProposalsList() {
     let query = supabase.from("bd_proposals").select("*, bd_clients(name), bd_proposal_types(name)").order("created_at", { ascending: false });
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data } = await query;
-    if (data) setProposals(data as Proposal[]);
+    if (data) {
+      const normalized = (data as any[]).map((p: any) => ({
+        ...p,
+        bd_clients: Array.isArray(p.bd_clients) ? p.bd_clients[0] ?? null : p.bd_clients ?? null,
+        bd_proposal_types: Array.isArray(p.bd_proposal_types) ? p.bd_proposal_types[0] ?? null : p.bd_proposal_types ?? null,
+      }));
+      setProposals(normalized as Proposal[]);
+    }
     setLoading(false);
   };
 
@@ -43,6 +50,13 @@ export default function ProposalsList() {
     return 'default';
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this proposal? Draft proposals only — submitted proposals should be voided, not deleted.")) return;
+    const { error } = await supabase.from("bd_proposals").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchProposals();
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
@@ -50,7 +64,7 @@ export default function ProposalsList() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Proposals</Typography>
-          <Typography variant="body2" color="text.secondary">{proposals.length} proposals • Proposal No auto BD-P-2026-0001</Typography>
+          <Typography variant="body2" color="text.secondary">{proposals.length} proposals • Click row/view to open detail, delete draft proposals.</Typography>
         </Box>
         <Button variant="contained" startIcon={<Add />} onClick={() => navigate("/business-development/proposals/new")}>New Proposal</Button>
       </Box>
@@ -84,7 +98,7 @@ export default function ProposalsList() {
                 <TableCell>Value</TableCell>
                 <TableCell>Version</TableCell>
                 <TableCell>Valid Until</TableCell>
-                <TableCell align="right">View</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -92,7 +106,7 @@ export default function ProposalsList() {
                 <TableRow><TableCell colSpan={9} sx={{ textAlign: "center", py: 6 }}><Typography color="text.secondary">No proposals yet. Create first via New Proposal — needs Client + Opportunity.</Typography></TableCell></TableRow>
               ) : (
                 proposals.map(p => (
-                  <TableRow key={p.id} hover>
+                  <TableRow key={p.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/business-development/proposals/${p.id}`)}>
                     <TableCell><Typography fontFamily="monospace" variant="body2" fontWeight={600}>{p.proposal_no}</Typography></TableCell>
                     <TableCell><Typography fontWeight={600} variant="body2">{p.title}</Typography></TableCell>
                     <TableCell>{p.bd_clients?.name || "-"}</TableCell>
@@ -101,8 +115,9 @@ export default function ProposalsList() {
                     <TableCell>{p.currency} {Number(p.total_value).toLocaleString()}</TableCell>
                     <TableCell>v{p.version}</TableCell>
                     <TableCell>{p.valid_until ? new Date(p.valid_until).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="View"><IconButton aria-label="View details" size="small"><Visibility fontSize="small" /></IconButton></Tooltip>
+                    <TableCell align="right" onClick={e => e.stopPropagation()}>
+                      <Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/business-development/proposals/${p.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Delete"><IconButton aria-label="Delete proposal" size="small" onClick={() => handleDelete(p.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))

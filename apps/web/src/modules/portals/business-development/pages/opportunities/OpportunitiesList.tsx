@@ -18,7 +18,7 @@ import {
   Tooltip,
   IconButton,
 } from "@mui/material";
-import { Add, Visibility } from "@mui/icons-material";
+import { Add, Visibility, Delete } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
 
@@ -55,22 +55,30 @@ export default function OpportunitiesList() {
       supabase.from("bd_opportunity_stages").select("stage, label").eq("is_active", true).order("order_index"),
     ]);
     if (oppsRes.data) {
-      // supabase might not join stages automatically if no FK, so handle fallback
-      setOpps(oppsRes.data as Opportunity[]);
+      const normalized = (oppsRes.data as any[]).map((o: any) => ({
+        ...o,
+        bd_clients: Array.isArray(o.bd_clients) ? o.bd_clients[0] ?? null : o.bd_clients ?? null,
+        bd_opportunity_stages: Array.isArray(o.bd_opportunity_stages) ? o.bd_opportunity_stages[0] ?? null : o.bd_opportunity_stages ?? null,
+      }));
+      setOpps(normalized as Opportunity[]);
     }
     if (stagesRes.data) setStages(stagesRes.data as Stage[]);
     setLoading(false);
   };
 
-  useEffect(() => {
-    // For demo, ignore stage filter in query and filter client side to avoid FK issues
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filtered = stageFilter === "all" ? opps : opps.filter(o => o.stage === stageFilter);
 
   const totalValue = filtered.reduce((sum, o) => sum + Number(o.estimated_value), 0);
   const weightedValue = filtered.reduce((sum, o) => sum + Number(o.estimated_value) * (o.probability / 100), 0);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this opportunity? This cannot be undone.")) return;
+    const { error } = await supabase.from("bd_opportunities").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchData();
+  };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
@@ -80,7 +88,7 @@ export default function OpportunitiesList() {
         <Box>
           <Typography variant="h5" fontWeight={700}>Opportunities</Typography>
           <Typography variant="body2" color="text.secondary">
-            {filtered.length} opportunities • Total {filtered[0]?.currency || "UGX"} {totalValue.toLocaleString()} • Weighted {weightedValue.toLocaleString()}
+            {filtered.length} opportunities • Total {filtered[0]?.currency || "UGX"} {totalValue.toLocaleString()} • Weighted {weightedValue.toLocaleString()} • Click delete to remove draft opps.
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
@@ -111,7 +119,7 @@ export default function OpportunitiesList() {
                 <TableCell>Value</TableCell>
                 <TableCell>Weighted</TableCell>
                 <TableCell>Close Date</TableCell>
-                <TableCell align="right">View</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -136,7 +144,8 @@ export default function OpportunitiesList() {
                     <TableCell><Typography fontWeight={600}>{o.currency} {(Number(o.estimated_value) * o.probability / 100).toLocaleString()}</Typography></TableCell>
                     <TableCell>{o.expected_close_date ? new Date(o.expected_close_date).toLocaleDateString() : "-"}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="View Pipeline Board"><IconButton aria-label="View details" size="small" onClick={() => navigate("/business-development/opportunities/pipeline")}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="View Pipeline Board"><IconButton aria-label="View pipeline" size="small" onClick={() => navigate("/business-development/opportunities/pipeline")}><Visibility fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Delete"><IconButton aria-label="Delete opportunity" size="small" onClick={() => handleDelete(o.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))

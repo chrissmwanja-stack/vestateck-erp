@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, IconButton, Tooltip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, InputAdornment } from "@mui/material";
-import { Add, Edit, Visibility } from "@mui/icons-material";
+import { Add, Edit, Delete, Visibility } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
 
@@ -106,6 +106,13 @@ export default function TendersList() {
     setEditOpen(true);
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this tender? This cannot be undone.")) return;
+    const { error } = await supabase.from("bd_tenders").delete().eq("id", id);
+    if (error) alert(error.message);
+    else fetchTenders();
+  };
+
   const handleSaveEdit = async () => {
     if (!editingId) return;
     setEditError(null);
@@ -199,6 +206,7 @@ export default function TendersList() {
                     <TableCell align="right">
                       <Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/business-development/tenders/${t.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Edit"><IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title="Delete"><IconButton aria-label="Delete" size="small" onClick={() => handleDelete(t.id)}><Delete fontSize="small" /></IconButton></Tooltip>
                     </TableCell>
                   </TableRow>
                 ))
