@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { Box, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip, Tooltip } from "@mui/material";
+import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend, Line, ComposedChart } from "recharts";
 
 interface Opp {
   id: string;
@@ -12,7 +15,7 @@ interface Opp {
 }
 
 interface MonthAgg {
-  month: string; // YYYY-MM
+  month: string;
   raw: number;
   weighted: number;
   count: number;
@@ -56,20 +59,44 @@ export default function RevenueForecast() {
 
   useEffect(() => { fetchForecast(); }, []);
 
+  const handleExportExcel = () => {
+    const rows = months.map(m => ({ month: m.month, count: m.count, raw: m.raw, weighted: m.weighted, confidence: m.raw ? Number(((m.weighted/m.raw)*100).toFixed(1)) : 0 }));
+    const cols = [
+      { header: "Month", accessor: (r:any) => r.month },
+      { header: "Opps", accessor: (r:any) => r.count },
+      { header: "Raw Value", accessor: (r:any) => r.raw },
+      { header: "Weighted", accessor: (r:any) => r.weighted },
+      { header: "Confidence %", accessor: (r:any) => r.confidence },
+    ];
+    exportReportToExcel("revenue_forecast", "Revenue Forecast", cols, rows);
+  };
+  const handleExportPDF = () => {
+    const rows = months.map(m => ({ month: m.month, count: String(m.count), weighted: m.weighted.toLocaleString(), raw: m.raw.toLocaleString() }));
+    const cols = [
+      { header: "Month", accessor: (r:any) => r.month },
+      { header: "Opps", accessor: (r:any) => r.count },
+      { header: "Raw", accessor: (r:any) => r.raw },
+      { header: "Weighted", accessor: (r:any) => r.weighted },
+    ];
+    exportReportToPdf("revenue_forecast.pdf", "Revenue Forecast", cols, rows);
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100 }}>
-      <Typography variant="h5" fontWeight={700} gutterBottom>Revenue Forecast</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Monthly forecast based on expected_close_date. Weighted = value × probability. Excludes Closed Lost. Uses bd_opportunities.
-      </Typography>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+        <Box><Typography variant="h5" fontWeight={700}>Revenue Forecast</Typography><Typography variant="body2" color="text.secondary">Monthly forecast based on expected_close_date. Weighted = value × probability. Excludes Closed Lost.</Typography></Box>
+        <Box sx={{ display: "flex", gap: 1 }}><Tooltip title="Export Excel"><Button size="small" variant="outlined" onClick={handleExportExcel}>Excel</Button></Tooltip><Button size="small" variant="outlined" startIcon={<Download />} onClick={handleExportPDF}>PDF</Button></Box>
+      </Box>
 
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Card sx={{ minWidth: 180 }}><CardContent><Typography variant="caption" color="text.secondary">Opportunities in Forecast</Typography><Typography variant="h5" fontWeight={700}>{totals.count}</Typography></CardContent></Card>
         <Card sx={{ minWidth: 200 }}><CardContent><Typography variant="caption" color="text.secondary">Total Raw Value</Typography><Typography variant="h5" fontWeight={700}>UGX {totals.raw.toLocaleString()}</Typography></CardContent></Card>
         <Card sx={{ minWidth: 200, bgcolor: "success.light" }}><CardContent><Typography variant="caption">Weighted Forecast</Typography><Typography variant="h5" fontWeight={700}>UGX {totals.weighted.toLocaleString()}</Typography></CardContent></Card>
       </Box>
+
+      {months.length > 0 && <Card sx={{ mb: 3 }}><CardContent><Typography variant="subtitle2" fontWeight={700} gutterBottom>Forecast Trend</Typography><Box sx={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={months}><XAxis dataKey="month" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><ReTooltip /><Legend /><Bar dataKey="raw" fill="#90caf9" name="Raw Value" /><Bar dataKey="weighted" fill="#2e7d32" name="Weighted" /><Line type="monotone" dataKey="weighted" stroke="#d32f2f" strokeWidth={2} dot={false} name="Weighted Trend" /></ComposedChart></ResponsiveContainer></Box></CardContent></Card>}
 
       <Card>
         <CardContent sx={{ p: 0 }}>

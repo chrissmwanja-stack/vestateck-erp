@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { Box, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Chip } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Chip, Tooltip } from "@mui/material";
+import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface Stage {
   stage: string;
@@ -76,7 +79,6 @@ export default function PipelineReport() {
       map[o.stage].weighted += Number(o.estimated_value) * (o.probability / 100);
     });
 
-    // Calculate avg probability per stage
     Object.values(map).forEach(agg => {
       const stageOpps = opps.filter(o => o.stage === agg.stage);
       if (stageOpps.length > 0) {
@@ -96,22 +98,47 @@ export default function PipelineReport() {
 
   useEffect(() => { fetchReport(); }, []);
 
+  const handleExportExcel = () => {
+    const rows = aggs.map(a => ({ stage: a.label, count: a.count, total: a.total, weighted: a.weighted, avgProbability: `${a.avgProbability}%` }));
+    const cols = [
+      { header: "Stage", accessor: (r: any) => r.stage },
+      { header: "Count", accessor: (r: any) => r.count },
+      { header: "Total Value", accessor: (r: any) => r.total },
+      { header: "Weighted", accessor: (r: any) => r.weighted },
+      { header: "Avg Prob", accessor: (r: any) => r.avgProbability },
+    ];
+    exportReportToExcel("pipeline_report", "Pipeline Report", cols, rows);
+  };
+  const handleExportPDF = () => {
+    const rows = aggs.map(a => ({ stage: a.label, count: String(a.count), total: a.total.toLocaleString(), weighted: a.weighted.toLocaleString() }));
+    const cols = [
+      { header: "Stage", accessor: (r: any) => r.stage },
+      { header: "Count", accessor: (r: any) => r.count },
+      { header: "Total", accessor: (r: any) => r.total },
+      { header: "Weighted", accessor: (r: any) => r.weighted },
+    ];
+    exportReportToPdf("pipeline_report.pdf", "Pipeline Report", cols, rows);
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
-  const currency = "UGX"; // Could detect from first opp or make dynamic
+  const currency = "UGX";
+  const chartData = aggs.map(a => ({ name: a.label, count: a.count, total: a.total, weighted: a.weighted }));
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100 }}>
-      <Typography variant="h5" fontWeight={700} gutterBottom>Pipeline Report</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Pipeline value by stage. Weighted = total value × probability. Uses Opportunity Stages order and probability defaults.
-      </Typography>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+        <Box><Typography variant="h5" fontWeight={700}>Pipeline Report</Typography><Typography variant="body2" color="text.secondary">Pipeline value by stage. Weighted = total value × probability.</Typography></Box>
+        <Box sx={{ display: "flex", gap: 1 }}><Tooltip title="Export Excel"><Button size="small" variant="outlined" onClick={handleExportExcel}>Excel</Button></Tooltip><Button size="small" variant="outlined" startIcon={<Download />} onClick={handleExportPDF}>PDF</Button></Box>
+      </Box>
 
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Card sx={{ minWidth: 200 }}><CardContent><Typography variant="caption" color="text.secondary">Total Opportunities</Typography><Typography variant="h5" fontWeight={700}>{totals.count}</Typography></CardContent></Card>
         <Card sx={{ minWidth: 200 }}><CardContent><Typography variant="caption" color="text.secondary">Total Value</Typography><Typography variant="h5" fontWeight={700}>{currency} {totals.total.toLocaleString()}</Typography></CardContent></Card>
         <Card sx={{ minWidth: 200, bgcolor: "primary.light", color: "primary.contrastText" }}><CardContent><Typography variant="caption" sx={{ opacity: 0.8 }}>Weighted Pipeline</Typography><Typography variant="h5" fontWeight={700}>{currency} {totals.weighted.toLocaleString()}</Typography></CardContent></Card>
       </Box>
+
+      <Card sx={{ mb: 3 }}><CardContent><Typography variant="subtitle2" fontWeight={700} gutterBottom>Pipeline Value by Stage</Typography><Box sx={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-14} textAnchor="end" height={60} /><YAxis tick={{ fontSize: 11 }} /><ReTooltip /><Legend /><Bar dataKey="total" fill="#1976d2" name="Total Value" /><Bar dataKey="weighted" fill="#2e7d32" name="Weighted" /></BarChart></ResponsiveContainer></Box></CardContent></Card>
 
       <Card>
         <CardContent sx={{ p: 0 }}>
