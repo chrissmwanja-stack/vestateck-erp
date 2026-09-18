@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress } from "@mui/material";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Tooltip } from "@mui/material";
+import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 const STATUS_ORDER = ["draft", "in_review", "pending_approval", "approved", "sent", "accepted"];
 
@@ -11,8 +13,14 @@ export default function ProposalTracking() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("bd_proposals").select("proposal_no, title, status, created_at, updated_at, bd_clients(name)").order("updated_at", { ascending: false }).limit(50);
-      if (data) setProposals(data);
+      const { data } = await supabase.from("bd_proposals").select("proposal_no, title, status, created_at, updated_at, bd_clients(name)").order("updated_at", { ascending: false }).limit(200);
+      if (data) {
+        const normalized = (data as any[]).map((p: any) => ({
+          ...p,
+          bd_clients: Array.isArray(p.bd_clients) ? p.bd_clients[0] ?? null : p.bd_clients ?? null,
+        }));
+        setProposals(normalized);
+      }
       setLoading(false);
     };
     fetch();
@@ -23,12 +31,36 @@ export default function ProposalTracking() {
     return idx >= 0 ? ((idx + 1) / STATUS_ORDER.length) * 100 : 0;
   };
 
+  const handleExportExcel = () => {
+    const rows = proposals.map(p => ({ proposal_no: p.proposal_no, title: p.title, client: p.bd_clients?.name || "-", status: p.status, progress: Number(getProgress(p.status).toFixed(0)), updated: new Date(p.updated_at).toLocaleDateString() }));
+    const cols = [
+      { header: "Proposal No", accessor: (r:any) => r.proposal_no },
+      { header: "Title", accessor: (r:any) => r.title },
+      { header: "Client", accessor: (r:any) => r.client },
+      { header: "Status", accessor: (r:any) => r.status },
+      { header: "Progress %", accessor: (r:any) => r.progress },
+      { header: "Updated", accessor: (r:any) => r.updated },
+    ];
+    exportReportToExcel("proposal_tracking", "Proposal Tracking", cols, rows);
+  };
+  const handleExportPDF = () => {
+    const rows = proposals.map(p => ({ proposal_no: p.proposal_no, title: p.title.slice(0, 25), status: p.status }));
+    const cols = [
+      { header: "Proposal No", accessor: (r:any) => r.proposal_no },
+      { header: "Title", accessor: (r:any) => r.title },
+      { header: "Status", accessor: (r:any) => r.status },
+    ];
+    exportReportToPdf("proposal_tracking.pdf", "Proposal Tracking", cols, rows);
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
-      <Typography variant="h5" fontWeight={700} gutterBottom>Proposal Tracking</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Status timeline tracker: draft → in_review → pending_approval → approved → sent → accepted/rejected. Shows where each proposal is in workflow.</Typography>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+        <Box><Typography variant="h5" fontWeight={700}>Proposal Tracking</Typography><Typography variant="body2" color="text.secondary">Status timeline: draft → in_review → pending_approval → approved → sent → accepted/rejected.</Typography></Box>
+        <Box sx={{ display: "flex", gap: 1 }}><Tooltip title="Export Excel"><Button size="small" variant="outlined" onClick={handleExportExcel}>Excel</Button></Tooltip><Button size="small" variant="outlined" startIcon={<Download />} onClick={handleExportPDF}>PDF</Button></Box>
+      </Box>
       <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Proposal</TableCell><TableCell>Client</TableCell><TableCell>Status Timeline</TableCell><TableCell>Progress</TableCell><TableCell>Last Update</TableCell></TableRow></TableHead><TableBody>{proposals.length === 0 ? <TableRow><TableCell colSpan={5} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No proposals to track. Create proposals via New Proposal.</Typography></TableCell></TableRow> : proposals.map(p => (
         <TableRow key={p.proposal_no} hover>
           <TableCell><Typography fontFamily="monospace" fontWeight={600}>{p.proposal_no}</Typography><Typography variant="caption" sx={{ display: "block" }}>{p.title}</Typography></TableCell>

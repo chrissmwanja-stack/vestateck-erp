@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, Card, CardContent, Typography, Table, TableHead, TableRow, TableCell, TableBody, Chip, CircularProgress } from "@mui/material";
+import { Box, Button, Card, CardContent, Typography, Table, TableHead, TableRow, TableCell, TableBody, Chip, CircularProgress, Tooltip } from "@mui/material";
+import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 interface Submission {
   id: string;
@@ -14,9 +16,6 @@ interface Submission {
   bd_clients?: { name: string } | null;
 }
 
-// "Submissions" are tenders that have moved past the draft stage -- there is
-// no separate bd_tender_submissions table yet, so this tracks bd_tenders
-// whose status is submitted or later, newest activity first.
 const SUBMITTED_STATUSES = ["submitted", "under_evaluation", "awarded", "lost"];
 
 export default function SubmissionsList() {
@@ -32,7 +31,7 @@ export default function SubmissionsList() {
         .select("id, tender_no, title, status, submission_deadline, estimated_value, currency, updated_at, bd_clients(name)")
         .in("status", SUBMITTED_STATUSES)
         .order("updated_at", { ascending: false })
-        .limit(200);
+        .limit(300);
       if (error) setError(error.message);
       else setSubmissions((data as any[] || []).map(s => ({ ...s, bd_clients: Array.isArray(s.bd_clients) ? s.bd_clients[0] ?? null : s.bd_clients ?? null })) as Submission[]);
       setLoading(false);
@@ -47,14 +46,37 @@ export default function SubmissionsList() {
     return 'default';
   };
 
+  const handleExportExcel = () => {
+    const rows = submissions.map(s => ({ tender_no: s.tender_no || "-", title: s.title, client: s.bd_clients?.name || "-", deadline: s.submission_deadline ? new Date(s.submission_deadline).toLocaleDateString() : "-", status: s.status, value: s.estimated_value ? Number(s.estimated_value) : 0, updated: new Date(s.updated_at).toLocaleDateString() }));
+    const cols = [
+      { header: "Tender No", accessor: (r:any) => r.tender_no },
+      { header: "Title", accessor: (r:any) => r.title },
+      { header: "Client", accessor: (r:any) => r.client },
+      { header: "Deadline", accessor: (r:any) => r.deadline },
+      { header: "Status", accessor: (r:any) => r.status },
+      { header: "Value", accessor: (r:any) => r.value },
+      { header: "Updated", accessor: (r:any) => r.updated },
+    ];
+    exportReportToExcel("tender_submissions", "Tender Submissions", cols, rows);
+  };
+  const handleExportPDF = () => {
+    const rows = submissions.map(s => ({ tender_no: s.tender_no || "-", title: s.title.slice(0,25), status: s.status }));
+    const cols = [
+      { header: "Tender No", accessor: (r:any) => r.tender_no },
+      { header: "Title", accessor: (r:any) => r.title },
+      { header: "Status", accessor: (r:any) => r.status },
+    ];
+    exportReportToPdf("tender_submissions.pdf", "Tender Submissions", cols, rows);
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100 }}>
-      <Typography variant="h5" fontWeight={700} gutterBottom>Tender Submissions</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Tenders that have been submitted and their outcome. Live from the Tenders register ({submissions.length} submitted).
-      </Typography>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+        <Box><Typography variant="h5" fontWeight={700}>Tender Submissions</Typography><Typography variant="body2" color="text.secondary">Submitted tenders and outcomes — live from Tenders register ({submissions.length} submitted).</Typography></Box>
+        <Box sx={{ display: "flex", gap: 1 }}><Tooltip title="Export Excel"><Button size="small" variant="outlined" onClick={handleExportExcel}>Excel</Button></Tooltip><Button size="small" variant="outlined" startIcon={<Download />} onClick={handleExportPDF}>PDF</Button></Box>
+      </Box>
 
       {error && <Typography color="error" sx={{ mb: 2 }}>Failed to load submissions: {error}</Typography>}
 
