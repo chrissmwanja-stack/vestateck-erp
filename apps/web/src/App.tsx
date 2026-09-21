@@ -19,6 +19,8 @@ import RequireAuth from './features/auth/RequireAuth';
 import RequireModule from './components/RequireModule';
 import RequireRpcAccess from './components/RequireRpcAccess';
 import { BD_ADMIN_ROLES } from './modules/portals/business-development/access';
+import { LEGAL_APPROVER_ROLES } from './modules/portals/law-compliance/access';
+import { PMO_ADMIN_ROLES } from './modules/portals/pmo/access';
 import { IT_ADMIN_ROLES } from './features/it-support/access';
 import RequireFinanceTeam from './components/RequireFinanceTeam';
 import RequirePlatformAdmin from './components/RequirePlatformAdmin';
@@ -203,6 +205,7 @@ const TaskTypesAdmin = lazy(() => import('./modules/portals/pmo/pages/admin/Task
 const PMODashboard = lazy(() => import('./modules/portals/pmo/pages/PMODashboard'));
 const ProjectsList = lazy(() => import('./modules/portals/pmo/pages/projects/ProjectsList'));
 const NewProject = lazy(() => import('./modules/portals/pmo/pages/projects/NewProject'));
+const PMOApprovals = lazy(() => import('./modules/portals/pmo/pages/projects/PMOApprovals'));
 const ProjectDetail = lazy(() => import('./modules/portals/pmo/pages/projects/ProjectDetail'));
 const TasksList = lazy(() => import('./modules/portals/pmo/pages/tasks/TasksList'));
 const MilestonesList = lazy(() => import('./modules/portals/pmo/pages/tasks/MilestonesList'));
@@ -533,7 +536,6 @@ export default function App() {
                 <Route path="/law-compliance/dashboard" element={<LawDashboard />} />
                 <Route path="/law-compliance/contracts" element={<ContractsList />} />
                 <Route path="/law-compliance/contracts/new" element={<NewContract />} />
-                <Route path="/law-compliance/contracts/approvals" element={<ContractApprovals />} />
                 <Route path="/law-compliance/contracts/:id" element={<ContractDetail />} />
                 <Route path="/law-compliance/cases" element={<CasesList />} />
                 <Route path="/law-compliance/cases/new" element={<NewCase />} />
@@ -545,6 +547,18 @@ export default function App() {
                 <Route path="/law-compliance/reports/cases" element={<CaseStatusReport />} />
                 <Route path="/law-compliance/admin/contract-types" element={<ContractTypesAdmin />} />
                 <Route path="/law-compliance/admin/case-types" element={<CaseTypesAdmin />} />
+              </Route>
+
+              {/* Contract approvals sit one tier up from day-to-day legal
+                  work (admin/manager only, same split as BD proposal
+                  approvals and IT ticket approvals) -- the route tier is
+                  enforced again server-side by decide_contract(), and the
+                  RPC additionally refuses creator self-approval. The screen
+                  moved from a direct table update to the decide_contract /
+                  submit_contract_for_approval RPCs on 2026-09-21, with a
+                  law_contract_decisions audit trail behind it. */}
+              <Route element={<RequireModule module="legal" roles={LEGAL_APPROVER_ROLES} />}>
+                <Route path="/law-compliance/contracts/approvals" element={<ContractApprovals />} />
               </Route>
 
 
@@ -615,6 +629,14 @@ export default function App() {
                 <Route path="/pmo/reports/budget" element={<BudgetVsActualReport />} />
                 <Route path="/pmo/admin/categories" element={<ProjectCategoriesAdmin />} />
                 <Route path="/pmo/admin/task-types" element={<TaskTypesAdmin />} />
+              </Route>
+
+              {/* Project approvals: admin/manager tier (same split as legal
+                  contracts and BD proposals), enforced again by
+                  decide_pmo_project() server-side along with the
+                  no-self-approval rule. */}
+              <Route element={<RequireModule module="pmo" roles={PMO_ADMIN_ROLES} />}>
+                <Route path="/pmo/approvals" element={<PMOApprovals />} />
               </Route>
 
               {/* SUSTAINABILITY - 100% REAL NOW */}

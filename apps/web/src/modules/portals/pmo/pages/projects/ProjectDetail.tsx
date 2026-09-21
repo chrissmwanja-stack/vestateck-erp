@@ -27,9 +27,13 @@ import {
   TextField,
   MenuItem,
   InputAdornment,
+  Snackbar,
 } from "@mui/material";
 import { ArrowBack, Edit, Delete, Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useAuth } from "../../../../../lib/authContext";
+import LogTimeDialog from "../tasks/LogTimeDialog";
+import ProjectBudgetPanel from "./ProjectBudgetPanel";
 
 interface Project {
   id: string;
@@ -43,6 +47,7 @@ interface Project {
   end_date: string | null;
   description: string | null;
   category_id: string | null;
+  created_by: string | null;
   pmo_project_categories?: { name: string } | null;
 }
 
@@ -76,6 +81,7 @@ interface Allocation {
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -96,6 +102,16 @@ export default function ProjectDetail() {
   const [allocForm, setAllocForm] = useState({ employee_id: "", allocation_percent: 100, start_date: "", end_date: "", status: "active" });
   const [allocSaving, setAllocSaving] = useState(false);
   const [allocError, setAllocError] = useState<string | null>(null);
+
+  // approval flow + time logging
+  const [canApprove, setCanApprove] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [snack, setSnack] = useState<string | null>(null);
+  const [decisionDialog, setDecisionDialog] = useState<{ decision: "approved" | "rejected" } | null>(null);
+  const [decisionNotes, setDecisionNotes] = useState("");
+  const [decisionNoteError, setDecisionNoteError] = useState<string | null>(null);
+  const [logTimeOpen, setLogTimeOpen] = useState(false);
 
   const fetchAll = async () => {
     if (!id) return;
@@ -140,9 +156,48 @@ export default function ProjectDetail() {
   const getStatusColor = (s: string) => {
     if (s === "in_progress") return "primary";
     if (s === "completed" || s === "done") return "success";
-    if (s === "on_hold" || s === "pending") return "warning";
-    if (s === "cancelled" || s === "missed") return "error";
+    if (s === "on_hold" || s === "pending" || s === "pending_approval") return "warning";
+    if (s === "cancelled" || s === "missed" || s === "rejected") return "error";
     return "default";
+  };
+
+  // Approver-tier visibility (the RPC enforces it again server-side)
+  useEffect(() => {
+    const check = async () => {
+      const { data } = await supabase.rpc("has_module_role", { p_module: "pmo", p_roles: ["admin", "manager"] });
+      setCanApprove(data === true);
+    };
+    check();
+  }, []);
+
+  const submitForApproval = async () => {
+    if (!project) return;
+    setActionBusy(true);
+    setActionError(null);
+    const { error } = await supabase.rpc("submit_pmo_project_for_approval", { p_project_id: project.id });
+    setActionBusy(false);
+    if (error) setActionError(error.message);
+    else { setSnack(`${project.project_no} submitted for approval`); fetchAll(); }
+  };
+
+  const confirmDecision = async () => {
+    if (!project || !decisionDialog) return;
+    const trimmed = decisionNotes.trim();
+    if (decisionDialog.decision === "rejected" && !trimmed) {
+      setDecisionNoteError("A rejection reason is required.");
+      return;
+    }
+    setActionBusy(true);
+    const { error } = await supabase.rpc("decide_pmo_project", {
+      p_project_id: project.id,
+      p_decision: decisionDialog.decision,
+      p_notes: trimmed || null,
+    });
+    setActionBusy(false);
+    if (error) { setActionError(error.message); return; }
+    setSnack(decisionDialog.decision === "approved" ? "Project approved and in progress" : "Project rejected");
+    setDecisionDialog(null);
+    fetchAll();
   };
 
   const openEdit = () => {
@@ -250,11 +305,36 @@ export default function ProjectDetail() {
           <Typography variant="h5" fontWeight={700}>{project.name}</Typography>
           <Typography variant="body2" color="text.secondary" fontFamily="monospace">{project.project_no}</Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <Chip label={project.status} color={getStatusColor(project.status) as any} sx={{ textTransform: "capitalize" }} />
           <Button variant="outlined" startIcon={<Edit />} onClick={openEdit}>Edit Project</Button>
           <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/pmo/projects")}>Back</Button>
         </Box>
+      </Box>
+
+      {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>{actionError}</Alert>}
+
+      {/* Approval workflow: submit not_started/rejected projects; approver
+          tier (never the creator) decides pending ones. Both tiers are
+          enforced again by the RPCs. */}
+      <Box sx={{ display: "flex", gap: 1, mb: 3, flexWrap: "wrap" }}>
+        {(project.status === "not_started" || project.status === "rejected") && (
+          <Button variant="contained" onClick={submitForApproval} disabled={actionBusy}>
+            {actionBusy ? "Working…" : project.status === "rejected" ? "Resubmit for approval" : "Submit for approval"}
+          </Button>
+        )}
+        {project.status === "pending_approval" && canApprove && (
+          <Tooltip title={session?.user?.id && project.created_by === session.user.id ? "You created this project — another approver must decide" : ""}>
+            <span>
+              <Button variant="contained" color="success" sx={{ mr: 1 }} disabled={actionBusy || (!!session?.user?.id && project.created_by === session.user.id)} onClick={() => { setDecisionDialog({ decision: "approved" }); setDecisionNotes(""); setDecisionNoteError(null); }}>
+                Approve
+              </Button>
+              <Button variant="outlined" color="error" disabled={actionBusy || (!!session?.user?.id && project.created_by === session.user.id)} onClick={() => { setDecisionDialog({ decision: "rejected" }); setDecisionNotes(""); setDecisionNoteError(null); }}>
+                Reject
+              </Button>
+            </span>
+          </Tooltip>
+        )}
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -284,6 +364,17 @@ export default function ProjectDetail() {
           </CardContent></Card>
         </Grid>
       </Grid>
+
+      {/* Real budget actuals + cost/time ledger + approval history */}
+      <Box sx={{ mb: 3 }}>
+        <ProjectBudgetPanel
+          projectId={project.id}
+          budget={project.budget}
+          currency={project.currency}
+          projectName={project.name}
+          onLogTime={() => setLogTimeOpen(true)}
+        />
+      </Box>
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={700}>Tasks ({tasks.length})</Typography>
@@ -376,6 +467,41 @@ export default function ProjectDetail() {
           <Button variant="contained" onClick={handleAllocSave} disabled={!allocForm.employee_id || allocSaving}>{allocSaving ? "Saving..." : "Add"}</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Approve / reject pending project */}
+      <Dialog open={!!decisionDialog} onClose={() => !actionBusy && setDecisionDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{decisionDialog?.decision === "approved" ? "Approve" : "Reject"} {project.project_no}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
+          <TextField
+            label={decisionDialog?.decision === "rejected" ? "Rejection reason *" : "Notes (optional)"}
+            value={decisionNotes}
+            onChange={(e) => { setDecisionNotes(e.target.value); setDecisionNoteError(null); }}
+            fullWidth multiline minRows={2} autoFocus
+            error={!!decisionNoteError} helperText={decisionNoteError ?? (decisionDialog?.decision === "rejected" ? "Sent to the project's creator." : undefined)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDecisionDialog(null)} disabled={actionBusy}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={decisionDialog?.decision === "approved" ? "success" : "error"}
+            onClick={confirmDecision}
+            disabled={actionBusy}
+          >
+            {actionBusy ? "Saving…" : decisionDialog?.decision === "approved" ? "Approve & start" : "Reject"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <LogTimeDialog
+        open={logTimeOpen}
+        onClose={() => setLogTimeOpen(false)}
+        projectId={project.id}
+        projectName={project.name}
+        onSaved={() => setSnack("Time logged")}
+      />
+
+      <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)} message={snack ?? ""} />
     </Box>
   );
 }

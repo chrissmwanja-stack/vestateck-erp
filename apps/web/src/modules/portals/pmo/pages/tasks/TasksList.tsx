@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, Autocomplete } from "@mui/material";
-import { Add, Edit } from "@mui/icons-material";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, Autocomplete, Snackbar } from "@mui/material";
+import { AccessTime, Add, Edit } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
+import LogTimeDialog from "./LogTimeDialog";
 
 interface Task {
   id: string;
@@ -38,6 +39,8 @@ export default function TasksList() {
   // in the edit dialog only -- see the disabled Autocomplete below.
   const [dependsOn, setDependsOn] = useState<string[]>([]);
   const [dependsOnOriginal, setDependsOnOriginal] = useState<string[]>([]);
+  const [logTimeFor, setLogTimeFor] = useState<Task | null>(null);
+  const [snack, setSnack] = useState<string | null>(null);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -238,7 +241,7 @@ export default function TasksList() {
         </CardContent>
       </Card>
 
-      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Project</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Progress</TableCell><TableCell>Due Date</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No tasks yet. Create tasks linked to projects.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell><Typography fontWeight={600}>{t.title}</Typography></TableCell><TableCell>{t.projects?.name || "-"}</TableCell><TableCell>{t.task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Chip label={t.priority} size="small" color={getPriorityColor(t.priority) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Typography variant="body2">{t.completion_percent ?? 0}%</Typography></TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell><TableCell align="right"><Button size="small" startIcon={<Edit fontSize="small" />} onClick={() => openEdit(t)}>Edit</Button></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Project</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Priority</TableCell><TableCell>Progress</TableCell><TableCell>Due Date</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{tasks.length === 0 ? <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No tasks yet. Create tasks linked to projects.</Typography></TableCell></TableRow> : tasks.map(t => <TableRow key={t.id} hover><TableCell><Typography fontWeight={600}>{t.title}</Typography></TableCell><TableCell>{t.projects?.name || "-"}</TableCell><TableCell>{t.task_types?.name || "-"}</TableCell><TableCell><Chip label={t.status} size="small" color={getStatusColor(t.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Chip label={t.priority} size="small" color={getPriorityColor(t.priority) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell><Typography variant="body2">{t.completion_percent ?? 0}%</Typography></TableCell><TableCell>{t.due_date ? new Date(t.due_date).toLocaleDateString() : "-"}</TableCell><TableCell align="right"><Button size="small" startIcon={<AccessTime fontSize="small" />} sx={{ mr: 1 }} disabled={!t.project_id} onClick={() => setLogTimeFor(t)}>Log time</Button><Button size="small" startIcon={<Edit fontSize="small" />} onClick={() => openEdit(t)}>Edit</Button></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingId ? "Edit Task" : "New Task"}</DialogTitle>
@@ -324,6 +327,18 @@ export default function TasksList() {
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.project_id || !form.title.trim()}>{saving ? "Saving..." : editingId ? "Save" : "Create"}</Button>
         </DialogActions>
       </Dialog>
+
+      {logTimeFor?.project_id && (
+        <LogTimeDialog
+          open={!!logTimeFor}
+          onClose={() => setLogTimeFor(null)}
+          projectId={logTimeFor.project_id}
+          taskId={logTimeFor.id}
+          taskTitle={logTimeFor.title}
+          onSaved={() => setSnack(`Time logged on "${logTimeFor.title}"`)}
+        />
+      )}
+      <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack(null)} message={snack ?? ""} />
     </Box>
   );
 }

@@ -3881,6 +3881,58 @@ export type Database = {
           },
         ]
       }
+      law_contract_decisions: {
+        Row: {
+          contract_id: string
+          created_at: string
+          decided_by: string
+          decision: string
+          id: string
+          notes: string | null
+          tenant_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          decided_by: string
+          decision: string
+          id?: string
+          notes?: string | null
+          tenant_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          decided_by?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "law_contract_decisions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "law_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_contract_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_contract_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       law_contract_types: {
         Row: {
           created_at: string
@@ -3989,10 +4041,63 @@ export type Database = {
           },
         ]
       }
+      law_filing_events: {
+        Row: {
+          actor_id: string
+          created_at: string
+          filing_id: string
+          id: string
+          note: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          filing_id: string
+          id?: string
+          note?: string | null
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          filing_id?: string
+          id?: string
+          note?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "law_filing_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_filing_events_filing_id_fkey"
+            columns: ["filing_id"]
+            isOneToOne: false
+            referencedRelation: "law_regulatory_filings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_filing_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       law_regulatory_filings: {
         Row: {
           created_at: string
           created_by: string | null
+          due_date: string | null
           filing_date: string | null
           filing_type: string | null
           id: string
@@ -4004,6 +4109,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           filing_date?: string | null
           filing_type?: string | null
           id?: string
@@ -4015,6 +4121,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           filing_date?: string | null
           filing_type?: string | null
           id?: string
@@ -5215,6 +5322,58 @@ export type Database = {
           },
         ]
       }
+      pmo_project_decisions: {
+        Row: {
+          created_at: string
+          decided_by: string
+          decision: string
+          id: string
+          notes: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_by: string
+          decision: string
+          id?: string
+          notes?: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          project_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_project_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_project_decisions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_project_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pmo_project_categories: {
         Row: {
           created_at: string
@@ -5256,6 +5415,7 @@ export type Database = {
           category_id: string | null
           client_name: string | null
           created_at: string
+          created_by: string | null
           currency: string
           description: string | null
           end_date: string | null
@@ -5273,6 +5433,7 @@ export type Database = {
           category_id?: string | null
           client_name?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string
           description?: string | null
           end_date?: string | null
@@ -5290,6 +5451,7 @@ export type Database = {
           category_id?: string | null
           client_name?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string
           description?: string | null
           end_date?: string | null
@@ -5303,6 +5465,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pmo_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pmo_projects_category_id_fkey"
             columns: ["category_id"]
@@ -5332,6 +5501,7 @@ export type Database = {
           created_at: string
           employee_id: string | null
           end_date: string | null
+          hourly_rate: number | null
           id: string
           project_id: string | null
           start_date: string | null
@@ -5344,6 +5514,7 @@ export type Database = {
           created_at?: string
           employee_id?: string | null
           end_date?: string | null
+          hourly_rate?: number | null
           id?: string
           project_id?: string | null
           start_date?: string | null
@@ -5356,6 +5527,7 @@ export type Database = {
           created_at?: string
           employee_id?: string | null
           end_date?: string | null
+          hourly_rate?: number | null
           id?: string
           project_id?: string | null
           start_date?: string | null
@@ -5426,6 +5598,138 @@ export type Database = {
           },
           {
             foreignKeyName: "pmo_task_dependencies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pmo_time_entries: {
+        Row: {
+          created_at: string
+          entry_date: string
+          hours: number
+          hourly_rate: number | null
+          id: string
+          note: string | null
+          project_id: string
+          task_id: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_date?: string
+          hours: number
+          hourly_rate?: number | null
+          id?: string
+          note?: string | null
+          project_id: string
+          task_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_date?: string
+          hours?: number
+          hourly_rate?: number | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          task_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pmo_cost_entries: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          id: string
+          project_id: string
+          reference_no: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date?: string
+          id?: string
+          project_id: string
+          reference_no?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          id?: string
+          project_id?: string
+          reference_no?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_cost_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_cost_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_cost_entries_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -8378,6 +8682,36 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decide_contract: {
+        Args: { p_contract_id: string; p_decision: string; p_notes?: string | null }
+        Returns: Database["public"]["Tables"]["law_contracts"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "law_contracts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      decide_pmo_project: {
+        Args: { p_notes?: string | null; p_decision: string; p_project_id: string }
+        Returns: Database["public"]["Tables"]["pmo_projects"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "pmo_projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      submit_pmo_project_for_approval: {
+        Args: { p_project_id: string }
+        Returns: Database["public"]["Tables"]["pmo_projects"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "pmo_projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       decide_asset_request: {
         Args: { p_decision: string; p_notes?: string; p_request_id: string }
         Returns: {
@@ -9825,6 +10159,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_contract_for_approval: {
+        Args: { p_contract_id: string }
+        Returns: Database["public"]["Tables"]["law_contracts"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "law_contracts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_offers_for_approval: {
         Args: { p_request_id: string }
         Returns: {
@@ -9898,6 +10242,16 @@ export type Database = {
       supplier_invoice_receipt_cap: {
         Args: { p_invoice_id: string }
         Returns: number
+      }
+      transition_filing: {
+        Args: { p_filing_id: string; p_note?: string | null; p_status: string }
+        Returns: Database["public"]["Tables"]["law_regulatory_filings"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "law_regulatory_filings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       try_complete_po: {
         Args: { p_purchase_order_id: string }

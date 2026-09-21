@@ -36,7 +36,7 @@ export default function ContractsList() {
 
   const getStatusColor = (s: string) => {
     if (s === 'active') return 'success';
-    if (s === 'expired' || s === 'terminated') return 'error';
+    if (s === 'expired' || s === 'terminated' || s === 'rejected') return 'error';
     if (s === 'pending_approval') return 'warning';
     return 'default';
   };
@@ -66,6 +66,7 @@ export default function ContractsList() {
             <MenuItem value="draft">Draft</MenuItem>
             <MenuItem value="pending_approval">Pending Approval</MenuItem>
             <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="rejected">Rejected</MenuItem>
             <MenuItem value="expired">Expired</MenuItem>
             <MenuItem value="terminated">Terminated</MenuItem>
           </TextField>
@@ -109,7 +110,7 @@ export default function ContractsList() {
                       ) : "-"}
                     </TableCell>
                     <TableCell>{c.value ? `${c.currency} ${Number(c.value).toLocaleString()}` : "-"}</TableCell>
-                    <TableCell align="right"><Tooltip title="View"><IconButton aria-label="View details" size="small"><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
+                    <TableCell align="right"><Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/law-compliance/contracts/${c.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip></TableCell>
                   </TableRow>
                 ))
               )}

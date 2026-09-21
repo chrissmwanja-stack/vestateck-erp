@@ -347,6 +347,7 @@ export const pmoNodes: TreeNode[] = [
     children: [
       { id: "project-list", label: "Projects", icon: <ReceiptLong fontSize="small" />, to: "/pmo/projects" },
       { id: "project-new", label: "New Project", icon: <Description fontSize="small" />, to: "/pmo/projects/new" },
+      { id: "project-approvals", label: "Project Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/pmo/approvals" },
     ],
   },
   {
