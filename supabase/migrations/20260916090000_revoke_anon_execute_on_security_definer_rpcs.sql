@@ -1,3 +1,11 @@
+-- NOTE (2026-09-22): This migration is byte-identical to
+-- 20260916061641_revoke_anon_execute_on_security_definer_rpcs.sql. Both
+-- versions have already been applied to production; every statement below
+-- is an idempotent REVOKE, so re-running it is harmless. Left as-is rather
+-- than deleted, per MIGRATION_POLICY.md — do not delete an already-applied
+-- migration. If a new duplicate migration is found in future, add a
+-- similar note rather than removing the file.
+--
 -- Revoke anon EXECUTE on SECURITY DEFINER functions that should never be
 -- callable by an unauthenticated caller via PostgREST RPC.
 --

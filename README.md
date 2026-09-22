@@ -45,10 +45,10 @@ packages/shared       TypeScript types shared between the web app and edge funct
 | IT Support | Complete — tickets, SLAs, teams, access, assets, KB/FAQs, full RLS/RPC coverage |
 | Business Development | Broad but uneven — leads, clients, opportunities, tenders, proposals fully surfaced (incl. report exports); some RPCs and deeper workflows (opportunity math, tender submission management) still landing |
 | HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS hardening still landing on a few tables (compensation, team members, payroll approvers) |
-| Law & Compliance | CRUD-level — cases, contracts, compliance register, filings, approvals screen; contract approval flow and filings depth still to come |
-| PMO | CRUD-level — projects, tasks, milestones, resources, Gantt; no approval workflow yet, cost/time tracking depth still to come |
-| Machine Operation | CRUD-level — equipment, logs, fuel, maintenance; no scheduling/notifications or cost rollup into finance yet |
-| Sustainability | CRUD-level — metrics, audits, certifications, initiatives; edit depth and report exports still to come |
+| Law & Compliance | Real workflow — cases, contracts, compliance register, filings; contract approval via `submit_contract_for_approval`/`decide_contract` RPCs with decision audit trail, self-approval refused; filings run through a server-side `transition_filing` state machine |
+| PMO | Real workflow — projects, tasks, milestones, resources, Gantt with dependencies/critical path; project approval RPCs plus a real time/cost ledger (`pmo_time_entries`, `pmo_cost_entries`) backing the budget-vs-actual report |
+| Machine Operation | Real workflow — equipment, logs, fuel, maintenance; `transition_maintenance_request` state machine with an overdue sweep, and fuel/maintenance costs auto-post to GL |
+| Sustainability | Operational — metrics, audits, certifications (with expiry sweep), initiatives; no targets/baselines or emission-factor computation yet |
 ## Getting started
 
 1. Install dependencies from the repo root:
@@ -96,8 +96,6 @@ Proprietary — all rights reserved (see `LICENSE`). The repository is public
 for reference/visibility, not as an open-source release; no permission is
 granted to copy, modify, or redistribute without Vestateck's consent.
 
-<<<<<<< ours
-=======
 ## Health check & monitoring
 
 `public.health_check()` is a trivial, anon-executable RPC (`select
@@ -106,12 +104,11 @@ real DB read and returns `{status, checked_at}` — point an uptime monitor
 (UptimeRobot, Better Stack, etc.) at it instead of just pinging
 PostgREST's root, which only proves the edge is up, not the database.
 
->>>>>>> theirs
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
-`npm run test --workspace=apps/web` (Vitest) both run clean — 43 test files,
-309 tests, all passing. Coverage is concentrated where it matters most:
+`npm run test --workspace=apps/web` (Vitest) both run clean — 47 test files,
+334 tests, all passing. Coverage is concentrated where it matters most:
 Procurement, Finance/GL, IT Support, and Platform/Admin have the deepest
 component and SQL test coverage; shallower modules (PMO, Machine Operation,
 Sustainability) have less.
@@ -135,13 +132,10 @@ finance invoice payment, and payroll disbursement money-flow smoke tests).
   contact people; the working tree was neutralised to fictitious org names
   on 2026-09-16. Older git commits still contain the originals — a full
   purge needs a `git filter-repo`/BFG history rewrite, not yet done.
-<<<<<<< ours
-=======
 - Icon-only `IconButton`s across the app now carry `aria-label` (fixed
   2026-09-16 — was the top accessibility gap; screen readers previously
   announced these as unlabeled "button"). Accessibility is otherwise still
   largely unaudited beyond this fix.
->>>>>>> theirs
 
 ## Notes on the schema
 
