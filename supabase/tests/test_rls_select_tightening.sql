@@ -113,6 +113,27 @@ begin
 
   insert into sustainability_metrics (tenant_id, value, unit)
   values (v_tenant, 42, 'kg');
+
+  -- test_identities: a plain, RLS-free lookup table for resolving each
+  -- persona's id by handle. app_users itself can't be used for this --
+  -- its SELECT policy is `tenant_id = get_my_tenant_id() OR id =
+  -- auth.uid()`, both sides of which depend on auth.uid(), which is
+  -- still unset the first time we need to look an id up (nothing has
+  -- called set_config('request.jwt.claims', ...) yet). Querying
+  -- app_users at that point silently returns zero rows, so `sub` gets
+  -- set to NULL instead of raising -- every check after that then
+  -- fails closed with 0 rows everywhere, which looks like a pass for
+  -- "sees nothing" assertions but is really auth.uid() never resolving
+  -- at all. Same pattern as test_law_contract_approval_flow.sql and
+  -- the sibling BD/machine/sustainability/PMO test files.
+  create temp table if not exists test_identities(handle text primary key, id uuid not null) on commit drop;
+  insert into test_identities (handle, id) values
+    ('rls-hr-member',    v_hr_member),
+    ('rls-hr-manager',   v_hr_manager),
+    ('rls-legal-member', v_legal_user),
+    ('rls-plain-user',   v_plain_user),
+    ('rls-pmo-assignee', v_assignee);
+  grant select on test_identities to authenticated;
 end $$;
 
 -- From here on everything runs as the authenticated role; only the JWT
@@ -123,7 +144,7 @@ set local role authenticated;
 -- 1. Plain user (no staff_roles): sees nothing in any of these tables
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-plain-user@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-plain-user'))::text, true);
 
 do $$
 begin
@@ -159,7 +180,7 @@ end $$;
 -- 2. HR member: reads HR tables, still cannot read other modules
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-hr-member@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-hr-member'))::text, true);
 
 do $$
 begin
@@ -181,7 +202,7 @@ end $$;
 -- 3. Legal member: reads law tables, cannot read HR recruitment tables
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-legal-member@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-legal-member'))::text, true);
 
 do $$
 begin
@@ -200,7 +221,7 @@ end $$;
 -- 4. PMO assignee with no staff_roles row: sees own task only
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-pmo-assignee@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-pmo-assignee'))::text, true);
 
 do $$
 begin
@@ -219,19 +240,27 @@ end $$;
 -- 5. Non-HR user cannot delete attendance; HR manager can
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-legal-member@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-legal-member'))::text, true);
 
-delete from hr_attendance;
 do $$
+declare
+  v_deleted int;
 begin
-  if (select count(*) from hr_attendance) <> 1 then
-    raise exception 'FAIL: non-HR user deleted an hr_attendance row';
+  -- Don't verify via a re-SELECT here: the legal-member has no SELECT
+  -- grant on hr_attendance at all, so count(*) would read 0 whether the
+  -- delete was blocked or actually succeeded -- indistinguishable.
+  -- GET DIAGNOSTICS reads the DELETE's own affected-row count instead,
+  -- which is unambiguous regardless of this role's SELECT visibility.
+  delete from hr_attendance;
+  get diagnostics v_deleted = row_count;
+  if v_deleted <> 0 then
+    raise exception 'FAIL: non-HR user deleted % hr_attendance row(s)', v_deleted;
   end if;
   raise notice 'PASS: hr_attendance delete denied (silently filtered) for non-HR user';
 end $$;
 
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'rls-hr-manager@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'rls-hr-manager'))::text, true);
 
 do $$
 declare

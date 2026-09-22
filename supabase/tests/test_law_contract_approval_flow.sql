@@ -106,6 +106,7 @@ begin
     ('contract-a',   v_contract_a),
     ('contract-b',   v_contract_b);
   grant select on test_identities to authenticated;
+  
 end $$;
 
 set local role authenticated;
