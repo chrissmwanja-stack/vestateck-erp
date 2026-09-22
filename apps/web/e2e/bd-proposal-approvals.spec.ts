@@ -25,10 +25,6 @@ test.describe('BD proposal approvals', () => {
   test('a pending proposal can be approved (or is verifiably approved)', async ({ page }) => {
     const title = 'E2E Pending Approval Proposal';
 
-    // The approve decision uses window.confirm(), not a MUI Dialog --
-    // auto-accept it or the click hangs the whole spec.
-    page.on('dialog', (d) => { void d.accept(); });
-
     await loginAs(page, 'bdOfficer');
     await page.goto('/business-development/proposals/approvals');
 
@@ -42,6 +38,9 @@ test.describe('BD proposal approvals', () => {
       await test.step('Approve the seeded pending proposal', async () => {
         const row = pendingRow.locator('xpath=ancestor::tr[1]');
         await row.getByRole('button', { name: /approve/i }).click();
+        // The decision goes through useConfirm()'s MUI dialog, not
+        // window.confirm() -- confirm it via the real "Confirm" button.
+        await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
         // Row leaves the pending-only queue once decided.
         await expect(pendingRow).toBeHidden({ timeout: 15_000 });
       });
