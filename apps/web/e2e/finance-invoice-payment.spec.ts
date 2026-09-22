@@ -86,10 +86,16 @@ test.describe('Finance invoice + payment', () => {
       // default, so the save silently no-ops without this.
       await page.getByLabel('Transaction Date').fill('2026-09-08');
       await page.getByLabel('Bank Account').fill('E2E Test Account');
-      await page.getByLabel('Description').fill('E2E smoke settlement');
+      // Include invoiceNo (already unique per run via Date.now()) so this
+      // text stays a strict-mode match even after several local reruns
+      // against the same, unreset dev DB -- a static "E2E smoke
+      // settlement" literal accumulates one row per run and eventually
+      // resolves to multiple elements.
+      const description = `E2E smoke settlement ${invoiceNo}`;
+      await page.getByLabel('Description').fill(description);
 
       await page.getByRole('button', { name: 'Save' }).click();
-      await expect(page.getByText('E2E smoke settlement')).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(description)).toBeVisible({ timeout: 15_000 });
     });
   });
 });
