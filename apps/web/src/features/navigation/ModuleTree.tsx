@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   BarChart,
   AdminPanelSettings,
+  History,
   ReceiptLong,
   Build,
   AccountBalance,
@@ -46,8 +47,7 @@ import {
   Timer,
   PriorityHigh,
   Business,
-  PersonAdd,
-  PlaylistAddCheck,
+  Settings,
 } from "@mui/icons-material";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
@@ -584,10 +584,12 @@ const portals: Portal[] = [
     nodes: [
       { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
-      { id: "company-setup", label: "Company Setup", icon: <PlaylistAddCheck fontSize="small" />, to: "/setup" },
-      { id: "invite-team", label: "Invite Team", icon: <PersonAdd fontSize="small" />, to: "/team/invite" },
-      { id: "team-members", label: "Manage Team", icon: <Groups fontSize="small" />, to: "/team/members" },
-      { id: "approval-workflow", label: "Approval Workflow", icon: <ReceiptLong fontSize="small" />, to: "/admin/approval-workflow" },
+      { id: "platform-audit", label: "Audit Log", icon: <History fontSize="small" />, to: "/admin/audit" },
+      { id: "platform-settings", label: "Settings", icon: <Settings fontSize="small" />, to: "/admin/settings" },
+      // Company Setup / Invite Team / Manage Team / Approval Workflow used
+      // to sit here too. They are *tenant*-admin screens: for a platform
+      // admin who is not impersonating they silently operated on the
+      // reserved platform home tenant. They are reached via View-as now.
     ],
   },
 ];

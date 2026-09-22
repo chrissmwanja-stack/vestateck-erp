@@ -29,10 +29,13 @@ import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
+import TenantAccessBanner from './features/account/TenantAccessBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
+const PlatformAuditLog = lazy(() => import('./features/admin/PlatformAuditLog'));
+const AccountSecurity = lazy(() => import('./features/account/AccountSecurity'));
 const ApprovalWorkflowAdmin = lazy(() => import('./features/admin/ApprovalWorkflowAdmin'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
 const TeamMembersAdmin = lazy(() => import('./features/team/TeamMembersAdmin'));
@@ -262,6 +265,7 @@ function TopNav() {
       </Toolbar>
     </AppBar>
       {session && <ImpersonationBanner />}
+      {session && <TenantAccessBanner />}
     </>
   );
 }
@@ -304,7 +308,8 @@ export default function App() {
   const isPlatformAdminRoute =
     location.pathname === '/admin' ||
     location.pathname.startsWith('/admin/companies') ||
-    location.pathname === '/admin/settings';
+    location.pathname === '/admin/settings' ||
+    location.pathname === '/admin/audit';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
@@ -318,6 +323,11 @@ export default function App() {
             <Route path="/bootstrap-admin" element={<BootstrapAdminPage />} />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<RootRedirect />} />
+              {/* MFA enrolment. RequireAuth redirects here when require_mfa
+                  is on and the user has no verified factor -- this route
+                  was missing, so that redirect used to fall through to "*"
+                  and bounce back to "/" in a loop. */}
+              <Route path="/account/security" element={<AccountSecurity />} />
               <Route path="/requests/new" element={<RequestSubmissionForm />} />
               <Route path="/approvals" element={<ApprovalQueue />} />
               {/* Cross-module aggregator -- see list_my_approval_surfaces()
@@ -355,6 +365,7 @@ export default function App() {
                   <Route path="/admin/companies" element={<CompaniesConsole />} />
                   <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
                   <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                  <Route path="/admin/audit" element={<PlatformAuditLog />} />
                 </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />

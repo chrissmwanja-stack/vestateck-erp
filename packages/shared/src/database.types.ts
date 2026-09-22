@@ -7446,30 +7446,113 @@ export type Database = {
           },
         ]
       }
+      tenant_notes: {
+        Row: {
+          author_email: string | null
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          author_email?: string | null
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          author_email?: string | null
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
+          address: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          country: string
           created_at: string
           created_by: string | null
           id: string
           industry_template: string
           name: string
+          plan: string
+          read_only: boolean
+          read_only_reason: string | null
+          read_only_since: string | null
+          renews_at: string | null
+          seat_limit: number | null
           status: string
+          status_changed_at: string | null
+          subscription_status: string
+          tax_id: string | null
+          trial_ends_at: string | null
+          updated_at: string
         }
         Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string
           created_at?: string
           created_by?: string | null
           id?: string
           industry_template?: string
           name: string
+          plan?: string
+          read_only?: boolean
+          read_only_reason?: string | null
+          read_only_since?: string | null
+          renews_at?: string | null
+          seat_limit?: number | null
           status?: string
+          status_changed_at?: string | null
+          subscription_status?: string
+          tax_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
         }
         Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string
           created_at?: string
           created_by?: string | null
           id?: string
           industry_template?: string
           name?: string
+          plan?: string
+          read_only?: boolean
+          read_only_reason?: string | null
+          read_only_since?: string | null
+          renews_at?: string | null
+          seat_limit?: number | null
           status?: string
+          status_changed_at?: string | null
+          subscription_status?: string
+          tax_id?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -9250,6 +9333,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_my_tenant_access: { Args: never; Returns: Json }
       get_offer_detail: { Args: { p_request_id: string }; Returns: Json }
       get_pending_material_request_batches: {
         Args: never
@@ -9293,7 +9377,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_platform_admin_session: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          can_act: boolean
+          has_mfa_factor: boolean
+          is_platform_admin: boolean
+          session_is_mfa: boolean
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "get_platform_admin_session"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_platform_dashboard_stats: { Args: never; Returns: Json }
+      get_tenant_profile: { Args: { p_tenant_id: string }; Returns: Json }
       get_po_detail: {
         Args: { p_purchase_order_id: string }
         Returns: {
@@ -9724,6 +9824,64 @@ export type Database = {
           surface_key: string
         }[]
       }
+      list_impersonation_history: {
+        Args: {
+          p_limit?: number;
+          p_offset?: number;
+          p_tenant_id?: string | null;
+        }
+        Returns: {
+          ended_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          platform_admin_email: string | null
+          platform_admin_id: string
+          reason: string | null
+          started_at: string
+          tenant_id: string
+          tenant_name: string
+          total_count: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "list_impersonation_history"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_platform_audit_events: {
+        Args: {
+          p_action?: string | null;
+          p_from?: string | null;
+          p_limit?: number;
+          p_offset?: number;
+          p_tenant_id?: string | null;
+          p_to?: string | null;
+        }
+        Returns: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          id: string
+          mfa_verified: boolean
+          reason: string | null
+          target_id: string | null
+          target_type: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          total_count: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "list_platform_audit_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       list_receipt_assignees: {
         Args: never
         Returns: {
@@ -9733,6 +9891,16 @@ export type Database = {
           user_id: string
           user_name: string
         }[]
+      }
+      add_tenant_note: {
+        Args: { p_body: string; p_tenant_id: string }
+        Returns: Database["public"]["Tables"]["tenant_notes"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "tenant_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       match_bank_statement_line: {
         Args: {
@@ -10382,6 +10550,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_tenant_read_only: {
+        Args: { p_read_only: boolean; p_reason?: string | null; p_tenant_id: string }
+        Returns: Database["public"]["Tables"]["tenants"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_tenant_profile: {
+        Args: { p_patch: Json; p_tenant_id: string }
+        Returns: Database["public"]["Tables"]["tenants"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       try_complete_po: {
         Args: { p_purchase_order_id: string }
         Returns: undefined
@@ -10720,7 +10908,6 @@ export type Database = {
     }
   }
 }
-
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]

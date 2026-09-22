@@ -1,119 +1,204 @@
-import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
-import { AdminPanelSettings, ArrowBack, Settings as SettingsIcon } from '@mui/icons-material';
-import { Link as RouterLink, Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Chip,
+  Divider,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Stack,
+  Typography,
+} from '@mui/material';
+import {
+  AdminPanelSettings,
+  Business,
+  Dashboard,
+  History,
+  Security,
+  Settings as SettingsIcon,
+} from '@mui/icons-material';
+import { Link as RouterLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { usePlatformAdminSession } from './usePlatformAdminSession';
 
-// The tenant-facing shell (teal top bar, ModuleTree of that company's
-// modules) is deliberately the same for every company -- that sameness
-// is the point, it's one product. Platform administration isn't inside
-// any company, so it gets its own strip rather than borrowing that
-// chrome: ochre is reserved elsewhere in the theme purely for
-// highlights/active states (see theme.ts), so lighting it up here reads
-// as "you've stepped out of a company and into the tower that oversees
-// all of them" rather than introducing an unrelated new color.
+// The operator console shell. Everything under /admin that is *platform*
+// administration (not a customer company's own admin screens) renders
+// inside this: a persistent left rail with the console's few sections, a
+// slim ochre-accented header naming where you are, and the page.
 //
-// Kept as a border + text accent, not a filled ochre bar -- a filled
-// warm-colored banner is already ImpersonationBanner's job (MUI Alert,
-// severity="warning", filled), and this needs to read as a distinct
-// permanent section of the app, not a transient alert.
+// Why a separate shell rather than ModuleTree: ModuleTree lists one
+// company's modules. The console is not inside any company -- it is the
+// vendor's view *over* all of them. Before this, the console borrowed a
+// "Platform Administration" portal inside ModuleTree, four of whose seven
+// entries were tenant-admin screens (Company Setup, Invite Team, Manage
+// Team, Approval Workflow) that silently operated on the platform admin's
+// reserved home tenant. Those live inside customer workspaces and are
+// reached through View-as; they are no longer offered here.
 //
-// Back nav used to be hardcoded to "always → /admin/companies", which
-// was only ever correct for exactly one screen (Company Detail) and
-// silently wrong for every other subpage added since (it would have
-// told Settings to go "back to all companies"). This is now a single
-// route table, so every /admin/* subpage's back target lives in one
-// place instead of being reimplemented per-page (CompanyDetail used to
-// carry its own separate "Back to Companies" link in-body -- removed,
-// this header is now the only back nav for the section).
-interface AdminRouteConfig {
+// Route table: every console route, its label, and which rail item it
+// belongs to (so Company Detail highlights "Companies").
+interface ConsoleRoute {
   pattern: string;
   label: string;
-  backTo?: string; // omit for the section root (no back arrow shown)
+  section: SectionId;
 }
 
-// Note: /admin itself (PlatformDashboard) isn't wrapped by AdminLayout --
-// it has its own header already -- so every route AdminLayout actually
-// renders for has a real back target; there's no "root" case in practice.
-const ADMIN_ROUTES: AdminRouteConfig[] = [
-  { pattern: '/admin/companies', label: 'Companies', backTo: '/admin' },
-  { pattern: '/admin/companies/:tenantId', label: 'Company Detail', backTo: '/admin/companies' },
-  { pattern: '/admin/settings', label: 'Settings', backTo: '/admin' },
+type SectionId = 'overview' | 'companies' | 'audit' | 'settings';
+
+const CONSOLE_ROUTES: ConsoleRoute[] = [
+  { pattern: '/admin', label: 'Overview', section: 'overview' },
+  { pattern: '/admin/companies', label: 'Companies', section: 'companies' },
+  { pattern: '/admin/companies/:tenantId', label: 'Company detail', section: 'companies' },
+  { pattern: '/admin/audit', label: 'Audit log', section: 'audit' },
+  { pattern: '/admin/settings', label: 'Platform settings', section: 'settings' },
 ];
 
-function resolveAdminRoute(pathname: string): AdminRouteConfig {
-  const match = ADMIN_ROUTES.find((route) => matchPath({ path: route.pattern, end: true }, pathname));
-  return match ?? { pattern: pathname, label: 'Platform Administration', backTo: '/admin' };
+export const CONSOLE_SECTIONS: { id: SectionId; label: string; to: string; icon: JSX.Element; hint: string }[] = [
+  { id: 'overview', label: 'Overview', to: '/admin', icon: <Dashboard fontSize="small" />, hint: 'KPIs, alerts, onboarding' },
+  { id: 'companies', label: 'Companies', to: '/admin/companies', icon: <Business fontSize="small" />, hint: 'Every customer on the platform' },
+  { id: 'audit', label: 'Audit log', to: '/admin/audit', icon: <History fontSize="small" />, hint: 'Who did what, and why' },
+  { id: 'settings', label: 'Settings', to: '/admin/settings', icon: <SettingsIcon fontSize="small" />, hint: 'Branding, security, notifications' },
+];
+
+// Exported so App.tsx and tests share one definition of "is this a
+// console route" (ModuleTree is hidden and AdminLayout shown for these).
+export function isConsoleRoute(pathname: string): boolean {
+  return CONSOLE_ROUTES.some((r) => matchPath({ path: r.pattern, end: true }, pathname));
 }
+
+export function resolveConsoleRoute(pathname: string): ConsoleRoute {
+  return (
+    CONSOLE_ROUTES.find((r) => matchPath({ path: r.pattern, end: true }, pathname)) ?? {
+      pattern: pathname,
+      label: 'Platform administration',
+      section: 'overview',
+    }
+  );
+}
+
+export const CONSOLE_RAIL_WIDTH = 232;
 
 export default function AdminLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const current = resolveAdminRoute(location.pathname);
-  const isRoot = !current.backTo;
+  const current = resolveConsoleRoute(location.pathname);
+  const { session } = usePlatformAdminSession();
 
   return (
-    <Box sx={{ mb: 3 }}>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+      <Box
+        component="nav"
+        aria-label="Platform console"
         sx={{
-          borderBottom: (theme) => `2px solid ${theme.palette.secondary.main}`,
-          pb: 1.5,
-          mb: 3,
+          width: CONSOLE_RAIL_WIDTH,
+          minWidth: CONSOLE_RAIL_WIDTH,
+          borderRight: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 64,
+          alignSelf: 'flex-start',
+          height: 'calc(100vh - 64px)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          {!isRoot && (
-            <IconButton
-              size="small"
-              aria-label="Back"
-              onClick={() => navigate(current.backTo as string)}
-              sx={{ border: '1px solid', borderColor: 'divider', mr: 0.5 }}
-            >
-              <ArrowBack fontSize="small" />
-            </IconButton>
-          )}
-          <AdminPanelSettings sx={{ color: 'secondary.main', fontSize: 20 }} />
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pt: 2, pb: 1.5 }}>
+          <AdminPanelSettings sx={{ color: 'secondary.main' }} />
           <Box>
             <Typography
               variant="overline"
-              sx={{
-                color: 'secondary.main',
-                fontWeight: 700,
-                letterSpacing: 1.2,
-                lineHeight: 1.2,
-                display: 'block',
-              }}
+              sx={{ color: 'secondary.main', fontWeight: 700, letterSpacing: 1.2, lineHeight: 1.2, display: 'block' }}
             >
-              {isRoot ? 'Platform Administration' : current.label}
+              Platform console
             </Typography>
-            {isRoot ? (
-              <Typography variant="caption" color="text.secondary">
-                Overseeing every company on VestaPortal
-              </Typography>
-            ) : (
-              <Typography
-                component={RouterLink}
-                to={current.backTo as string}
-                variant="caption"
-                color="text.secondary"
-                sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-              >
-                ← Back
-              </Typography>
-            )}
+            <Typography variant="caption" color="text.secondary">
+              Operator view over every company
+            </Typography>
           </Box>
         </Stack>
+        <Divider />
+        <List dense sx={{ px: 1, py: 1 }}>
+          {CONSOLE_SECTIONS.map((s) => {
+            const active = current.section === s.id;
+            return (
+              <ListItemButton
+                key={s.id}
+                component={RouterLink}
+                to={s.to}
+                selected={active}
+                sx={{
+                  borderRadius: 1,
+                  mb: 0.25,
+                  '&.Mui-selected': {
+                    bgcolor: 'action.selected',
+                    borderLeft: (t) => `3px solid ${t.palette.secondary.main}`,
+                    pl: '13px',
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32, color: active ? 'secondary.main' : 'text.secondary' }}>{s.icon}</ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontWeight={active ? 700 : 500}>
+                      {s.label}
+                    </Typography>
+                  }
+                  secondary={s.hint}
+                  secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+        <Box sx={{ flex: 1 }} />
+        <Divider />
+        <Box sx={{ p: 1.5 }}>
+          <ListItemButton component={RouterLink} to="/account/security" sx={{ borderRadius: 1 }} dense>
+            <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
+              <Security fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography variant="body2" fontWeight={500}>
+                  My security
+                </Typography>
+              }
+              secondary={
+                session ? (
+                  session.hasMfaFactor ? (
+                    session.sessionIsMfa ? (
+                      'Authenticator verified'
+                    ) : (
+                      'Step-up needed'
+                    )
+                  ) : (
+                    <Chip size="small" label="Enrol authenticator" color="warning" variant="outlined" sx={{ height: 18, fontSize: 10 }} />
+                  )
+                ) : (
+                  ' '
+                )
+              }
+              secondaryTypographyProps={{ variant: 'caption', component: 'div' }}
+            />
+          </ListItemButton>
+          <Typography variant="caption" color="text.secondary" sx={{ px: 1.5, display: 'block', mt: 1 }}>
+            Customer-side admin (team, setup, approvals) is reached through <b>View as</b> on a company.
+          </Typography>
+        </Box>
+      </Box>
 
-        {location.pathname !== '/admin/settings' && (
-          <Tooltip title="Platform settings">
-            <IconButton size="small" component={RouterLink} to="/admin/settings" aria-label="Platform settings">
-              <SettingsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Stack>
-      <Outlet />
+      <Box component="section" sx={{ flex: 1, minWidth: 0, px: 4, pt: 3, pb: 6 }}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ borderBottom: (t) => `2px solid ${t.palette.secondary.main}`, pb: 1, mb: 3 }}
+        >
+          <Typography variant="overline" sx={{ color: 'secondary.main', fontWeight: 700, letterSpacing: 1.2 }}>
+            {current.label}
+          </Typography>
+        </Stack>
+        <Outlet />
+      </Box>
     </Box>
   );
 }
