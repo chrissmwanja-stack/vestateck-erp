@@ -77,11 +77,12 @@ interface PayrollItem {
   employee_no: string;
 }
 
-function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => void }) {
+function RunItems({ run, onRunChanged, isHr }: { run: PayrollRun; onRunChanged: () => void; isHr: boolean | null }) {
   const [items, setItems] = useState<PayrollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [revising, setRevising] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Local edit buffer keyed by item id -- avoids firing a save on every
   // keystroke; commits on blur, same pattern as the offer-entry screens.
@@ -165,7 +166,20 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
     onRunChanged();
   }
 
+  async function handleRevise() {
+    setRevising(true);
+    setError(null);
+    const { error: err } = await supabase.rpc("revise_payroll_run", { p_run_id: run.id });
+    setRevising(false);
+    if (err) {
+      setError(err.message ?? "Could not move this run back to draft.");
+      return;
+    }
+    onRunChanged();
+  }
+
   const isDraft = run.status === "draft";
+  const isRejected = run.status === "rejected";
   const totalNet = items.reduce((sum, i) => sum + Number(i.net_pay), 0);
   const totalPaye = items.reduce((sum, i) => sum + Number(i.paye_amount), 0);
   const totalNssf = items.reduce((sum, i) => sum + Number(i.nssf_employee) + Number(i.nssf_employer), 0);
@@ -182,7 +196,17 @@ function RunItems({ run, onRunChanged }: { run: PayrollRun; onRunChanged: () => 
     <Box sx={{ px: 2, pb: 2 }}>
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
       {run.rejection_reason && (
-        <Alert severity="warning" sx={{ mb: 1 }}>
+        <Alert
+          severity="warning"
+          sx={{ mb: 1 }}
+          action={
+            isRejected && isHr ? (
+              <Button color="inherit" size="small" onClick={handleRevise} disabled={revising}>
+                {revising ? "Revising…" : "Revise"}
+              </Button>
+            ) : undefined
+          }
+        >
           Sent back by an approver: "{run.rejection_reason}"
         </Alert>
       )}
@@ -387,7 +411,7 @@ export default function PayrollList() {
                   </IconButton>
                 </Box>
                 <Collapse in={openId === run.id} timeout="auto" unmountOnExit>
-                  <RunItems run={run} onRunChanged={load} />
+                  <RunItems run={run} onRunChanged={load} isHr={isHr} />
                 </Collapse>
               </Box>
             ))}

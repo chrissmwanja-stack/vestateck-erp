@@ -10091,6 +10091,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revise_payroll_run: {
+        Args: { p_run_id: string }
+        Returns: {
+          amount_disbursed: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          period: string
+          prepared_by: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "hr_payroll_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       revoke_hr_team_member: { Args: { p_user_id: string }; Returns: undefined }
       revoke_invitation: {
         Args: { p_invitation_id: string }
