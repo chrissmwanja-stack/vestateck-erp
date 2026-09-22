@@ -32,6 +32,8 @@ declare
   v_creator     uuid := gen_random_uuid();  -- legal member
   v_approver    uuid := gen_random_uuid();  -- legal manager
   v_plain       uuid := gen_random_uuid();  -- no roles at all
+  v_contract_a  uuid;
+  v_contract_b  uuid;
 begin
   insert into tenants (id, name) values (v_tenant, 'Law Flow Test Co');
 
@@ -65,32 +67,58 @@ begin
     (v_tenant, v_approver, 'legal', 'manager');
 
   -- Contract A: draft by the legal member (to be submitted + approved)
+  -- contract_no is NOT settable here -- trg_law_contract_no (pre-existing)
+  -- unconditionally overwrites whatever is supplied via
+  -- generate_law_contract_no(), the same auto-numbering convention used
+  -- elsewhere in the app (see pmo_projects.project_no for the same
+  -- pattern). Capture the real id via RETURNING instead of trying to look
+  -- the row back up by a contract_no we don't actually control.
   insert into law_contracts (tenant_id, contract_no, title, party_name, status, created_by)
-  values (v_tenant, 'LAW-T-0001', 'Office lease', 'City Properties Ltd', 'draft', v_creator);
+  values (v_tenant, 'LAW-T-0001', 'Office lease', 'City Properties Ltd', 'draft', v_creator)
+  returning id into v_contract_a;
 
   -- Contract B: draft by the approver themselves (self-approval probe)
   insert into law_contracts (tenant_id, contract_no, title, party_name, status, created_by)
-  values (v_tenant, 'LAW-T-0002', 'Counsel retainer', 'Advocates LLP', 'draft', v_approver);
+  values (v_tenant, 'LAW-T-0002', 'Counsel retainer', 'Advocates LLP', 'draft', v_approver)
+  returning id into v_contract_b;
 
   -- Filing F: pending, to walk the state machine
   insert into law_regulatory_filings (tenant_id, title, status)
   values (v_tenant, 'Annual Returns 2026', 'pending');
+
+  -- test_identities: a plain, RLS-free lookup table for resolving each
+  -- fixture user's/contract's id by handle. app_users itself can't be used
+  -- for this -- its SELECT policy is `tenant_id = get_my_tenant_id() OR id
+  -- = auth.uid()`, both sides of which depend on auth.uid(), which is
+  -- still unset the first time we need to look an id up (nothing has
+  -- called set_config('request.jwt.claims', ...) yet). Querying app_users
+  -- at that point silently returns zero rows, so `sub` gets set to NULL
+  -- instead of raising -- every RPC after that then fails closed with
+  -- "not authorized". Match the pattern already used by the sibling
+  -- BD/machine/sustainability/PMO test files added in this same commit.
+  -- Contracts go in here too, for the same reason contract_no can't be
+  -- used as a lookup key (see above).
+  create temp table if not exists test_identities(handle text primary key, id uuid not null) on commit drop;
+  insert into test_identities (handle, id) values
+    ('law-creator',  v_creator),
+    ('law-approver', v_approver),
+    ('law-plain',    v_plain),
+    ('contract-a',   v_contract_a),
+    ('contract-b',   v_contract_b);
+  grant select on test_identities to authenticated;
 end $$;
 
 set local role authenticated;
-
--- Helper view of fixture ids under our impersonations
--- (kept inline via subselects below; test.local emails make them stable).
 
 -- ---------------------------------------------------------------------
 -- 1. Creator (legal member) submits contract A
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'law-creator@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'law-creator'))::text, true);
 
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0001');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-a');
 begin
   perform submit_contract_for_approval(v_contract_id);
 
@@ -109,7 +137,7 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0001');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-a');
 begin
   begin
     perform decide_contract(v_contract_id, 'approved', null);
@@ -125,12 +153,11 @@ end $$;
 -- 3. Approver approves contract A -> active + creator notified
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'law-approver@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'law-approver'))::text, true);
 
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0001');
-  v_creator_id  uuid := (select id from app_users where email = 'law-creator@test.local');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-a');
 begin
   perform decide_contract(v_contract_id, 'approved', 'Terms reviewed');
 
@@ -141,20 +168,38 @@ begin
       where contract_id = v_contract_id and decision = 'approved' and notes = 'Terms reviewed') <> 1 then
     raise exception 'FAIL: approved decision row missing or notes lost';
   end if;
+  raise notice 'PASS: approve -> active, audit row with notes';
+end $$;
+
+-- notifications_select_own is `recipient_id = auth.uid()` -- the approver
+-- (still the active session role) can never see a notification addressed
+-- to the creator, regardless of whether trg_notify_contract_status_change
+-- inserted it correctly. reset role (back to the postgres superuser this
+-- file connects as, which bypasses RLS) to actually check delivery,
+-- matching the pattern the sibling BD/machine/sustainability/PMO test
+-- files use for the same cross-user check.
+reset role;
+do $$
+declare
+  v_creator_id uuid := (select id from test_identities where handle = 'law-creator');
+begin
   if (select count(*) from notifications
       where recipient_id = v_creator_id and type = 'contract_active'
         and title like 'Contract approved:%') <> 1 then
     raise exception 'FAIL: creator was not notified of approval';
   end if;
-  raise notice 'PASS: approve -> active, audit row with notes, creator notified';
+  raise notice 'PASS: creator notified of approval';
 end $$;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select id from test_identities where handle = 'law-approver'))::text, true);
 
 -- ---------------------------------------------------------------------
 -- 4. Deciding an already-decided contract is refused
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0001');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-a');
 begin
   begin
     perform decide_contract(v_contract_id, 'approved', null);
@@ -173,7 +218,7 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0002');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-b');
 begin
   perform submit_contract_for_approval(v_contract_id);
 
@@ -192,8 +237,8 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_contract_id uuid := (select id from law_contracts where contract_no = 'LAW-T-0002');
-  v_approver_id uuid := (select id from app_users where email = 'law-approver@test.local');
+  v_contract_id uuid := (select id from test_identities where handle = 'contract-b');
+  v_approver_id uuid := (select id from test_identities where handle = 'law-approver');
 begin
   begin
     perform decide_contract(v_contract_id, 'rejected', null);
@@ -208,7 +253,7 @@ begin
   -- the rejection path. Re-point created_by to the other legal user is the
   -- realistic shape (a colleague picks it up) -- but update via RLS as
   -- manager is allowed on law_contracts.
-  update law_contracts set created_by = (select id from app_users where email = 'law-creator@test.local')
+  update law_contracts set created_by = (select id from test_identities where handle = 'law-creator')
   where id = v_contract_id;
 
   perform decide_contract(v_contract_id, 'rejected', 'Missing indemnity clause');
@@ -221,14 +266,25 @@ begin
         and decided_by = v_approver_id and notes = 'Missing indemnity clause') <> 1 then
     raise exception 'FAIL: rejection audit row missing';
   end if;
+  raise notice 'PASS: rejection requires notes and the audit row records who/why';
+end $$;
+
+-- Same recipient-only RLS issue as step 3: the approver (still the active
+-- session role) can't read a notification addressed to the creator.
+reset role;
+do $$
+begin
   if (select count(*) from notifications
       where type = 'contract_rejected'
         and title like 'Contract rejected:%'
         and body like '%Missing indemnity clause%') <> 1 then
     raise exception 'FAIL: rejection notification missing or reason not carried';
   end if;
-  raise notice 'PASS: rejection requires notes and the reason reaches the creator notification';
+  raise notice 'PASS: rejection reason reaches the creator notification';
 end $$;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select id from test_identities where handle = 'law-approver'))::text, true);
 
 -- ---------------------------------------------------------------------
 -- 7. Filing state machine: invalid skips refused, valid path audited,
@@ -285,7 +341,7 @@ declare
 begin
   -- still impersonating the approver above; switch to the member
   perform set_config('request.jwt.claims',
-    json_build_object('sub', (select id from app_users where email = 'law-creator@test.local'))::text, true);
+    json_build_object('sub', (select id from test_identities where handle = 'law-creator'))::text, true);
 
   begin
     perform transition_filing(v_filing_id, 'filed', null);
@@ -305,7 +361,7 @@ begin
 
   -- plain user with no roles: nothing visible at all
   perform set_config('request.jwt.claims',
-    json_build_object('sub', (select id from app_users where email = 'law-plain@test.local'))::text, true);
+    json_build_object('sub', (select id from test_identities where handle = 'law-plain'))::text, true);
 
   if (select count(*) from law_contract_decisions) > 0
   or (select count(*) from law_filing_events) > 0 then

@@ -30,6 +30,8 @@ declare
   v_approver uuid := gen_random_uuid();  -- pmo manager
   v_plain    uuid := gen_random_uuid();  -- no roles
   v_employee uuid := gen_random_uuid();  -- hr_employees row for approver
+  v_project_a uuid;
+  v_project_b uuid;
 begin
   insert into tenants (id, name) values (v_tenant, 'PMO Flow Test Co');
 
@@ -67,17 +69,47 @@ begin
   values (v_employee, v_tenant, v_approver, 'EMP-PMO-1', 'PMO', 'Manager', 'pmo-approver@test.local');
 
   -- Project A: created by the member (submit -> approve flow)
+  -- project_no is NOT settable here -- trg_pmo_project_no (pre-existing,
+  -- from the original PMO migration) unconditionally overwrites whatever
+  -- is supplied via generate_pmo_project_no()/next_doc_number(), the same
+  -- auto-numbering convention procurement/finance docs already use. The
+  -- literal below is discarded by Postgres before the row is written, so
+  -- capture the real id via RETURNING instead of trying to look the row
+  -- back up by a project_no we don't actually control.
   insert into pmo_projects (tenant_id, project_no, name, status, budget, created_by)
-  values (v_tenant, 'PRJ-T-0001', 'Warehouse build', 'not_started', 500000, v_creator);
+  values (v_tenant, 'PRJ-T-0001', 'Warehouse build', 'not_started', 500000, v_creator)
+  returning id into v_project_a;
 
   -- Project B: created by the approver (self-approval probe)
   insert into pmo_projects (tenant_id, project_no, name, status, budget, created_by)
-  values (v_tenant, 'PRJ-T-0002', 'Road resurfacing', 'not_started', 800000, v_approver);
+  values (v_tenant, 'PRJ-T-0002', 'Road resurfacing', 'not_started', 800000, v_approver)
+  returning id into v_project_b;
 
   -- Active allocation with a rate for the approver on project A
   insert into pmo_resource_allocations (tenant_id, employee_id, project_id, status, hourly_rate)
-  select v_tenant, v_employee, p.id, 'active', 25000
-  from pmo_projects p where p.project_no = 'PRJ-T-0001';
+  values (v_tenant, v_employee, v_project_a, 'active', 25000);
+
+  -- test_identities: a plain, RLS-free lookup table for resolving each
+  -- fixture user's/project's id by handle. app_users itself can't be used
+  -- for this -- its SELECT policy is `tenant_id = get_my_tenant_id() OR id
+  -- = auth.uid()`, both sides of which depend on auth.uid(), which is
+  -- still unset the first time we need to look an id up (nothing has
+  -- called set_config('request.jwt.claims', ...) yet). Querying app_users
+  -- at that point silently returns zero rows, so `sub` gets set to NULL
+  -- instead of raising -- every RPC after that then fails closed with
+  -- "not authorized", which is what actually happened here before this
+  -- fix. Match the pattern already used by the sibling BD/machine/
+  -- sustainability test files added in this same commit. Projects go in
+  -- here too, for the same reason project_no can't be used as a lookup
+  -- key (see above).
+  create temp table if not exists test_identities(handle text primary key, id uuid not null) on commit drop;
+  insert into test_identities (handle, id) values
+    ('pmo-creator',  v_creator),
+    ('pmo-approver', v_approver),
+    ('pmo-plain',    v_plain),
+    ('project-a',    v_project_a),
+    ('project-b',    v_project_b);
+  grant select on test_identities to authenticated;
 end $$;
 
 set local role authenticated;
@@ -86,11 +118,11 @@ set local role authenticated;
 -- 1. Creator submits project A
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'pmo-creator@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'pmo-creator'))::text, true);
 
 do $$
 declare
-  v_project_id uuid := (select id from pmo_projects where project_no = 'PRJ-T-0001');
+  v_project_id uuid := (select id from test_identities where handle = 'project-a');
 begin
   perform submit_pmo_project_for_approval(v_project_id);
   if (select status from pmo_projects where id = v_project_id) <> 'pending_approval' then
@@ -107,7 +139,7 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_project_id uuid := (select id from pmo_projects where project_no = 'PRJ-T-0001');
+  v_project_id uuid := (select id from test_identities where handle = 'project-a');
 begin
   begin
     perform decide_pmo_project(v_project_id, 'approved', null);
@@ -123,32 +155,49 @@ end $$;
 -- 3. Approver approves A -> in_progress + creator notified
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'pmo-approver@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'pmo-approver'))::text, true);
 
 do $$
 declare
-  v_project_id uuid := (select id from pmo_projects where project_no = 'PRJ-T-0001');
-  v_creator_id uuid := (select id from app_users where email = 'pmo-creator@test.local');
+  v_project_id uuid := (select id from test_identities where handle = 'project-a');
 begin
   perform decide_pmo_project(v_project_id, 'approved', 'Budget signed off');
 
   if (select status from pmo_projects where id = v_project_id) <> 'in_progress' then
     raise exception 'FAIL: approved project did not become in_progress';
   end if;
+  raise notice 'PASS: approve -> in_progress + audit row';
+end $$;
+
+-- notifications_select_own is `recipient_id = auth.uid()` -- the approver
+-- (still the authenticated role/session above) can never see a
+-- notification addressed to the creator, regardless of whether the insert
+-- worked. reset role (back to the postgres superuser this file connects
+-- as, which bypasses RLS) to actually check delivery, matching the
+-- pattern the sibling BD/machine/sustainability test files use for the
+-- same cross-user check.
+reset role;
+do $$
+declare
+  v_creator_id uuid := (select id from test_identities where handle = 'pmo-creator');
+begin
   if (select count(*) from notifications
       where recipient_id = v_creator_id and type = 'pmo_project_approved'
         and title like 'Project approved:%') <> 1 then
     raise exception 'FAIL: creator not notified of project approval';
   end if;
-  raise notice 'PASS: approve -> in_progress + audit + creator notification';
+  raise notice 'PASS: creator notified of project approval';
 end $$;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select id from test_identities where handle = 'pmo-approver'))::text, true);
 
 -- ---------------------------------------------------------------------
 -- 4. Self-approval refused on approver's own project (B)
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_project_id uuid := (select id from pmo_projects where project_no = 'PRJ-T-0002');
+  v_project_id uuid := (select id from test_identities where handle = 'project-b');
 begin
   perform submit_pmo_project_for_approval(v_project_id);
   begin
@@ -166,8 +215,8 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_project_id uuid := (select id from pmo_projects where project_no = 'PRJ-T-0002');
-  v_creator_id uuid := (select id from app_users where email = 'pmo-creator@test.local');
+  v_project_id uuid := (select id from test_identities where handle = 'project-b');
+  v_creator_id uuid := (select id from test_identities where handle = 'pmo-creator');
 begin
   begin
     perform decide_pmo_project(v_project_id, 'rejected', null);
@@ -183,18 +232,34 @@ begin
   if (select status from pmo_projects where id = v_project_id) <> 'rejected' then
     raise exception 'FAIL: rejected project did not become rejected';
   end if;
+  raise notice 'PASS: rejection requires notes, and rejected project becomes rejected';
+end $$;
+
+-- Same recipient-only RLS issue as step 3: the approver (still the active
+-- session role) can't read a notification addressed to the creator.
+reset role;
+do $$
+begin
   if (select count(*) from notifications where type = 'pmo_project_rejected' and body like '%Rescope budget%') <> 1 then
     raise exception 'FAIL: rejection notification missing reason';
   end if;
+  raise notice 'PASS: rejection notification carries the reason';
+end $$;
+set local role authenticated;
 
-  -- resubmit
+-- resubmit, as the creator
+do $$
+declare
+  v_project_id uuid := (select id from test_identities where handle = 'project-b');
+  v_creator_id uuid := (select id from test_identities where handle = 'pmo-creator');
+begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_creator_id)::text, true);
   perform submit_pmo_project_for_approval(v_project_id);
   if (select status from pmo_projects where id = v_project_id) <> 'pending_approval' then
     raise exception 'FAIL: rejected project could not be resubmitted';
   end if;
-  raise notice 'PASS: rejection requires notes, carries the reason, and rejected can be resubmitted';
+  raise notice 'PASS: rejected project can be resubmitted';
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -202,14 +267,14 @@ end $$;
 --    fallback when no allocation exists
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
-  json_build_object('sub', (select id from app_users where email = 'pmo-approver@test.local'))::text, true);
+  json_build_object('sub', (select id from test_identities where handle = 'pmo-approver'))::text, true);
 
 do $$
 declare
-  v_project_a uuid := (select id from pmo_projects where project_no = 'PRJ-T-0001');
-  v_project_b uuid := (select id from pmo_projects where project_no = 'PRJ-T-0002');
-  v_approver  uuid := (select id from app_users where email = 'pmo-approver@test.local');
-  v_creator   uuid := (select id from app_users where email = 'pmo-creator@test.local');
+  v_project_a uuid := (select id from test_identities where handle = 'project-a');
+  v_project_b uuid := (select id from test_identities where handle = 'project-b');
+  v_approver  uuid := (select id from test_identities where handle = 'pmo-approver');
+  v_creator   uuid := (select id from test_identities where handle = 'pmo-creator');
   v_entry_id  uuid;
 begin
   -- approver logs time on A (has an active allocation @ 25000): rate snapshots
@@ -247,15 +312,15 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_project_a uuid := (select id from pmo_projects where project_no = 'PRJ-T-0001');
-  v_approver  uuid := (select id from app_users where email = 'pmo-approver@test.local');
+  v_project_a uuid := (select id from test_identities where handle = 'project-a');
+  v_approver  uuid := (select id from test_identities where handle = 'pmo-approver');
 begin
   insert into pmo_cost_entries (tenant_id, project_id, description, category, amount, created_by)
   values ((select tenant_id from pmo_projects where id = v_project_a), v_project_a, 'Concrete delivery', 'materials', 250000, v_approver);
 
   -- member tier cannot book costs
   perform set_config('request.jwt.claims',
-    json_build_object('sub', (select id from app_users where email = 'pmo-creator@test.local'))::text, true);
+    json_build_object('sub', (select id from test_identities where handle = 'pmo-creator'))::text, true);
   begin
     insert into pmo_cost_entries (tenant_id, project_id, description, category, amount, created_by)
     values ((select tenant_id from pmo_projects where id = v_project_a), v_project_a, 'Sneaky cost', 'other', 1, v_approver);
@@ -279,7 +344,7 @@ begin
 
   -- plain user with no roles: nothing visible anywhere
   perform set_config('request.jwt.claims',
-    json_build_object('sub', (select id from app_users where email = 'pmo-plain@test.local'))::text, true);
+    json_build_object('sub', (select id from test_identities where handle = 'pmo-plain'))::text, true);
   if (select count(*) from pmo_cost_entries) > 0
   or (select count(*) from pmo_time_entries) > 0
   or (select count(*) from pmo_project_decisions) > 0 then
