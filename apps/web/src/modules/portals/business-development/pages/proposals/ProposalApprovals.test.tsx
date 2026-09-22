@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ProposalApprovals from './ProposalApprovals';
+import { ConfirmProvider } from '../../../../../lib/confirmContext';
+import { ToastProvider } from '../../../../../lib/toastContext';
 
 const mockFrom = vi.fn();
 vi.mock('../../../../../lib/supabaseClient', () => ({
@@ -13,6 +16,17 @@ const mockUseAuth = vi.fn();
 vi.mock('../../../../../lib/authContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
+
+// ProposalApprovals now calls useConfirm()/useToast() instead of native
+// confirm()/alert(), so tests render it under the real providers and
+// drive the confirm dialog via the DOM rather than mocking window.confirm.
+function renderWithProviders(ui: ReactElement) {
+  return render(
+    <ToastProvider>
+      <ConfirmProvider>{ui}</ConfirmProvider>
+    </ToastProvider>,
+  );
+}
 
 const PROPOSAL_A = {
   id: 'p1',
@@ -78,7 +92,7 @@ describe('ProposalApprovals', () => {
   it('fetches only pending_approval/in_review proposals, ordered oldest first', async () => {
     setupSupabase([{ data: [PROPOSAL_A, PROPOSAL_B], error: null }]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
 
     await waitFor(() => expect(screen.getByText('PRO-0001')).toBeInTheDocument());
     expect(screen.getByText('PRO-0002')).toBeInTheDocument();
@@ -87,7 +101,7 @@ describe('ProposalApprovals', () => {
   it('shows a client name fallback of "-" when bd_clients is null', async () => {
     setupSupabase([{ data: [PROPOSAL_B], error: null }]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
 
     await waitFor(() => expect(screen.getByText('PRO-0002')).toBeInTheDocument());
     expect(screen.getByText('-')).toBeInTheDocument();
@@ -96,7 +110,7 @@ describe('ProposalApprovals', () => {
   it('shows the empty-state message when nothing is pending', async () => {
     setupSupabase([{ data: [], error: null }]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
 
     await waitFor(() =>
       expect(screen.getByText(/No proposals pending approval/)).toBeInTheDocument(),
@@ -104,16 +118,17 @@ describe('ProposalApprovals', () => {
   });
 
   it('approve: confirms, updates status to approved, and refetches', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { updateCalls, selectCallCount } = setupSupabase([
       { data: [PROPOSAL_A], error: null },
       { data: [], error: null }, // post-approval refetch: nothing left pending
     ]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
     await waitFor(() => expect(screen.getByText('PRO-0001')).toBeInTheDocument());
 
     screen.getByRole('button', { name: 'Approve' }).click();
+    await waitFor(() => expect(screen.getByText('Mark proposal as approved?')).toBeInTheDocument());
+    screen.getByRole('button', { name: 'Confirm' }).click();
 
     await waitFor(() => expect(screen.getByText(/No proposals pending approval/)).toBeInTheDocument());
     expect(updateCalls).toEqual([
@@ -123,16 +138,17 @@ describe('ProposalApprovals', () => {
   });
 
   it('reject: confirms, updates status to rejected, and refetches', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { updateCalls } = setupSupabase([
       { data: [PROPOSAL_A], error: null },
       { data: [], error: null },
     ]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
     await waitFor(() => expect(screen.getByText('PRO-0001')).toBeInTheDocument());
 
     screen.getByRole('button', { name: 'Reject' }).click();
+    await waitFor(() => expect(screen.getByText('Mark proposal as rejected?')).toBeInTheDocument());
+    screen.getByRole('button', { name: 'Confirm' }).click();
 
     await waitFor(() => expect(screen.getByText(/No proposals pending approval/)).toBeInTheDocument());
     expect(updateCalls).toEqual([
@@ -141,39 +157,42 @@ describe('ProposalApprovals', () => {
   });
 
   it('cancelling the confirm dialog makes no update call and does not refetch', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { updateCalls, selectCallCount } = setupSupabase([{ data: [PROPOSAL_A], error: null }]);
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
     await waitFor(() => expect(screen.getByText('PRO-0001')).toBeInTheDocument());
 
     screen.getByRole('button', { name: 'Approve' }).click();
+    await waitFor(() => expect(screen.getByText('Mark proposal as approved?')).toBeInTheDocument());
+    screen.getByRole('button', { name: 'Cancel' }).click();
 
-    // Nothing async to await here since a cancelled confirm makes no
-    // supabase call at all -- assert the state stayed put.
+    await waitFor(() => expect(screen.queryByText('Mark proposal as approved?')).not.toBeInTheDocument());
     expect(updateCalls).toEqual([]);
     expect(selectCallCount()).toBe(1);
     expect(screen.getByText('PRO-0001')).toBeInTheDocument();
   });
 
   it('a failed update does not refetch, leaving the (now stale) row in place', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { updateCalls, selectCallCount } = setupSupabase(
       [{ data: [PROPOSAL_A], error: null }],
       { error: { message: 'permission denied' } },
     );
 
-    render(<ProposalApprovals />);
+    renderWithProviders(<ProposalApprovals />);
     await waitFor(() => expect(screen.getByText('PRO-0001')).toBeInTheDocument());
 
     screen.getByRole('button', { name: 'Approve' }).click();
+    await waitFor(() => expect(screen.getByText('Mark proposal as approved?')).toBeInTheDocument());
+    screen.getByRole('button', { name: 'Confirm' }).click();
 
     await waitFor(() => expect(updateCalls).toEqual([
       { patch: { status: 'approved', decided_by: 'u1', decided_at: expect.any(String) }, id: 'p1' },
     ]));
     // fetchData is only called again on success -- a failed update should
-    // leave the select call count at 1 (no refetch triggered).
+    // leave the select call count at 1 (no refetch triggered), and the
+    // error is surfaced via the toast (showError) instead of being silent.
     expect(selectCallCount()).toBe(1);
     expect(screen.getByText('PRO-0001')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Couldn't update the proposal/)).toBeInTheDocument());
   });
 });

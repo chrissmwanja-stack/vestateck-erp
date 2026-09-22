@@ -10,6 +10,9 @@ import '@fontsource/manrope/700.css';
 import App from './App';
 import { AuthProvider } from './lib/authContext';
 import { ThemeModeProvider, useThemeMode } from './lib/themeModeContext';
+import { ToastProvider } from './lib/toastContext';
+import { ConfirmProvider } from './lib/confirmContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { getTheme } from './theme/theme';
 
 function ThemedApp() {
@@ -19,11 +22,17 @@ function ThemedApp() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <BrowserRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <ToastProvider>
+          <ConfirmProvider>
+            <BrowserRouter>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </BrowserRouter>
+          </ConfirmProvider>
+        </ToastProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
