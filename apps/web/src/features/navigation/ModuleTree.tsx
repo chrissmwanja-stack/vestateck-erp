@@ -365,7 +365,7 @@ const portals: Portal[] = [
         icon: <Folder fontSize="small" />,
         children: [
          { id: "procurement-info", label: "Procurement Info", icon: <OpenInNew fontSize="small" />, to: "/procurement/info", requiredModule: "procurement" },
-         { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/finance/purchase-orders", requiredAccess: "finance" },
+         { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/purchase-orders", requiredAccess: "finance" },
        ],
       },
       {

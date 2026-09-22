@@ -19,10 +19,18 @@ export default function MaintenanceSchedule() {
     }
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    // Fire-and-forget: notify requesters/assignees about open requests whose
+    // scheduled_date has passed (idempotent via overdue_notified_at). Runs for
+    // machine_operation members; returns 0 silently for everyone else.
+    supabase.rpc("machine_maintenance_overdue_sweep").then(() => { /* intentionally ignored */ });
+    fetchData();
+  }, []);
 
   const markInProgress = async (row: any) => {
-    const { error } = await supabase.from("maintenance_requests").update({ status: "in_progress" }).eq("id", row.id);
+    // Route through the workflow RPC so the audit event + notifications are
+    // written, exactly like the Start action on the Requests screen.
+    const { error } = await supabase.rpc("transition_maintenance_request", { p_request_id: row.id, p_status: "in_progress" });
     if (error) alert(error.message);
     else fetchData();
   };

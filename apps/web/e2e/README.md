@@ -1,13 +1,25 @@
 # E2E smoke tests
 
-Playwright tests for the 3 money-flow paths, run against a real Supabase
-backend (no mocking): **Procurement** (request → offer entry → PO),
-**Finance** (supplier invoice → cash/bank settlement), and **Payroll**
-(run → approval → disbursement). These are separate from the Vitest
-component-test suite (`npm test`) and run in their own CI workflow
-(`.github/workflows/e2e.yml`, on every push/PR to `main`) — see that
-file's header for why it's separate from `foundation-checks.yml`. Run
-them locally with the steps below to debug a failure or write a new spec.
+Playwright tests covering the money-flow paths and approval branches, run
+against a real Supabase backend (no mocking):
+
+- **Procurement happy path** (request → offer entry → PO).
+- **Procurement threshold branch** — a winning offer *above* the seeded
+  5,000,000 threshold must route Project Manager → Deputy General Manager
+  → Finance before a PO appears; checks Finance sees nothing early.
+- **Finance** (supplier invoice → cash/bank settlement).
+- **Payroll disbursement** (run → approval → disbursement).
+- **Payroll approval: reject** (run → submit → approver rejects with a
+  reason → HR sees the rejection and the reason).
+- **BD proposal approvals** — approves the seeded pending proposal
+  (seed.sql section 4); safe to rerun (see the spec header for the
+  pending-vs-already-approved branch).
+
+These are separate from the Vitest component-test suite (`npm test`) and
+run in their own CI workflow (`.github/workflows/e2e.yml`, on every
+push/PR to `main`) — see that file's header for why it's separate from
+`foundation-checks.yml`. Run them locally with the steps below to debug a
+failure or write a new spec.
 
 ## One-time setup
 
@@ -44,7 +56,9 @@ npx playwright install --with-deps chromium
    overridden (see `e2e/utils/auth.ts`):
    `cce@test.local`, `cost.control@test.local`,
    `procurement.offer@test.local`, `procurement@test.local`,
-   `finance@test.local`, `hr@test.local`, `pm@test.local`.
+   `finance@test.local`, `hr@test.local`, `pm@test.local`,
+   `gm@test.local` (Deputy GM — high-threshold branch terminal stage),
+   `bd@test.local` (BD officer with a seeded pending proposal).
 3. **`pm@test.local` is seeded as a payroll approver** directly in
    `supabase/seed.sql` (payroll approval rights are a separate grant
    from job title/`approval_assignments`, via `/hr/admin/payroll-approvers`

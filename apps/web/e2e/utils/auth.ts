@@ -18,6 +18,13 @@ export const TEST_ACCOUNTS = {
   finance: { email: 'finance@test.local', role: 'Finance Officer' },
   hr: { email: 'hr@test.local', role: 'HR Manager' },
   projectManager: { email: 'pm@test.local', role: 'Project Manager' },
+  // High-threshold approval chain (seed.sql section 3: gm@test.local is
+  // assigned to the Deputy General Manager stage, pm@test.local above to
+  // the Project Manager stage that sits before it).
+  generalManager: { email: 'gm@test.local', role: 'Deputy General Manager' },
+  // Seeded in seed.sql section 4 with a staff_roles row for module 'bd'
+  // plus a client and a pending_approval proposal for the approvals spec.
+  bdOfficer: { email: 'bd@test.local', role: 'Business Development Officer' },
 } as const;
 
 export type TestAccountKey = keyof typeof TEST_ACCOUNTS;

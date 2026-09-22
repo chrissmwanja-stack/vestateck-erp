@@ -4330,6 +4330,61 @@ export type Database = {
           },
         ]
       }
+      machine_maintenance_events: {
+        Row: {
+          actual_cost: number | null
+          actor_id: string
+          created_at: string
+          id: string
+          note: string | null
+          request_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          actor_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          actual_cost?: number | null
+          actor_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_maintenance_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_maintenance_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_maintenance_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_types: {
         Row: {
           created_at: string
@@ -4427,10 +4482,13 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          actual_cost: number | null
+          assigned_to: string | null
           completed_date: string | null
           created_at: string
           description: string
           id: string
+          overdue_notified_at: string | null
           machine_id: string
           requested_by: string | null
           scheduled_date: string | null
@@ -4440,10 +4498,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_cost?: number | null
+          assigned_to?: string | null
           completed_date?: string | null
           created_at?: string
           description: string
           id?: string
+          overdue_notified_at?: string | null
           machine_id: string
           requested_by?: string | null
           scheduled_date?: string | null
@@ -4453,10 +4514,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_cost?: number | null
+          assigned_to?: string | null
           completed_date?: string | null
           created_at?: string
           description?: string
           id?: string
+          overdue_notified_at?: string | null
           machine_id?: string
           requested_by?: string | null
           scheduled_date?: string | null
@@ -4466,6 +4530,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_requests_machine_id_fkey"
             columns: ["machine_id"]
@@ -8123,6 +8194,10 @@ export type Database = {
       }
     }
     Functions: {
+      machine_maintenance_overdue_sweep: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
@@ -10249,6 +10324,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "law_regulatory_filings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      transition_maintenance_request: {
+        Args: {
+          p_actual_cost?: number | null
+          p_note?: string | null
+          p_request_id: string
+          p_status: string
+        }
+        Returns: Database["public"]["Tables"]["maintenance_requests"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "maintenance_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      transition_tender: {
+        Args: {
+          p_note?: string | null
+          p_ref?: string | null
+          p_status: string
+          p_tender_id: string
+        }
+        Returns: Database["public"]["Tables"]["bd_tenders"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "bd_tenders"
           isOneToOne: true
           isSetofReturn: false
         }

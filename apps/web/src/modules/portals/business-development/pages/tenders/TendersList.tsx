@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, IconButton, Tooltip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, InputAdornment } from "@mui/material";
-import { Add, Edit, Delete, Visibility } from "@mui/icons-material";
+import { Add, Edit, Delete, Visibility, Send, HourglassTop, EmojiEvents, ThumbDown, Block } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
 
@@ -31,6 +31,17 @@ const toDateTimeLocal = (iso: string) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const emptyForm = {
+  title: "",
+  client_id: "",
+  type_id: "",
+  submission_deadline: "",
+  estimated_value: "",
+  currency: "UGX",
+  portal_url: "",
+  description: "",
+};
+
 export default function TendersList() {
   const navigate = useNavigate();
   const [tenders, setTenders] = useState<Tender[]>([]);
@@ -43,17 +54,15 @@ export default function TendersList() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    title: "",
-    client_id: "",
-    type_id: "",
-    status: "open",
-    submission_deadline: "",
-    estimated_value: "",
-    currency: "UGX",
-    portal_url: "",
-    description: "",
-  });
+  const [form, setForm] = useState(emptyForm);
+
+  // lifecycle actions run through transition_tender (submission events,
+  // guards, notifications) -- never a direct status UPDATE
+  const [busy, setBusy] = useState(false);
+  const [actError, setActError] = useState<string | null>(null);
+  const [submitFor, setSubmitFor] = useState<Tender | null>(null);
+  const [subRef, setSubRef] = useState("");
+  const [subNote, setSubNote] = useState("");
 
   const fetchTenders = async () => {
     setLoading(true);
@@ -96,7 +105,6 @@ export default function TendersList() {
       title: t.title,
       client_id: t.client_id || "",
       type_id: t.type_id || "",
-      status: t.status,
       submission_deadline: t.submission_deadline ? toDateTimeLocal(t.submission_deadline) : "",
       estimated_value: t.estimated_value != null ? String(t.estimated_value) : "",
       currency: t.currency,
@@ -118,13 +126,15 @@ export default function TendersList() {
     setEditError(null);
     if (!form.title.trim()) { setEditError("Title is required."); return; }
     setSaving(true);
+    // Status is deliberately NOT editable here: it moves through the
+    // lifecycle buttons (Submit / Evaluate / Award / Lost / Cancel) so
+    // submissions are recorded and invalid skips are refused.
     const { error: updateError } = await supabase
       .from("bd_tenders")
       .update({
         title: form.title.trim(),
         client_id: form.client_id || null,
         type_id: form.type_id || null,
-        status: form.status,
         submission_deadline: form.submission_deadline ? new Date(form.submission_deadline).toISOString() : null,
         estimated_value: form.estimated_value ? parseFloat(form.estimated_value) : null,
         currency: form.currency,
@@ -142,6 +152,28 @@ export default function TendersList() {
     fetchTenders();
   };
 
+  const transition = async (t: Tender, to: string, ref?: string | null, note?: string | null) => {
+    setBusy(true);
+    setActError(null);
+    const { error } = await supabase.rpc("transition_tender", {
+      p_tender_id: t.id,
+      p_status: to,
+      p_ref: ref ?? null,
+      p_note: note ?? null,
+    });
+    setBusy(false);
+    if (error) setActError(error.message);
+    else fetchTenders();
+  };
+
+  const confirmSubmit = async () => {
+    if (!submitFor) return;
+    await transition(submitFor, "submitted", subRef.trim() || null, subNote.trim() || null);
+    setSubmitFor(null);
+    setSubRef("");
+    setSubNote("");
+  };
+
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
   return (
@@ -149,10 +181,14 @@ export default function TendersList() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Tenders</Typography>
-          <Typography variant="body2" color="text.secondary">{tenders.length} tenders • Tracks deadline, submissions, award status</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {tenders.length} tenders • Statuses move through the guarded lifecycle; Submit records the submission.
+          </Typography>
         </Box>
         <Button variant="contained" startIcon={<Add />} onClick={() => navigate("/business-development/tenders/new")}>New Tender</Button>
       </Box>
+
+      {actError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActError(null)}>{actError}</Alert>}
 
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ display: "flex", gap: 2 }}>
@@ -203,7 +239,22 @@ export default function TendersList() {
                       ) : "-"}
                     </TableCell>
                     <TableCell>{t.estimated_value ? `${t.currency} ${Number(t.estimated_value).toLocaleString()}` : "-"}</TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                      {t.status === "open" && (
+                        <Tooltip title="Submit (record ref)"><IconButton aria-label="Submit tender" size="small" color="primary" disabled={busy} onClick={() => { setSubmitFor(t); setSubRef(""); setSubNote(""); }}><Send fontSize="small" /></IconButton></Tooltip>
+                      )}
+                      {t.status === "submitted" && (
+                        <Tooltip title="Move to under evaluation"><IconButton aria-label="Under evaluation" size="small" color="primary" disabled={busy} onClick={() => transition(t, "under_evaluation")}><HourglassTop fontSize="small" /></IconButton></Tooltip>
+                      )}
+                      {t.status === "under_evaluation" && (
+                        <>
+                          <Tooltip title="Award"><IconButton aria-label="Award tender" size="small" color="success" disabled={busy} onClick={() => transition(t, "awarded")}><EmojiEvents fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Mark lost"><IconButton aria-label="Mark tender lost" size="small" color="error" disabled={busy} onClick={() => transition(t, "lost")}><ThumbDown fontSize="small" /></IconButton></Tooltip>
+                        </>
+                      )}
+                      {(t.status === "open" || t.status === "submitted" || t.status === "under_evaluation") && (
+                        <Tooltip title="Cancel tender"><IconButton aria-label="Cancel tender" size="small" disabled={busy} onClick={() => { if (window.confirm(`Cancel tender "${t.title}"?`)) transition(t, "cancelled"); }}><Block fontSize="small" /></IconButton></Tooltip>
+                      )}
                       <Tooltip title="View"><IconButton aria-label="View details" size="small" onClick={() => navigate(`/business-development/tenders/${t.id}`)}><Visibility fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Edit"><IconButton aria-label="Edit" size="small" onClick={() => handleOpenEdit(t)}><Edit fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Delete"><IconButton aria-label="Delete" size="small" onClick={() => handleDelete(t.id)}><Delete fontSize="small" /></IconButton></Tooltip>
@@ -216,10 +267,12 @@ export default function TendersList() {
         </CardContent>
       </Card>
 
+      {/* edit (fields only -- status moves via lifecycle buttons) */}
       <Dialog open={editOpen} onClose={() => !saving && setEditOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Tender</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
+          <Alert severity="info" sx={{ mb: 2 }}>Status changes happen from the list (Submit / Evaluate / Award / Lost) so every submission is recorded.</Alert>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField label="Tender Title *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} fullWidth required />
@@ -234,16 +287,6 @@ export default function TendersList() {
               <TextField select label="Tender Type" value={form.type_id} onChange={e => setForm({ ...form, type_id: e.target.value })} fullWidth>
                 <MenuItem value="">-- None --</MenuItem>
                 {types.map(t => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} fullWidth helperText="Submitted or later shows on the Submissions page">
-                <MenuItem value="open">Open</MenuItem>
-                <MenuItem value="submitted">Submitted</MenuItem>
-                <MenuItem value="under_evaluation">Under Evaluation</MenuItem>
-                <MenuItem value="awarded">Awarded</MenuItem>
-                <MenuItem value="lost">Lost</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -272,6 +315,19 @@ export default function TendersList() {
           <Button variant="contained" onClick={handleSaveEdit} disabled={saving || !form.title.trim()}>
             {saving ? "Saving..." : "Update Tender"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* submit dialog: portal/tracking ref + note become the submission record */}
+      <Dialog open={!!submitFor} onClose={() => !busy && setSubmitFor(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Submit tender — {submitFor?.tender_no || submitFor?.title}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
+          <TextField label="Portal / tracking reference" value={subRef} onChange={e => setSubRef(e.target.value)} fullWidth autoFocus placeholder="e.g. PPDA ref, portal submission ID" />
+          <TextField label="Note" value={subNote} onChange={e => setSubNote(e.target.value)} fullWidth multiline minRows={2} placeholder="What was submitted, where, by whom" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmitFor(null)} disabled={busy}>Cancel</Button>
+          <Button variant="contained" onClick={confirmSubmit} disabled={busy}>{busy ? "Submitting…" : "Record submission"}</Button>
         </DialogActions>
       </Dialog>
     </Box>

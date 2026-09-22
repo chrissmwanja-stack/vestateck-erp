@@ -371,7 +371,11 @@ export default function App() {
                   These were previously reachable by any authenticated
                   tenant user with no access check at all. */}
               <Route element={<RequireFinanceTeam />}>
-                <Route path="/finance/purchase-orders" element={<PurchaseOrders />} />
+                {/* purchase-orders moved under /financial-management/ for
+                    URL taxonomy consistency (roadmap P3); the old /finance/
+                    path redirects so existing bookmarks keep working. */}
+                <Route path="/finance/purchase-orders" element={<Navigate to="/financial-management/purchase-orders" replace />} />
+                <Route path="/financial-management/purchase-orders" element={<PurchaseOrders />} />
                 <Route path="/admin/cost-codes" element={<CostCodeList />} />
                 <Route path="/admin/cost-codes/new" element={<CostCodeListNew />} />
                 <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />

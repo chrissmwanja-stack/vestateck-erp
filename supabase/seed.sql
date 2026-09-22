@@ -600,3 +600,84 @@ end $$;
 -- deliberately does not touch is_platform_admin on conflict, so it won't
 -- fight whatever the current live/intended value is -- flagging this
 -- drift for a human decision rather than guessing which one is correct.
+
+-- ============================================================================
+-- 4. Business Development: account, client, and a proposal already waiting
+--    for approval -- for e2e/bd-proposal-approvals.spec.ts.
+--
+--    The proposal is seeded directly in pending_approval because the BD UI
+--    creates drafts only: NewProposal always writes status 'draft' and no
+--    screen advances a draft to in_review/pending_approval today (same
+--    class of orphan as the pre-P2.5 tender lifecycle). Seeding the
+--    pending row lets the approval screen itself be exercised end-to-end;
+--    the missing submit-for-approval hop is a known roadmap gap, not an
+--    oversight here.
+-- ============================================================================
+do $$
+declare
+  v_tenant_id   uuid := '00000000-0000-0000-0000-000000000001';
+  v_bd_user_id  uuid := '3f7c1a2e-9b6d-4e8a-a1c4-2d5f6b7e8c9d';
+  v_client_id   uuid := 'b61c2d34-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+  v_proposal_id uuid := 'c7d28f3a-4e5b-4c6d-9a7e-1f2b3c4d5e6f';
+begin
+  if not exists (select 1 from auth.users where id = v_bd_user_id) then
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
+    ) values (
+      '00000000-0000-0000-0000-000000000000', v_bd_user_id, 'authenticated', 'authenticated',
+      'bd@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
+      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', ''
+    );
+  end if;
+
+  insert into app_users (id, tenant_id, name, email, role_title)
+  values (v_bd_user_id, v_tenant_id, 'Test BD Officer', 'bd@test.local', 'Business Development Officer')
+  on conflict (id) do nothing;
+
+  -- is_business_dev() = has_module_role('bd', ...) -> staff_roles --
+  -- bd has no *_team_members table of its own (unlike hr/finance).
+  insert into staff_roles (tenant_id, user_id, module, role)
+  values (v_tenant_id, v_bd_user_id, 'bd', 'manager')
+  on conflict (tenant_id, user_id, module) do nothing;
+
+  if not exists (select 1 from bd_clients where id = v_client_id) then
+    insert into bd_clients (id, tenant_id, name, created_by)
+    values (v_client_id, v_tenant_id, 'E2E Seed Client Ltd', v_bd_user_id);
+  end if;
+
+  -- bd_proposals has a composite FK (tenant_id, status) -> bd_proposal_
+  -- statuses, so the 8 status rows must exist before ANY proposal row
+  -- (draft NewProposal saves hit the same constraint when empty). Rows
+  -- and colors mirror ProposalStatusesAdmin.tsx's "Seed 8 Statuses".
+  insert into bd_proposal_statuses (tenant_id, status, label, color, order_index)
+  select v_tenant_id, s.status, s.label, s.color, s.ord
+  from (values
+    ('draft',            'Draft',            '#bdbdbd', 0),
+    ('in_review',        'In Review',        '#ffcc80', 1),
+    ('pending_approval', 'Pending Approval', '#fff176', 2),
+    ('approved',         'Approved',         '#81c784', 3),
+    ('sent',             'Sent',             '#64b5f6', 4),
+    ('accepted',         'Accepted',         '#4caf50', 5),
+    ('rejected',         'Rejected',         '#e57373', 6),
+    ('expired',          'Expired',          '#9e9e9e', 7)
+  ) as s(status, label, color, ord)
+  where not exists (
+    select 1 from bd_proposal_statuses
+    where tenant_id = v_tenant_id and status = s.status
+  );
+
+  if not exists (select 1 from bd_proposals where id = v_proposal_id) then
+    insert into bd_proposals (
+      id, tenant_id, proposal_no, title, client_id, total_value,
+      currency, status, version, content, created_by
+    ) values (
+      v_proposal_id, v_tenant_id, 'PRP-E2E-0001', 'E2E Pending Approval Proposal',
+      v_client_id, 120000, 'UGX', 'pending_approval', 1,
+      'Seeded in pending_approval for the approvals e2e spec.', v_bd_user_id
+    );
+  end if;
+end $$;
