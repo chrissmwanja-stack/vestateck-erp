@@ -348,7 +348,7 @@ begin
     raise exception 'FAIL: a legal member was allowed to transition a filing';
   exception
     when raise_exception then
-      if sqlerrm not like '%requires a legal admin or manager%' then raise; end if;
+      if sqlerrm not like '%require a legal admin or manager%' then raise; end if;
   end;
 
   -- audit tables ARE readable to legal members
