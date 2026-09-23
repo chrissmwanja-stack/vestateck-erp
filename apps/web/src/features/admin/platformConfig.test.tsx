@@ -243,7 +243,7 @@ describe('health', () => {
   });
 
   it('normalises a partial jsonb and rolls up the worst level', () => {
-    const h = normaliseHealth({ database: { size_bytes: 1024 * 1024 * 5 }, jobs: [job({})], cron: { installed: true, jobs: [] } });
+    const h = normaliseHealth({ database: { size_bytes: 1024 * 1024 * 5 }, jobs: [job({})], cron: { installed: true, jobs: [] } } as unknown as Parameters<typeof normaliseHealth>[0]);
     expect(h.database.size_bytes).toBe(5 * 1024 * 1024);
     expect(h.stuck_approvals).toEqual([]);
     expect(h.storage.available).toBe(false);
