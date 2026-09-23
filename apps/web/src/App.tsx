@@ -3,6 +3,7 @@ import { Link as RouterLink, Route, Routes, Navigate, useLocation } from 'react-
 import { AppBar, Box, Button, CircularProgress, Container, IconButton, Toolbar, Typography, Tooltip } from '@mui/material';
 import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
 import { usePlatformAdminAccess } from './lib/usePlatformAdminAccess';
+import { useBranding } from './lib/brandingContext';
 const AdminLayout = lazy(() => import('./features/admin/AdminLayout'));
 const PlatformDashboard = lazy(() => import('./features/admin/PlatformDashboard'));
 
@@ -30,6 +31,7 @@ import ModuleTree from './features/navigation/ModuleTree';
 import { isConsoleRoute } from './features/admin/AdminLayout';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
+import AnnouncementBanner from './features/admin/AnnouncementBanner';
 import TenantAccessBanner from './features/account/TenantAccessBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
@@ -38,6 +40,10 @@ const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'
 const PlatformAuditLog = lazy(() => import('./features/admin/PlatformAuditLog'));
 const PlatformUsersDirectory = lazy(() => import('./features/admin/PlatformUsersDirectory'));
 const PlatformTeam = lazy(() => import('./features/admin/PlatformTeam'));
+const IndustryTemplatesAdmin = lazy(() => import('./features/admin/IndustryTemplatesAdmin'));
+const AnnouncementsAdmin = lazy(() => import('./features/admin/AnnouncementsAdmin'));
+const FeatureFlagsAdmin = lazy(() => import('./features/admin/FeatureFlagsAdmin'));
+const PlatformHealthPage = lazy(() => import('./features/admin/PlatformHealthPage'));
 const AccountSecurity = lazy(() => import('./features/account/AccountSecurity'));
 const ApprovalWorkflowAdmin = lazy(() => import('./features/admin/ApprovalWorkflowAdmin'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
@@ -238,14 +244,20 @@ const ExcellenceReport = lazy(() => import('./modules/portals/sustainability/pag
 function TopNav() {
   const { session, signOut } = useAuth();
   const { resolvedMode, toggle } = useThemeMode();
+  const brand = useBranding();
 
   return (
      <>
     <AppBar position="static">
       <Toolbar sx={{ gap: 2 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          VestaPortal
-        </Typography>
+        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+          {brand.logoUrl && (
+            <Box component="img" src={brand.logoUrl} alt="" sx={{ height: 28, maxWidth: 140, objectFit: 'contain' }} />
+          )}
+          <Typography variant="h6" noWrap>
+            {brand.platformName}
+          </Typography>
+        </Box>
         <Tooltip title={resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
           <IconButton color="inherit" onClick={toggle} aria-label="Toggle dark mode">
             {resolvedMode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
@@ -268,6 +280,7 @@ function TopNav() {
       </Toolbar>
     </AppBar>
       {session && <ImpersonationBanner />}
+      {session && <AnnouncementBanner />}
       {session && <TenantAccessBanner />}
     </>
   );
@@ -369,6 +382,10 @@ export default function App() {
                   <Route path="/admin/audit" element={<PlatformAuditLog />} />
                   <Route path="/admin/users" element={<PlatformUsersDirectory />} />
                   <Route path="/admin/team" element={<PlatformTeam />} />
+                  <Route path="/admin/templates" element={<IndustryTemplatesAdmin />} />
+                  <Route path="/admin/announcements" element={<AnnouncementsAdmin />} />
+                  <Route path="/admin/flags" element={<FeatureFlagsAdmin />} />
+                  <Route path="/admin/health" element={<PlatformHealthPage />} />
                 </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />

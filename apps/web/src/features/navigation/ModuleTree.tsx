@@ -51,6 +51,7 @@ import {
 } from "@mui/icons-material";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { useBranding } from "../../lib/brandingContext";
 import type { ModuleKey } from "../../components/RequireModule";
 import {
   lawComplianceNodes,
@@ -731,6 +732,7 @@ function filterNodesByAccess(
 }
 
 export default function ModuleTree() {
+  const brand = useBranding();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const access = useMyModuleAccess();
@@ -848,7 +850,7 @@ export default function ModuleTree() {
             )}
           </Typography>
           <Typography variant="caption" sx={{ color: "primary.contrastText", opacity: 0.8 }}>
-            VestaPortal — click to switch portal
+            {brand.platformName} — click to switch portal
           </Typography>
         </Box>
         <ExpandMore sx={{ color: "primary.contrastText", flexShrink: 0 }} />
