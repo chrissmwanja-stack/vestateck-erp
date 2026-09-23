@@ -37,11 +37,62 @@ const brand = {
 
 const radius = 10;
 
-function paletteFor(mode: PaletteMode): ThemeOptions['palette'] {
+// Operator branding (item 6): platform_settings.branding.primary_color can
+// replace Harbor Slate. We derive the light/dark/contrast variants from the
+// one hex the operator picked so a custom colour still yields a coherent
+// palette. The default colour maps exactly onto the hand-tuned brand ramp.
+export const DEFAULT_PRIMARY = brand.harbor[700];
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  const n = parseInt(m ? m[1] : '123B44', 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+  return `#${[r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
+
+function mix(hex: string, target: [number, number, number], amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex([r + (target[0] - r) * amount, g + (target[1] - g) * amount, b + (target[2] - b) * amount]);
+}
+
+// WCAG relative luminance; picks white or near-black text over the colour.
+export function contrastTextFor(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }) as [number, number, number];
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.35 ? '#0A1418' : '#FFFFFF';
+}
+
+export interface PrimaryRamp {
+  900: string;
+  700: string;
+  500: string;
+  300: string;
+  100: string;
+}
+
+export function rampFor(primary: string): PrimaryRamp {
+  const hex = /^#[0-9a-f]{6}$/i.test(primary) ? primary.toUpperCase() : DEFAULT_PRIMARY;
+  if (hex === DEFAULT_PRIMARY.toUpperCase()) return brand.harbor;
+  return {
+    900: mix(hex, [0, 0, 0], 0.45),
+    700: hex,
+    500: mix(hex, [255, 255, 255], 0.18),
+    300: mix(hex, [255, 255, 255], 0.45),
+    100: mix(hex, [255, 255, 255], 0.85),
+  };
+}
+
+function paletteFor(mode: PaletteMode, harbor: PrimaryRamp): ThemeOptions['palette'] {
   if (mode === 'dark') {
     return {
       mode,
-      primary: { main: brand.harbor[300], light: brand.harbor[100], dark: brand.harbor[500], contrastText: '#0A1418' },
+      primary: { main: harbor[300], light: harbor[100], dark: harbor[500], contrastText: contrastTextFor(harbor[300]) },
       secondary: { main: brand.ochre[300], light: brand.ochre[100], dark: brand.ochre[500], contrastText: '#241703' },
       background: { default: '#10171A', paper: '#161F23' },
       text: { primary: '#EAF0F1', secondary: alpha('#EAF0F1', 0.68) },
@@ -50,7 +101,7 @@ function paletteFor(mode: PaletteMode): ThemeOptions['palette'] {
   }
   return {
     mode,
-    primary: { main: brand.harbor[700], light: brand.harbor[500], dark: brand.harbor[900], contrastText: '#FFFFFF' },
+    primary: { main: harbor[700], light: harbor[500], dark: harbor[900], contrastText: contrastTextFor(harbor[700]) },
     secondary: { main: brand.ochre[500], light: brand.ochre[300], dark: brand.ochre[700], contrastText: '#241703' },
     background: { default: '#F6F7F8', paper: '#FFFFFF' },
     text: { primary: brand.neutral[800], secondary: brand.neutral[500] },
@@ -58,8 +109,9 @@ function paletteFor(mode: PaletteMode): ThemeOptions['palette'] {
   };
 }
 
-export function getTheme(mode: PaletteMode) {
-  const palette = paletteFor(mode);
+export function getTheme(mode: PaletteMode, primary: string = DEFAULT_PRIMARY) {
+  const harbor = rampFor(primary);
+  const palette = paletteFor(mode, harbor);
 
   return createTheme({
     palette,
@@ -86,7 +138,7 @@ export function getTheme(mode: PaletteMode) {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            backgroundColor: mode === 'dark' ? '#0E1619' : brand.harbor[700],
+            backgroundColor: mode === 'dark' ? '#0E1619' : harbor[700],
           },
         },
       },
