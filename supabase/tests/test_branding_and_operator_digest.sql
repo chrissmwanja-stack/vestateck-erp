@@ -68,8 +68,8 @@ begin
     (u_trial2, 'digest-trial-member', now() - interval '1 day')
   ) as u(id, handle, lsi);
 
-  insert into auth.mfa_factors (user_id, friendly_name, factor_type, status)
-  values (v_admin, 'test', 'totp', 'verified');
+  insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+   values (gen_random_uuid(), v_admin, 'test', 'totp', 'verified', now(), now());
 
   update app_users set is_platform_admin = false where is_platform_admin;
 

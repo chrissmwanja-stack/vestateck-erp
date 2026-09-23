@@ -94,8 +94,8 @@ begin
 
   insert into finance_team_members (tenant_id, user_id, role) values (v_tenant, v_hr, 'cost_control');
 
-  insert into auth.mfa_factors (user_id, friendly_name, factor_type, status)
-  values (v_cadmin, 'phone', 'totp', 'verified');
+  insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+  values (gen_random_uuid(), v_admin, 'test', 'totp', 'verified', now(), now());
 
   create temp table if not exists test_ids(k text primary key, v uuid not null) on commit drop;
   insert into test_ids values

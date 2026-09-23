@@ -63,8 +63,8 @@ begin
     now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', now()
   from (values (v_admin, 'tpl-admin'), (v_plain, 'tpl-plain'), (v_other, 'tpl-other')) as u(id, handle);
 
-  insert into auth.mfa_factors (user_id, friendly_name, factor_type, status)
-  values (v_admin, 'test', 'totp', 'verified');
+  insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+   values (gen_random_uuid(), v_admin, 'test', 'totp', 'verified', now(), now());
 
   update app_users set is_platform_admin = false where is_platform_admin;
 

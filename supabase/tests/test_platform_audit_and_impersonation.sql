@@ -288,8 +288,8 @@ end $$;
 -- 8. Enrol a verified TOTP factor -> aal1 is no longer enough
 -- ---------------------------------------------------------------------
 reset role;
-insert into auth.mfa_factors (user_id, friendly_name, factor_type, status)
-values ((select v from test_ids where k = 'admin'), 'phone', 'totp', 'verified');
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+values (gen_random_uuid(), v_admin, 'test', 'totp', 'verified', now(), now());
 set local role authenticated;
 
 select pg_temp.become('admin', 'aal1');
