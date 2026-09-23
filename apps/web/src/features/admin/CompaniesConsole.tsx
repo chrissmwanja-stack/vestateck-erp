@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -13,6 +13,7 @@ import {
   DialogTitle,
   FormControlLabel,
   FormGroup,
+  InputAdornment,
   Link,
   MenuItem,
   Paper,
@@ -22,28 +23,42 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Add as AddIcon, Download as DownloadIcon, Search as SearchIcon } from '@mui/icons-material';
+import CompanyCreateWizard from './CompanyCreateWizard';
+import {
+  applyCompanyFilters,
+  companiesToCsv,
+  downloadCsv,
+  EMPTY_FILTERS,
+  filtersFromSearch,
+  filtersToSearch,
+  PLAN_LABELS,
+  sortCompanies,
+  type CompanyFilters,
+  type SortKey,
+  type Tenant,
+} from './companiesList';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
+import { STAGE_HINTS, STAGE_LABELS, STAGE_ORDER, type StageKey } from './platformHealth';
 import { supabase } from '../../lib/supabaseClient';
 import { resendInvite, revokeInvite } from '../team/inviteActions';
+import ImpersonationReasonDialog from './ImpersonationReasonDialog';
+import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from './usePlatformAdminSession';
 
-interface Tenant {
-  id: string;
-  name: string;
-  status: 'pending' | 'active' | 'suspended';
-  created_at: string;
-  // Populated from get_companies_overview() (platform-admin-gated RPC).
-  // Optional so the type still fits results from a plain `tenants`
-  // select if that ever needs to be used as a fallback.
-  member_count?: number;
-  module_count?: number;
-  request_count_30d?: number;
-  pending_request_count?: number;
-}
+
+const subscriptionColor: Record<string, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
+  trialing: 'info',
+  active: 'success',
+  past_due: 'warning',
+  cancelled: 'error',
+};
 
 interface CompanyAdminInvitation {
   id: string;
@@ -69,27 +84,6 @@ const invitationStatusColor: Record<
   revoked: 'error',
 };
 
-type IndustryTemplate = 'general' | 'construction';
-
-const emptyForm: { name: string; adminEmail: string; industryTemplate: IndustryTemplate } = {
-  name: '',
-  adminEmail: '',
-  industryTemplate: 'general',
-};
-
-// Every tenant gets the same 7-stage approval pipeline seeded at creation
-// (seed_tenant_defaults). There's no per-tenant workflow customization
-// yet -- that's a deliberately deferred feature -- so this is shown to
-// the platform admin as an explanation of what they're about to create,
-// not a set of choices.
-const APPROVAL_PIPELINE_STAGES = [
-  'Cost Control Engineer',
-  'Cost Control Manager',
-  'Procurement: Offer Entry',
-  'Control Chief/Manager (splits by amount)',
-  'Finance (if under 5,000,000) or Project Manager \u2192 Deputy GM \u2192 Finance (if over)',
-];
-
 // Keep in sync with the tenant_modules CHECK constraint and
 // apps/web/src/components/RequireModule.tsx's ModuleKey. Finance and
 // core Procurement aren't here -- they're baseline functionality every
@@ -106,19 +100,6 @@ const MODULE_OPTIONS: { value: string; label: string }[] = [
   { value: 'sustainability', label: 'Sustainability' },
 ];
 
-const INDUSTRY_TEMPLATES: { value: IndustryTemplate; label: string; description: string }[] = [
-  {
-    value: 'general',
-    label: 'General',
-    description:
-      '8 departments: IT Support, Finance, Procurement & Logistics, HR, Law & Compliance, BD, PMO, Admin/System Config.',
-  },
-  {
-    value: 'construction',
-    label: 'Construction',
-    description: 'The same 8, plus Machine Operations and Sustainability & Business Excellence.',
-  },
-];
 
 // Gate: only platform admins should see this screen at all. The real
 // enforcement lives server-side (create-tenant / invite-user both check
@@ -178,11 +159,7 @@ export default function CompaniesConsole() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const [invitations, setInvitations] = useState<CompanyAdminInvitation[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(true);
@@ -190,7 +167,40 @@ export default function CompaniesConsole() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<CompanyAdminInvitation | null>(null);
-  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [impersonateTarget, setImpersonateTarget] = useState<Tenant | null>(null);
+  const { session: adminSession } = usePlatformAdminSession();
+  const blockedReason = describeBlockedReason(adminSession);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Filters live in the URL so the Overview funnel / stalled / quiet links
+  // land on the right slice and the view survives a refresh.
+  const filters = useMemo(() => filtersFromSearch(searchParams), [searchParams]);
+  const setFilters = useCallback(
+    (next: CompanyFilters | ((f: CompanyFilters) => CompanyFilters)) => {
+      const value = typeof next === 'function' ? next(filtersFromSearch(searchParams)) : next;
+      setSearchParams(filtersToSearch(value), { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+  const [sortKey, setSortKey] = useState<SortKey>('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const filteredRows = useMemo(() => sortCompanies(applyCompanyFilters(rows, filters), sortKey, sortDir), [rows, filters, sortKey, sortDir]);
+  const pagedRows = useMemo(
+    () => filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredRows, page, rowsPerPage]
+  );
+  useEffect(() => setPage(0), [filters, sortKey, sortDir, rowsPerPage]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir(key === 'name' || key === 'status' || key === 'plan' ? 'asc' : 'desc');
+    }
+  };
 
   const [modulesTarget, setModulesTarget] = useState<Tenant | null>(null);
   const [moduleSelection, setModuleSelection] = useState<Set<string>>(new Set());
@@ -202,6 +212,7 @@ export default function CompaniesConsole() {
     null
   );
   const [statusSaving, setStatusSaving] = useState(false);
+  const [statusReason, setStatusReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -223,6 +234,13 @@ export default function CompaniesConsole() {
           module_count: r.module_count,
           request_count_30d: r.request_count_30d,
           pending_request_count: r.pending_request_count,
+          plan: r.plan,
+          subscription_status: r.subscription_status,
+          seat_limit: r.seat_limit,
+          trial_ends_at: r.trial_ends_at,
+          read_only: r.read_only,
+          contact_email: r.contact_email,
+          last_activity_at: r.last_activity_at,
         })) as Tenant[]
       );
     setLoading(false);
@@ -244,81 +262,6 @@ export default function CompaniesConsole() {
     load();
     loadInvitations();
   }, [load, loadInvitations]);
-
-  const openNew = () => {
-    setForm(emptyForm);
-    setSaveError(null);
-    setSaveNotice(null);
-    setDialogOpen(true);
-  };
-
-  const close = () => {
-    if (!saving) setDialogOpen(false);
-  };
-
-  const save = async () => {
-    setSaveError(null);
-    setSaveNotice(null);
-    const name = form.name.trim();
-    const adminEmail = form.adminEmail.trim();
-    if (!name || !adminEmail) {
-      setSaveError('Company name and first admin email are required.');
-      return;
-    }
-    setSaving(true);
-
-    const { data: tenantResult, error: tenantError } = await supabase.functions.invoke(
-      'create-tenant',
-      { body: { name, industry_template: form.industryTemplate } }
-    );
-    if (tenantError) {
-      setSaving(false);
-      setSaveError(tenantError.message);
-      return;
-    }
-
-    const tenantId = tenantResult?.tenant?.id;
-    if (!tenantId) {
-      setSaving(false);
-      setSaveError('Tenant was created but no id was returned — check the edge function logs.');
-      load();
-      return;
-    }
-
-    // Tenant creation succeeded but seeding departments/workflow_stages
-    // may not have -- surface that distinctly rather than silently
-    // proceeding to invite an admin into a still-empty company.
-    if (tenantResult?.seed_warning) {
-      setSaving(false);
-      setDialogOpen(false);
-      setError(`"${name}" was created, but: ${tenantResult.seed_warning}`);
-      load();
-      return;
-    }
-
-    const { error: inviteError } = await supabase.functions.invoke('invite-user', {
-      body: { email: adminEmail, tenant_id: tenantId, role_bundle: 'company_admin' },
-    });
-
-    setSaving(false);
-
-    if (inviteError) {
-      // The tenant does exist at this point -- just the invite failed.
-      // Don't lose that: close the form but surface it clearly. There's
-      // now a resend action in the invitations table below, so this
-      // isn't a dead end anymore.
-      setDialogOpen(false);
-      setError(`"${name}" was created, but inviting ${adminEmail} failed: ${inviteError.message}`);
-      load();
-      loadInvitations();
-      return;
-    }
-
-    setDialogOpen(false);
-    setSaveNotice(`"${name}" created and an invite sent to ${adminEmail}.`);
-    load();
-    loadInvitations();
-  };
 
   const handleResend = async (invitation: CompanyAdminInvitation) => {
     setActionError(null);
@@ -355,16 +298,11 @@ export default function CompaniesConsole() {
   // resolves to this tenant for every RLS check from here on) and drops
   // into the normal app shell as if you belonged to it. The persistent
   // ImpersonationBanner (mounted in TopNav) is the way back out.
-  const handleImpersonate = async (tenant: Tenant) => {
+  // start_impersonation(uuid, text) now requires a reason (audited), so
+  // the click opens ImpersonationReasonDialog and the RPC runs from there.
+  const handleImpersonate = (tenant: Tenant) => {
     setActionError(null);
-    setImpersonatingId(tenant.id);
-    const { error } = await supabase.rpc('start_impersonation', { p_tenant_id: tenant.id });
-    setImpersonatingId(null);
-    if (error) {
-      setActionError(error.message);
-      return;
-    }
-    navigate('/requests/new');
+    setImpersonateTarget(tenant);
   };
 
   // Opens the modules dialog and loads this tenant's current
@@ -431,16 +369,18 @@ export default function CompaniesConsole() {
     const { error } = await supabase.rpc('set_tenant_status', {
       p_tenant_id: statusTarget.tenant.id,
       p_status: statusTarget.next,
+      p_reason: statusReason.trim() || null,
     });
     setStatusSaving(false);
     if (error) {
-      setActionError(error.message);
+      setActionError(friendlyPlatformError(error.message));
       return;
     }
     setActionNotice(
       `${statusTarget.tenant.name} ${statusTarget.next === 'suspended' ? 'suspended' : 'reactivated'}.`
     );
     setStatusTarget(null);
+    setStatusReason('');
     load();
   };
 
@@ -464,22 +404,15 @@ export default function CompaniesConsole() {
         <Box>
           <Typography variant="h4">Companies</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            Every tenant on the platform. Creating a company here seeds its departments and
-            standard approval workflow, then sends the first admin an invite — they land as
-            admin on all four modules once they accept. Use "View as" to step into a company's
-            data directly.
+            Every customer company on the platform. Click a name for its profile, plan, seats
+            and lifecycle controls; use "View as" to step into its workspace for support.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openNew} sx={{ flexShrink: 0 }}>
-          Set up a company
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setWizardOpen(true)} sx={{ flexShrink: 0 }}>
+          New company
         </Button>
       </Stack>
 
-      {saveNotice && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveNotice(null)}>
-          {saveNotice}
-        </Alert>
-      )}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -522,9 +455,76 @@ export default function CompaniesConsole() {
         </Stack>
       )}
 
-      <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-        All companies
-      </Typography>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.5}
+        alignItems={{ md: 'center' }}
+        sx={{ mb: 1.5 }}
+        useFlexGap
+        flexWrap="wrap"
+      >
+        <TextField
+          size="small"
+          placeholder="Search name or contact email"
+          value={filters.q}
+          onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+          sx={{ minWidth: 260 }}
+          inputProps={{ 'aria-label': 'Search companies' }}
+        />
+        <TextField select size="small" label="Status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as CompanyFilters['status'] }))} sx={{ minWidth: 130 }}>
+          <MenuItem value="">Any status</MenuItem>
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="pending">Pending</MenuItem>
+          <MenuItem value="suspended">Suspended</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Plan" value={filters.plan} onChange={(e) => setFilters((f) => ({ ...f, plan: e.target.value }))} sx={{ minWidth: 130 }}>
+          <MenuItem value="">Any plan</MenuItem>
+          {Object.entries(PLAN_LABELS).map(([v, l]) => (
+            <MenuItem key={v} value={v}>{l}</MenuItem>
+          ))}
+        </TextField>
+        <TextField select size="small" label="Subscription" value={filters.subscription} onChange={(e) => setFilters((f) => ({ ...f, subscription: e.target.value }))} sx={{ minWidth: 150 }}>
+          <MenuItem value="">Any</MenuItem>
+          <MenuItem value="trialing">Trialing</MenuItem>
+          <MenuItem value="active">Active (paid)</MenuItem>
+          <MenuItem value="past_due">Past due</MenuItem>
+          <MenuItem value="cancelled">Cancelled</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Needs attention" value={filters.flag} onChange={(e) => setFilters((f) => ({ ...f, flag: e.target.value as CompanyFilters['flag'] }))} sx={{ minWidth: 190 }}>
+          <MenuItem value="">Everything</MenuItem>
+          <MenuItem value="trial_ending">Trial ending ≤ 14 days</MenuItem>
+          <MenuItem value="quiet">Quiet 30+ days</MenuItem>
+          <MenuItem value="stalled">Stalled in setup 7+ days</MenuItem>
+          <MenuItem value="read_only">In read-only mode</MenuItem>
+          <MenuItem value="seats_full">Seats full</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Onboarding" value={filters.stage} onChange={(e) => setFilters((f) => ({ ...f, stage: e.target.value }))} sx={{ minWidth: 170 }}>
+          <MenuItem value="">Any stage</MenuItem>
+          {STAGE_ORDER.map((k) => (
+            <MenuItem key={k} value={k}>
+              {STAGE_LABELS[k]}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Box sx={{ flex: 1 }} />
+        <Typography variant="body2" color="text.secondary">
+          {filteredRows.length === rows.length ? `${rows.length} companies` : `${filteredRows.length} of ${rows.length}`}
+        </Typography>
+        {(filters.q || filters.status || filters.plan || filters.subscription || filters.flag || filters.stage) && (
+          <Button size="small" onClick={() => setFilters(EMPTY_FILTERS)}>
+            Clear
+          </Button>
+        )}
+        <Button
+          size="small"
+          startIcon={<DownloadIcon />}
+          disabled={filteredRows.length === 0}
+          onClick={() => downloadCsv(`companies-${new Date().toISOString().slice(0, 10)}.csv`, companiesToCsv(filteredRows))}
+        >
+          Export CSV
+        </Button>
+      </Stack>
 
       <Paper variant="outlined">
         {loading ? (
@@ -536,17 +536,34 @@ export default function CompaniesConsole() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Company</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell align="right">Members</TableCell>
+                  {(
+                    [
+                      ['name', 'Company', 'left'],
+                      ['status', 'Status', 'left'],
+                      ['plan', 'Plan', 'left'],
+                      ['created_at', 'Created', 'left'],
+                      ['last_activity_at', 'Last activity', 'left'],
+                      ['onboarding_stage', 'Onboarding', 'left'],
+                      ['member_count', 'Members', 'right'],
+                    ] as [SortKey, string, 'left' | 'right'][]
+                  ).map(([key, label, align]) => (
+                    <TableCell key={key} align={align} sortDirection={sortKey === key ? sortDir : false}>
+                      <TableSortLabel active={sortKey === key} direction={sortKey === key ? sortDir : 'asc'} onClick={() => toggleSort(key)}>
+                        {label}
+                      </TableSortLabel>
+                    </TableCell>
+                  ))}
                   <TableCell align="right">Modules</TableCell>
-                  <TableCell align="right">Requests (30d)</TableCell>
+                  <TableCell align="right" sortDirection={sortKey === 'request_count_30d' ? sortDir : false}>
+                    <TableSortLabel active={sortKey === 'request_count_30d'} direction={sortKey === 'request_count_30d' ? sortDir : 'asc'} onClick={() => toggleSort('request_count_30d')}>
+                      Requests (30d)
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((row) => (
+                {pagedRows.map((row) => (
                   <TableRow key={row.id} hover>
                     <TableCell>
                       <Link component={RouterLink} to={`/admin/companies/${row.id}`}>
@@ -554,10 +571,56 @@ export default function CompaniesConsole() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={row.status} color={statusColor[row.status]} />
+                      <Stack direction="row" spacing={0.5}>
+                        <Chip size="small" label={row.status} color={statusColor[row.status]} />
+                        {row.read_only && (
+                          <Tooltip title="Read-only: users can view but not change anything">
+                            <Chip size="small" label="read-only" color="warning" variant="outlined" />
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      {row.plan ? (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Typography variant="body2">{row.plan}</Typography>
+                          {row.subscription_status && row.subscription_status !== 'active' && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={row.subscription_status.replace('_', ' ')}
+                              color={subscriptionColor[row.subscription_status] ?? 'default'}
+                            />
+                          )}
+                        </Stack>
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>{new Date(row.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell align="right">{row.member_count ?? '—'}</TableCell>
+                    <TableCell>{row.last_activity_at ? new Date(row.last_activity_at).toLocaleDateString() : '—'}</TableCell>
+                    <TableCell>
+                      {row.onboarding_stage ? (
+                        <Tooltip title={row.onboarding_next_step ?? STAGE_HINTS[row.onboarding_stage as StageKey] ?? ''}>
+                          <Chip
+                            size="small"
+                            variant={row.onboarding_stage === 'live' ? 'filled' : 'outlined'}
+                            color={row.onboarding_stalled ? 'error' : row.onboarding_stage === 'live' ? 'success' : 'default'}
+                            label={`${STAGE_LABELS[row.onboarding_stage as StageKey] ?? row.onboarding_stage}${row.onboarding_stalled ? ' · stalled' : ''}`}
+                          />
+                        </Tooltip>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {row.member_count ?? '—'}
+                      {row.seat_limit != null && (
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {' '}/ {row.seat_limit}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell align="right">
                       {row.module_count ?? '—'} / {MODULE_OPTIONS.length}
                     </TableCell>
@@ -568,39 +631,54 @@ export default function CompaniesConsole() {
                           Modules
                         </Button>
                         {row.status !== 'pending' && (
-                          <Button
-                            size="small"
-                            color={row.status === 'suspended' ? 'success' : 'warning'}
-                            onClick={() =>
-                              setStatusTarget({
-                                tenant: row,
-                                next: row.status === 'suspended' ? 'active' : 'suspended',
-                              })
-                            }
-                          >
-                            {row.status === 'suspended' ? 'Activate' : 'Suspend'}
-                          </Button>
+                          <Tooltip title={blockedReason ?? ''}>
+                            <span>
+                              <Button
+                                size="small"
+                                color={row.status === 'suspended' ? 'success' : 'warning'}
+                                disabled={!!blockedReason}
+                                onClick={() => {
+                                  setStatusReason('');
+                                  setStatusTarget({
+                                    tenant: row,
+                                    next: row.status === 'suspended' ? 'active' : 'suspended',
+                                  });
+                                }}
+                              >
+                                {row.status === 'suspended' ? 'Activate' : 'Suspend'}
+                              </Button>
+                            </span>
+                          </Tooltip>
                         )}
-                        <Button
-                          size="small"
-                          onClick={() => handleImpersonate(row)}
-                          disabled={impersonatingId === row.id}
-                        >
-                          {impersonatingId === row.id ? 'Starting…' : 'View as'}
-                        </Button>
+                        <Tooltip title={blockedReason ?? ''}>
+                          <span>
+                            <Button size="small" onClick={() => handleImpersonate(row)} disabled={!!blockedReason}>
+                              View as
+                            </Button>
+                          </span>
+                        </Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
-                {rows.length === 0 && (
+                {filteredRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                      No companies yet.
+                    <TableCell colSpan={9} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                      {rows.length === 0 ? 'No companies yet.' : 'No companies match these filters.'}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              component="div"
+              count={filteredRows.length}
+              page={page}
+              onPageChange={(_, p) => setPage(p)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => setRowsPerPage(Number(e.target.value))}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+            />
           </TableContainer>
         )}
       </Paper>
@@ -685,79 +763,14 @@ export default function CompaniesConsole() {
         )}
       </Paper>
 
-      <Dialog open={dialogOpen} onClose={close} maxWidth="sm" fullWidth>
-        <DialogTitle>New Company</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Company name"
-              fullWidth
-              value={form.name}
-              onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
-              disabled={saving}
-            />
-            <TextField
-              label="First admin email"
-              type="email"
-              fullWidth
-              value={form.adminEmail}
-              onChange={(e) => setForm((v) => ({ ...v, adminEmail: e.target.value }))}
-              disabled={saving}
-              helperText="They'll be invited as admin on HR, Legal, BD, and IT."
-            />
-            <TextField
-              select
-              label="Industry template"
-              fullWidth
-              value={form.industryTemplate}
-              onChange={(e) =>
-                setForm((v) => ({
-                  ...v,
-                  industryTemplate: e.target.value as IndustryTemplate,
-                }))
-              }
-              disabled={saving}
-              helperText={
-                INDUSTRY_TEMPLATES.find((t) => t.value === form.industryTemplate)?.description
-              }
-            >
-              {INDUSTRY_TEMPLATES.map((t) => (
-                <MenuItem key={t.value} value={t.value}>
-                  {t.label}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
-              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                Every company gets the same approval pipeline
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                The 7-stage chain itself isn't customizable per company yet, but the 5,000,000
-                threshold that decides the branch below can be edited afterward from each
-                company's detail page:
-              </Typography>
-              <Stack component="ol" sx={{ pl: 2.5, m: 0 }} spacing={0.25}>
-                {APPROVAL_PIPELINE_STAGES.map((stage) => (
-                  <Typography key={stage} component="li" variant="body2" color="text.secondary">
-                    {stage}
-                  </Typography>
-                ))}
-              </Stack>
-            </Box>
-
-            {saveError && <Alert severity="error">{saveError}</Alert>}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={close} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={save} variant="contained" disabled={saving}>
-            {saving ? 'Creating…' : 'Create & invite'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CompanyCreateWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCreated={() => {
+          load();
+          loadInvitations();
+        }}
+      />
 
       <Dialog open={!!revokeTarget} onClose={() => setRevokeTarget(null)}>
         <DialogTitle>Revoke invite?</DialogTitle>
@@ -789,6 +802,22 @@ export default function CompaniesConsole() {
               <>{statusTarget?.tenant.name} will be marked active again.</>
             )}
           </DialogContentText>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            sx={{ mt: 2 }}
+            label={statusTarget?.next === 'suspended' ? 'Reason (required)' : 'Reason (optional)'}
+            placeholder={
+              statusTarget?.next === 'suspended'
+                ? 'e.g. Invoice INV-0231 unpaid 60 days past due'
+                : 'e.g. Payment received 22 Sep'
+            }
+            value={statusReason}
+            onChange={(e) => setStatusReason(e.target.value)}
+            disabled={statusSaving}
+            helperText="Recorded in the platform audit log."
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStatusTarget(null)} disabled={statusSaving}>
@@ -797,12 +826,22 @@ export default function CompaniesConsole() {
           <Button
             color={statusTarget?.next === 'suspended' ? 'warning' : 'success'}
             onClick={confirmStatusChange}
-            disabled={statusSaving}
+            disabled={statusSaving || (statusTarget?.next === 'suspended' && statusReason.trim().length === 0)}
           >
             {statusSaving ? 'Saving…' : statusTarget?.next === 'suspended' ? 'Suspend' : 'Activate'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImpersonationReasonDialog
+        open={!!impersonateTarget}
+        tenant={impersonateTarget}
+        onClose={() => setImpersonateTarget(null)}
+        onStarted={() => {
+          setImpersonateTarget(null);
+          navigate('/requests/new');
+        }}
+      />
 
       <Dialog open={!!modulesTarget} onClose={closeModules} maxWidth="xs" fullWidth>
         <DialogTitle>Modules — {modulesTarget?.name}</DialogTitle>

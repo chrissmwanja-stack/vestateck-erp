@@ -22,19 +22,56 @@ export interface Tenant {
   read_only?: boolean;
   contact_email?: string | null;
   last_activity_at?: string | null;
+  // 20260922220000: onboarding position (see platformHealth.ts STAGE_*).
+  onboarding_stage?: string | null;
+  onboarding_next_step?: string | null;
+  onboarding_stalled?: boolean | null;
 }
 
-export type SortKey = 'name' | 'status' | 'plan' | 'created_at' | 'last_activity_at' | 'member_count' | 'request_count_30d';
+export type SortKey = 'name' | 'status' | 'plan' | 'created_at' | 'last_activity_at' | 'member_count' | 'request_count_30d' | 'onboarding_stage';
 
 export interface CompanyFilters {
   q: string;
   status: '' | 'pending' | 'active' | 'suspended';
   plan: string;
   subscription: string;
-  flag: '' | 'read_only' | 'trial_ending' | 'quiet' | 'seats_full';
+  flag: '' | 'read_only' | 'trial_ending' | 'quiet' | 'seats_full' | 'stalled';
+  // Onboarding stage key ('' = any). Populated from ?stage= so the
+  // Overview funnel bars deep-link into the filtered list.
+  stage: string;
 }
 
-export const EMPTY_FILTERS: CompanyFilters = { q: '', status: '', plan: '', subscription: '', flag: '' };
+export const EMPTY_FILTERS: CompanyFilters = { q: '', status: '', plan: '', subscription: '', flag: '', stage: '' };
+
+const STAGE_RANK: Record<string, number> = {
+  created: 0, admin_invited: 1, admin_joined: 2, modules_enabled: 3, team_invited: 4, first_activity: 5, live: 6,
+};
+
+// Read filters out of a query string (?q=&status=&plan=&subscription=&flag=&stage=).
+// Unknown values are ignored so a stale link cannot produce an impossible state.
+export function filtersFromSearch(search: string | URLSearchParams): CompanyFilters {
+  const p = typeof search === 'string' ? new URLSearchParams(search) : search;
+  const pick = <T extends string>(key: string, allowed: readonly T[]): T | '' => {
+    const v = p.get(key) ?? '';
+    return (allowed as readonly string[]).includes(v) ? (v as T) : '';
+  };
+  return {
+    q: p.get('q') ?? '',
+    status: pick('status', ['pending', 'active', 'suspended'] as const),
+    plan: p.get('plan') ?? '',
+    subscription: p.get('subscription') ?? '',
+    flag: pick('flag', ['read_only', 'trial_ending', 'quiet', 'seats_full', 'stalled'] as const),
+    stage: pick('stage', Object.keys(STAGE_RANK)),
+  };
+}
+
+export function filtersToSearch(f: CompanyFilters): URLSearchParams {
+  const p = new URLSearchParams();
+  (Object.keys(f) as (keyof CompanyFilters)[]).forEach((k) => {
+    if (f[k]) p.set(k, String(f[k]));
+  });
+  return p;
+}
 
 const DAY = 86_400_000;
 
@@ -45,7 +82,10 @@ export function applyCompanyFilters(rows: Tenant[], f: CompanyFilters, now: numb
     if (f.status && r.status !== f.status) return false;
     if (f.plan && r.plan !== f.plan) return false;
     if (f.subscription && r.subscription_status !== f.subscription) return false;
+    if (f.stage && (r.onboarding_stage ?? '') !== f.stage) return false;
     switch (f.flag) {
+      case 'stalled':
+        return !!r.onboarding_stalled;
       case 'read_only':
         return !!r.read_only;
       case 'trial_ending': {
@@ -80,6 +120,8 @@ export function sortCompanies(rows: Tenant[], key: SortKey, dir: 'asc' | 'desc')
         return r[key] ?? 0;
       case 'plan':
         return r.plan ?? '';
+      case 'onboarding_stage':
+        return STAGE_RANK[r.onboarding_stage ?? ''] ?? -1;
       default:
         return String(r[key] ?? '').toLowerCase();
     }
@@ -103,13 +145,16 @@ export function companiesToCsv(rows: Tenant[]): string {
   const header = [
     'name', 'status', 'plan', 'subscription_status', 'read_only', 'contact_email',
     'members', 'seat_limit', 'modules', 'requests_30d', 'pending_requests',
-    'trial_ends_at', 'last_activity_at', 'created_at', 'tenant_id',
+    'trial_ends_at', 'last_activity_at', 'onboarding_stage', 'onboarding_next_step', 'onboarding_stalled',
+    'created_at', 'tenant_id',
   ];
   const lines = rows.map((r) =>
     [
       r.name, r.status, r.plan, r.subscription_status, r.read_only ? 'yes' : 'no', r.contact_email,
       r.member_count, r.seat_limit, r.module_count, r.request_count_30d, r.pending_request_count,
-      r.trial_ends_at, r.last_activity_at, r.created_at, r.id,
+      r.trial_ends_at, r.last_activity_at,
+      r.onboarding_stage, r.onboarding_next_step, r.onboarding_stalled == null ? '' : r.onboarding_stalled ? 'yes' : 'no',
+      r.created_at, r.id,
     ]
       .map(csvEscape)
       .join(',')

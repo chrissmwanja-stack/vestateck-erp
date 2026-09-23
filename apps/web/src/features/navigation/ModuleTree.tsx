@@ -170,30 +170,35 @@ function useMyModuleAccess() {
         setState({ isPlatformAdmin: false, modules: new Set(), rolesByModule: new Map(), isImpersonating: false, canAccessFinance: false });
         return;
       }
+      // Whose staff_roles/tenant decide the nav. Normally the signed-in
+      // user's own; for a platform admin viewing as a specific user, that
+      // user's (the SQL permission helpers do the same via
+      // effective_user_id(), so nav and route guards agree).
+      let subjectUserId = userId;
+      let subjectTenantId = appUser.tenant_id as string;
       if (appUser.is_platform_admin) {
         // Check for an active impersonation session -- when impersonating,
-        // get_my_tenant_id() resolves to the target tenant, but
-        // has_module_role() still bypasses. For nav we need to know:
-        // are we in platform-only mode (setup + analytics only) or in
-        // "View as" mode (show that company's own portals)?
-        const { data: imp } = await supabase
-          .from("impersonation_sessions")
-          .select("id")
-          .eq("platform_admin_id", userId)
-          .is("ended_at", null)
-          .gt("started_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
-          .limit(1)
-          .maybeSingle();
+        // get_my_tenant_id() resolves to the target tenant. For nav we need
+        // to know: platform-only mode (console only), company-level "View
+        // as" (bypass: show every portal), or user-level "View as" (show
+        // exactly that user's portals)?
+        const { data: impRows } = await supabase.rpc("get_active_impersonation");
         if (cancelled) return;
-        // has_module_role() (and can_access_finance()) both treat platform
-        // admins as an automatic pass -- mirror that here so nav doesn't
-        // hide things the route guard would let them through to anyway.
-        setState({ isPlatformAdmin: true, modules: new Set(), rolesByModule: new Map(), isImpersonating: !!imp, canAccessFinance: true });
-        return;
+        const imp = Array.isArray(impRows) ? impRows[0] : impRows;
+        if (!imp || !imp.impersonated_user_id) {
+          // has_module_role() (and can_access_finance()) treat a platform
+          // admin who is not viewing as a user as an automatic pass --
+          // mirror that here so nav doesn't hide things the route guard
+          // would let them through to anyway.
+          setState({ isPlatformAdmin: true, modules: new Set(), rolesByModule: new Map(), isImpersonating: !!imp, canAccessFinance: true });
+          return;
+        }
+        subjectUserId = imp.impersonated_user_id;
+        subjectTenantId = imp.tenant_id;
       }
       const [{ data: roles }, { data: entitlements }, { data: financeAccess }] = await Promise.all([
-        supabase.from("staff_roles").select("module, role").eq("user_id", userId).eq("tenant_id", appUser.tenant_id),
-        supabase.from("tenant_modules").select("module").eq("tenant_id", appUser.tenant_id),
+        supabase.from("staff_roles").select("module, role").eq("user_id", subjectUserId).eq("tenant_id", subjectTenantId),
+        supabase.from("tenant_modules").select("module").eq("tenant_id", subjectTenantId),
         supabase.rpc("can_access_finance"),
       ]);
       if (cancelled) return;
@@ -208,10 +213,12 @@ function useMyModuleAccess() {
         rolesByModule.get(m)!.add(r.role as string);
       }
       setState({
+        // Deliberately false while viewing as a user: nav must show that
+        // user's reality, not the operator's bypass.
         isPlatformAdmin: false,
         modules: effectiveModules,
         rolesByModule,
-        isImpersonating: false,
+        isImpersonating: subjectUserId !== userId,
         canAccessFinance: Boolean(financeAccess),
       });
     };
@@ -584,6 +591,8 @@ const portals: Portal[] = [
     nodes: [
       { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
+      { id: "platform-users", label: "Users", icon: <People fontSize="small" />, to: "/admin/users" },
+      { id: "platform-team", label: "Platform Team", icon: <AdminPanelSettings fontSize="small" />, to: "/admin/team" },
       { id: "platform-audit", label: "Audit Log", icon: <History fontSize="small" />, to: "/admin/audit" },
       { id: "platform-settings", label: "Settings", icon: <Settings fontSize="small" />, to: "/admin/settings" },
       // Company Setup / Invite Team / Manage Team / Approval Workflow used

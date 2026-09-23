@@ -15,6 +15,7 @@ import { friendlyPlatformError } from './usePlatformAdminSession';
 interface Props {
   open: boolean;
   tenant: { id: string; name: string } | null;
+  user?: { id: string; name: string; email: string } | null;
   onClose: () => void;
   // Called after the RPC succeeds. The caller decides where to navigate
   // (dashboard today; per-tenant landing later).
@@ -27,7 +28,7 @@ const MIN_REASON = 5;
 // this dialog exists so the operator is asked *before* the RPC rather than
 // getting a raw error. Every reason lands in platform_audit_events and the
 // impersonation history screen, so make it something a customer could read.
-export default function ImpersonationReasonDialog({ open, tenant, onClose, onStarted }: Props) {
+export default function ImpersonationReasonDialog({ open, tenant, user, onClose, onStarted }: Props) {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +48,16 @@ export default function ImpersonationReasonDialog({ open, tenant, onClose, onSta
     if (!tenant || tooShort) return;
     setSubmitting(true);
     setError(null);
-    const { error: err } = await supabase.rpc('start_impersonation', {
-      p_tenant_id: tenant.id,
-      p_reason: trimmed,
-    });
+    const { error: err } = user
+      ? await supabase.rpc('start_impersonation', {
+          p_tenant_id: tenant.id,
+          p_reason: trimmed,
+          p_user_id: user.id,
+        })
+      : await supabase.rpc('start_impersonation', {
+          p_tenant_id: tenant.id,
+          p_reason: trimmed,
+        });
     setSubmitting(false);
     if (err) {
       setError(friendlyPlatformError(err.message));

@@ -8990,9 +8990,73 @@ export type Database = {
       get_active_impersonation: {
         Args: never
         Returns: {
+          expires_at: string
+          impersonated_user_email: string | null
+          impersonated_user_id: string | null
+          impersonated_user_name: string | null
+          reason: string
+          started_at: string
           tenant_id: string
           tenant_name: string
         }[]
+      }
+      list_platform_admins: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          granted_at: string | null
+          granted_by_email: string | null
+          is_self: boolean
+          last_sign_in_at: string | null
+          mfa_enrolled: boolean
+          name: string
+          tenant_id: string
+          tenant_name: string
+          user_id: string
+        }[]
+      }
+      platform_users_directory: {
+        Args: {
+          p_kind?: string | null
+          p_limit?: number
+          p_module?: string | null
+          p_offset?: number
+          p_quiet_days?: number | null
+          p_search?: string | null
+          p_tenant_id?: string | null
+        }
+        Returns: {
+          created_at: string
+          email: string
+          finance_role: string | null
+          is_company_admin: boolean
+          is_platform_admin: boolean
+          last_sign_in_at: string | null
+          mfa_enrolled: boolean
+          modules: Json
+          name: string
+          role_title: string | null
+          tenant_id: string
+          tenant_name: string
+          tenant_status: string
+          total_count: number
+          user_id: string
+        }[]
+      }
+      set_platform_admin: {
+        Args: { p_enabled: boolean; p_reason?: string | null; p_user_id: string }
+        Returns: {
+          created_at: string
+          department_id: string | null
+          email: string
+          id: string
+          is_company_admin: boolean
+          is_platform_admin: boolean
+          name: string
+          role_title: string | null
+          tenant_id: string
+        }
       }
       get_all_tickets: {
         Args: never

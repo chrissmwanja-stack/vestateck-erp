@@ -27,6 +27,7 @@ import RequirePlatformAdmin from './components/RequirePlatformAdmin';
 import { useAuth } from './lib/authContext';
 import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
+import { isConsoleRoute } from './features/admin/AdminLayout';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
 import TenantAccessBanner from './features/account/TenantAccessBanner';
@@ -35,6 +36,8 @@ const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'))
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
 const PlatformAuditLog = lazy(() => import('./features/admin/PlatformAuditLog'));
+const PlatformUsersDirectory = lazy(() => import('./features/admin/PlatformUsersDirectory'));
+const PlatformTeam = lazy(() => import('./features/admin/PlatformTeam'));
 const AccountSecurity = lazy(() => import('./features/account/AccountSecurity'));
 const ApprovalWorkflowAdmin = lazy(() => import('./features/admin/ApprovalWorkflowAdmin'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
@@ -303,19 +306,20 @@ export default function App() {
   const location = useLocation();
   // The tenant ModuleTree lists one company's modules -- meaningless
   // outside a company, so it's swapped out (not just hidden) whenever
-  // we're inside the platform-admin dashboard. AdminLayout supplies its
-  // own header for that section instead.
-  const isPlatformAdminRoute =
-    location.pathname === '/admin' ||
-    location.pathname.startsWith('/admin/companies') ||
-    location.pathname === '/admin/settings' ||
-    location.pathname === '/admin/audit';
+  // we're inside the platform console. AdminLayout supplies its own
+  // shell (left rail + header) for that section; the route list lives
+  // there so this check can't drift from the routes that are wrapped.
+  const isPlatformAdminRoute = isConsoleRoute(location.pathname);
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
       <Box sx={{ display: 'flex', flex: 1 }}>
         {session && !isPlatformAdminRoute && <ModuleTree />}
-        <Container component="main" sx={{ mt: 3, mb: 6, flexGrow: 1, maxWidth: '100%', px: 4 }}>
+        <Container
+          component="main"
+          disableGutters={isPlatformAdminRoute}
+          sx={{ mt: isPlatformAdminRoute ? 0 : 3, mb: isPlatformAdminRoute ? 0 : 6, flexGrow: 1, maxWidth: '100%', px: isPlatformAdminRoute ? 0 : 4 }}
+        >
           <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -352,20 +356,19 @@ export default function App() {
                   gated server-side via is_platform_admin(), so this is
                   belt-and-braces rather than the only line of defense. */}
               <Route element={<RequirePlatformAdmin />}>
-                {/* PlatformDashboard keeps its own header (the gradient
-                    "Harbor Slate" banner) rather than being wrapped in
-                    AdminLayout -- it already does everything AdminLayout's
-                    strip does, just more elaborately, and stacking both
-                    would mean two headers on one screen. AdminLayout
-                    wraps Companies/Company Detail/Settings, whose back
-                    nav previously pointed everywhere to "all companies"
-                    -- now route-aware, see AdminLayout.tsx. */}
-                <Route path="/admin" element={<PlatformDashboard />} />
+                {/* Every console screen -- Overview included -- renders
+                    inside AdminLayout's persistent left rail. Tenant-admin
+                    screens (/setup, /team/*, /admin/approval-workflow) are
+                    deliberately NOT here: they belong to a customer
+                    workspace and are reached via View-as. */}
                 <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<PlatformDashboard />} />
                   <Route path="/admin/companies" element={<CompaniesConsole />} />
                   <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
                   <Route path="/admin/settings" element={<AdminSettingsPage />} />
                   <Route path="/admin/audit" element={<PlatformAuditLog />} />
+                  <Route path="/admin/users" element={<PlatformUsersDirectory />} />
+                  <Route path="/admin/team" element={<PlatformTeam />} />
                 </Route>
               </Route>
               <Route path="/team/invite" element={<InviteMember />} />
