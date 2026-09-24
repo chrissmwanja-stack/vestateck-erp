@@ -55,7 +55,11 @@ export default function InvoiceSubmissionForm() {
       amount: Number(data.amount),
       // `workflow_stages` comes back as an array from the embedded select
       // even for a to-one relationship -- take the first row's name.
-      stageName: (data as any).workflow_stages?.[0]?.name ?? null,
+      // supabase-js's insert().select() overload doesn't infer embedded
+      // relations as arrays the way a plain select() does, so the
+      // generated type says `{ name: string }`; only this field needs the
+      // cast, not the rest of `data`.
+      stageName: (data.workflow_stages as unknown as { name: string }[] | null)?.[0]?.name ?? null,
     });
     setVendor("");
     setAmount("");

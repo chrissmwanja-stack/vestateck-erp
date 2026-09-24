@@ -23,7 +23,7 @@ interface Approval {
   sequence_order: number;
 }
 
-interface PoPdfData {
+export interface PoPdfData {
   po_number: string;
   initial_po_number: string | null;
   company: string; // supplier / vendor name

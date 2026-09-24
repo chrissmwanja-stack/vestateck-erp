@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 import { Email, PictureAsPdf } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
-import { buildPoPdf } from "./pdfGenerator";
+import { buildPoPdf, type PoPdfData } from "./pdfGenerator";
 import RequestLineItemsDialog from "./RequestLineItemsDialog";
 import OfferDetailDialog from "./OfferDetailDialog"; // NEW: Initial PO # popup
 
@@ -218,7 +218,15 @@ export default function RequestTracking() {
         .single();
       if (fetchErr || !data) throw new Error(fetchErr?.message ?? "Could not load PO data for PDF");
 
-      const blob = buildPoPdf(data as any);
+      // get_po_pdf_data's line_items/approvals columns are jsonb, so
+      // codegen types them as `Json` -- everything else on `data` is
+      // already correctly typed. Narrow just those two fields rather than
+      // casting the whole object away.
+      const blob = buildPoPdf({
+        ...data,
+        line_items: data.line_items as unknown as PoPdfData["line_items"],
+        approvals: data.approvals as unknown as PoPdfData["approvals"],
+      });
 
       const { data: tenantId, error: tenantErr } = await supabase.rpc("get_my_tenant_id");
       if (tenantErr || !tenantId) throw new Error("Could not resolve tenant for storage path");
