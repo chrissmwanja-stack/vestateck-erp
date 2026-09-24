@@ -2,7 +2,8 @@
 
 Rules for every file added to `supabase/migrations/` from this commit
 forward. Established by Foundation Playbook Phase 0. See
-`FOUNDATION_PLAYBOOK.md` at the repo root for why.
+`FOUNDATION_PLAYBOOK.md` at the repo root for why (that file is a
+reconstruction, not the original — see its own header note).
 
 ## The rules
 
@@ -37,9 +38,11 @@ forward. Established by Foundation Playbook Phase 0. See
 
 5. **Every new tenant-scoped table gets a real foreign key**:
    `tenant_id uuid not null references tenants(id) on delete cascade`.
-   Not just the column -- the constraint. Tables missing this today
-   (`hr_*`, `pmo_*`, `machines`, `sustainability_*`) are a known gap
-   being backfilled in Phase 3, not a pattern to repeat.
+   Not just the column -- the constraint. `hr_*`, `pmo_*`, `machines`, and
+   `sustainability_*` were missing this and were backfilled in Phase 3
+   (confirmed clean against production 2026-08-18); this rule and the
+   `scripts/audit_tenant_fk.sql` CI check exist so it doesn't regress, not
+   because the gap is still open.
 
 6. **No `supabase db dump`/Studio-generated `remote_schema.sql` files
    in `supabase/migrations/`.** These dump the entire remote catalog
@@ -52,8 +55,25 @@ forward. Established by Foundation Playbook Phase 0. See
    hand-authored migration the same day (rule 3) -- don't dump the
    catalog as a shortcut. `20260824064800_remote_schema.sql`,
    `20260824110748_remote_schema.sql`, and
-   `20260901135345_remote_schema.sql` are grandfathered (pre-date this
-   rule); do not add a fourth.
+   `20260901135345_remote_schema.sql` were grandfathered as pre-dating
+   this rule.
+
+   **That grandfather list has since grown to seven files, not three:**
+   `20260903112116_remote_schema.sql`, `20260904082722_remote_schema.sql`,
+   `20260910113534_remote_schema.sql`, and `20260910133254_remote_schema.sql`
+   all landed on `main` *after* this rule and its CI check existed. This
+   isn't a checker bug -- `check-migration-policy.sh` does match on
+   filename and does fire on new `remote_schema.sql` files (confirmed: the
+   commit that added `20260910113534_remote_schema.sql` shows
+   `migration-policy` as a **failing** check on GitHub). The actual gap is
+   that `main` has no branch protection requiring that check to pass, so a
+   red `migration-policy` run doesn't block the push. Until that's turned
+   on (Settings -> Branches -> require status checks to pass, for
+   `migration-policy` at minimum), this rule is advisory, not enforced,
+   and the grandfather list will keep growing. Treat all seven as
+   grandfathered for now -- rewriting them is Phase 1.5 (squash), not a
+   one-off fix -- but do not add an eighth, and turning on branch
+   protection is the real fix, not a longer list here.
 
 7. **Run `scripts/check-migration-policy.sh` before you push.** CI runs
    it too (`.github/workflows/foundation-checks.yml`), but catching it
@@ -82,6 +102,6 @@ migrations that already seed `@test.local` accounts directly --
 rewriting those breaks shadow replay for anything that FKs to those
 user ids (see Foundation Playbook, "Why this order"). That cleanup is
 Phase 1.5 (squash), done once, deliberately, not as an ongoing rule.
-It also does not retroactively fix the three grandfathered
+It also does not retroactively fix the seven grandfathered
 `remote_schema.sql` dumps (rule 6) -- replacing them is part of the
 same squash cleanup, not something to hand-patch in isolation.
