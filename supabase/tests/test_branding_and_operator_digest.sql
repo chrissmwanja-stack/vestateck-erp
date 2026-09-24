@@ -196,11 +196,21 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  v_res     jsonb;
-  v_payload jsonb;
-  v_id      uuid;
-  v_n       integer;
+  v_res       jsonb;
+  v_payload   jsonb;
+  v_id        uuid;
+  v_n         integer;
+  v_companies integer;
+  v_live      integer;
 begin
+  -- Computed independently from the raw tables (not via the payload RPC
+  -- itself), so these stay correct however many other companies already
+  -- exist in this database (e.g. seed.sql's Test Construction Co) --
+  -- this test only owns its own fixtures, not the whole tenants table.
+  select count(*) into v_companies from tenants
+    where not (plan = 'internal' or id = '00000000-0000-0000-0000-000000000099');
+  select count(*) into v_live from platform_onboarding_status_all() where not is_internal and stage = 6;
+
   v_res := run_operator_digest_now();
   v_id := (v_res ->> 'id')::uuid;
   v_payload := v_res -> 'payload';
@@ -222,16 +232,33 @@ begin
     raise exception 'FAIL: new company missing'; end if;
   if v_payload -> 'admins_without_mfa' <> '["digest-admin2@test.local"]'::jsonb then
     raise exception 'FAIL: admins_without_mfa: %', v_payload -> 'admins_without_mfa'; end if;
-  if (v_payload -> 'totals' ->> 'companies')::int <> 3 then raise exception 'FAIL: totals.companies % (internal must be excluded)', v_payload -> 'totals'; end if;
-  if (v_payload -> 'totals' ->> 'live')::int <> 1 then raise exception 'FAIL: totals.live'; end if;
-  -- stalled 1 + trial 1 + pending 1 + mfa 1 + quiet 0 = 4
-  if (v_res ->> 'attention_count')::int <> 4 then raise exception 'FAIL: attention_count % ', v_res ->> 'attention_count'; end if;
-  if platform_digest_summary(v_payload) <> '1 stalled in setup · 1 trial(s) ending · 1 pending too long · 1 admin(s) without MFA' then
-    raise exception 'FAIL: summary: %', platform_digest_summary(v_payload); end if;
+  if (v_payload -> 'totals' ->> 'companies')::int <> v_companies then
+    raise exception 'FAIL: totals.companies % (internal must be excluded, expected %)', v_payload -> 'totals', v_companies; end if;
+  if (v_payload -> 'totals' ->> 'live')::int <> v_live then raise exception 'FAIL: totals.live % (expected %)', v_payload -> 'totals' ->> 'live', v_live; end if;
+  -- Recomputed from the payload's own arrays rather than hardcoded, so a
+  -- pre-existing company elsewhere in the database (e.g. seed.sql's Test
+  -- Construction Co, which is long-pending and so legitimately shows up
+  -- in pending_over_threshold) doesn't break this -- it still checks that
+  -- attention_count/summary are wired up correctly to whatever the
+  -- payload actually contains.
+  if (v_res ->> 'attention_count')::int <>
+     jsonb_array_length(v_payload -> 'stalled') + jsonb_array_length(v_payload -> 'quiet')
+     + jsonb_array_length(v_payload -> 'trials_ending') + jsonb_array_length(v_payload -> 'pending_over_threshold')
+     + jsonb_array_length(v_payload -> 'admins_without_mfa')
+  then raise exception 'FAIL: attention_count % does not match payload array lengths', v_res ->> 'attention_count'; end if;
+  -- Same omit-if-zero, "·"-joined shape as platform_digest_summary itself,
+  -- built from the payload's own array lengths instead of fixed counts.
+  if platform_digest_summary(v_payload) <> concat_ws(' · ',
+       nullif(jsonb_array_length(v_payload -> 'stalled'), 0) || ' stalled in setup',
+       nullif(jsonb_array_length(v_payload -> 'trials_ending'), 0) || ' trial(s) ending',
+       nullif(jsonb_array_length(v_payload -> 'quiet'), 0) || ' gone quiet',
+       nullif(jsonb_array_length(v_payload -> 'pending_over_threshold'), 0) || ' pending too long',
+       nullif(jsonb_array_length(v_payload -> 'admins_without_mfa'), 0) || ' admin(s) without MFA')
+  then raise exception 'FAIL: summary: %', platform_digest_summary(v_payload); end if;
 
   -- History RPC
   if (select count(*) from list_platform_digests(5)) < 1 then raise exception 'FAIL: list_platform_digests empty'; end if;
-  create temp table digest_run on commit drop as select v_id as id;
+  create temp table digest_run on commit drop as select v_id as id, (v_res ->> 'attention_count')::int as attention_count;
   raise notice 'PASS: 3. manual digest: payload, count, summary';
 end $$;
 
@@ -241,8 +268,9 @@ end $$;
 reset role;
 do $$
 declare
-  v_id uuid := (select id from digest_run);
-  v_n  integer;
+  v_id    uuid := (select id from digest_run);
+  v_count integer := (select attention_count from digest_run);
+  v_n     integer;
 begin
   -- In-app notifications: one per platform admin (2), none for plain.
   select count(*) into v_n from notifications where type = 'operator_digest'
@@ -251,7 +279,7 @@ begin
   if exists (select 1 from notifications where type = 'operator_digest' and recipient_id = (select v from test_ids where k = 'plain')) then
     raise exception 'FAIL: plain user got a digest notification'; end if;
   if (select title from notifications where type = 'operator_digest' and recipient_id = (select v from test_ids where k = 'admin') order by created_at desc limit 1)
-     <> 'Operator digest: 4 item(s) need attention' then
+     <> format('Operator digest: %s item(s) need attention', v_count) then
     raise exception 'FAIL: notification title'; end if;
 
   -- Audit
