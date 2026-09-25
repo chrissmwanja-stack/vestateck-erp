@@ -209,7 +209,7 @@ begin
   -- this test only owns its own fixtures, not the whole tenants table.
   select count(*) into v_companies from tenants
     where not (plan = 'internal' or id = '00000000-0000-0000-0000-000000000099');
-  select count(*) into v_live from platform_onboarding_status_all() where not is_internal and stage = 6;
+  select count(*) into v_live from get_tenant_onboarding_status() where not is_internal and stage = 6;
 
   v_res := run_operator_digest_now();
   v_id := (v_res ->> 'id')::uuid;
