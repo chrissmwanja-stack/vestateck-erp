@@ -49,6 +49,13 @@ export function useCompanyDetail() {
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Approver label drafts keyed by stage id. Cosmetic only -- real approval
+  // routing is via approval_assignments, managed by company admins at
+  // /admin/approval-workflow, not this platform-admin screen.
+  const [approverDrafts, setApproverDrafts] = useState<Record<string, string>>({});
+  const [savingApproverStageId, setSavingApproverStageId] = useState<string | null>(null);
+  const [approverSaveError, setApproverSaveError] = useState<string | null>(null);
+
   const loadProfile = useCallback(async () => {
     if (!tenantId) return null;
     const { data, error: err } = await supabase.rpc('get_tenant_profile', { p_tenant_id: tenantId });
@@ -83,6 +90,11 @@ export function useCompanyDetail() {
       setDrafts(
         Object.fromEntries(
           stageRows.filter((s) => s.threshold_amount !== null).map((s) => [s.id, String(s.threshold_amount)])
+        )
+      );
+      setApproverDrafts(
+        Object.fromEntries(
+          stageRows.filter((s) => s.threshold_amount !== null).map((s) => [s.id, s.approver_role])
         )
       );
     } catch (e) {
@@ -224,6 +236,31 @@ export function useCompanyDetail() {
     [drafts]
   );
 
+  const saveApproverRole = useCallback(
+    async (stageId: string) => {
+      const raw = (approverDrafts[stageId] ?? '').trim();
+      if (raw === '') {
+        setApproverSaveError('Approver label must not be blank.');
+        return;
+      }
+      setSavingApproverStageId(stageId);
+      setApproverSaveError(null);
+      const { error: rpcError } = await supabase.rpc('update_workflow_stage_approver_role', {
+        p_stage_id: stageId,
+        p_approver_role: raw,
+      });
+      if (rpcError) {
+        setApproverSaveError(friendlyPlatformError(rpcError.message));
+        setSavingApproverStageId(null);
+        return;
+      }
+      setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, approver_role: raw } : s)));
+      setApproverDrafts((prev) => ({ ...prev, [stageId]: raw }));
+      setSavingApproverStageId(null);
+    },
+    [approverDrafts]
+  );
+
   return {
     navigate,
     tab,
@@ -267,6 +304,12 @@ export function useCompanyDetail() {
     saveError,
     setSaveError,
     saveThreshold,
+    approverDrafts,
+    setApproverDrafts,
+    savingApproverStageId,
+    approverSaveError,
+    setApproverSaveError,
+    saveApproverRole,
   };
 }
 

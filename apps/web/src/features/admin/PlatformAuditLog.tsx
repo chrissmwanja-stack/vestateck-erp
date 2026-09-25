@@ -86,6 +86,7 @@ const ACTION_COLOR: Record<string, 'default' | 'warning' | 'success' | 'info' | 
   'impersonation.start': 'warning',
   'impersonation.end': 'default',
   'workflow.threshold.update': 'info',
+  'workflow.approver_role.update': 'info',
   'invitation.revoke': 'warning',
   'platform_settings.update': 'info',
 };

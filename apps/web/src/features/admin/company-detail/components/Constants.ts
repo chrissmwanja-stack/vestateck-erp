@@ -41,5 +41,6 @@ export const ACTION_LABEL: Record<string, string> = {
   'impersonation.start': 'View-as started',
   'impersonation.end': 'View-as ended',
   'workflow.threshold.update': 'Threshold edited',
+  'workflow.approver_role.update': 'Approver label edited',
   'invitation.revoke': 'Invite revoked',
 };
