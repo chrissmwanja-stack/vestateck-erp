@@ -159,11 +159,11 @@ function ActionsTab({ tenants }: { tenants: TenantOption[] }) {
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('list_platform_audit_events', {
-      p_tenant_id: tenantId || null,
-      p_action: action || null,
-      p_from: from ? new Date(from).toISOString() : null,
+      p_tenant_id: tenantId || undefined,
+      p_action: action || undefined,
+      p_from: from ? new Date(from).toISOString() : undefined,
       // "to" is a date input; include the whole day.
-      p_to: to ? new Date(new Date(to).getTime() + 24 * 60 * 60 * 1000).toISOString() : null,
+      p_to: to ? new Date(new Date(to).getTime() + 24 * 60 * 60 * 1000).toISOString() : undefined,
       p_limit: rowsPerPage,
       p_offset: page * rowsPerPage,
     });
@@ -420,7 +420,7 @@ function ImpersonationTab({ tenants }: { tenants: TenantOption[] }) {
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('list_impersonation_history', {
-      p_tenant_id: tenantId || null,
+      p_tenant_id: tenantId || undefined,
       p_limit: rowsPerPage,
       p_offset: page * rowsPerPage,
     });

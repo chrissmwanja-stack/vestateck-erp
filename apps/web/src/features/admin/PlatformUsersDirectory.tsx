@@ -114,11 +114,11 @@ export default function PlatformUsersDirectory() {
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('platform_users_directory', {
-      p_search: debounced || null,
-      p_tenant_id: tenantId || null,
-      p_kind: kind || null,
-      p_module: moduleKey || null,
-      p_quiet_days: quietOnly ? QUIET_DAYS : null,
+      p_search: debounced || undefined,
+      p_tenant_id: tenantId || undefined,
+      p_kind: kind || undefined,
+      p_module: moduleKey || undefined,
+      p_quiet_days: quietOnly ? QUIET_DAYS : undefined,
       p_limit: rowsPerPage,
       p_offset: page * rowsPerPage,
     });

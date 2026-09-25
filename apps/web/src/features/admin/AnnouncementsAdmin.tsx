@@ -115,12 +115,12 @@ export default function AnnouncementsAdmin() {
       p_title: row.title,
       p_body: row.body,
       p_severity: row.severity,
-      p_tenant_id: row.tenant_id,
+      p_tenant_id: row.tenant_id ?? undefined,
       p_starts_at: row.starts_at,
-      p_ends_at: row.ends_at,
+      p_ends_at: row.ends_at ?? undefined,
       p_dismissible: row.dismissible,
-      p_link_url: row.link_url,
-      p_link_label: row.link_label,
+      p_link_url: row.link_url ?? undefined,
+      p_link_label: row.link_label ?? undefined,
       p_is_active: !row.is_active,
     });
     setBusy(false);
@@ -287,12 +287,12 @@ function AnnouncementDialog({
       p_title: d.title.trim(),
       p_body: d.body.trim(),
       p_severity: d.severity,
-      p_tenant_id: d.tenant_id,
+      p_tenant_id: d.tenant_id ?? undefined,
       p_starts_at: fromLocalInput(d.starts_at) ?? new Date().toISOString(),
-      p_ends_at: fromLocalInput(d.ends_at),
+      p_ends_at: fromLocalInput(d.ends_at) ?? undefined,
       p_dismissible: d.dismissible,
-      p_link_url: d.link_url.trim() || null,
-      p_link_label: d.link_label.trim() || null,
+      p_link_url: d.link_url.trim() || undefined,
+      p_link_label: d.link_label.trim() || undefined,
       p_is_active: d.is_active,
     });
     setSaving(false);

@@ -67,8 +67,11 @@ export function TenantFeatureFlagsPanel({ tenantId, blockedReason }: { tenantId:
     const { error: err } = await supabase.rpc('set_tenant_feature_flag', {
       p_tenant_id: tenantId,
       p_key: key,
-      p_enabled: enabledFromChoice(choice),
-      p_note: notes[key]?.trim() || null,
+      // p_enabled has no SQL default and the function treats NULL as
+      // "clear override" (see set_tenant_feature_flag) -- the generated
+      // type doesn't reflect that, so this is a deliberate null, not a bug.
+      p_enabled: enabledFromChoice(choice) as boolean,
+      p_note: notes[key]?.trim() || undefined,
     });
     setSavingKey(null);
     if (err) {

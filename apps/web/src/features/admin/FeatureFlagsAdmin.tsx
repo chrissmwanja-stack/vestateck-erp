@@ -77,7 +77,9 @@ export default function FeatureFlagsAdmin() {
     setBusy(true);
     const { error: err } = await supabase.rpc('save_feature_flag', {
       p_key: editing.key.trim(),
-      p_description: editing.description.trim() || null,
+      // the function does nullif(btrim(p_description), '') server-side,
+      // so an empty string round-trips to NULL without us sending it here
+      p_description: editing.description.trim(),
       p_default_enabled: editing.default_enabled,
     });
     setBusy(false);
@@ -106,7 +108,9 @@ export default function FeatureFlagsAdmin() {
 
   const clearOverride = async (tenantId: string, key: string) => {
     setBusy(true);
-    const { error: err } = await supabase.rpc('set_tenant_feature_flag', { p_tenant_id: tenantId, p_key: key, p_enabled: null });
+    // p_enabled has no SQL default; NULL is the explicit "clear override" signal
+    // (see set_tenant_feature_flag), so this cast reflects a deliberate null.
+    const { error: err } = await supabase.rpc('set_tenant_feature_flag', { p_tenant_id: tenantId, p_key: key, p_enabled: null as unknown as boolean });
     setBusy(false);
     if (err) {
       setError(friendlyPlatformError(err.message));

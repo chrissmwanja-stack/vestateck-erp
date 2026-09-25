@@ -8711,7 +8711,9 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_feature_flag: { Args: { p_key: string }; Returns: undefined }
       delete_industry_template: { Args: { p_key: string }; Returns: undefined }
+      delete_platform_announcement: { Args: { p_id: string }; Returns: undefined }
       edit_purchase_order: {
         Args: {
           p_amount: number
@@ -8933,6 +8935,18 @@ export type Database = {
         }[]
       }
       get_company_analytics: { Args: { p_tenant_id: string }; Returns: Json }
+      get_tenant_feature_flags: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          key: string
+          description: string | null
+          default_enabled: boolean
+          override: boolean | null
+          effective: boolean
+          note: string | null
+          updated_at: string | null
+        }[]
+      }
       get_faqs: {
         Args: { p_category?: string }
         Returns: {
@@ -9717,6 +9731,39 @@ export type Database = {
           updated_at: string
         }[]
       }
+      list_feature_flags: {
+        Args: never
+        Returns: {
+          key: string
+          description: string | null
+          default_enabled: boolean
+          updated_at: string
+          tenants_on: number
+          tenants_off: number
+          overrides: Json
+        }[]
+      }
+      list_platform_announcements: {
+        Args: { p_include_past?: boolean }
+        Returns: {
+          id: string
+          title: string
+          body: string
+          severity: string
+          tenant_id: string | null
+          tenant_name: string | null
+          starts_at: string
+          ends_at: string | null
+          dismissible: boolean
+          link_url: string | null
+          link_label: string | null
+          is_active: boolean
+          state: string
+          dismissals: number
+          created_at: string
+          created_by_email: string | null
+        }[]
+      }
       list_my_approval_surfaces: {
         Args: never
         Returns: {
@@ -10308,6 +10355,26 @@ export type Database = {
         }
         Returns: Json
       }
+      save_feature_flag: {
+        Args: { p_key: string; p_description: string; p_default_enabled: boolean }
+        Returns: undefined
+      }
+      save_platform_announcement: {
+        Args: {
+          p_id: string | null
+          p_title: string
+          p_body: string
+          p_severity?: string
+          p_tenant_id?: string
+          p_starts_at?: string
+          p_ends_at?: string
+          p_dismissible?: boolean
+          p_link_url?: string
+          p_link_label?: string
+          p_is_active?: boolean
+        }
+        Returns: string
+      }
       seed_default_chart_of_accounts: { Args: never; Returns: undefined }
       seed_statutory_rate_table: {
         Args: { p_effective_date?: string }
@@ -10402,6 +10469,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_tenant_feature_flag: {
+        Args: { p_tenant_id: string; p_key: string; p_enabled: boolean; p_note?: string }
+        Returns: undefined
       }
       set_tenant_modules: {
         Args: { p_modules: string[]; p_tenant_id: string }

@@ -339,7 +339,8 @@ function TemplateEditorDialog({
     const { error } = await supabase.rpc('save_industry_template', {
       p_key: d.key,
       p_name: d.name.trim(),
-      p_description: d.description.trim() || null,
+      // the function does nullif(btrim(p_description), '') server-side
+      p_description: d.description.trim(),
       p_items: itemsFromDraft(d) as unknown as import('@erp-platform/shared').Json,
       p_is_active: d.is_active,
     });
