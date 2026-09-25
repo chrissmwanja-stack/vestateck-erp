@@ -1792,6 +1792,61 @@ export type Database = {
           },
         ]
       }
+      bd_tender_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          submission_ref: string | null
+          submitted_at: string
+          submitted_by: string
+          tenant_id: string
+          tender_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          submission_ref?: string | null
+          submitted_at?: string
+          submitted_by: string
+          tenant_id: string
+          tender_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          submission_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string
+          tenant_id?: string
+          tender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bd_tender_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd_tender_submissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd_tender_submissions_tender_id_fkey"
+            columns: ["tender_id"]
+            isOneToOne: true
+            referencedRelation: "bd_tenders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_bank_transactions: {
         Row: {
           amount: number
@@ -3968,6 +4023,58 @@ export type Database = {
           },
         ]
       }
+      law_contract_decisions: {
+        Row: {
+          contract_id: string
+          created_at: string
+          decided_by: string
+          decision: string
+          id: string
+          notes: string | null
+          tenant_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          decided_by: string
+          decision: string
+          id?: string
+          notes?: string | null
+          tenant_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          decided_by?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "law_contract_decisions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "law_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_contract_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_contract_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       law_contract_types: {
         Row: {
           created_at: string
@@ -4076,10 +4183,63 @@ export type Database = {
           },
         ]
       }
+      law_filing_events: {
+        Row: {
+          actor_id: string
+          created_at: string
+          filing_id: string
+          id: string
+          note: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          filing_id: string
+          id?: string
+          note?: string | null
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          filing_id?: string
+          id?: string
+          note?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "law_filing_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_filing_events_filing_id_fkey"
+            columns: ["filing_id"]
+            isOneToOne: false
+            referencedRelation: "law_regulatory_filings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "law_filing_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       law_regulatory_filings: {
         Row: {
           created_at: string
           created_by: string | null
+          due_date: string | null
           filing_date: string | null
           filing_type: string | null
           id: string
@@ -4091,6 +4251,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           filing_date?: string | null
           filing_type?: string | null
           id?: string
@@ -4102,6 +4263,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          due_date?: string | null
           filing_date?: string | null
           filing_type?: string | null
           id?: string
@@ -4310,6 +4472,61 @@ export type Database = {
           },
         ]
       }
+      machine_maintenance_events: {
+        Row: {
+          actor_id: string
+          actual_cost: number | null
+          created_at: string
+          id: string
+          note: string | null
+          request_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          actual_cost?: number | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          actual_cost?: number | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          request_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_maintenance_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_maintenance_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_maintenance_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_types: {
         Row: {
           created_at: string
@@ -4407,11 +4624,14 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          actual_cost: number | null
+          assigned_to: string | null
           completed_date: string | null
           created_at: string
           description: string
           id: string
           machine_id: string
+          overdue_notified_at: string | null
           requested_by: string | null
           scheduled_date: string | null
           status: string
@@ -4420,11 +4640,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_cost?: number | null
+          assigned_to?: string | null
           completed_date?: string | null
           created_at?: string
           description: string
           id?: string
           machine_id: string
+          overdue_notified_at?: string | null
           requested_by?: string | null
           scheduled_date?: string | null
           status?: string
@@ -4433,11 +4656,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_cost?: number | null
+          assigned_to?: string | null
           completed_date?: string | null
           created_at?: string
           description?: string
           id?: string
           machine_id?: string
+          overdue_notified_at?: string | null
           requested_by?: string | null
           scheduled_date?: string | null
           status?: string
@@ -4446,6 +4672,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_requests_machine_id_fkey"
             columns: ["machine_id"]
@@ -5224,6 +5457,91 @@ export type Database = {
           },
         ]
       }
+      platform_announcement_dismissals: {
+        Row: {
+          announcement_id: string
+          dismissed_at: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          dismissed_at?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          dismissed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_announcement_dismissals_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "platform_announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_announcements: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          dismissible: boolean
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          link_label: string | null
+          link_url: string | null
+          severity: string
+          starts_at: string
+          tenant_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          dismissible?: boolean
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          link_label?: string | null
+          link_url?: string | null
+          severity?: string
+          starts_at?: string
+          tenant_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          dismissible?: boolean
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          link_label?: string | null
+          link_url?: string | null
+          severity?: string
+          starts_at?: string
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_announcements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_audit_events: {
         Row: {
           action: string
@@ -5367,6 +5685,67 @@ export type Database = {
         }
         Relationships: []
       }
+      pmo_cost_entries: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          id: string
+          project_id: string
+          reference_no: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date?: string
+          id?: string
+          project_id: string
+          reference_no?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          id?: string
+          project_id?: string
+          reference_no?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_cost_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_cost_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_cost_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pmo_milestones: {
         Row: {
           completion_percent: number
@@ -5453,12 +5832,65 @@ export type Database = {
           },
         ]
       }
+      pmo_project_decisions: {
+        Row: {
+          created_at: string
+          decided_by: string
+          decision: string
+          id: string
+          notes: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_by: string
+          decision: string
+          id?: string
+          notes?: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string
+          decision?: string
+          id?: string
+          notes?: string | null
+          project_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_project_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_project_decisions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_project_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pmo_projects: {
         Row: {
           budget: number | null
           category_id: string | null
           client_name: string | null
           created_at: string
+          created_by: string | null
           currency: string
           description: string | null
           end_date: string | null
@@ -5476,6 +5908,7 @@ export type Database = {
           category_id?: string | null
           client_name?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string
           description?: string | null
           end_date?: string | null
@@ -5493,6 +5926,7 @@ export type Database = {
           category_id?: string | null
           client_name?: string | null
           created_at?: string
+          created_by?: string | null
           currency?: string
           description?: string | null
           end_date?: string | null
@@ -5511,6 +5945,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "pmo_project_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
             referencedColumns: ["id"]
           },
           {
@@ -5744,6 +6185,77 @@ export type Database = {
             columns: ["type_id"]
             isOneToOne: false
             referencedRelation: "pmo_task_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pmo_time_entries: {
+        Row: {
+          created_at: string
+          entry_date: string
+          hourly_rate: number | null
+          hours: number
+          id: string
+          note: string | null
+          project_id: string
+          task_id: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_date?: string
+          hourly_rate?: number | null
+          hours: number
+          id?: string
+          note?: string | null
+          project_id: string
+          task_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_date?: string
+          hourly_rate?: number | null
+          hours?: number
+          id?: string
+          note?: string | null
+          project_id?: string
+          task_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pmo_time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "pmo_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pmo_time_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
             referencedColumns: ["id"]
           },
         ]
@@ -8711,9 +9223,70 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decide_contract: {
+        Args: {
+          p_contract_id: string
+          p_decision: string
+          p_notes?: string | null
+        }
+        Returns: {
+          contract_no: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          end_date: string | null
+          id: string
+          party_name: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          title: string
+          type_id: string | null
+          updated_at: string
+          value: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "law_contracts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      decide_pmo_project: {
+        Args: {
+          p_decision: string
+          p_notes?: string | null
+          p_project_id: string
+        }
+        Returns: {
+          budget: number | null
+          category_id: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          end_date: string | null
+          id: string
+          manager_id: string | null
+          name: string
+          project_no: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pmo_projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_feature_flag: { Args: { p_key: string }; Returns: undefined }
       delete_industry_template: { Args: { p_key: string }; Returns: undefined }
       delete_platform_announcement: { Args: { p_id: string }; Returns: undefined }
+      dismiss_announcement: { Args: { p_id: string }; Returns: undefined }
       edit_purchase_order: {
         Args: {
           p_amount: number
@@ -8805,6 +9378,21 @@ export type Database = {
           requester_name: string
           resource: string
           status: string
+        }[]
+      }
+      get_active_announcements: {
+        Args: never
+        Returns: {
+          id: string
+          title: string
+          body: string
+          severity: string
+          starts_at: string
+          ends_at: string | null
+          dismissible: boolean
+          link_url: string | null
+          link_label: string | null
+          is_global: boolean
         }[]
       }
       get_active_impersonation: {
@@ -9245,6 +9833,7 @@ export type Database = {
         }[]
       }
       get_platform_dashboard_stats: { Args: never; Returns: Json }
+      get_platform_health: { Args: never; Returns: Json }
       get_po_detail: {
         Args: { p_purchase_order_id: string }
         Returns: {
@@ -9861,6 +10450,7 @@ export type Database = {
         }
         Returns: string
       }
+      machine_maintenance_overdue_sweep: { Args: never; Returns: number }
       mark_platform_digest_delivered: {
         Args: { p_error?: string; p_id: string; p_status: string }
         Returns: undefined
@@ -10337,6 +10927,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revise_payroll_run: {
+        Args: { p_run_id: string }
+        Returns: {
+          amount_disbursed: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          period: string
+          prepared_by: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "hr_payroll_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       revoke_hr_team_member: { Args: { p_user_id: string }; Returns: undefined }
       revoke_invitation: {
         Args: { p_invitation_id: string }
@@ -10479,7 +11093,11 @@ export type Database = {
         Returns: string[]
       }
       set_tenant_read_only: {
-        Args: { p_read_only: boolean; p_reason?: string; p_tenant_id: string }
+        Args: {
+          p_read_only: boolean
+          p_reason?: string | null
+          p_tenant_id: string
+        }
         Returns: {
           address: string | null
           contact_email: string | null
@@ -10665,6 +11283,31 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      submit_contract_for_approval: {
+        Args: { p_contract_id: string }
+        Returns: {
+          contract_no: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          end_date: string | null
+          id: string
+          party_name: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          title: string
+          type_id: string | null
+          updated_at: string
+          value: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "law_contracts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_offers_for_approval: {
         Args: { p_request_id: string }
         Returns: {
@@ -10716,6 +11359,33 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      submit_pmo_project_for_approval: {
+        Args: { p_project_id: string }
+        Returns: {
+          budget: number | null
+          category_id: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          end_date: string | null
+          id: string
+          manager_id: string | null
+          name: string
+          project_no: string
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pmo_projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_request_with_line_items: {
         Args: {
           p_cost_center_id: string
@@ -10738,6 +11408,92 @@ export type Database = {
       supplier_invoice_receipt_cap: {
         Args: { p_invoice_id: string }
         Returns: number
+      }
+      transition_filing: {
+        Args: {
+          p_filing_id: string
+          p_note?: string | null
+          p_status: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          filing_date: string | null
+          filing_type: string | null
+          id: string
+          reference_no: string | null
+          status: string
+          tenant_id: string
+          title: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "law_regulatory_filings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      transition_maintenance_request: {
+        Args: {
+          p_actual_cost?: number | null
+          p_note?: string | null
+          p_request_id: string
+          p_status: string
+        }
+        Returns: {
+          actual_cost: number | null
+          assigned_to: string | null
+          completed_date: string | null
+          created_at: string
+          description: string
+          id: string
+          machine_id: string
+          overdue_notified_at: string | null
+          requested_by: string | null
+          scheduled_date: string | null
+          status: string
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "maintenance_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      transition_tender: {
+        Args: {
+          p_note?: string | null
+          p_ref?: string | null
+          p_status: string
+          p_tender_id: string
+        }
+        Returns: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          estimated_value: number | null
+          id: string
+          portal_url: string | null
+          status: string
+          submission_deadline: string | null
+          tenant_id: string
+          tender_no: string | null
+          title: string
+          type_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bd_tenders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       try_complete_po: {
         Args: { p_purchase_order_id: string }
