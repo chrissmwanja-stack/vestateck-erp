@@ -165,7 +165,7 @@ end $$;
 -- ---------------------------------------------------------------------
 -- 2. Grant a second platform admin
 -- ---------------------------------------------------------------------
-select pg_temp.become('admin');
+select pg_temp.become('admin', 'authenticated', 'aal2');
 
 do $$
 declare
@@ -244,7 +244,7 @@ begin
   if (select count(*) from get_active_impersonation()) <> 1 then raise exception 'FAIL: second admin session not active'; end if;
 end $$;
 
-select pg_temp.become('admin');
+select pg_temp.become('admin', 'authenticated', 'aal2');
 do $$
 declare
   v_admin  uuid := (select v from test_ids where k = 'admin');
@@ -298,7 +298,7 @@ end $$;
 -- 5. Directory filters
 -- ---------------------------------------------------------------------
 set local role authenticated;
-select pg_temp.become('admin');
+select pg_temp.become('admin', 'authenticated', 'aal2');
 
 do $$
 declare
