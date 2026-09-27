@@ -44,16 +44,18 @@ begin
 end $$;
 
 -- Test start_impersonation requires reason >=5 chars
+-- (the length check may live on any overload — e.g. a 2-arg wrapper that
+-- delegates to a 3-arg implementation — so check across all overloads
+-- rather than stopping at the first one found)
 do $$
 declare
   v_def text;
 begin
-  select pg_get_functiondef(oid) into v_def from pg_proc where proname='start_impersonation' and pronargs=2;
-  if v_def is null then
-    -- try 3-arg version
-    select pg_get_functiondef(oid) into v_def from pg_proc where proname='start_impersonation' and pronargs=3 limit 1;
-  end if;
-  if v_def not like '%reason%' or v_def not like '%5%' then
+  select string_agg(pg_get_functiondef(oid), E'\n') into v_def
+  from pg_proc
+  where proname = 'start_impersonation' and pronamespace = 'public'::regnamespace;
+
+  if v_def is null or v_def not like '%reason%' or v_def not like '%5%' then
     raise exception 'FAIL: start_impersonation should require reason >=5 chars';
   end if;
 end $$;

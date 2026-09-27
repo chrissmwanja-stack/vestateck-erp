@@ -19,13 +19,17 @@ interface TenantAccess {
 // get_my_tenant_id() -- so a platform admin using View-as sees exactly
 // the banner the customer sees.
 //
-// Shows:
-//   * a persistent warning while the company is in read-only mode, with
-//     the operator's reason (every write is refused server-side by
-//     tenant_read_only_guard(); this banner explains *why* before the
-//     user hits a confusing error);
-//   * a soft heads-up during the last 7 days of a trial.
-// Suspension is handled earlier, by RequireAuth, so it isn't repeated here.
+// Shows a persistent warning while the company is in read-only mode,
+// with the operator's reason (every write is refused server-side by
+// tenant_read_only_guard(); this banner explains *why* before the user
+// hits a confusing error). Suspension is handled earlier, by RequireAuth,
+// so it isn't repeated here.
+//
+// There is no self-serve trial in this product -- access is granted or
+// revoked by the platform operator against an annual invoice, not a
+// subscription clock -- so this deliberately does not surface
+// trial_ends_at/subscription_status to the customer. Company Detail can
+// still record those fields for the operator's own bookkeeping.
 export default function TenantAccessBanner() {
   const [access, setAccess] = useState<TenantAccess | null>(null);
 
@@ -40,33 +44,12 @@ export default function TenantAccessBanner() {
     };
   }, []);
 
-  if (!access) return null;
-
-  const trialDays = trialDaysLeft(access);
+  if (!access?.read_only) return null;
 
   return (
-    <>
-      {access.read_only && (
-        <Alert severity="warning" sx={{ borderRadius: 0 }} data-testid="tenant-read-only-banner">
-          <strong>{access.name} is in read-only mode.</strong> You can view everything but changes are not being
-          accepted{access.read_only_reason ? ` — ${access.read_only_reason}` : '.'}
-        </Alert>
-      )}
-      {trialDays !== null && (
-        <Alert severity="info" sx={{ borderRadius: 0 }} data-testid="tenant-trial-banner">
-          {trialDays <= 0
-            ? 'Your trial period has ended. Contact your account manager to keep full access.'
-            : `Your trial ends in ${trialDays} day${trialDays === 1 ? '' : 's'}.`}
-        </Alert>
-      )}
-    </>
+    <Alert severity="warning" sx={{ borderRadius: 0 }} data-testid="tenant-read-only-banner">
+      <strong>{access.name} is in read-only mode.</strong> You can view everything but changes are not being
+      accepted{access.read_only_reason ? ` — ${access.read_only_reason}` : '.'}
+    </Alert>
   );
-}
-
-// Returns days left when the trial banner should show (≤ 7 days, or
-// already over), otherwise null. Exported for tests.
-export function trialDaysLeft(access: Pick<TenantAccess, 'subscription_status' | 'trial_ends_at'>, now = new Date()): number | null {
-  if (access.subscription_status !== 'trialing' || !access.trial_ends_at) return null;
-  const days = Math.ceil((new Date(access.trial_ends_at).getTime() - now.getTime()) / 86_400_000);
-  return days <= 7 ? days : null;
 }

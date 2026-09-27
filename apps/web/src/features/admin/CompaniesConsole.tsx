@@ -288,7 +288,6 @@ export default function CompaniesConsole() {
           sx={{ minWidth: 150 }}
         >
           <MenuItem value="">Any</MenuItem>
-          <MenuItem value="trialing">Trialing</MenuItem>
           <MenuItem value="active">Active (paid)</MenuItem>
           <MenuItem value="past_due">Past due</MenuItem>
           <MenuItem value="cancelled">Cancelled</MenuItem>
@@ -302,7 +301,6 @@ export default function CompaniesConsole() {
           sx={{ minWidth: 190 }}
         >
           <MenuItem value="">Everything</MenuItem>
-          <MenuItem value="trial_ending">Trial ending ≤ 14 days</MenuItem>
           <MenuItem value="quiet">Quiet 30+ days</MenuItem>
           <MenuItem value="stalled">Stalled in setup 7+ days</MenuItem>
           <MenuItem value="read_only">In read-only mode</MenuItem>

@@ -57,10 +57,6 @@ describe('applyCompanyFilters', () => {
     expect(names(applyCompanyFilters(rows, { ...EMPTY_FILTERS, subscription: 'past_due' }, NOW))).toEqual(['Gamma Group']);
   });
 
-  it('"trial ending" means trialing with an end date within 14 days', () => {
-    expect(names(applyCompanyFilters(rows, { ...EMPTY_FILTERS, flag: 'trial_ending' }, NOW))).toEqual(['Beta Builders']);
-  });
-
   it('"quiet" means no activity in 30 days (or never), excluding pending companies', () => {
     expect(names(applyCompanyFilters(rows, { ...EMPTY_FILTERS, flag: 'quiet' }, NOW))).toEqual(['Beta Builders', 'Gamma Group']);
   });

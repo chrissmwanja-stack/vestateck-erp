@@ -35,7 +35,7 @@ export interface CompanyFilters {
   status: '' | 'pending' | 'active' | 'suspended';
   plan: string;
   subscription: string;
-  flag: '' | 'read_only' | 'trial_ending' | 'quiet' | 'seats_full' | 'stalled';
+  flag: '' | 'read_only' | 'quiet' | 'seats_full' | 'stalled';
   // Onboarding stage key ('' = any). Populated from ?stage= so the
   // Overview funnel bars deep-link into the filtered list.
   stage: string;
@@ -60,7 +60,7 @@ export function filtersFromSearch(search: string | URLSearchParams): CompanyFilt
     status: pick('status', ['pending', 'active', 'suspended'] as const),
     plan: p.get('plan') ?? '',
     subscription: p.get('subscription') ?? '',
-    flag: pick('flag', ['read_only', 'trial_ending', 'quiet', 'seats_full', 'stalled'] as const),
+    flag: pick('flag', ['read_only', 'quiet', 'seats_full', 'stalled'] as const),
     stage: pick('stage', Object.keys(STAGE_RANK)),
   };
 }
@@ -88,10 +88,6 @@ export function applyCompanyFilters(rows: Tenant[], f: CompanyFilters, now: numb
         return !!r.onboarding_stalled;
       case 'read_only':
         return !!r.read_only;
-      case 'trial_ending': {
-        if (r.subscription_status !== 'trialing' || !r.trial_ends_at) return false;
-        return new Date(r.trial_ends_at).getTime() - now <= 14 * DAY;
-      }
       case 'quiet': {
         // No sign-in or request in 30 days (or never), and not pending.
         if (r.status === 'pending') return false;

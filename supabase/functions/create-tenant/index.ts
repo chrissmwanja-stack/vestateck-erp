@@ -110,6 +110,14 @@ serve(async (req) => {
     }
 
     // --- Create the tenant ---
+    // This platform has no self-serve signup or billing -- every company
+    // is onboarded by a platform admin against an annual invoice, and
+    // access is granted/revoked manually (tenants.status), not by a
+    // subscription clock. So a new company starts on plan='standard',
+    // subscription_status='active' explicitly, rather than relying on
+    // the column defaults (which used to leave it mislabeled as
+    // plan='trial'/'trialing' until someone remembered to fix it on the
+    // Company Detail screen).
     const { data: tenant, error: insertError } = await admin
       .from('tenants')
       .insert({
@@ -117,6 +125,8 @@ serve(async (req) => {
         industry_template: industryTemplate,
         created_by: callerId,
         status: 'pending',
+        plan: 'standard',
+        subscription_status: 'active',
       })
       .select('id, name, status')
       .single();
