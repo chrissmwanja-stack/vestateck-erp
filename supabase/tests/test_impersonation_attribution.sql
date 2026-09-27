@@ -60,6 +60,9 @@ begin
   end if;
 end $$;
 
-raise notice 'PASS: impersonation attribution tests';
+do $$
+begin
+  raise notice 'PASS: impersonation attribution tests';
+end $$;
 
 rollback;
