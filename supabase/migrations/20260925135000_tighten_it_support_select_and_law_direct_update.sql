@@ -19,9 +19,21 @@ drop policy if exists "priority_levels_select" on public.priority_levels;
 create policy "priority_levels_select" on public.priority_levels
   for select using ((tenant_id = get_my_tenant_id()) and is_it_support());
 
+-- support_team_members has no tenant_id of its own (just team_id, user_id,
+-- added_at) -- it's a join table, tenant-scoped only indirectly via
+-- team_id -> support_teams.tenant_id (see the original policy in the
+-- baseline, which used this same exists/join). Re-add is_it_support() on
+-- top of that join instead of a direct tenant_id reference that doesn't exist.
 drop policy if exists "support_team_members_select" on public.support_team_members;
 create policy "support_team_members_select" on public.support_team_members
-  for select using ((tenant_id = get_my_tenant_id()) and is_it_support());
+  for select using (
+    exists (
+      select 1 from public.support_teams st
+      where st.id = support_team_members.team_id
+        and st.tenant_id = get_my_tenant_id()
+    )
+    and is_it_support()
+  );
 
 -- faqs and kb_articles already allow is_published OR is_it_support() — keep as is (public KB)
 
@@ -161,6 +173,83 @@ grant execute on function public.decide_contract(uuid, text, text) to authentica
 grant execute on function public.decide_contract(uuid, text, text) to service_role;
 
 -- 3. Extend posted cost immutability to fuel_logs and maintenance_requests (Machine)
+--
+-- prevent_posted_invoice_update() (defined in 20260925131000) only branches on
+-- tg_table_name in ('supplier_invoices', 'receivable_invoices',
+-- 'cash_bank_transactions'), with no fallback. Attaching it as-is to fuel_logs
+-- / maintenance_requests below would create triggers that fire on every UPDATE
+-- but never match any branch -- a silent no-op that doesn't actually enforce
+-- immutability, despite this section's stated goal. Re-declaring it here with
+-- the two extra branches (source_type values 'machine_fuel_log' and
+-- 'machine_maintenance_request' already exist in journal_entries' check
+-- constraint, added by 20260921120000_machine_maintenance_workflow.sql).
+create or replace function public.prevent_posted_invoice_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_has_journal boolean;
+begin
+  if tg_op = 'UPDATE' then
+    -- Only care about amount field changes
+    if tg_table_name = 'supplier_invoices' then
+      if new.amount_incl_vat is distinct from old.amount_incl_vat
+         or new.vat_amount is distinct from old.vat_amount
+         or new.wht_amount is distinct from old.wht_amount then
+        select exists(select 1 from journal_entries where source_type='supplier_invoice' and source_id=old.id)
+          into v_has_journal;
+        if v_has_journal then
+          raise exception 'POSTED_INVOICE_IMMUTABLE: cannot change amount of posted supplier invoice % — create a credit note reversal', old.id
+            using errcode = 'restrict_violation';
+        end if;
+      end if;
+    elsif tg_table_name = 'receivable_invoices' then
+      if new.amount_incl_vat is distinct from old.amount_incl_vat
+         or new.vat_amount is distinct from old.vat_amount then
+        select exists(select 1 from journal_entries where source_type='receivable_invoice' and source_id=old.id)
+          into v_has_journal;
+        if v_has_journal then
+          raise exception 'POSTED_INVOICE_IMMUTABLE: cannot change amount of posted receivable invoice %', old.id
+            using errcode = 'restrict_violation';
+        end if;
+      end if;
+    elsif tg_table_name = 'cash_bank_transactions' then
+      if new.amount is distinct from old.amount then
+        select exists(select 1 from journal_entries where source_type='cash_bank_transaction' and source_id=old.id)
+          into v_has_journal;
+        if v_has_journal then
+          raise exception 'POSTED_TRANSACTION_IMMUTABLE: cannot change amount of posted cash/bank transaction %', old.id
+            using errcode = 'restrict_violation';
+        end if;
+      end if;
+    elsif tg_table_name = 'fuel_logs' then
+      if new.cost is distinct from old.cost then
+        select exists(select 1 from journal_entries where source_type='machine_fuel_log' and source_id=old.id)
+          into v_has_journal;
+        if v_has_journal then
+          raise exception 'POSTED_FUEL_LOG_IMMUTABLE: cannot change cost of posted fuel log % — create a correcting entry', old.id
+            using errcode = 'restrict_violation';
+        end if;
+      end if;
+    elsif tg_table_name = 'maintenance_requests' then
+      if new.actual_cost is distinct from old.actual_cost then
+        select exists(select 1 from journal_entries where source_type='machine_maintenance_request' and source_id=old.id)
+          into v_has_journal;
+        if v_has_journal then
+          raise exception 'POSTED_MAINTENANCE_COST_IMMUTABLE: cannot change actual_cost of posted maintenance request %', old.id
+            using errcode = 'restrict_violation';
+        end if;
+      end if;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.prevent_posted_invoice_update() from public;
+
 drop trigger if exists trg_prevent_posted_fuel_cost_update on public.fuel_logs;
 create trigger trg_prevent_posted_fuel_cost_update
   before update on public.fuel_logs
