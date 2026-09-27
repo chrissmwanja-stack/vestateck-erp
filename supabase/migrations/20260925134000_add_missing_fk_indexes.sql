@@ -33,7 +33,9 @@ create index if not exists pmo_time_entries_task_id_idx on public.pmo_time_entri
 -- Additional from broader 21 list (inferred from common patterns)
 create index if not exists bd_tenders_client_id_idx on public.bd_tenders (client_id);
 create index if not exists bd_opportunities_client_id_idx on public.bd_opportunities (client_id);
-create index if not exists law_cases_case_type_id_idx on public.law_cases (case_type_id);
+-- law_cases has no case_type_id column; its case-type FK column is `type_id`
+-- (constraint law_cases_type_id_fkey -> law_case_types(id)), and that's already
+-- indexed by the baseline as idx_law_cases_type. Nothing to add here.
 create index if not exists pmo_projects_category_id_idx on public.pmo_projects (category_id);
 create index if not exists maintenance_requests_machine_id_idx on public.maintenance_requests (machine_id);
 create index if not exists fuel_logs_machine_id_idx on public.fuel_logs (machine_id);
