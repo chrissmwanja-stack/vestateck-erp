@@ -24,7 +24,16 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.prosecdef
-      and p.proname like 'trg_%' or p.proname like 'notify_%' or p.proname like 'check_%' or p.proname like 'pmo_check_%' or p.proname like 'set_%' or p.proname like 'touch_%'
+      and (
+        p.proname like 'trg_%' or p.proname like 'notify_%' or p.proname like 'check_%'
+        or p.proname like 'pmo_check_%' or p.proname like 'set_%' or p.proname like 'touch_%'
+      )
+      -- Without these parens, operator precedence (AND binds tighter than OR) meant
+      -- nspname = 'public' and prosecdef only gated the trg_% branch; every other
+      -- branch matched function names in ANY schema, including pg_catalog builtins
+      -- (setval, set_config, setweight, set_bit, set_byte, set_masklen, setseed,
+      -- check_equality_op) -- which is exactly what produced the WARNING (01006)/
+      -- (01007) spam for those names during `supabase db reset`.
   loop
     begin
       execute format('revoke all on function %s from public', r.func);
@@ -68,17 +77,23 @@ create policy "finance_team_members_select_own_or_admin" on public.finance_team_
   for select using (((user_id = (select auth.uid())) or is_platform_admin()));
 
 -- Fix platform_announcement_dismissals initplan (mentioned in audit)
+-- NOTE: this table is platform-wide (announcement_id, user_id), not
+-- tenant-scoped -- it has no tenant_id column (see its create table in
+-- 20260923090000_templates_announcements_flags_health.sql). An earlier
+-- version of this migration bolted on "and (tenant_id = get_my_tenant_id())"
+-- by copy-paste from the tenant-scoped policies above, which breaks
+-- `supabase db reset` with "column tenant_id does not exist".
 drop policy if exists "platform_announcement_dismissals_select_own" on public.platform_announcement_dismissals;
 create policy "platform_announcement_dismissals_select_own" on public.platform_announcement_dismissals
-  for select using ((user_id = (select auth.uid())) and (tenant_id = get_my_tenant_id()));
+  for select using (user_id = (select auth.uid()));
 
 drop policy if exists "platform_announcement_dismissals_insert_own" on public.platform_announcement_dismissals;
 create policy "platform_announcement_dismissals_insert_own" on public.platform_announcement_dismissals
-  for insert with check ((user_id = (select auth.uid())) and (tenant_id = get_my_tenant_id()));
+  for insert with check (user_id = (select auth.uid()));
 
 drop policy if exists "platform_announcement_dismissals_delete_own" on public.platform_announcement_dismissals;
 create policy "platform_announcement_dismissals_delete_own" on public.platform_announcement_dismissals
-  for delete using ((user_id = (select auth.uid())) and (tenant_id = get_my_tenant_id()));
+  for delete using (user_id = (select auth.uid()));
 
 -- Fix hr_leave_requests insert (uses EXISTS with auth.uid())
 drop policy if exists "hr_leave_requests_insert" on public.hr_leave_requests;
