@@ -2,8 +2,9 @@
 --   supabase/migrations/20260922180000_tenant_profile_and_subscription.sql
 --
 -- Verifies, against a fully-migrated fresh stack:
---   1. Existing tenants carry sane defaults (plan trial, trialing, not
---      read-only, no seat limit); the platform home tenant is 'internal'.
+--   1. New tenants carry sane defaults (plan standard, subscription active
+--      -- annual-invoice model, no self-serve trial -- not read-only, no
+--      seat limit); the platform home tenant is 'internal'.
 --   2. update_tenant_profile: platform admin can patch whitelisted keys;
 --      unknown keys, blank name, bad email, bad plan are refused; the
 --      audit row holds only the changed keys; a no-change patch writes
@@ -115,7 +116,7 @@ do $$
 declare v_tenant uuid := (select v from test_ids where k = 'tenant'); r tenants;
 begin
   select * into r from tenants where id = v_tenant;
-  if r.plan <> 'trial' or r.subscription_status <> 'trialing' or r.read_only or r.seat_limit is not null or r.country <> 'UG' then
+  if r.plan <> 'standard' or r.subscription_status <> 'active' or r.read_only or r.seat_limit is not null or r.country <> 'UG' then
     raise exception 'FAIL: unexpected defaults: %', to_jsonb(r);
   end if;
   if exists (select 1 from tenants where id = '00000000-0000-0000-0000-000000000099' and plan <> 'internal') then
@@ -150,10 +151,10 @@ begin
   select count(*) into n0 from platform_audit_events;
 
   r := update_tenant_profile(v_tenant, jsonb_build_object(
-    'contact_name', '  Jane Doe ', 'contact_email', 'Jane@Example.com', 'plan', 'standard',
-    'subscription_status', 'active', 'seat_limit', 5, 'trial_ends_at', null));
-  if r.contact_name <> 'Jane Doe' or r.contact_email <> 'jane@example.com' or r.plan <> 'standard'
-     or r.subscription_status <> 'active' or r.seat_limit <> 5 or r.trial_ends_at is not null then
+    'contact_name', '  Jane Doe ', 'contact_email', 'Jane@Example.com', 'plan', 'enterprise',
+    'subscription_status', 'past_due', 'seat_limit', 5, 'trial_ends_at', null));
+  if r.contact_name <> 'Jane Doe' or r.contact_email <> 'jane@example.com' or r.plan <> 'enterprise'
+     or r.subscription_status <> 'past_due' or r.seat_limit <> 5 or r.trial_ends_at is not null then
     raise exception 'FAIL: patch not applied: %', to_jsonb(r);
   end if;
   if r.updated_at is null or r.updated_at < now() - interval '1 minute' then
@@ -163,13 +164,13 @@ begin
   select * into e from platform_audit_events where tenant_id = v_tenant and action = 'tenant.profile.update' order by created_at desc limit 1;
   if e.id is null then raise exception 'FAIL: no audit row for profile update'; end if;
   if e.after ? 'trial_ends_at' then raise exception 'FAIL: unchanged key (trial_ends_at null->null) should not be in diff: %', e.after; end if;
-  if (e.after->>'plan') <> 'standard' or (e.before->>'plan') <> 'trial' or (e.after->>'seat_limit')::int <> 5 then
+  if (e.after->>'plan') <> 'enterprise' or (e.before->>'plan') <> 'standard' or (e.after->>'seat_limit')::int <> 5 then
     raise exception 'FAIL: diff wrong: before=% after=%', e.before, e.after;
   end if;
 
   -- No-op patch writes nothing.
   select count(*) into n0 from platform_audit_events;
-  perform update_tenant_profile(v_tenant, '{"plan":"standard"}');
+  perform update_tenant_profile(v_tenant, '{"plan":"enterprise"}');
   if (select count(*) from platform_audit_events) <> n0 then raise exception 'FAIL: no-op patch was audited'; end if;
 
   begin
@@ -265,7 +266,7 @@ begin
 
   -- customer-side banner data
   acc := get_my_tenant_access();
-  if not (acc->>'read_only')::boolean or acc->>'read_only_reason' <> 'Invoice 60 days overdue' or acc->>'plan' <> 'standard' then
+  if not (acc->>'read_only')::boolean or acc->>'read_only_reason' <> 'Invoice 60 days overdue' or acc->>'plan' <> 'enterprise' then
     raise exception 'FAIL: get_my_tenant_access wrong: %', acc;
   end if;
   raise notice 'PASS: 4a. customer blocked from writes, can read';
@@ -395,7 +396,7 @@ declare
 begin
   p := get_tenant_profile(v_tenant);
   if p is null then raise exception 'FAIL: profile null'; end if;
-  if (p->'tenant'->>'plan') <> 'standard' then raise exception 'FAIL: profile.tenant wrong: %', p->'tenant'; end if;
+  if (p->'tenant'->>'plan') <> 'enterprise' then raise exception 'FAIL: profile.tenant wrong: %', p->'tenant'; end if;
   if (p->'seats'->>'members')::int <> 1 or (p->'seats'->>'pending_invites')::int <> 3 then
     raise exception 'FAIL: seats wrong: %', p->'seats';
   end if;
@@ -411,7 +412,7 @@ begin
   if get_tenant_profile(gen_random_uuid()) is not null then raise exception 'FAIL: unknown tenant should be null'; end if;
 
   select * into ov from get_companies_overview() where tenant_id = v_tenant;
-  if ov.plan <> 'standard' or ov.subscription_status <> 'active' or ov.read_only or ov.contact_email <> 'jane@example.com'
+  if ov.plan <> 'enterprise' or ov.subscription_status <> 'past_due' or ov.read_only or ov.contact_email <> 'jane@example.com'
      or ov.last_activity_at is null or ov.member_count <> 1 then
     raise exception 'FAIL: overview row wrong: %', to_jsonb(ov);
   end if;
