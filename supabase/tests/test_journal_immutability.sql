@@ -88,6 +88,9 @@ begin
   end if;
 end $$;
 
-raise notice 'PASS: journal immutability tests';
+do $$
+begin
+  raise notice 'PASS: journal immutability tests';
+end $$;
 
 rollback;

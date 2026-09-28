@@ -85,6 +85,9 @@ begin
   end if;
 end $$;
 
-raise notice 'PASS: tenant_read_only_guard tests';
+do $$
+begin
+  raise notice 'PASS: tenant_read_only_guard tests';
+end $$;
 
 rollback;
