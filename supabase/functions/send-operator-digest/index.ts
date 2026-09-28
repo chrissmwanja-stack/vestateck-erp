@@ -11,9 +11,16 @@
 // function scheduler or an external cron:
 //
 //   curl -X POST "$SUPABASE_URL/functions/v1/send-operator-digest" \
-//        -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+//        -H "x-digest-secret: $OPERATOR_DIGEST_SECRET"
 //
-// Auth: service-role bearer only (this is not a browser endpoint). With no
+// Auth: a dedicated shared secret in the `x-digest-secret` header, compared
+// in constant time against the OPERATOR_DIGEST_SECRET edge-function secret
+// (this is not a browser endpoint). Set it with:
+//   supabase secrets set OPERATOR_DIGEST_SECRET=$(openssl rand -hex 32)
+// The scheduler therefore never holds the service-role key. If the secret is
+// not configured the function refuses every request (503) rather than
+// falling back to anything weaker. verify_jwt is false for this function in
+// supabase/config.toml because the secret is not a JWT. With no
 // RESEND_API_KEY / RESEND_FROM_EMAIL configured it marks rows 'skipped'
 // with a reason instead of failing, so the history panel explains itself.
 
@@ -23,6 +30,7 @@ import { escapeHtml, loadBranding, renderEmail, sendEmail, type Branding } from 
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const OPERATOR_DIGEST_SECRET = Deno.env.get('OPERATOR_DIGEST_SECRET') ?? '';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? '';
 // Where "open in console" links point. Falls back to the first allowed origin.
@@ -99,11 +107,36 @@ export function renderDigest(b: Branding, row: DigestRow, summary: string): { su
   return { subject, html };
 }
 
+// Constant-time string comparison so response timing does not leak how many
+// leading characters of the secret a caller guessed correctly. Hashing first
+// gives both sides a fixed length, so length differences do not leak either.
+async function secretsMatch(provided: string, expected: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(provided)),
+    crypto.subtle.digest('SHA-256', enc.encode(expected)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+const jsonHeaders = { 'Content-Type': 'application/json' };
+
 serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  const auth = req.headers.get('Authorization') ?? '';
-  if (auth !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
-    return new Response(JSON.stringify({ error: 'service role required' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  // Fail closed: no configured secret means nobody can call this.
+  if (!OPERATOR_DIGEST_SECRET) {
+    return new Response(
+      JSON.stringify({ error: 'Not configured. Set OPERATOR_DIGEST_SECRET and redeploy.' }),
+      { status: 503, headers: jsonHeaders }
+    );
+  }
+  const provided = req.headers.get('x-digest-secret') ?? '';
+  if (!(await secretsMatch(provided, OPERATOR_DIGEST_SECRET))) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
   }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

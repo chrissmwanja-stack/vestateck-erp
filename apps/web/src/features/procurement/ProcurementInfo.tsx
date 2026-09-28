@@ -210,9 +210,9 @@ export default function ProcurementInfo() {
   // Edge Function. Separate from viewPdf (which regenerates client-side
   // and just opens a link) — this one renders on the server, uploads to
   // the purchase-order-documents bucket, and emails the requester via
-  // Resend. Only the requester or someone in the approval trail can
-  // trigger this; the function re-checks that server-side regardless of
-  // who can see this row client-side.
+  // Resend. Only the requester, someone in the approval trail, or a
+  // same-tenant PO-access holder can trigger this; the function re-checks
+  // that server-side regardless of who can see this row client-side.
   const emailPo = async (row: InfoRow) => {
     setEmailingPo(row.purchase_order_id);
     setError(null);

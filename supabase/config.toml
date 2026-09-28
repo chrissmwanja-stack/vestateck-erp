@@ -17,3 +17,34 @@ enabled = true
 
 [storage.buckets.po-documents]
 public = false
+
+# Edge Function JWT verification, declared explicitly so the deployed
+# setting is reviewable in git rather than depending on CLI/dashboard
+# defaults. Every function below except send-operator-digest is called from
+# the browser with the signed-in user's session, so the gateway must reject
+# requests without a valid JWT (each function also re-checks the caller in
+# code via auth.getUser() and its own role checks).
+[functions.accept-invite]
+verify_jwt = true
+
+[functions.bootstrap-admin]
+verify_jwt = true
+
+[functions.create-tenant]
+verify_jwt = true
+
+[functions.generate-po]
+verify_jwt = true
+
+[functions.invite-user]
+verify_jwt = true
+
+[functions.resend-invite]
+verify_jwt = true
+
+# Not a browser endpoint: called by a scheduler with a dedicated shared
+# secret (OPERATOR_DIGEST_SECRET), which is not a JWT, so gateway JWT
+# verification must be off. The function authenticates the secret itself
+# and fails closed (503) if it is not configured.
+[functions.send-operator-digest]
+verify_jwt = false

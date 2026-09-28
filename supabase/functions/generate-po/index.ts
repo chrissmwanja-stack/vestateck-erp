@@ -119,7 +119,8 @@ serve(async (req) => {
       requester: { name: string; email: string } | null;
     };
 
-    // --- Authorization: requester, or someone in the approval trail ---
+    // --- Authorization: requester, someone in the approval trail, or a
+    // PO-access holder (final-stage approver/delegate) in the same tenant ---
     let authorized = request.requester_id === callerId;
     if (!authorized) {
       const { data: actedOn } = await admin
@@ -130,6 +131,17 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
       authorized = !!actedOn;
+    }
+    if (!authorized) {
+      // Same rule the rest of the procurement screens use to decide who may
+      // see and manage POs. Evaluated as the caller (userClient, not admin)
+      // so auth.uid() resolves to them, and pinned to the request's tenant so
+      // it can never reach across tenants.
+      const [{ data: hasPoAccess }, { data: callerTenantId }] = await Promise.all([
+        userClient.rpc('has_po_access'),
+        userClient.rpc('get_my_tenant_id'),
+      ]);
+      authorized = hasPoAccess === true && callerTenantId === request.tenant_id;
     }
     if (!authorized) {
       return jsonResponse(corsHeaders,

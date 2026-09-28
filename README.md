@@ -22,7 +22,7 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       67 incremental migrations layered on top as work
+                       79 incremental migrations layered on top as work
                        continues (supabase/migrations_archive holds the 201
                        pre-squash migrations, kept for history). Verified
                        2026-09-16: replaying every tracked migration from an
@@ -30,8 +30,10 @@ supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        — same tables, function signatures and bodies, and
                        RLS policies (including USING/WITH CHECK clauses),
                        byte-for-byte. See "Notes on the schema" below.
-supabase/functions    Edge Functions (e.g. generate-po; others are deployed
-                       directly via the Supabase CLI/dashboard as they're added)
+supabase/functions    Edge Functions: accept-invite, bootstrap-admin, create-tenant,
+                       generate-po, invite-user, resend-invite, send-operator-digest
+                       (JWT verification is declared per function in
+                       supabase/config.toml)
 packages/shared       TypeScript types shared between the web app and edge functions
 ```
 
@@ -44,7 +46,7 @@ packages/shared       TypeScript types shared between the web app and edge funct
 | Platform / Admin | Complete — companies console, orgs, departments, approval workflow admin, delegations, impersonation, invites/bootstrap, module entitlements, accounting-period/chart admin |
 | IT Support | Complete — tickets, SLAs, teams, access, assets, KB/FAQs, full RLS/RPC coverage |
 | Business Development | Broad but uneven — leads, clients, opportunities, tenders, proposals fully surfaced (incl. report exports); some RPCs and deeper workflows (opportunity math, tender submission management) still landing |
-| HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS hardening still landing on a few tables (compensation, team members, payroll approvers) |
+| HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS coverage for compensation, team members and payroll approvers is in place (closed by the 20260819–20260821 migrations) |
 | Law & Compliance | Real workflow — cases, contracts, compliance register, filings; contract approval via `submit_contract_for_approval`/`decide_contract` RPCs with decision audit trail, self-approval refused; filings run through a server-side `transition_filing` state machine |
 | PMO | Real workflow — projects, tasks, milestones, resources, Gantt with dependencies/critical path; project approval RPCs plus a real time/cost ledger (`pmo_time_entries`, `pmo_cost_entries`) backing the budget-vs-actual report |
 | Machine Operation | Real workflow — equipment, logs, fuel, maintenance; `transition_maintenance_request` state machine with an overdue sweep, and fuel/maintenance costs auto-post to GL |
@@ -57,13 +59,28 @@ packages/shared       TypeScript types shared between the web app and edge funct
    ```
 2. Copy `apps/web/.env.example` to `apps/web/.env` and fill in your Supabase
    project URL and anon key.
-3. Apply the migrations in `supabase/migrations/` to your Supabase project (via
-   the Supabase CLI or dashboard) — migrations are ordered by timestamp prefix
-   and should be applied in order.
+3. Apply the migrations in `supabase/migrations/` to your Supabase project with
+   the Supabase CLI (`supabase db push`, or `supabase start` for a local
+   stack). `supabase/migrations/` holds a squashed baseline
+   (`20260819122921_squashed_baseline.sql`) followed by incremental migrations;
+   they apply in timestamp order. Do not apply `supabase/migrations_archive/` —
+   it is the pre-squash history, kept for reference only. New migrations must
+   pass `supabase/scripts/check-migration-policy.sh` (see
+   `supabase/MIGRATION_POLICY.md`; `DROP TABLE`/`DROP COLUMN` are banned).
+   For a fresh database, `supabase/seed.sql` provides test tenants and accounts.
    Run `supabase migrations list` periodically to check local/remote drift — if a migration
     was ever applied directly against the database (SQL editor, hotfix, etc.) without a
    matching local file, it'll show up as an unmatched row in the `Remote` column.
-4. Run the web app:
+4. Edge Function secrets (only needed if you deploy the functions): set
+   `ALLOWED_ORIGINS` (comma-separated frontend origins; defaults to the Vite
+   dev server), `BOOTSTRAP_ADMIN_CODE` (one-shot first platform admin), and,
+   for the operator digest email leg, `OPERATOR_DIGEST_SECRET` (any long
+   random string; the scheduler sends it in an `x-digest-secret` header) plus
+   `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Example:
+   ```
+   supabase secrets set OPERATOR_DIGEST_SECRET=$(openssl rand -hex 32)
+   ```
+5. Run the web app:
    ```
    npm run dev
    ```
@@ -123,11 +140,12 @@ finance invoice payment, and payroll disbursement money-flow smoke tests).
 
 ## Known issues
 
-- `xlsx` (SheetJS), used by the bulk-import tooling, has an unfixed
-  high-severity advisory (prototype pollution + ReDoS — no upstream patch
-  available as of this writing). Low risk in practice since it only parses
-  files uploaded by the tenant's own users, but flagged here so it isn't
-  mistaken for an oversight in `npm audit` output.
+- `xlsx` (SheetJS) is installed from SheetJS's own patched tarball
+  (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, 0.20.3) rather than
+  the abandoned npm registry release (0.18.5), which carries an unfixed
+  prototype-pollution and ReDoS advisory. Trade-off: `npm audit` and
+  Dependabot cannot see inside a URL dependency, so check
+  https://cdn.sheetjs.com for new releases manually when bumping.
 - The `supabase/migrations_archive/` seed-account data previously named real
   Ugandan companies and government agencies (URA, KCCA, etc.) with invented
   contact people; the working tree was neutralised to fictitious org names
