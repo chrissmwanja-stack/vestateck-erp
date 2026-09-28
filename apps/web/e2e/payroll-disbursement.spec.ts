@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, logout } from './utils/auth';
+import { uniquePayrollPeriod } from './utils/period';
 
 /**
  * Smoke test for the payroll money-flow path:
@@ -15,14 +16,12 @@ import { loginAs, logout } from './utils/auth';
  * a one-time grant: log in as hr@test.local, open
  * /hr/admin/payroll-approvers, and add pm@test.local.
  *
- * Period is derived from the current date so reruns on a new calendar
- * month don't collide with a prior run; reruns within the same month
- * will hit whatever duplicate-period validation the backend has.
+ * The period is random per run (see utils/period.ts) so reruns against the
+ * same database don't hit the UNIQUE (tenant_id, period) constraint.
  */
 test.describe('Payroll disbursement', () => {
   test('a payroll run moves from creation to a recorded disbursement', async ({ page }) => {
-    const now = new Date();
-    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const period = uniquePayrollPeriod();
 
     await test.step('HR creates, generates, and submits a payroll run', async () => {
       await loginAs(page, 'hr');

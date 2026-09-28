@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, logout } from './utils/auth';
+import { uniquePayrollPeriod } from './utils/period';
 
 /**
  * Payroll approval -- the REJECT branch, which payroll-disbursement.spec.ts
@@ -11,17 +12,12 @@ import { loginAs, logout } from './utils/auth';
  *     -> HR sees the run back on /hr/payroll with a "rejected" chip
  *        and the reason attached
  *
- * Period is NEXT month so a same-day rerun of payroll-disbursement.spec.ts
- * (which uses the current month) cannot collide with this run's period;
- * reruns of THIS spec within the same next-month will hit whatever
- * duplicate-period validation the backend has, same caveat as the
- * disbursement spec.
+ * The period is random per run (see utils/period.ts) so reruns against the
+ * same database don't hit the UNIQUE (tenant_id, period) constraint.
  */
 test.describe('Payroll approval -- reject path', () => {
   test('a rejected payroll run surfaces its reason back to HR', async ({ page }) => {
-    const next = new Date();
-    next.setMonth(next.getMonth() + 1);
-    const period = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+    const period = uniquePayrollPeriod();
     const reason = `E2E reject reason ${Date.now()}: NSSF figures need a second look`;
 
     await test.step('HR creates, generates, and submits a payroll run', async () => {
