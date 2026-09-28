@@ -142,6 +142,24 @@ jobs:
           fi
           echo "Tenant FK audit clean -- no BASE TABLE with an unconstrained tenant_id column."
 
+      # SECURITY DEFINER exposure audit (28 Sep 2026 review, priority 3).
+      # Prints every client-executable definer function with a risk label
+      # and FAILS on CRITICAL: takes a tenant id, mutates data, and its body
+      # never consults an identity/tenant/permission helper. HIGH/REVIEW rows
+      # are printed for triage but do not fail the build.
+      - name: Audit SECURITY DEFINER function exposure
+        run: |
+          OUT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -F '|' -f supabase/scripts/audit_security_definer.sql)
+          echo "function|args|anon_exec|auth_exec|mutates|takes_tenant_id|has_guard|trigger_fn|risk"
+          echo "$OUT"
+          CRITICAL=$(echo "$OUT" | grep '|CRITICAL$' || true)
+          if [ -n "$CRITICAL" ]; then
+            echo "::error::Client-executable SECURITY DEFINER functions with a tenant parameter, mutations and no authorization guard:"
+            echo "$CRITICAL"
+            exit 1
+          fi
+          echo "SECURITY DEFINER audit: no CRITICAL exposures."
+
       # Functional coverage for the accounting workstreams (A/B/F):
       # db-shadow-replay above only proves the migrations apply
       # cleanly -- it says nothing about whether GL posting actually

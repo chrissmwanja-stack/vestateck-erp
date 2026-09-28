@@ -143,6 +143,11 @@ begin
   -- 2. The debit=credit deferred constraint trigger must reject a
   --    manual unbalanced entry at COMMIT (not per-row).
   -------------------------------------------------------------------
+  -- post_journal_entry() is an internal helper (EXECUTE revoked from
+  -- authenticated in 20260928120000), so call it as the owning role, the
+  -- same way the SECURITY DEFINER posting triggers reach it. The JWT
+  -- claims set above still resolve auth.uid() for posted_by.
+  reset role;
   v_caught := false;
   begin
     perform post_journal_entry(
@@ -158,6 +163,7 @@ begin
   exception when others then
     v_caught := true;
   end;
+  set local role authenticated;
 
   if not v_caught then
     raise exception 'FAIL: an unbalanced manual journal entry was NOT rejected';
@@ -179,6 +185,7 @@ begin
   values (v_tenant_id, date_trunc('month', current_date)::date, (date_trunc('month', current_date) + interval '1 month - 1 day')::date, 'closed')
   returning id into v_period_id;
 
+  reset role;
   v_caught := false;
   begin
     perform post_journal_entry(
@@ -191,6 +198,7 @@ begin
   exception when others then
     v_caught := true;
   end;
+  set local role authenticated;
 
   if not v_caught then
     raise exception 'FAIL: posting into a CLOSED accounting period was NOT rejected';
