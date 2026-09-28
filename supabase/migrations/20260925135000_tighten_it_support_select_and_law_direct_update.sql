@@ -148,20 +148,27 @@ begin
   if v_contract.status <> 'pending_approval' then
     raise exception 'only contracts pending approval can be decided (current status: %)', v_contract.status;
   end if;
-  if v_contract.created_by = v_effective then
-    raise exception 'you cannot approve your own contract — separation of duties';
+  -- Separation of duties: the person who drafted a contract must not be
+  -- the one who approves it, even if they hold an approver role.
+  -- (Wording kept identical to 20260922150000; tests and UI match on it.)
+  if v_contract.created_by is not null and v_contract.created_by = v_effective then
+    raise exception 'you cannot decide a contract you created -- another legal admin/manager must approve it';
   end if;
+
+  -- Insert the decision row BEFORE updating the contract, so the
+  -- notify_contract_status_change trigger (fired by the UPDATE below)
+  -- can find it when it looks up the rejection reason. This ordering was
+  -- fixed in 20260922150000 and must not be reversed.
+  insert into law_contract_decisions (tenant_id, contract_id, decision, decided_by, notes)
+  values (v_contract.tenant_id, v_contract.id, p_decision, v_effective, nullif(btrim(coalesce(p_notes, '')), ''));
 
   perform set_config('app.allow_law_status_change', 'true', true);
   update law_contracts
-  set status = case when p_decision='approved' then 'active' else 'rejected' end,
+  set status = case p_decision when 'approved' then 'active' else 'rejected' end,
       updated_at = now()
   where id = v_contract.id
   returning * into v_contract;
   perform set_config('app.allow_law_status_change', 'false', true);
-
-  insert into law_contract_decisions (tenant_id, contract_id, decision, decided_by, notes)
-  values (v_contract.tenant_id, v_contract.id, p_decision, v_effective, p_notes);
 
   return v_contract;
 end;
