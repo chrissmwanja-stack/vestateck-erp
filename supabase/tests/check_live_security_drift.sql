@@ -19,6 +19,11 @@
 --
 -- Keep the lists below in sync with the migrations when adding new
 -- module-gated tables or guarded triggers.
+--
+-- Section 9 (added after the law-guard / journal-trigger follow-up) checks
+-- function BODIES, not just existence: the first pass of this script passed
+-- on both a NULL-bypassable law guard and a journal trigger that errored on
+-- journal_entry_lines, because it only asserted that triggers were attached.
 
 do $$
 declare
@@ -167,6 +172,40 @@ begin
       and has_function_privilege('anon', p.oid, 'execute')
   loop
     v_fail := v_fail || format('%s is executable by anon', r.sig);
+  end loop;
+
+  ---------------------------------------------------------------------
+  -- 9. Guard function BODIES (existence alone is not enough)
+  ---------------------------------------------------------------------
+  -- 9a. Specific guards must contain their fixes.
+  if to_regprocedure('public.prevent_law_contract_direct_approval()') is not null
+     and pg_get_functiondef('public.prevent_law_contract_direct_approval()'::regprocedure)
+           !~* 'coalesce\(\s*current_setting\(\s*''app\.allow_law_status_change''\s*,\s*true\s*\)' then
+    v_fail := v_fail || 'prevent_law_contract_direct_approval() is not NULL-safe (no coalesce around current_setting)';
+  end if;
+
+  if to_regprocedure('public.prevent_journal_mutation()') is not null
+     and pg_get_functiondef('public.prevent_journal_mutation()'::regprocedure)
+           !~* 'tg_table_name\s*=\s*''journal_entries''' then
+    v_fail := v_fail || 'prevent_journal_mutation() does not branch on tg_table_name (fails on journal_entry_lines)';
+  end if;
+
+  -- 9b. Generic scan: any public function that blocks on an app.* flag with
+  --     an un-coalesced != / <> (or NOT (... = ...)) is skipped when the flag
+  --     is unset, because current_setting(name, true) returns NULL then.
+  for r in
+    select p.oid::regprocedure::text as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind in ('f', 'p')
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      and (
+        pg_get_functiondef(p.oid) ~* 'current_setting\(\s*''app\.[a-z_]+''\s*,\s*true\s*\)\s*(!=|<>)'
+        or pg_get_functiondef(p.oid) ~* 'not\s*\(\s*current_setting\(\s*''app\.[a-z_]+''\s*,\s*true\s*\)'
+      )
+  loop
+    v_fail := v_fail || format('%s compares an app.* setting to a value without coalesce (NULL bypass when the flag is unset)', r.sig);
   end loop;
 
   if array_length(v_fail, 1) is not null then
