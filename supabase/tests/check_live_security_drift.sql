@@ -24,6 +24,12 @@
 -- function BODIES, not just existence: the first pass of this script passed
 -- on both a NULL-bypassable law guard and a journal trigger that errored on
 -- journal_entry_lines, because it only asserted that triggers were attached.
+--
+-- Section 10 (added with security_authorization.sql) checks the payroll
+-- separation-of-duties / PO handoff / staff_roles / module-enablement fixes:
+-- function bodies, the staff_roles write policies and the payroll
+-- attribution columns, so a database that recorded those migrations
+-- without running them fails here.
 
 do $$
 declare
@@ -156,7 +162,7 @@ begin
   -- 7. Missing verb: hr_attendance must have a DELETE policy
   ---------------------------------------------------------------------
   if not exists (select 1 from pg_policies where schemaname='public' and tablename='hr_attendance' and cmd in ('DELETE','ALL')) then
-    v_fail := v_fail || 'hr_attendance has no DELETE policy';
+    v_fail := v_fail || 'hr_attendance has no DELETE policy'::text;
   end if;
 
   ---------------------------------------------------------------------
@@ -179,15 +185,15 @@ begin
   ---------------------------------------------------------------------
   -- 9a. Specific guards must contain their fixes.
   if to_regprocedure('public.prevent_law_contract_direct_approval()') is not null
-     and pg_get_functiondef('public.prevent_law_contract_direct_approval()'::regprocedure)
+     and pg_get_functiondef(to_regprocedure('public.prevent_law_contract_direct_approval()'))
            !~* 'coalesce\(\s*current_setting\(\s*''app\.allow_law_status_change''\s*,\s*true\s*\)' then
-    v_fail := v_fail || 'prevent_law_contract_direct_approval() is not NULL-safe (no coalesce around current_setting)';
+    v_fail := v_fail || 'prevent_law_contract_direct_approval() is not NULL-safe (no coalesce around current_setting)'::text;
   end if;
 
   if to_regprocedure('public.prevent_journal_mutation()') is not null
-     and pg_get_functiondef('public.prevent_journal_mutation()'::regprocedure)
+     and pg_get_functiondef(to_regprocedure('public.prevent_journal_mutation()'))
            !~* 'tg_table_name\s*=\s*''journal_entries''' then
-    v_fail := v_fail || 'prevent_journal_mutation() does not branch on tg_table_name (fails on journal_entry_lines)';
+    v_fail := v_fail || 'prevent_journal_mutation() does not branch on tg_table_name (fails on journal_entry_lines)'::text;
   end if;
 
   -- 9b. Generic scan: any public function that blocks on an app.* flag with
@@ -206,6 +212,104 @@ begin
       )
   loop
     v_fail := v_fail || format('%s compares an app.* setting to a value without coalesce (NULL bypass when the flag is unset)', r.sig);
+  end loop;
+
+  ---------------------------------------------------------------------
+  -- 10. Authorization hardening from security_authorization.sql
+  --     (payroll separation of duties, PO handoff, staff_roles policies,
+  --     module enablement, payroll impersonation attribution)
+  ---------------------------------------------------------------------
+  -- 10a. Functions must exist and contain their fixes.
+  foreach t in array array[
+    'public.approve_payroll_run(uuid)',
+    'public.reject_payroll_run(uuid,text)',
+    'public.revise_payroll_run(uuid)',
+    'public.can_manage_po_handoff(uuid)',
+    'public.set_staff_module_role(uuid,text,text)'
+  ] loop
+    if to_regprocedure(t) is null then
+      v_fail := v_fail || format('missing function %s', t);
+    end if;
+  end loop;
+
+  if to_regprocedure('public.approve_payroll_run(uuid)') is not null then
+    if pg_get_functiondef(to_regprocedure('public.approve_payroll_run(uuid)'))
+         !~* 'prepared_by\s*=\s*(v_effective|effective_user_id\(\))' then
+      v_fail := v_fail || 'approve_payroll_run() does not block the preparer (separation of duties)'::text;
+    end if;
+    if pg_get_functiondef(to_regprocedure('public.approve_payroll_run(uuid)'))
+         !~* 'effective_user_id\s*=\s*v_effective' then
+      v_fail := v_fail || 'approve_payroll_run() does not record effective_user_id'::text;
+    end if;
+    if pg_get_functiondef(to_regprocedure('public.approve_payroll_run(uuid)'))
+         !~* 'impersonation_session_id\s*=\s*v_session' then
+      v_fail := v_fail || 'approve_payroll_run() does not record impersonation_session_id'::text;
+    end if;
+  end if;
+
+  if to_regprocedure('public.reject_payroll_run(uuid,text)') is not null
+     and (pg_get_functiondef(to_regprocedure('public.reject_payroll_run(uuid,text)')) !~* 'effective_user_id\s*=\s*v_effective'
+          or pg_get_functiondef(to_regprocedure('public.reject_payroll_run(uuid,text)')) !~* 'impersonation_session_id\s*=\s*v_session') then
+    v_fail := v_fail || 'reject_payroll_run() does not record effective_user_id/impersonation_session_id'::text;
+  end if;
+
+  if to_regprocedure('public.revise_payroll_run(uuid)') is not null
+     and pg_get_functiondef(to_regprocedure('public.revise_payroll_run(uuid)'))
+           !~* 'effective_user_id\s*=\s*null' then
+    v_fail := v_fail || 'revise_payroll_run() does not clear the decision attribution columns'::text;
+  end if;
+
+  if to_regprocedure('public.can_manage_po_handoff(uuid)') is not null then
+    if pg_get_functiondef(to_regprocedure('public.can_manage_po_handoff(uuid)')) ~* 'approval_actions' then
+      v_fail := v_fail || 'can_manage_po_handoff() still grants handoff to approval-chain members (approval_actions)'::text;
+    end if;
+    if pg_get_functiondef(to_regprocedure('public.can_manage_po_handoff(uuid)')) !~* 'has_po_access\(\)'
+       or pg_get_functiondef(to_regprocedure('public.can_manage_po_handoff(uuid)')) !~* 'effective_user_id\(\)' then
+      v_fail := v_fail || 'can_manage_po_handoff() must allow only the offer submitter (effective user) and has_po_access()'::text;
+    end if;
+  end if;
+
+  if to_regprocedure('public.set_staff_module_role(uuid,text,text)') is not null
+     and pg_get_functiondef(to_regprocedure('public.set_staff_module_role(uuid,text,text)'))
+           !~* 'tenant_modules' then
+    v_fail := v_fail || 'set_staff_module_role() does not check the module is enabled for the tenant'::text;
+  end if;
+
+  -- 10b. staff_roles write policies: all three verbs present, gated by
+  --      platform_admin_bypass(), none on the raw is_platform_admin flag.
+  foreach t in array array['INSERT', 'UPDATE', 'DELETE'] loop
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'staff_roles' and cmd = t) then
+      v_fail := v_fail || format('staff_roles has no %s policy', t);
+    end if;
+  end loop;
+  for r in
+    select policyname, cmd from pg_policies
+    where schemaname = 'public' and tablename = 'staff_roles' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+      and (coalesce(qual, '') || coalesce(with_check, '') !~* 'platform_admin_bypass'
+           or coalesce(qual, '') || coalesce(with_check, '') ~* 'is_platform_admin')
+  loop
+    v_fail := v_fail || format('staff_roles.%s (%s) is not gated by platform_admin_bypass() alone', r.policyname, r.cmd);
+  end loop;
+
+  -- 10c. hr_payroll_runs attribution columns.
+  foreach t in array array['effective_user_id', 'impersonation_session_id'] loop
+    if not exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'hr_payroll_runs' and column_name = t
+    ) then
+      v_fail := v_fail || format('hr_payroll_runs.%s column is missing', t);
+    end if;
+  end loop;
+
+  -- 10d. None of the payroll / role RPCs is anon-executable.
+  for r in
+    select p.oid::regprocedure::text as sig
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('approve_payroll_run', 'reject_payroll_run', 'revise_payroll_run', 'set_staff_module_role')
+      and has_function_privilege('anon', p.oid, 'execute')
+  loop
+    v_fail := v_fail || format('%s is executable by anon', r.sig);
   end loop;
 
   if array_length(v_fail, 1) is not null then
