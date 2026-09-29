@@ -442,6 +442,10 @@ begin
   perform authz_t.check('approve_payroll_run: control sets status=approved and approved_by=approver',
     authz_t.q(format('select status from hr_payroll_runs where id = %L', v_run)) = 'approved'
     and authz_t.q(format('select approved_by::text from hr_payroll_runs where id = %L', v_run)) = authz_t.id('appr')::text);
+  perform authz_t.check('approve_payroll_run: control records effective_user_id = approver (direct call)',
+    authz_t.has_col('hr_payroll_runs', 'effective_user_id')
+    and authz_t.q(format('select effective_user_id::text from hr_payroll_runs where id = %L', v_run)) = authz_t.id('appr')::text
+    and authz_t.q(format('select (impersonation_session_id is null)::text from hr_payroll_runs where id = %L', v_run)) = 'true');
   perform authz_t.expect_denied('approve_payroll_run: already-approved run cannot be approved again',
     format('select * from approve_payroll_run(%L)', v_run), null, 'not pending');
 
@@ -471,6 +475,28 @@ begin
   perform authz_t.check('reject_payroll_run: control sets status=rejected and rejected_by=approver',
     authz_t.q(format('select status from hr_payroll_runs where id = %L', v_run)) = 'rejected'
     and authz_t.q(format('select rejected_by::text from hr_payroll_runs where id = %L', v_run)) = authz_t.id('appr')::text);
+  perform authz_t.check('reject_payroll_run: control records effective_user_id = approver (direct call)',
+    authz_t.has_col('hr_payroll_runs', 'effective_user_id')
+    and authz_t.q(format('select effective_user_id::text from hr_payroll_runs where id = %L', v_run)) = authz_t.id('appr')::text
+    and authz_t.q(format('select (impersonation_session_id is null)::text from hr_payroll_runs where id = %L', v_run)) = 'true');
+
+  -- A3b. revise_payroll_run: HR only, and it clears the decision attribution
+  foreach v_e in array array['plain', 'appr', 'hr_t2'] loop
+    perform authz_t.become(v_e);
+    perform authz_t.expect_denied('revise_payroll_run: ' || v_e || ' refused',
+      format('select * from revise_payroll_run(%L)', v_run));
+  end loop;
+  perform authz_t.check('revise_payroll_run: run still rejected after the refused attempts',
+    authz_t.q(format('select status from hr_payroll_runs where id = %L', v_run)) = 'rejected');
+  perform authz_t.become('hr2');
+  perform authz_t.expect_ok('revise_payroll_run: HR-team member (control)',
+    format('select * from revise_payroll_run(%L)', v_run));
+  perform authz_t.check('revise_payroll_run: control returns the run to draft and clears the decision fields',
+    authz_t.q(format('select status from hr_payroll_runs where id = %L', v_run)) = 'draft'
+    and authz_t.q(format('select (rejected_by is null and rejected_at is null and rejection_reason is null)::text from hr_payroll_runs where id = %L', v_run)) = 'true');
+  perform authz_t.check('revise_payroll_run: control clears effective_user_id and impersonation_session_id',
+    authz_t.has_col('hr_payroll_runs', 'effective_user_id')
+    and authz_t.q(format('select (effective_user_id is null and impersonation_session_id is null)::text from hr_payroll_runs where id = %L', v_run)) = 'true');
 
   -- A4. grant_payroll_approver
   foreach v_e in array array['plain', 'appr', 'hr2', 'hr_t2'] loop
