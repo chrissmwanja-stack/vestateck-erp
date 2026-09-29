@@ -238,6 +238,10 @@ begin
       v_fail := v_fail || 'approve_payroll_run() does not block the preparer (separation of duties)'::text;
     end if;
     if pg_get_functiondef(to_regprocedure('public.approve_payroll_run(uuid)'))
+         !~* 'prepared_by\s*=\s*auth\.uid\(\)' then
+      v_fail := v_fail || 'approve_payroll_run() does not also block the real actor (impersonated separation of duties)'::text;
+    end if;
+    if pg_get_functiondef(to_regprocedure('public.approve_payroll_run(uuid)'))
          !~* 'effective_user_id\s*=\s*v_effective' then
       v_fail := v_fail || 'approve_payroll_run() does not record effective_user_id'::text;
     end if;

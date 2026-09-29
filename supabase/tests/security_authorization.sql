@@ -931,6 +931,15 @@ begin
       'hr_payroll_runs has no effective_user_id/impersonation_session_id, so the impersonated approver is not recorded on the run (only platform_audit_events could show it)');
   end if;
 
+  -- separation of duties must hold for the real actor too: a run the platform
+  -- admin prepared (prepared_by = actor) cannot be approved by that admin while
+  -- viewing as a different approver.
+  v_run := authz_t.mk_run('T1', 'padmin');
+  v_e := authz_t.attempt(format('select * from approve_payroll_run(%L)', v_run));
+  perform authz_t.check('user-level session (approver): cannot approve a run the platform admin (actor) prepared (decision 1)',
+    v_e is not null and authz_t.q(format('select status from hr_payroll_runs where id = %L', v_run)) = 'pending_approval',
+    format('call %s', coalesce(v_e, 'succeeded')));
+
   -- separation of duties must hold for the effective identity too
   perform authz_t.expect_ok('impersonation: switching to a user-level session on the preparer',
     format('select * from start_impersonation(%L, %L, %L)', authz_t.id('T1'), 'authz suite user-level preparer', authz_t.id('prep')));

@@ -141,6 +141,15 @@ function RunReview({ run }: { run: PayrollRun }) {
   );
 }
 
+// approve_payroll_run refuses when the approver is the person who prepared the
+// run (separation of duties). Show a plain explanation instead of the raw RPC text.
+function approveErrorMessage(message: string | undefined): string {
+  if (message && /preparer of a payroll run cannot approve/i.test(message)) {
+    return "You can't approve a payroll run you prepared. Ask another payroll approver to review and approve it.";
+  }
+  return message || "Could not approve.";
+}
+
 export default function PayrollApprovals() {
   const isApprover = usePayrollApproverAccess();
   const [runs, setRuns] = useState<PayrollRun[]>([]);
@@ -175,7 +184,7 @@ export default function PayrollApprovals() {
     const { error: err } = await supabase.rpc("approve_payroll_run", { p_run_id: runId });
     setActingId(null);
     if (err) {
-      setError(err.message ?? "Could not approve.");
+      setError(approveErrorMessage(err.message));
       return;
     }
     load();
