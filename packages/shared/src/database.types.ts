@@ -3042,7 +3042,9 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          effective_user_id: string | null
           id: string
+          impersonation_session_id: string | null
           period: string
           prepared_by: string
           rejected_at: string | null
@@ -3057,7 +3059,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          effective_user_id?: string | null
           id?: string
+          impersonation_session_id?: string | null
           period: string
           prepared_by: string
           rejected_at?: string | null
@@ -3072,7 +3076,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          effective_user_id?: string | null
           id?: string
+          impersonation_session_id?: string | null
           period?: string
           prepared_by?: string
           rejected_at?: string | null

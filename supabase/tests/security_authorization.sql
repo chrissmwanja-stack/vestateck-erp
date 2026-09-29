@@ -898,6 +898,8 @@ begin
   if authz_t.has_col('hr_payroll_runs', 'effective_user_id') then
     perform authz_t.check('user-level session: hr_payroll_runs.effective_user_id holds the impersonated user',
       authz_t.q(format('select effective_user_id::text from hr_payroll_runs where id = %L', v_run)) = authz_t.id('appr')::text);
+    perform authz_t.check('user-level session: hr_payroll_runs.impersonation_session_id holds the session',
+      authz_t.q(format('select impersonation_session_id::text from hr_payroll_runs where id = %L', v_run)) = v_sess::text);
   else
     perform authz_t.gap('user-level session: payroll approval attribution',
       'hr_payroll_runs has no effective_user_id/impersonation_session_id, so the impersonated approver is not recorded on the run (only platform_audit_events could show it)');
