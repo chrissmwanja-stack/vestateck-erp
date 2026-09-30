@@ -53,6 +53,11 @@ import {
 } from 'recharts';
 import { supabase } from '../../lib/supabaseClient';
 import CompanyCreateWizard from './CompanyCreateWizard';
+import PlatformHealthSection from './PlatformHealthSection';
+import ImpersonationReasonDialog from './ImpersonationReasonDialog';
+import { describeBlockedReason, usePlatformAdminSession } from './usePlatformAdminSession';
+import { renewalsDue, type RenewalDue, type RenewalRow } from './renewals';
+import type { FunnelRow, ModuleUsageRow, QuietRow, StalledRow, TrialRow } from './platformHealth';
 
 interface PlatformStats {
   totals: {
@@ -81,6 +86,14 @@ interface PlatformStats {
   // doesn't populate these -- treated as "no data yet", not an error.
   pending_companies_list?: { id: string; name: string; created_at: string }[];
   suspended_companies_list?: { id: string; name: string; created_at: string }[];
+  // Onboarding/retention panels (20260922220000), rendered by
+  // PlatformHealthSection. Optional for the same fallback reason; the
+  // section renders nothing when every key is absent.
+  onboarding_funnel?: FunnelRow[] | null;
+  stalled_onboarding?: StalledRow[] | null;
+  quiet_tenants?: QuietRow[] | null;
+  module_usage?: ModuleUsageRow[] | null;
+  trial_ending_soon?: TrialRow[] | null;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -129,12 +142,26 @@ export default function PlatformDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [impersonateTarget, setImpersonateTarget] = useState<{ id: string; name: string } | null>(null);
   const [resendId, setResendId] = useState<string | null>(null);
+  const [renewals, setRenewals] = useState<RenewalDue[] | null>(null);
+  const { session: adminSession } = usePlatformAdminSession();
+  const viewAsBlockedReason = describeBlockedReason(adminSession);
+
+  // Annual-only billing: the renewal queue comes straight off the
+  // tenants table (platform admins have a SELECT policy). Cheap -- one
+  // row per customer company.
+  const loadRenewals = useCallback(async () => {
+    const { data } = await supabase
+      .from('tenants')
+      .select('id, name, plan, subscription_status, renews_at, trial_ends_at');
+    setRenewals(renewalsDue((data ?? []) as RenewalRow[]));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    void loadRenewals();
     const { data, error: err } = await (supabase.rpc as any)('get_platform_dashboard_stats');
     if (err) {
       // Fallback: try the older RPC if this new one hasn't migrated yet
@@ -181,24 +208,18 @@ export default function PlatformDashboard() {
     }
     setStats(data as unknown as PlatformStats);
     setLoading(false);
-  }, []);
+  }, [loadRenewals]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const handleViewAs = async (tenantId: string) => {
-    setImpersonatingId(tenantId);
-    const { data: _impData, error } = await (supabase.rpc as any)('start_impersonation', { p_tenant_id: tenantId });
-    if (error) {
-      alert(error.message);
-      setImpersonatingId(null);
-      return;
-    }
-    // After impersonation, tenant-scoped get_my_tenant_id() resolves to the target.
-    // Navigate to that company's Purchasing dashboard to make the context obvious.
-    navigate('/purchasing/dashboard');
-    setImpersonatingId(null);
+  // View-as goes through the reason dialog (same as the Companies
+  // console): start_impersonation now REQUIRES a reason server-side --
+  // the old 1-arg call raised "requires a reason", so this used to
+  // fail with an alert on every click.
+  const handleViewAs = (tenant: { id: string; name: string }) => {
+    setImpersonateTarget(tenant);
   };
 
   const handleResend = async (invite: { id: string }) => {
@@ -355,6 +376,20 @@ export default function PlatformDashboard() {
         </Stack>
       )}
 
+      {/* WHAT NEEDS ME TODAY — onboarding funnel, stalled setups, quiet
+          companies, module usage, trials ending. Fed by the keys
+          20260922220000 added to get_platform_dashboard_stats(); the
+          section renders nothing on the legacy fallback RPC. */}
+      <PlatformHealthSection
+        funnel={stats!.onboarding_funnel}
+        stalled={stats!.stalled_onboarding}
+        quiet={stats!.quiet_tenants}
+        moduleUsage={stats!.module_usage}
+        trials={stats!.trial_ending_soon}
+        onViewAs={handleViewAs}
+        viewAsDisabledReason={viewAsBlockedReason}
+      />
+
       {/* KPI ROW */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>
         <KpiCard icon={<Business fontSize="small" />} label="Total Companies" value={t.total_companies} sub={`${t.active_companies} active · ${t.pending_companies} pending · ${t.suspended_companies} suspended`} color="#123B44" />
@@ -474,7 +509,7 @@ export default function PlatformDashboard() {
             <Button startIcon={<AddBusiness />} variant="contained" onClick={() => setWizardOpen(true)}>New Company</Button>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Create a tenant, pick its industry template and modules, and invite its first admin. The pipeline (7 stages, 5M threshold) is identical for every company — this is not per-company customizable yet.
+            Create a tenant, pick its industry template and modules, and invite its first admin. New companies are seeded with the standard 7-stage pipeline at a 5M UGX threshold — fine-tune either per company on its detail page under Approvals.
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button component={RouterLink} to="/admin/companies" startIcon={<Business />} variant="outlined" size="small">Companies</Button>
@@ -504,7 +539,7 @@ export default function PlatformDashboard() {
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Tooltip title="View analytics"><IconButton aria-label="View details" size="small" component={RouterLink} to={`/admin/companies/${c.id}`}><Visibility fontSize="small" /></IconButton></Tooltip>
-                        <Tooltip title="View as this company (impersonate)"><span><IconButton size="small" aria-label="View as this company" onClick={() => handleViewAs(c.id)} disabled={!!impersonatingId}><People fontSize="small" /></IconButton></span></Tooltip>
+                        <Tooltip title={viewAsBlockedReason ?? 'View as this company (impersonate)'}><span><IconButton size="small" aria-label="View as this company" onClick={() => handleViewAs({ id: c.id, name: c.name })} disabled={!!viewAsBlockedReason}><People fontSize="small" /></IconButton></span></Tooltip>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -519,37 +554,108 @@ export default function PlatformDashboard() {
         </Paper>
       </Box>
 
-      {/* PENDING INVITES */}
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-          <Typography variant="subtitle2">Pending first-admin invites</Typography>
-          <Chip size="small" label={`${t.pending_invites} pending`} color={t.pending_invites ? 'warning' : 'default'} />
-        </Stack>
-        {stats!.pending_invites_list.length ? (
-          <TableContainer>
-            <Table size="small">
-              <TableHead><TableRow><TableCell>Email</TableCell><TableCell>Company</TableCell><TableCell>Sent</TableCell><TableCell align="right">Action</TableCell></TableRow></TableHead>
-              <TableBody>
-                {stats!.pending_invites_list.map((inv) => {
-                  const tenantName = stats!.recent_companies.find((c) => c.id === inv.tenant_id)?.name || inv.tenant_id.slice(0, 8);
-                  return (
-                    <TableRow key={inv.id} hover>
-                      <TableCell>{inv.email}</TableCell>
-                      <TableCell>{tenantName}</TableCell>
-                      <TableCell>{new Date(inv.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell align="right"><Button size="small" onClick={() => handleResend(inv)} disabled={resendId === inv.id}>{resendId === inv.id ? 'Sending…' : 'Resend'}</Button></TableCell>
+      {/* COMMERCIAL — annual renewals + pending invites */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.2fr 0.8fr' }, gap: 2, mb: 2 }}>
+        {/* ANNUAL RENEWALS — the platform bills yearly only, so this list
+            is the entire renewal/dunning work queue: paid plans whose
+            renews_at falls within 90 days (or slipped past), and trials
+            ending within 30 days (the annual-conversion conversation). */}
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
+            <Box>
+              <Typography variant="subtitle2">Annual renewals &amp; trial conversions</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Subscriptions are annual. Paid renewals due within 90 days; trials ending within 30.
+              </Typography>
+            </Box>
+            {!!renewals?.length && <Chip size="small" color="warning" label={`${renewals.length} need attention`} />}
+          </Stack>
+          {renewals === null ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>Loading renewal queue…</Typography>
+          ) : renewals.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              Nothing due — no paid renewals fall in the next 90 days and no trials end within 30.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead><TableRow><TableCell>Company</TableCell><TableCell>Plan</TableCell><TableCell>Type</TableCell><TableCell>Due</TableCell><TableCell align="right">When</TableCell></TableRow></TableHead>
+                <TableBody>
+                  {renewals.slice(0, 10).map((r) => (
+                    <TableRow key={r.row.id} hover>
+                      <TableCell><Link component={RouterLink} to={`/admin/companies/${r.row.id}`}>{r.row.name}</Link></TableCell>
+                      <TableCell><Chip size="small" label={r.row.plan} variant="outlined" /></TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{r.kind === 'trial' ? 'Trial → annual' : 'Renewal'}</Typography>
+                      </TableCell>
+                      <TableCell>{new Date(r.date).toLocaleDateString()}</TableCell>
+                      <TableCell align="right">
+                        {r.kind === 'overdue' ? (
+                          <Chip size="small" color="error" variant="outlined" label={`${-r.days}d overdue`} />
+                        ) : r.kind === 'trial' && r.days < 0 ? (
+                          <Chip size="small" color="error" variant="outlined" label={`ended ${-r.days}d ago`} />
+                        ) : (
+                          <Chip
+                            size="small"
+                            color={r.days <= 14 ? 'warning' : 'default'}
+                            variant="outlined"
+                            label={r.days === 0 ? 'today' : `${r.days}d`}
+                          />
+                        )}
+                      </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        ) : (
-          <Typography variant="body2" color="text.secondary">No pending first-admin invites — all onboarded companies have accepted.</Typography>
-        )}
-      </Paper>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+
+        {/* PENDING INVITES */}
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2">Pending first-admin invites</Typography>
+            <Chip size="small" label={`${t.pending_invites} pending`} color={t.pending_invites ? 'warning' : 'default'} />
+          </Stack>
+          {stats!.pending_invites_list.length ? (
+            <TableContainer>
+              <Table size="small">
+                <TableHead><TableRow><TableCell>Email</TableCell><TableCell>Company</TableCell><TableCell>Sent</TableCell><TableCell align="right">Action</TableCell></TableRow></TableHead>
+                <TableBody>
+                  {stats!.pending_invites_list.map((inv) => {
+                    const tenantName = stats!.recent_companies.find((c) => c.id === inv.tenant_id)?.name || inv.tenant_id.slice(0, 8);
+                    return (
+                      <TableRow key={inv.id} hover>
+                        <TableCell>{inv.email}</TableCell>
+                        <TableCell>{tenantName}</TableCell>
+                        <TableCell>{new Date(inv.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell align="right"><Button size="small" onClick={() => handleResend(inv)} disabled={resendId === inv.id}>{resendId === inv.id ? 'Sending…' : 'Resend'}</Button></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Typography variant="body2" color="text.secondary">No pending first-admin invites — all onboarded companies have accepted.</Typography>
+          )}
+        </Paper>
+      </Box>
 
       <CompanyCreateWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onCreated={load} />
+
+      <ImpersonationReasonDialog
+        open={!!impersonateTarget}
+        tenant={impersonateTarget}
+        onClose={() => setImpersonateTarget(null)}
+        onStarted={() => {
+          setImpersonateTarget(null);
+          // The impersonation session makes get_my_tenant_id() resolve to
+          // the target company; land on the default tenant screen, same as
+          // the Companies console does.
+          navigate('/requests/new');
+        }}
+      />
     </Box>
   );
 }

@@ -28,6 +28,9 @@ import {
   PriorityHigh,
   Business,
   Settings,
+  Campaign,
+  Flag,
+  HealthAndSafety,
 } from "@mui/icons-material";
 import {
   lawComplianceNodes,
@@ -355,6 +358,10 @@ export const portals: Portal[] = [
     nodes: [{ id: "my-approvals-home", label: "My Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/my-approvals" }],
   },
   {
+    // Kept in lock-step with AdminLayout's CONSOLE_GROUPS: this portal is
+    // the platform admin's nav OUTSIDE console routes (the rail takes over
+    // inside them). Every console screen must be linked from one or the
+    // other, so new screens get added to both.
     id: "platform-admin",
     label: "Platform Administration",
     icon: <AdminPanelSettings fontSize="small" />,
@@ -362,8 +369,12 @@ export const portals: Portal[] = [
       { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
       { id: "platform-users", label: "Users", icon: <People fontSize="small" />, to: "/admin/users" },
-      { id: "platform-team", label: "Platform Team", icon: <AdminPanelSettings fontSize="small" />, to: "/admin/team" },
+      { id: "platform-team", label: "Platform Team", icon: <Groups fontSize="small" />, to: "/admin/team" },
+      { id: "platform-templates", label: "Industry Templates", icon: <Category fontSize="small" />, to: "/admin/templates" },
+      { id: "platform-announcements", label: "Announcements", icon: <Campaign fontSize="small" />, to: "/admin/announcements" },
+      { id: "platform-flags", label: "Feature Flags", icon: <Flag fontSize="small" />, to: "/admin/flags" },
       { id: "platform-audit", label: "Audit Log", icon: <ReceiptLong fontSize="small" />, to: "/admin/audit" },
+      { id: "platform-health", label: "Platform Health", icon: <HealthAndSafety fontSize="small" />, to: "/admin/health" },
       { id: "platform-settings", label: "Settings", icon: <Settings fontSize="small" />, to: "/admin/settings" },
     ],
   },

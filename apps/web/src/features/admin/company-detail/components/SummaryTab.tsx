@@ -19,7 +19,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { PLAN_OPTIONS, SUBSCRIPTION_OPTIONS } from './Constants';
 import { Stat } from './Stat';
-import { actionLabel, draftFrom, fmtDate, fmtDateTime } from './utils';
+import { actionLabel, daysUntil, draftFrom, fmtDate, fmtDateTime } from './utils';
 import type { CompanyDetailState } from './useCompanyDetail';
 
 export function SummaryTab({ state }: { state: CompanyDetailState }) {
@@ -264,12 +264,13 @@ export function SummaryTab({ state }: { state: CompanyDetailState }) {
                 onChange={(e) => setDraft({ ...draft, trial_ends_at: e.target.value })}
               />
               <TextField
-                label="Renews / next invoice"
+                label="Annual renewal"
                 size="small"
                 type="date"
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 value={draft.renews_at}
+                helperText="Annual billing — set to one year after payment lands."
                 onChange={(e) => setDraft({ ...draft, renews_at: e.target.value })}
               />
             </Stack>
@@ -294,7 +295,15 @@ export function SummaryTab({ state }: { state: CompanyDetailState }) {
                 ],
                 ['Seat limit', t.seat_limit == null ? 'Unlimited' : String(t.seat_limit)],
                 ['Trial ends', fmtDate(t.trial_ends_at)],
-                ['Renews / next invoice', fmtDate(t.renews_at)],
+                [
+                  'Annual renewal',
+                  (() => {
+                    if (!t.renews_at) return fmtDate(t.renews_at);
+                    const d = daysUntil(t.renews_at);
+                    const note = d == null ? '' : d < 0 ? ` · ${-d}d overdue` : d === 0 ? ' · today' : ` · in ${d}d`;
+                    return `${fmtDate(t.renews_at)}${note}`;
+                  })(),
+                ],
                 ['Profile updated', fmtDateTime(t.updated_at)],
               ].map(([k, v]) => (
                 <TableRow key={k as string}>
