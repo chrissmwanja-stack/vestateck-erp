@@ -380,6 +380,23 @@ begin
     end if;
   end loop;
 
+  ---------------------------------------------------------------------
+  -- 13. Per-tenant document numbers (20261001160000)
+  ---------------------------------------------------------------------
+  if exists (select 1 from pg_constraint where conname in ('assets_asset_tag_key', 'problems_problem_number_key'))
+     or to_regclass('public.requests_mr_number_key') is not null then
+    v_fail := v_fail || 'global unique constraint on asset_tag/problem_number/mr_number still exists'::text;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'assets_tenant_id_asset_tag_key') then
+    v_fail := v_fail || 'missing UNIQUE (tenant_id, asset_tag) on assets'::text;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'problems_tenant_id_problem_number_key') then
+    v_fail := v_fail || 'missing UNIQUE (tenant_id, problem_number) on problems'::text;
+  end if;
+  if to_regclass('public.requests_tenant_id_mr_number_key') is null then
+    v_fail := v_fail || 'missing unique index (tenant_id, mr_number) on requests'::text;
+  end if;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');
