@@ -297,6 +297,21 @@ describe('platform-admin portal visibility', () => {
     expect(portal.requiredAccess).toBe('platform');
   });
 
+  it('derives its nodes from the console route table (single source of truth)', async () => {
+    // The platform portal must list exactly the console sections from
+    // features/admin/consoleRoutes.tsx -- same table that builds the rail
+    // and App.tsx's routes -- so the switcher can never drift from them.
+    const { CONSOLE_SECTIONS } = await import('../admin/consoleRoutes');
+    const portal = portals.find((p) => p.id === 'platform-admin')!;
+    expect(portal.nodes).toHaveLength(CONSOLE_SECTIONS.length);
+    for (const s of CONSOLE_SECTIONS) {
+      expect(findNode(portal.nodes, `platform-${s.id}`)).toMatchObject({
+        label: s.label,
+        to: s.to,
+      });
+    }
+  });
+
   it('hides the switcher entry from non-platform users, shows it only to platform admins', async () => {
     // Render the real tree with mocked access and inspect the switcher
     // menu, same pattern as the company-admin portal test above.

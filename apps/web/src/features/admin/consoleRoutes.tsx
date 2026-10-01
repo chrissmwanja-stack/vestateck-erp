@@ -92,6 +92,14 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
   { id: 'settings', label: 'Settings', to: '/admin/settings', icon: <SettingsIcon fontSize="small" />, hint: 'Branding, security, notifications', group: 'system' },
 ];
 
+// Rail display order: CONSOLE_SECTIONS grouped under CONSOLE_GROUPS. This
+// is what AdminLayout renders as its left rail -- derived, so the rail can
+// never drift from the section list.
+export const CONSOLE_RAIL: { label: string | null; items: ConsoleSection[] }[] = CONSOLE_GROUPS.map((g) => ({
+  label: g.label,
+  items: CONSOLE_SECTIONS.filter((s) => s.group === g.id),
+}));
+
 // Lazy so importing this file (AdminLayout, moduleTreeData, tests) does not
 // pull every console page into the bundle or the test run.
 export const CONSOLE_ROUTES: ConsoleRoute[] = [

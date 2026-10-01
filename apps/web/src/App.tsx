@@ -5,7 +5,6 @@ import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
 import { usePlatformAdminAccess } from './lib/usePlatformAdminAccess';
 import { useBranding } from './lib/brandingContext';
 const AdminLayout = lazy(() => import('./features/admin/AdminLayout'));
-const PlatformDashboard = lazy(() => import('./features/admin/PlatformDashboard'));
 
 const RequestSubmissionForm = lazy(() => import('./features/requests/RequestSubmissionForm'));
 const ApprovalQueue = lazy(() => import('./features/approvals/ApprovalQueue'));
@@ -28,7 +27,7 @@ import RequirePlatformAdmin from './components/RequirePlatformAdmin';
 import { useAuth } from './lib/authContext';
 import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
-import { isConsoleRoute } from './features/admin/AdminLayout';
+import { CONSOLE_ROUTES, isConsoleRoute } from './features/admin/consoleRoutes';
 import CompanyAdminLayout, { isCompanyAdminRoute } from './features/company-admin/CompanyAdminLayout';
 import RequireTenantAdmin from './components/RequireTenantAdmin';
 import NotificationBell from './features/notifications/NotificationBell';
@@ -37,16 +36,6 @@ import AnnouncementBanner from './features/admin/AnnouncementBanner';
 import TenantAccessBanner from './features/account/TenantAccessBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
 const CompanyAdminDashboard = lazy(() => import('./features/company-admin/CompanyAdminDashboard'));
-const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
-const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
-const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
-const PlatformAuditLog = lazy(() => import('./features/admin/PlatformAuditLog'));
-const PlatformUsersDirectory = lazy(() => import('./features/admin/PlatformUsersDirectory'));
-const PlatformTeam = lazy(() => import('./features/admin/PlatformTeam'));
-const IndustryTemplatesAdmin = lazy(() => import('./features/admin/IndustryTemplatesAdmin'));
-const AnnouncementsAdmin = lazy(() => import('./features/admin/AnnouncementsAdmin'));
-const FeatureFlagsAdmin = lazy(() => import('./features/admin/FeatureFlagsAdmin'));
-const PlatformHealthPage = lazy(() => import('./features/admin/PlatformHealthPage'));
 const AccountSecurity = lazy(() => import('./features/account/AccountSecurity'));
 const ApprovalWorkflowAdmin = lazy(() => import('./features/admin/ApprovalWorkflowAdmin'));
 const InviteMember = lazy(() => import('./features/team/InviteMember'));
@@ -368,8 +357,10 @@ export default function App() {
               <Route path="/requests/my-requests" element={<MyRequests />} />
               {/* Moved to Company Admin (2026-09-30) -- org structure is the
                   company admin's domain. The /hr/admin/departments alias
-                  (HR-module gated) still renders the same screen. */}
+                  (once HR-module gated, read-only after de1f547) redirects
+                  here too, so there is exactly one home for the screen. */}
               <Route path="/admin/departments" element={<Navigate to="/company-admin/organization/departments" replace />} />
+              <Route path="/hr/admin/departments" element={<Navigate to="/company-admin/organization/departments" replace />} />
               {/* PLATFORM ADMIN -- distinct from every company workspace.
                   RequirePlatformAdmin is an actual route guard (shows a
                   "not allowed" screen), not just a screen-level check --
@@ -383,17 +374,12 @@ export default function App() {
                     deliberately NOT here: they belong to a customer
                     workspace and are reached via View-as. */}
                 <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<PlatformDashboard />} />
-                  <Route path="/admin/companies" element={<CompaniesConsole />} />
-                  <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
-                  <Route path="/admin/settings" element={<AdminSettingsPage />} />
-                  <Route path="/admin/audit" element={<PlatformAuditLog />} />
-                  <Route path="/admin/users" element={<PlatformUsersDirectory />} />
-                  <Route path="/admin/team" element={<PlatformTeam />} />
-                  <Route path="/admin/templates" element={<IndustryTemplatesAdmin />} />
-                  <Route path="/admin/announcements" element={<AnnouncementsAdmin />} />
-                  <Route path="/admin/flags" element={<FeatureFlagsAdmin />} />
-                  <Route path="/admin/health" element={<PlatformHealthPage />} />
+                  {/* The console's ONE route table lives in
+                      features/admin/consoleRoutes.tsx -- the same table that
+                      builds AdminLayout's rail and the ModuleTree portal. */}
+                  {CONSOLE_ROUTES.map(({ pattern, Component }) => (
+                    <Route key={pattern} path={pattern} element={<Component />} />
+                  ))}
                 </Route>
               </Route>
               {/* COMPANY ADMIN -- layer 2 of the administration model:
@@ -679,7 +665,9 @@ export default function App() {
                 <Route path="/hr/training" element={<TrainingList />} />
                 <Route path="/hr/reports/headcount" element={<HeadcountReport />} />
                 <Route path="/hr/reports/attendance" element={<AttendanceReport />} />
-                <Route path="/hr/admin/departments" element={<DepartmentsAdmin />} />
+                {/* Departments moved to Company Admin (de1f547) -- the old
+                    HR alias now redirects like every other legacy path. HR
+                    browses the structure via the Org Chart. */}
                 <Route path="/hr/admin/positions" element={<PositionsAdmin />} />
                 <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
                 <Route path="/hr/admin/team-members" element={<HrTeamMembersAdmin />} />

@@ -91,12 +91,12 @@ describe('AdminLayout', () => {
     expect(nav).toHaveTextContent('Overview');
     expect(nav).toHaveTextContent('Companies');
     expect(nav).toHaveTextContent('Users');
-    expect(nav).toHaveTextContent('Templates');
+    expect(nav).toHaveTextContent('Industry templates');
     expect(nav).toHaveTextContent('Announcements');
     expect(nav).toHaveTextContent('Feature flags');
     expect(nav).toHaveTextContent('Platform team');
     expect(nav).toHaveTextContent('Audit log');
-    expect(nav).toHaveTextContent('Health');
+    expect(nav).toHaveTextContent('Platform health');
     expect(nav).toHaveTextContent('Settings');
     // Group headers
     expect(nav).toHaveTextContent('Customers');
@@ -108,13 +108,17 @@ describe('AdminLayout', () => {
 
   it('shows the page-specific header label on the health screen', () => {
     renderAt('/admin/health');
-    expect(screen.getByText('Platform health')).toBeInTheDocument();
+    // The label now appears twice (rail item AND header) since both derive
+    // from consoleRoutes -- assert the header one specifically.
+    const header = screen.getAllByText('Platform health').find((el) => el.classList.contains('MuiTypography-overline'));
+    expect(header).toBeInTheDocument();
     expect(screen.getByText('Health page')).toBeInTheDocument();
   });
 
   it('shows the page-specific header label on the templates screen', () => {
     renderAt('/admin/templates');
-    expect(screen.getByText('Industry templates')).toBeInTheDocument();
+    const header = screen.getAllByText('Industry templates').find((el) => el.classList.contains('MuiTypography-overline'));
+    expect(header).toBeInTheDocument();
     expect(screen.getByText('Templates page')).toBeInTheDocument();
   });
 
@@ -154,5 +158,33 @@ describe('AdminLayout', () => {
     adminSession = { isPlatformAdmin: true, hasMfaFactor: true, sessionIsMfa: false, canAct: false };
     renderAt('/admin');
     expect(screen.getByText('Step-up needed')).toBeInTheDocument();
+  });
+});
+
+describe('console route table is the single source of truth', () => {
+  // The rail, App.tsx's <Route>s, isConsoleRoute() and the ModuleTree
+  // portal all derive from consoleRoutes.tsx. These checks make it
+  // impossible to add a console screen in one place and forget another.
+  it('every rail section resolves back to itself and is a console route', async () => {
+    const { CONSOLE_SECTIONS, isConsoleRoute, resolveConsoleRoute } = await import('./consoleRoutes');
+    for (const s of CONSOLE_SECTIONS) {
+      expect(isConsoleRoute(s.to)).toBe(true);
+      expect(resolveConsoleRoute(s.to).section).toBe(s.id);
+    }
+  });
+
+  it('every console route maps to a known section', async () => {
+    const { CONSOLE_ROUTES, CONSOLE_SECTIONS } = await import('./consoleRoutes');
+    const ids = new Set(CONSOLE_SECTIONS.map((s) => s.id));
+    for (const r of CONSOLE_ROUTES) {
+      expect(ids.has(r.section)).toBe(true);
+    }
+  });
+
+  it('the rail covers every section exactly once', async () => {
+    const { CONSOLE_RAIL, CONSOLE_SECTIONS } = await import('./consoleRoutes');
+    const railIds = CONSOLE_RAIL.flatMap((g) => g.items.map((i) => i.id)).sort();
+    const sectionIds = CONSOLE_SECTIONS.map((s) => s.id).sort();
+    expect(railIds).toEqual(sectionIds);
   });
 });

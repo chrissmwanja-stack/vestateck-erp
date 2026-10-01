@@ -45,6 +45,7 @@ interface TreeNode {
   // copy just needs the field to exist so node literals here can set it and
   // stay structurally assignable to ModuleTree's TreeNode[].
   requiredRoles?: readonly string[];
+  requiredAccess?: "finance" | "company-admin" | "po";
 }
 
 // Law and Compliance - modeled on MAKS Legal module
@@ -173,7 +174,10 @@ export const hrNodes: TreeNode[] = [
     label: "Admin",
     icon: <AdminPanelSettings fontSize="small" />,
     children: [
-      { id: "departments", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/departments" },
+      // Lives in the Company Admin shell since de1f547; the node is gated
+      // so HR members without company-admin rights never see a link that
+      // would bounce them off RequireTenantAdmin (nav stays honest).
+      { id: "departments", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/company-admin/organization/departments", requiredAccess: "company-admin" },
       { id: "positions", label: "Positions", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/positions" },
       { id: "leave-types", label: "Leave Types", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/leave-types" },
       { id: "hr-team-members", label: "HR Team", icon: <ReceiptLong fontSize="small" />, to: "/hr/admin/team-members" },

@@ -10,22 +10,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import {
-  AdminPanelSettings,
-  Business,
-  Campaign,
-  Category,
-  Dashboard,
-  Flag,
-  Groups,
-  HealthAndSafety,
-  History,
-  People,
-  Security,
-  Settings as SettingsIcon,
-} from '@mui/icons-material';
-import { Link as RouterLink, Outlet, matchPath, useLocation } from 'react-router-dom';
+import { AdminPanelSettings, Security } from '@mui/icons-material';
+import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom';
 import { usePlatformAdminSession } from './usePlatformAdminSession';
+import { CONSOLE_RAIL, resolveConsoleRoute } from './consoleRoutes';
 
 // The operator console shell. Everything under /admin that is *platform*
 // administration (not a customer company's own admin screens) renders
@@ -41,108 +29,12 @@ import { usePlatformAdminSession } from './usePlatformAdminSession';
 // reserved home tenant. Those live inside customer workspaces and are
 // reached through View-as; they are no longer offered here.
 //
-// Route table: every console route, its label, and which rail item it
-// belongs to (so Company Detail highlights "Companies"). Keep this in
-// sync with the RequirePlatformAdmin route block in App.tsx -- any
-// screen routed there but missing here renders inside the shell with
-// a generic header and NO rail entry, so it must be listed.
-interface ConsoleRoute {
-  pattern: string;
-  label: string;
-  section: SectionId;
-}
-
-type SectionId =
-  | 'overview'
-  | 'companies'
-  | 'users'
-  | 'team'
-  | 'audit'
-  | 'templates'
-  | 'announcements'
-  | 'flags'
-  | 'health'
-  | 'settings';
-
-const CONSOLE_ROUTES: ConsoleRoute[] = [
-  { pattern: '/admin', label: 'Overview', section: 'overview' },
-  { pattern: '/admin/companies', label: 'Companies', section: 'companies' },
-  { pattern: '/admin/companies/:tenantId', label: 'Company detail', section: 'companies' },
-  { pattern: '/admin/users', label: 'Users', section: 'users' },
-  { pattern: '/admin/team', label: 'Platform team', section: 'team' },
-  { pattern: '/admin/audit', label: 'Audit log', section: 'audit' },
-  { pattern: '/admin/templates', label: 'Industry templates', section: 'templates' },
-  { pattern: '/admin/announcements', label: 'Announcements', section: 'announcements' },
-  { pattern: '/admin/flags', label: 'Feature flags', section: 'flags' },
-  { pattern: '/admin/health', label: 'Platform health', section: 'health' },
-  { pattern: '/admin/settings', label: 'Platform settings', section: 'settings' },
-];
-
-export interface ConsoleSection {
-  id: SectionId;
-  label: string;
-  to: string;
-  icon: JSX.Element;
-  hint: string;
-}
-
-// The rail, in display order, grouped. null label = no group header
-// (Overview stands alone at the top).
-export const CONSOLE_GROUPS: { label: string | null; items: ConsoleSection[] }[] = [
-  {
-    label: null,
-    items: [{ id: 'overview', label: 'Overview', to: '/admin', icon: <Dashboard fontSize="small" />, hint: 'KPIs, alerts, onboarding' }],
-  },
-  {
-    label: 'Customers',
-    items: [
-      { id: 'companies', label: 'Companies', to: '/admin/companies', icon: <Business fontSize="small" />, hint: 'Every customer on the platform' },
-      { id: 'users', label: 'Users', to: '/admin/users', icon: <People fontSize="small" />, hint: 'Everyone, across all companies' },
-    ],
-  },
-  {
-    label: 'Platform',
-    items: [
-      { id: 'templates', label: 'Templates', to: '/admin/templates', icon: <Category fontSize="small" />, hint: 'Industry starter packages' },
-      { id: 'announcements', label: 'Announcements', to: '/admin/announcements', icon: <Campaign fontSize="small" />, hint: 'Notices to all users' },
-      { id: 'flags', label: 'Feature flags', to: '/admin/flags', icon: <Flag fontSize="small" />, hint: 'Rollouts and kill switches' },
-    ],
-  },
-  {
-    label: 'Security',
-    items: [
-      { id: 'team', label: 'Platform team', to: '/admin/team', icon: <Groups fontSize="small" />, hint: 'Who can operate this console' },
-      { id: 'audit', label: 'Audit log', to: '/admin/audit', icon: <History fontSize="small" />, hint: 'Who did what, and why' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { id: 'health', label: 'Health', to: '/admin/health', icon: <HealthAndSafety fontSize="small" />, hint: 'Jobs, database, backlog' },
-      { id: 'settings', label: 'Settings', to: '/admin/settings', icon: <SettingsIcon fontSize="small" />, hint: 'Branding, security, notifications' },
-    ],
-  },
-];
-
-// Flat view, kept for callers that want every section in rail order.
-export const CONSOLE_SECTIONS: ConsoleSection[] = CONSOLE_GROUPS.flatMap((g) => g.items);
-
-// Exported so App.tsx and tests share one definition of "is this a
-// console route" (ModuleTree is hidden and AdminLayout shown for these).
-export function isConsoleRoute(pathname: string): boolean {
-  return CONSOLE_ROUTES.some((r) => matchPath({ path: r.pattern, end: true }, pathname));
-}
-
-export function resolveConsoleRoute(pathname: string): ConsoleRoute {
-  return (
-    CONSOLE_ROUTES.find((r) => matchPath({ path: r.pattern, end: true }, pathname)) ?? {
-      pattern: pathname,
-      label: 'Platform administration',
-      section: 'overview',
-    }
-  );
-}
-
+// Route table, rail, and "is this a console route" all live in
+// consoleRoutes.tsx -- the console's single source of truth, shared with
+// App.tsx (which renders <Route>s from CONSOLE_ROUTES) and ModuleTree's
+// Platform Administration portal (built from CONSOLE_SECTIONS). Re-exported
+// below so existing imports from './AdminLayout' keep working.
+export { CONSOLE_SECTIONS, isConsoleRoute, resolveConsoleRoute } from './consoleRoutes';
 export const CONSOLE_RAIL_WIDTH = 232;
 
 export default function AdminLayout() {
@@ -185,7 +77,7 @@ export default function AdminLayout() {
         </Stack>
         <Divider />
         <List dense sx={{ px: 1, py: 1 }}>
-          {CONSOLE_GROUPS.map((group) => (
+          {CONSOLE_RAIL.map((group) => (
             <Box key={group.label ?? '__top'}>
               {group.label && (
                 <ListSubheader

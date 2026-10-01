@@ -26,11 +26,6 @@ import {
   Category,
   Timer,
   PriorityHigh,
-  Business,
-  Settings,
-  Campaign,
-  Flag,
-  HealthAndSafety,
   Apartment,
   Checklist,
   PersonAdd,
@@ -45,6 +40,7 @@ import {
   sustainabilityNodes,
 } from "../../modules/portals/ShellConfigs";
 import type { Portal, TreeNode } from "./types";
+import { CONSOLE_SECTIONS } from "../admin/consoleRoutes";
 
 // IT Support - YOU ALREADY WORKED ON IT (keeping your simpler paths)
 export const itSupportNodes: TreeNode[] = [
@@ -403,28 +399,21 @@ export const portals: Portal[] = [
     ],
   },
   {
-    // Kept in lock-step with AdminLayout's CONSOLE_GROUPS: this portal is
-    // the platform admin's nav OUTSIDE console routes (the rail takes over
-    // inside them). Every console screen must be linked from one or the
-    // other, so new screens get added to both. requiredAccess "platform"
-    // hides it from every non-platform user in the switcher (the routes
-    // themselves are RequirePlatformAdmin-guarded; this removes the dead
-    // entry that used to bounce to a "not allowed" screen).
+    // Platform Administration portal. Its nodes are DERIVED from the
+    // console's single route table (features/admin/consoleRoutes.tsx) --
+    // the same CONSOLE_SECTIONS that build AdminLayout's rail -- so the
+    // switcher, the rail, and App.tsx's routes can no longer drift apart.
+    // requiredAccess "platform" hides the whole portal from every
+    // non-platform user (routes are RequirePlatformAdmin-guarded too).
     id: "platform-admin",
     label: "Platform Administration",
     icon: <AdminPanelSettings fontSize="small" />,
     requiredAccess: "platform",
-    nodes: [
-      { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
-      { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },
-      { id: "platform-users", label: "Users", icon: <People fontSize="small" />, to: "/admin/users" },
-      { id: "platform-team", label: "Platform Team", icon: <Groups fontSize="small" />, to: "/admin/team" },
-      { id: "platform-templates", label: "Industry Templates", icon: <Category fontSize="small" />, to: "/admin/templates" },
-      { id: "platform-announcements", label: "Announcements", icon: <Campaign fontSize="small" />, to: "/admin/announcements" },
-      { id: "platform-flags", label: "Feature Flags", icon: <Flag fontSize="small" />, to: "/admin/flags" },
-      { id: "platform-audit", label: "Audit Log", icon: <ReceiptLong fontSize="small" />, to: "/admin/audit" },
-      { id: "platform-health", label: "Platform Health", icon: <HealthAndSafety fontSize="small" />, to: "/admin/health" },
-      { id: "platform-settings", label: "Settings", icon: <Settings fontSize="small" />, to: "/admin/settings" },
-    ],
+    nodes: CONSOLE_SECTIONS.map((s) => ({
+      id: `platform-${s.id}`,
+      label: s.label,
+      icon: s.icon,
+      to: s.to,
+    })),
   },
 ];
