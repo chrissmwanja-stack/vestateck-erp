@@ -29,11 +29,14 @@ import { useAuth } from './lib/authContext';
 import { useThemeMode } from './lib/themeModeContext';
 import ModuleTree from './features/navigation/ModuleTree';
 import { isConsoleRoute } from './features/admin/AdminLayout';
+import CompanyAdminLayout, { isCompanyAdminRoute } from './features/company-admin/CompanyAdminLayout';
+import RequireTenantAdmin from './components/RequireTenantAdmin';
 import NotificationBell from './features/notifications/NotificationBell';
 import ImpersonationBanner from './features/admin/ImpersonationBanner';
 import AnnouncementBanner from './features/admin/AnnouncementBanner';
 import TenantAccessBanner from './features/account/TenantAccessBanner';
 const AcceptInvitePage = lazy(() => import('./features/auth/AcceptInvitePage')); const BootstrapAdminPage = lazy(() => import('./features/auth/BootstrapAdminPage'));
+const CompanyAdminDashboard = lazy(() => import('./features/company-admin/CompanyAdminDashboard'));
 const CompaniesConsole = lazy(() => import('./features/admin/CompaniesConsole'));
 const CompanyDetail = lazy(() => import('./features/admin/CompanyDetail'));
 const AdminSettingsPage = lazy(() => import('./features/admin/AdminSettingsPage'));
@@ -319,19 +322,21 @@ export default function App() {
   const location = useLocation();
   // The tenant ModuleTree lists one company's modules -- meaningless
   // outside a company, so it's swapped out (not just hidden) whenever
-  // we're inside the platform console. AdminLayout supplies its own
-  // shell (left rail + header) for that section; the route list lives
-  // there so this check can't drift from the routes that are wrapped.
-  const isPlatformAdminRoute = isConsoleRoute(location.pathname);
+  // we're inside one of the two admin shells: the platform console
+  // (AdminLayout, /admin/*) or Company Admin (CompanyAdminLayout,
+  // /company-admin/*). Each shell supplies its own left rail + header;
+  // the route lists live with the shells so this check can't drift
+  // from the routes that are wrapped.
+  const isAdminShellRoute = isConsoleRoute(location.pathname) || isCompanyAdminRoute(location.pathname);
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TopNav />
       <Box sx={{ display: 'flex', flex: 1 }}>
-        {session && !isPlatformAdminRoute && <ModuleTree />}
+        {session && !isAdminShellRoute && <ModuleTree />}
         <Container
           component="main"
-          disableGutters={isPlatformAdminRoute}
-          sx={{ mt: isPlatformAdminRoute ? 0 : 3, mb: isPlatformAdminRoute ? 0 : 6, flexGrow: 1, maxWidth: '100%', px: isPlatformAdminRoute ? 0 : 4 }}
+          disableGutters={isAdminShellRoute}
+          sx={{ mt: isAdminShellRoute ? 0 : 3, mb: isAdminShellRoute ? 0 : 6, flexGrow: 1, maxWidth: '100%', px: isAdminShellRoute ? 0 : 4 }}
         >
           <Suspense fallback={<RouteFallback />}>
           <Routes>
@@ -361,7 +366,10 @@ export default function App() {
               <Route path="/multiplexing/approvals" element={<InvoiceApprovalQueue />} />
               <Route path="/multiplexing/invoice-new" element={<InvoiceSubmissionForm />} />
               <Route path="/requests/my-requests" element={<MyRequests />} />
-              <Route path="/admin/departments" element={<DepartmentsAdmin />} />
+              {/* Moved to Company Admin (2026-09-30) -- org structure is the
+                  company admin's domain. The /hr/admin/departments alias
+                  (HR-module gated) still renders the same screen. */}
+              <Route path="/admin/departments" element={<Navigate to="/company-admin/organization/departments" replace />} />
               {/* PLATFORM ADMIN -- distinct from every company workspace.
                   RequirePlatformAdmin is an actual route guard (shows a
                   "not allowed" screen), not just a screen-level check --
@@ -388,13 +396,31 @@ export default function App() {
                   <Route path="/admin/health" element={<PlatformHealthPage />} />
                 </Route>
               </Route>
-              <Route path="/team/invite" element={<InviteMember />} />
-              <Route path="/team/members" element={<TeamMembersAdmin />} />
-              {/* Company-admin only, like Manage Team above -- gated inside
-                  the component via useTenantAdminAccess, not a route guard,
-                  same pattern as TeamMembersAdmin. */}
-              <Route path="/admin/approval-workflow" element={<ApprovalWorkflowAdmin />} />
-              <Route path="/setup" element={<CompanySetupChecklist />} />
+              {/* COMPANY ADMIN -- layer 2 of the administration model:
+                  one customer company's own governance (organization,
+                  users & access, approval workflows), distinct from the
+                  platform console (/admin/*) and from per-module admin
+                  screens. RequireTenantAdmin is a real route guard
+                  (company admin or platform admin via View-as); the
+                  screens' own checks remain as a second layer. */}
+              <Route element={<RequireTenantAdmin />}>
+                <Route element={<CompanyAdminLayout />}>
+                  <Route path="/company-admin" element={<CompanyAdminDashboard />} />
+                  <Route path="/company-admin/organization/departments" element={<DepartmentsAdmin />} />
+                  <Route path="/company-admin/organization/organizations" element={<OrganizationsAdmin />} />
+                  <Route path="/company-admin/users/members" element={<TeamMembersAdmin />} />
+                  <Route path="/company-admin/users/invite" element={<InviteMember />} />
+                  <Route path="/company-admin/workflows/approvals" element={<ApprovalWorkflowAdmin />} />
+                  <Route path="/company-admin/setup" element={<CompanySetupChecklist />} />
+                </Route>
+              </Route>
+              {/* Old homes of the screens above -- redirects only, so
+                  bookmarks and email links keep working (same pattern as
+                  the /finance/purchase-orders move). */}
+              <Route path="/team/invite" element={<Navigate to="/company-admin/users/invite" replace />} />
+              <Route path="/team/members" element={<Navigate to="/company-admin/users/members" replace />} />
+              <Route path="/admin/approval-workflow" element={<Navigate to="/company-admin/workflows/approvals" replace />} />
+              <Route path="/setup" element={<Navigate to="/company-admin/setup" replace />} />
               <Route path="/requests/new-material" element={<NewMaterialRequest />} />
 
               {/* FINANCE - gated by can_access_finance() (added 2026-08-16),
@@ -441,7 +467,9 @@ export default function App() {
                 <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
                 <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
                 <Route path="/admin/material-catalog" element={<MaterialCatalogAdmin />} />
-                <Route path="/admin/organizations" element={<OrganizationsAdmin />} />
+                {/* Redirect: organizations moved to Company Admin →
+                    Organization (company-admin domain, not finance). */}
+                <Route path="/admin/organizations" element={<Navigate to="/company-admin/organization/organizations" replace />} />
                 <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
               </Route>
 

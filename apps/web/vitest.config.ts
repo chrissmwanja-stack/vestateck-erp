@@ -5,8 +5,10 @@ import react from '@vitejs/plugin-react';
 //
 // - "lib" (plain Node, no jsdom): the pure parsing/formatting functions
 //   shared across every bulk-import screen (src/lib/csvParser.ts,
-//   src/lib/xlsxParser.ts), and any zod validation schemas as they get
-//   extracted out of form components. None of this touches the DOM.
+//   src/lib/xlsxParser.ts), plus any pure helpers extracted out of
+//   feature screens (e.g. features/admin/renewals.ts,
+//   features/company-admin/companyReadiness.ts) and zod validation
+//   schemas. None of this touches the DOM.
 //
 // - "components" (jsdom + React Testing Library): route guards and
 //   other components with real client-side branching logic worth
@@ -26,7 +28,7 @@ export default defineConfig({
         test: {
           name: 'lib',
           environment: 'node',
-          include: ['src/lib/**/*.test.ts'],
+          include: ['src/lib/**/*.test.ts', 'src/features/**/*.test.ts', 'src/components/**/*.test.ts'],
         },
       },
       {

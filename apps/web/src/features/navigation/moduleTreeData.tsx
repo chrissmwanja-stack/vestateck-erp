@@ -31,6 +31,10 @@ import {
   Campaign,
   Flag,
   HealthAndSafety,
+  Apartment,
+  Checklist,
+  PersonAdd,
+  Rule,
 } from "@mui/icons-material";
 import {
   lawComplianceNodes,
@@ -295,8 +299,6 @@ export const portals: Portal[] = [
           { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/chart-of-accounts" },
           { id: "accounting-periods-admin", label: "Accounting Periods", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounting-periods" },
           { id: "statutory-rates-admin", label: "Statutory Rates (PAYE/NSSF)", icon: <ReceiptLong fontSize="small" />, to: "/admin/statutory-rates" },
-          { id: "organizations-admin", label: "Organizations", icon: <ReceiptLong fontSize="small" />, to: "/admin/organizations" },
-          { id: "departments-admin", label: "Departments", icon: <ReceiptLong fontSize="small" />, to: "/admin/departments" },
           { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/admin/account-categories" },
         ],
       },
@@ -356,6 +358,47 @@ export const portals: Portal[] = [
     label: "My Approvals",
     icon: <AssignmentTurnedIn fontSize="small" />,
     nodes: [{ id: "my-approvals-home", label: "My Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/my-approvals" }],
+  },
+  {
+    // Company Administration -- layer 2 of the admin model: the tenant's
+    // own governance (organization, users & access, workflows). Whole
+    // portal gated to the company admin (or a platform admin via View-as);
+    // RequireTenantAdmin is the route-level enforcement. The shell with
+    // the same items lives in features/company-admin/CompanyAdminLayout.
+    id: "company-admin",
+    label: "Company Administration",
+    icon: <AssignmentTurnedIn fontSize="small" />,
+    requiredAccess: "company-admin",
+    nodes: [
+      { id: "ca-dashboard", label: "Dashboard", icon: <Dashboard fontSize="small" />, to: "/company-admin" },
+      {
+        id: "ca-organization",
+        label: "Organization",
+        icon: <Apartment fontSize="small" />,
+        children: [
+          { id: "ca-departments", label: "Departments", icon: <Apartment fontSize="small" />, to: "/company-admin/organization/departments" },
+          { id: "ca-organizations", label: "Organizations", icon: <Groups fontSize="small" />, to: "/company-admin/organization/organizations" },
+        ],
+      },
+      {
+        id: "ca-users",
+        label: "Users & Access",
+        icon: <People fontSize="small" />,
+        children: [
+          { id: "ca-members", label: "Team Members", icon: <People fontSize="small" />, to: "/company-admin/users/members" },
+          { id: "ca-invite", label: "Invite Member", icon: <PersonAdd fontSize="small" />, to: "/company-admin/users/invite" },
+        ],
+      },
+      {
+        id: "ca-workflows",
+        label: "Workflows",
+        icon: <Rule fontSize="small" />,
+        children: [
+          { id: "ca-approvals", label: "Approval Workflow", icon: <AssignmentTurnedIn fontSize="small" />, to: "/company-admin/workflows/approvals" },
+        ],
+      },
+      { id: "ca-setup", label: "Setup Checklist", icon: <Checklist fontSize="small" />, to: "/company-admin/setup" },
+    ],
   },
   {
     // Kept in lock-step with AdminLayout's CONSOLE_GROUPS: this portal is

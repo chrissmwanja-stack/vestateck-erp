@@ -34,12 +34,13 @@ export function useMyModuleAccess() {
             rolesByModule: new Map(),
             isImpersonating: false,
             canAccessFinance: false,
+            isCompanyAdmin: false,
           });
         return;
       }
       const { data: appUser } = await supabase
         .from("app_users")
-        .select("tenant_id, is_platform_admin")
+        .select("tenant_id, is_platform_admin, is_company_admin")
         .eq("id", userId)
         .maybeSingle();
       if (cancelled) return;
@@ -50,6 +51,7 @@ export function useMyModuleAccess() {
           rolesByModule: new Map(),
           isImpersonating: false,
           canAccessFinance: false,
+          isCompanyAdmin: false,
         });
         return;
       }
@@ -79,16 +81,25 @@ export function useMyModuleAccess() {
             rolesByModule: new Map(),
             isImpersonating: !!imp,
             canAccessFinance: true,
+            // Company-admin nav (the Company Administration portal) makes
+            // sense only while actually inside a company via View-as --
+            // never in console-only mode.
+            isCompanyAdmin: !!imp,
           });
           return;
         }
         subjectUserId = imp.impersonated_user_id;
         subjectTenantId = imp.tenant_id;
       }
-      const [{ data: roles }, { data: entitlements }, { data: financeAccess }] = await Promise.all([
+      const [{ data: roles }, { data: entitlements }, { data: financeAccess }, { data: subjectUser }] = await Promise.all([
         supabase.from("staff_roles").select("module, role").eq("user_id", subjectUserId).eq("tenant_id", subjectTenantId),
         supabase.from("tenant_modules").select("module").eq("tenant_id", subjectTenantId),
         supabase.rpc("can_access_finance"),
+        // The nav subject's own company-admin flag. Reuse the caller's row
+        // (already fetched) unless we're viewing as a specific user.
+        subjectUserId === userId
+          ? Promise.resolve({ data: appUser, error: null })
+          : supabase.from("app_users").select("is_company_admin").eq("id", subjectUserId).maybeSingle(),
       ]);
       if (cancelled) return;
       const roleRows = roles ?? [];
@@ -109,6 +120,7 @@ export function useMyModuleAccess() {
         rolesByModule,
         isImpersonating: subjectUserId !== userId,
         canAccessFinance: Boolean(financeAccess),
+        isCompanyAdmin: Boolean(subjectUser?.is_company_admin),
       });
     };
 

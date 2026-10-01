@@ -1,7 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { filterNodesByAccess, portals } from './ModuleTree';
 import { businessDevNodes } from '../../modules/portals/ShellConfigs';
 import { BD_ADMIN_ROLES } from '../../modules/portals/business-development/access';
+import type { ModuleAccessState } from './types';
+
+// Mocks for the rendered-ModuleTree tests below (portal visibility).
+// The pure-function tests above don't touch these hooks.
+let mockModuleAccess: ModuleAccessState = {
+  isPlatformAdmin: false,
+  modules: new Set<string>(),
+  rolesByModule: new Map<string, Set<string>>(),
+  isImpersonating: false,
+  canAccessFinance: false,
+  isCompanyAdmin: false,
+};
+vi.mock('./useMyModuleAccess', () => ({
+  useMyModuleAccess: () => mockModuleAccess,
+}));
+vi.mock('../../lib/brandingContext', () => ({
+  useBranding: () => ({
+    platformName: 'VestaPortal',
+    tagline: '',
+    logoUrl: '',
+    primaryColor: '#1B5560',
+    supportEmail: '',
+    refresh: async () => {},
+  }),
+}));
 
 // Covers the BD nav filtering added alongside the BD_ADMIN_ROLES route
 // split: "Proposal Approvals" and the whole "Admin" (lookup tables) node
@@ -30,6 +55,7 @@ function accessFor(role: string | null, opts: { isPlatformAdmin?: boolean; canAc
     rolesByModule,
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
+    isCompanyAdmin: false,
   };
 }
 
@@ -89,6 +115,7 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     rolesByModule: new Map<string, Set<string>>(),
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
+    isCompanyAdmin: false,
   });
 
   it('tags the whole financial-management portal with requiredAccess: "finance"', () => {
@@ -146,5 +173,78 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     // any authenticated user, unaffected by finance gating.
     expect(findNode(visible, 'new-request')).toBeDefined();
     expect(findNode(visible, 'my-requests')).toBeDefined();
+  });
+});
+// The Company Administration portal (Phase 1 of the admin-architecture
+// rework) is whole-portal gated to the company admin, same shape as the
+// finance gate above. The route-level enforcement is RequireTenantAdmin;
+// this pins the nav-visibility half.
+describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
+  const companyAdminAccess = (opts: { isCompanyAdmin?: boolean; isPlatformAdmin?: boolean } = {}) => ({
+    isPlatformAdmin: !!opts.isPlatformAdmin,
+    modules: new Set<string>(),
+    rolesByModule: new Map<string, Set<string>>(),
+    isImpersonating: false,
+    canAccessFinance: false,
+    isCompanyAdmin: !!opts.isCompanyAdmin,
+  });
+
+  it('tags the whole company-admin portal with requiredAccess: "company-admin"', () => {
+    const portal = portals.find((p) => p.id === 'company-admin');
+    expect(portal?.requiredAccess).toBe('company-admin');
+  });
+
+  it('lists the dashboard, organization, users, workflows and setup entries', () => {
+    const portal = portals.find((p) => p.id === 'company-admin')!;
+    for (const id of ['ca-dashboard', 'ca-organization', 'ca-users', 'ca-workflows', 'ca-setup']) {
+      expect(findNode(portal.nodes, id)).toBeDefined();
+    }
+  });
+
+  it('shows company-admin nodes to the company admin', () => {
+    const portal = portals.find((p) => p.id === 'company-admin')!;
+    const visible = filterNodesByAccess(portal.nodes, companyAdminAccess({ isCompanyAdmin: true }));
+    expect(findNode(visible, 'ca-dashboard')).toBeDefined();
+    expect(findNode(visible, 'ca-departments')).toBeDefined();
+  });
+
+  it('hides the whole portal from a regular member, shows it to a company admin', async () => {
+    // The gate lives at portal level in ModuleTree's visiblePortals, so
+    // render the real tree with mocked access and open the portal
+    // switcher to see what's offered.
+    const { default: ModuleTree } = await import('./ModuleTree');
+    const { render, screen, fireEvent, cleanup } = await import('@testing-library/react');
+    const { MemoryRouter } = await import('react-router-dom');
+
+    for (const [isCompanyAdmin, expectVisible] of [
+      [false, false],
+      [true, true],
+    ] as const) {
+      mockModuleAccess = {
+        isPlatformAdmin: false,
+        modules: new Set<string>(),
+        rolesByModule: new Map<string, Set<string>>(),
+        isImpersonating: false,
+        canAccessFinance: false,
+        isCompanyAdmin,
+      };
+      render(
+        <MemoryRouter>
+          <ModuleTree />
+        </MemoryRouter>
+      );
+      // Open the portal switcher (the header row).
+      fireEvent.click(screen.getByText(/click to switch portal/i));
+      const items = await screen.findAllByRole('menuitem');
+      const labels = items.map((i) => i.textContent ?? '');
+      expect(labels.some((l) => l.includes('Company Administration'))).toBe(expectVisible);
+      cleanup();
+    }
+  });
+
+  it('shows company-admin nodes to a platform admin (View-as)', () => {
+    const portal = portals.find((p) => p.id === 'company-admin')!;
+    const visible = filterNodesByAccess(portal.nodes, companyAdminAccess({ isPlatformAdmin: true }));
+    expect(findNode(visible, 'ca-dashboard')).toBeDefined();
   });
 });
