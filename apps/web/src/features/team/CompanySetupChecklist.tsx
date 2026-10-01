@@ -13,6 +13,7 @@ import {
 import { CheckCircle as CheckCircleIcon, RadioButtonUnchecked as OpenIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { useTenantAdminAccess } from './useTenantAdminAccess';
 
 // Guided first-look for a company admin: departments -> positions ->
 // invite team. Each step just links out to the existing admin screens
@@ -37,7 +38,7 @@ const STEPS: Step[] = [
     key: 'departments',
     title: 'Set up departments',
     description: 'Departments are the backbone of your org chart and reporting lines.',
-    linkTo: '/admin/departments',
+    linkTo: '/company-admin/organization/departments',
     linkLabel: 'Manage departments',
   },
   {
@@ -51,65 +52,17 @@ const STEPS: Step[] = [
     key: 'team',
     title: 'Invite your team',
     description: 'Bring in teammates and choose which modules and roles they get.',
-    linkTo: '/team/invite',
+    linkTo: '/company-admin/users/invite',
     linkLabel: 'Invite teammates',
   },
 ];
 
-// app_users' only SELECT policy scopes by tenant_id, not by your own id,
-// so a query without .eq('id', ...) can return every user in your tenant
-// and .single() throws on more than one row. Get the caller's own id
-// from the session first, then filter on it.
-function useTenantAdminAccess() {
-  const [state, setState] = useState<{ isAdmin: boolean; tenantId: string | null } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getSession().then(async ({ data: sessionData }) => {
-      const userId = sessionData.session?.user.id;
-      if (!userId) {
-        if (!cancelled) setState({ isAdmin: false, tenantId: null });
-        return;
-      }
-      const { data: appUser, error: appUserError } = await supabase
-        .from('app_users')
-        .select('tenant_id, is_platform_admin')
-        .eq('id', userId)
-        .maybeSingle();
-      if (cancelled || appUserError || !appUser) {
-        if (!cancelled) setState({ isAdmin: false, tenantId: null });
-        return;
-      }
-      // app_users.tenant_id is the caller's real (home) tenant and doesn't
-      // move during impersonation. get_my_tenant_id() resolves to the
-      // impersonated tenant server-side, so it's the one that actually
-      // matches what invitations/staff_roles/RLS are scoped to right now.
-      const { data: effectiveTenantId, error: tenantIdError } = await supabase.rpc('get_my_tenant_id');
-      if (cancelled) return;
-      const tenantId = tenantIdError || !effectiveTenantId ? appUser.tenant_id : effectiveTenantId;
-      // Platform admins get full access to every module while impersonating
-      // a tenant (view mode included) -- they don't need a staff_roles admin
-      // row in that company to manage it.
-      if (appUser.is_platform_admin) {
-        setState({ isAdmin: true, tenantId });
-        return;
-      }
-      const { data: adminRole } = await supabase
-        .from('staff_roles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      setState({ isAdmin: !!adminRole, tenantId });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return state;
-}
+// Access check is the shared useTenantAdminAccess hook (same one
+// InviteMember/TeamMembersAdmin use): is_company_admin or platform admin,
+// impersonation-aware, re-fetched on auth changes. The /company-admin/setup
+// route is additionally wrapped in RequireTenantAdmin, so this is belt and
+// braces. (This file used to carry a forked copy of the hook keyed to the
+// legacy staff_roles 'admin' row -- retired with the Phase 3 cleanup.)
 
 export default function CompanySetupChecklist() {
   const access = useTenantAdminAccess();

@@ -22,8 +22,9 @@ export default function ModuleTree() {
   // Portals gated at the whole-portal level (hr/legal/bd/it/pmo/
   // machine_operation/sustainability) disappear entirely from the
   // switcher if the user has no access. Mixed portals (purchasing-
-  // logistics) and ungated ones (financial-management, platform-admin)
-  // always show, with node-level filtering applied below.
+  // logistics) and the finance portal always show for their tier, with
+  // node-level filtering applied below. The platform-admin portal is
+  // only ever offered to platform admins (route guards still enforce).
   const visiblePortals = useMemo(() => {
     if (!access) return portals;
     if (access.isPlatformAdmin && !access.isImpersonating) {
@@ -33,6 +34,8 @@ export default function ModuleTree() {
       if (access.isPlatformAdmin) return true;
       if (p.requiredModule && !access.modules.has(p.requiredModule)) return false;
       if (p.requiredAccess === "finance" && !access.canAccessFinance) return false;
+      if (p.requiredAccess === "company-admin" && !access.isCompanyAdmin) return false;
+      if (p.requiredAccess === "platform") return false;
       return true;
     });
   }, [access]);

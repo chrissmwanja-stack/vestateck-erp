@@ -284,3 +284,50 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
     expect(findNode(visible, 'ca-dashboard')).toBeDefined();
   });
 });
+
+describe('platform-admin portal visibility', () => {
+  it('is tagged with the "platform" whole-portal gate', () => {
+    const portal = portals.find((p) => p.id === 'platform-admin')!;
+    expect(portal.requiredAccess).toBe('platform');
+  });
+
+  it('hides the switcher entry from non-platform users, shows it only to platform admins', async () => {
+    // Render the real tree with mocked access and inspect the switcher
+    // menu, same pattern as the company-admin portal test above.
+    const { default: ModuleTree } = await import('./ModuleTree');
+    const { render, screen, fireEvent, cleanup } = await import('@testing-library/react');
+    const { MemoryRouter } = await import('react-router-dom');
+
+    const base = {
+      modules: new Set<string>(),
+      rolesByModule: new Map<string, Set<string>>(),
+      canAccessFinance: false,
+      isCompanyAdmin: false,
+      hasPoAccess: false,
+    };
+
+    const cases = [
+      // [access, expect platform portal in switcher, expect it to be the ONLY portal]
+      [{ ...base, isPlatformAdmin: false, isImpersonating: false }, false, false],
+      [{ ...base, isPlatformAdmin: true, isImpersonating: false }, true, true],
+      [{ ...base, isPlatformAdmin: true, isImpersonating: true }, true, false],
+    ] as const;
+
+    for (const [accessState, expectVisible, expectOnly] of cases) {
+      mockModuleAccess = accessState;
+      render(
+        <MemoryRouter>
+          <ModuleTree />
+        </MemoryRouter>
+      );
+      fireEvent.click(screen.getByText(/click to switch portal/i));
+      const items = await screen.findAllByRole('menuitem');
+      const labels = items.map((i) => i.textContent ?? '');
+      expect(labels.some((l) => l.includes('Platform Administration'))).toBe(expectVisible);
+      if (expectOnly) {
+        expect(labels).toHaveLength(1);
+      }
+      cleanup();
+    }
+  });
+});

@@ -404,10 +404,14 @@ export const portals: Portal[] = [
     // Kept in lock-step with AdminLayout's CONSOLE_GROUPS: this portal is
     // the platform admin's nav OUTSIDE console routes (the rail takes over
     // inside them). Every console screen must be linked from one or the
-    // other, so new screens get added to both.
+    // other, so new screens get added to both. requiredAccess "platform"
+    // hides it from every non-platform user in the switcher (the routes
+    // themselves are RequirePlatformAdmin-guarded; this removes the dead
+    // entry that used to bounce to a "not allowed" screen).
     id: "platform-admin",
     label: "Platform Administration",
     icon: <AdminPanelSettings fontSize="small" />,
+    requiredAccess: "platform",
     nodes: [
       { id: "platform-overview", label: "Overview", icon: <Dashboard fontSize="small" />, to: "/admin" },
       { id: "companies-console", label: "Companies", icon: <Business fontSize="small" />, to: "/admin/companies" },

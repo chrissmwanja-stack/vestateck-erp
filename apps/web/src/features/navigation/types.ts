@@ -60,8 +60,11 @@ export interface Portal {
   // "financial-management", which (unlike purchasing-logistics) is 100%
   // finance-gated routes, so it's simpler to tag at the portal level.
   // "company-admin" works the same way for the Company Administration
-  // portal (company admin / platform admin only).
-  requiredAccess?: "finance" | "company-admin";
+  // portal (company admin / platform admin only). "platform" gates the
+  // Platform Administration portal to platform admins -- the switcher
+  // used to show it to everyone (routes rejected non-platform users with
+  // a "not allowed" screen); hiding it keeps nav and guards in lockstep.
+  requiredAccess?: "finance" | "company-admin" | "platform";
 }
 
 export interface ModuleAccessState {
