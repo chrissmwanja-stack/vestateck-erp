@@ -76,10 +76,16 @@ interface CashBankSummary {
   netMovement: number;
 }
 
+interface CostCenterRow {
+  cost_center_label: string;
+  count: number;
+  total: number;
+}
+
 interface ExpenditureSummary {
   count: number;
   total: number;
-  byCostCenter: { cost_center_label: string; count: number; total: number }[];
+  byCostCenter: CostCenterRow[];
 }
 
 interface PettyCashRow {
@@ -351,9 +357,9 @@ export default function FinancialReports() {
       title: 'Expenditure Slips',
       summaryLines: [`${expenditureSummary.count} slips | ${expenditureSummary.total.toLocaleString()} total`],
       columns: [
-        { header: 'Cost Center', accessor: (r: { cost_center_label: string }) => r.cost_center_label },
-        { header: 'Count', accessor: (r: { count: number }) => r.count, align: 'right' },
-        { header: 'Total', accessor: (r: { total: number }) => r.total, align: 'right' },
+        { header: 'Cost Center', accessor: (r: CostCenterRow) => r.cost_center_label },
+        { header: 'Count', accessor: (r: CostCenterRow) => r.count, align: 'right' },
+        { header: 'Total', accessor: (r: CostCenterRow) => r.total, align: 'right' },
       ],
       rows: expenditureSummary.byCostCenter,
     });
