@@ -681,3 +681,39 @@ begin
     );
   end if;
 end $$;
+
+-- ============================================================================
+-- 5. Company admin: account for e2e/company-admin-org-setup.spec.ts.
+--
+--    No seeded account was a company admin (is_company_admin), so the
+--    Company Administration area (/company-admin/*, guarded by
+--    RequireTenantAdmin and is_tenant_admin() in RLS) could not be
+--    exercised end-to-end. This account is a company admin with NO module
+--    role and NO finance row, which is exactly the persona the
+--    departments/organizations ownership rules (20261001120000) are written
+--    for. Non-admin personas for the negative checks reuse hr@test.local
+--    and finance@test.local from section 2.
+-- ============================================================================
+do $$
+declare
+  v_tenant_id   uuid := '00000000-0000-0000-0000-000000000001';
+  v_cadmin_id   uuid := '04eb905c-4c26-4596-bea6-55621574c65b';
+begin
+  if not exists (select 1 from auth.users where id = v_cadmin_id) then
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at, confirmation_token, recovery_token,
+      email_change, email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
+    ) values (
+      '00000000-0000-0000-0000-000000000000', v_cadmin_id, 'authenticated', 'authenticated',
+      'company.admin@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
+      now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', ''
+    );
+  end if;
+
+  insert into app_users (id, tenant_id, name, email, role_title, is_company_admin)
+  values (v_cadmin_id, v_tenant_id, 'Test Company Admin', 'company.admin@test.local', 'Company Administrator', true)
+  on conflict (id) do update set is_company_admin = true;
+end $$;

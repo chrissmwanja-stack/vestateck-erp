@@ -14,6 +14,11 @@ against a real Supabase backend (no mocking):
 - **BD proposal approvals** — approves the seeded pending proposal
   (seed.sql section 4); safe to rerun (see the spec header for the
   pending-vs-already-approved branch).
+- **Company Admin: departments and organizations** — the company admin
+  creates/edits/deletes through the UI; HR and finance are stopped at the
+  route guard; and direct API writes with a non-admin's own JWT are
+  refused by RLS (finance keeps read access to organizations). Cleans up
+  after itself, so it is safe to rerun.
 
 These are separate from the Vitest component-test suite (`npm test`) and
 run in their own CI workflow (`.github/workflows/e2e.yml`, on every
@@ -58,7 +63,9 @@ npx playwright install --with-deps chromium
    `procurement.offer@test.local`, `procurement@test.local`,
    `finance@test.local`, `hr@test.local`, `pm@test.local`,
    `gm@test.local` (Deputy GM — high-threshold branch terminal stage),
-   `bd@test.local` (BD officer with a seeded pending proposal).
+   `bd@test.local` (BD officer with a seeded pending proposal),
+   `company.admin@test.local` (company admin with no module role and no
+   finance row — seed.sql section 5).
 3. **`pm@test.local` is seeded as a payroll approver** directly in
    `supabase/seed.sql` (payroll approval rights are a separate grant
    from job title/`approval_assignments`, via `/hr/admin/payroll-approvers`

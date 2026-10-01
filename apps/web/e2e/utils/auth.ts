@@ -25,6 +25,10 @@ export const TEST_ACCOUNTS = {
   // Seeded in seed.sql section 4 with a staff_roles row for module 'bd'
   // plus a client and a pending_approval proposal for the approvals spec.
   bdOfficer: { email: 'bd@test.local', role: 'Business Development Officer' },
+  // Seeded in seed.sql section 5: is_company_admin = true with NO module
+  // role and NO finance row (the persona the departments/organizations
+  // ownership rules are written for).
+  companyAdmin: { email: 'company.admin@test.local', role: 'Company Administrator' },
 } as const;
 
 export type TestAccountKey = keyof typeof TEST_ACCOUNTS;
