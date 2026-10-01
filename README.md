@@ -22,7 +22,7 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       79 incremental migrations layered on top as work
+                       91 incremental migrations layered on top as work
                        continues (supabase/migrations_archive holds the 201
                        pre-squash migrations, kept for history). Verified
                        2026-09-16: replaying every tracked migration from an
@@ -43,7 +43,7 @@ packages/shared       TypeScript types shared between the web app and edge funct
 |---|---|
 | Procurement → PO (`src/features/procurement`) | Most mature — request → cost control → offers → threshold approvals → PO → receipts → goods issue → stock, with email delivery via edge function and component test coverage |
 | Finance / GL | Very strong — supplier/receivable invoices, advances, expenditure slips, petty cash, bank ops + reconciliation, full GL (chart of accounts, posting rules, period close), payroll disbursement, PAYE/NSSF/WHT/VAT reports, trial balance; deepest SQL test coverage in the repo |
-| Platform / Admin | Complete — companies console, orgs, departments, approval workflow admin, delegations, impersonation, invites/bootstrap, module entitlements, accounting-period/chart admin |
+| Platform / Admin | Complete — two admin layers. Platform admin console: companies, tenant impersonation, health, annual renewals, module entitlements, invites/bootstrap. Company Admin shell (`/company-admin/*`): departments, organizations, members, invites, approval workflow admin, setup readiness. Plus delegations and accounting-period/chart admin |
 | IT Support | Complete — tickets, SLAs, teams, access, assets, KB/FAQs, full RLS/RPC coverage |
 | Business Development | Broad but uneven — leads, clients, opportunities, tenders, proposals fully surfaced (incl. report exports); some RPCs and deeper workflows (opportunity math, tender submission management) still landing |
 | HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS coverage for compensation, team members and payroll approvers is in place (closed by the 20260819–20260821 migrations) |
@@ -124,19 +124,22 @@ PostgREST's root, which only proves the edge is up, not the database.
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
-`npm run test --workspace=apps/web` (Vitest) both run clean — 58 test files
-as of 2026-09-24 (see the `test` job in `foundation-checks.yml` for the
-current passing count). Coverage is concentrated where it matters most:
+`npm run test --workspace=apps/web` (Vitest) both run clean — 62 test files
+as of 2026-10-01 (see the `test` job in `foundation-checks.yml` for the
+current passing count), plus 24 SQL test files in `supabase/tests/`. Coverage is concentrated where it matters most:
 Procurement, Finance/GL, IT Support, and Platform/Admin have the deepest
 component and SQL test coverage; shallower modules (PMO, Machine Operation,
 Sustainability) have less.
 
 Two GitHub Actions workflows run on every push/PR to `main`:
-`foundation-checks.yml` (migration policy diff, build+typecheck,
-from-scratch migration replay against a local Supabase stack, and the
-tenant_id FK audit from `scripts/audit_tenant_fk.sql`) and `e2e.yml`
-(Playwright specs in `apps/web/e2e/` covering the procurement happy path,
-finance invoice payment, and payroll disbursement money-flow smoke tests).
+`foundation-checks.yml` (migration policy diff, build+typecheck, unit tests,
+from-scratch migration replay against a local Supabase stack, the tenant_id
+FK audit from `supabase/scripts/audit_tenant_fk.sql`, the SECURITY DEFINER
+exposure audit from `supabase/scripts/audit_security_definer.sql`, and every
+`supabase/tests/*.sql` functional test) and `e2e.yml` (six Playwright specs
+in `apps/web/e2e/`: procurement happy path and threshold branch, finance
+invoice payment, payroll approve/reject and disbursement, and BD proposal
+approvals).
 
 ## Known issues
 
