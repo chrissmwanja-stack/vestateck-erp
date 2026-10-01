@@ -65,11 +65,11 @@ packages/shared       TypeScript types shared between the web app and edge funct
    (`20260819122921_squashed_baseline.sql`) followed by incremental migrations;
    they apply in timestamp order. Do not apply `supabase/migrations_archive/` —
    it is the pre-squash history, kept for reference only. New migrations must
-   pass `supabase/scripts/check-migration-policy.sh` (see
+   pass `scripts/check-migration-policy.sh` (see
    `supabase/MIGRATION_POLICY.md`; `DROP TABLE`/`DROP COLUMN` are banned).
    For a fresh database, `supabase/seed.sql` provides test tenants and accounts.
    Run `supabase migrations list` periodically to check local/remote drift — if a migration
-    was ever applied directly against the database (SQL editor, hotfix, etc.) without a
+   was ever applied directly against the database (SQL editor, hotfix, etc.) without a
    matching local file, it'll show up as an unmatched row in the `Remote` column.
 4. Edge Function secrets (only needed if you deploy the functions): set
    `ALLOWED_ORIGINS` (comma-separated frontend origins; defaults to the Vite
@@ -95,11 +95,13 @@ have partial coverage and are still being hardened. Don't assume a table is
 RLS-protected just because the platform is live — check the relevant migration
 before treating any given table as safe for broad client-side access.
 
-As of 2026-09-16, all `public` schema functions are `EXECUTE`-revoked from
-`anon` (unauthenticated) and available only to `authenticated` — closing off
-direct unauthenticated RPC calls (`/rest/v1/rpc/...`) to financial-write
-functions like `post_journal_entry` and `import_bank_statement_lines`, which
-had been exposed to `anon` by Postgres's default grant-to-PUBLIC behavior.
+As of 2026-09-16, the financial-write `SECURITY DEFINER` functions
+(`post_journal_entry`, `import_bank_statement_lines`, and others) are no longer
+`EXECUTE`-able by `anon` (unauthenticated) — Postgres's default grant-to-PUBLIC
+had exposed them to direct RPC calls (`/rest/v1/rpc/...`). The CI exposure audit
+(`supabase/scripts/audit_security_definer.sql`) keeps this visible; the only
+intentionally anon-executable functions are `health_check` and
+`get_platform_branding`.
 `scripts/check-migration-policy.sh` also now rejects any new migration
 containing `DROP COLUMN` or `DROP TABLE` on an existing object — see
 `supabase/MIGRATION_POLICY.md` rule 8 — after a drop-then-recreate pair in
@@ -126,10 +128,10 @@ PostgREST's root, which only proves the edge is up, not the database.
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
 `npm run test --workspace=apps/web` (Vitest) both run clean — 62 test files
 as of 2026-10-01 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 24 SQL test files in `supabase/tests/`. Coverage is concentrated where it matters most:
-Procurement, Finance/GL, IT Support, and Platform/Admin have the deepest
-component and SQL test coverage; shallower modules (PMO, Machine Operation,
-Sustainability) have less.
+current passing count), plus 24 SQL test files in `supabase/tests/`. Coverage
+is concentrated where it matters most: Procurement, Finance/GL, IT Support,
+and Platform/Admin have the deepest component and SQL test coverage; shallower
+modules (PMO, Machine Operation, Sustainability) have less.
 
 Two GitHub Actions workflows run on every push/PR to `main`:
 `foundation-checks.yml` (migration policy diff, build+typecheck, unit tests,
