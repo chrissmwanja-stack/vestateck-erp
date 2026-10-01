@@ -24,6 +24,7 @@ import {
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import {
+  eraseSection,
   exportMultiSectionToExcel,
   exportMultiSectionToPdf,
   type ReportExportColumn,
@@ -175,12 +176,12 @@ export default function FinancialReports() {
       const sRows = supplierRows ?? [];
       setSupplierSummary({
         count: sRows.length,
-        totalInclVat: sRows.reduce((sum, r: any) => sum + Number(r.amount_incl_vat), 0),
-        totalVat: sRows.reduce((sum, r: any) => sum + Number(r.vat_amount), 0),
-        poRelatedCount: sRows.filter((r: any) => r.invoice_type === 'po_related').length,
-        nonPoCount: sRows.filter((r: any) => r.invoice_type === 'non_po').length,
+        totalInclVat: sRows.reduce((sum, r) => sum + Number(r.amount_incl_vat), 0),
+        totalVat: sRows.reduce((sum, r) => sum + Number(r.vat_amount), 0),
+        poRelatedCount: sRows.filter((r) => r.invoice_type === 'po_related').length,
+        nonPoCount: sRows.filter((r) => r.invoice_type === 'non_po').length,
         byOrg: groupByOrg(
-          sRows.map((r: any) => {
+          sRows.map((r) => {
             const org = embedOne(r.organization);
             return { amount: Number(r.amount_incl_vat), org: org ? `${org.company_code} — ${org.site_name}` : 'Unassigned' };
           })
@@ -203,15 +204,15 @@ export default function FinancialReports() {
       if (receivableErr) throw receivableErr;
 
       const rRows = receivableRows ?? [];
-      const openRows = rRows.filter((r: any) => r.status === 'open');
-      const paidRows = rRows.filter((r: any) => r.status === 'paid');
+      const openRows = rRows.filter((r) => r.status === 'open');
+      const paidRows = rRows.filter((r) => r.status === 'paid');
       setReceivableSummary({
         openCount: openRows.length,
-        openTotal: openRows.reduce((sum, r: any) => sum + Number(r.amount_incl_vat), 0),
+        openTotal: openRows.reduce((sum, r) => sum + Number(r.amount_incl_vat), 0),
         paidCount: paidRows.length,
-        paidTotal: paidRows.reduce((sum, r: any) => sum + Number(r.amount_incl_vat), 0),
+        paidTotal: paidRows.reduce((sum, r) => sum + Number(r.amount_incl_vat), 0),
         byOrg: groupByOrg(
-          rRows.map((r: any) => {
+          rRows.map((r) => {
             const org = embedOne(r.organization);
             return { amount: Number(r.amount_incl_vat), org: org ? `${org.company_code} — ${org.site_name}` : 'Unassigned' };
           })
@@ -230,10 +231,10 @@ export default function FinancialReports() {
       if (cbErr) throw cbErr;
 
       const cRows = cbRows ?? [];
-      const receiptsTotal = cRows.filter((r: any) => r.transaction_type === 'receipt').reduce((sum, r: any) => sum + Number(r.amount), 0);
-      const paymentsTotal = cRows.filter((r: any) => r.transaction_type === 'payment').reduce((sum, r: any) => sum + Number(r.amount), 0);
-      const cashTotal = cRows.filter((r: any) => r.payment_method === 'cash').reduce((sum, r: any) => sum + Number(r.amount), 0);
-      const bankTotal = cRows.filter((r: any) => r.payment_method === 'bank').reduce((sum, r: any) => sum + Number(r.amount), 0);
+      const receiptsTotal = cRows.filter((r) => r.transaction_type === 'receipt').reduce((sum, r) => sum + Number(r.amount), 0);
+      const paymentsTotal = cRows.filter((r) => r.transaction_type === 'payment').reduce((sum, r) => sum + Number(r.amount), 0);
+      const cashTotal = cRows.filter((r) => r.payment_method === 'cash').reduce((sum, r) => sum + Number(r.amount), 0);
+      const bankTotal = cRows.filter((r) => r.payment_method === 'bank').reduce((sum, r) => sum + Number(r.amount), 0);
       setCashBankSummary({
         receiptsTotal,
         paymentsTotal,
@@ -258,7 +259,7 @@ export default function FinancialReports() {
 
       const eRows = expRows ?? [];
       const ccAgg: Record<string, { count: number; total: number }> = {};
-      eRows.forEach((r: any) => {
+      eRows.forEach((r) => {
         const cc = embedOne(r.cost_centers);
         const label = cc ? `${cc.project_code ?? ''} ${cc.name}`.trim() : 'Unassigned';
         if (!ccAgg[label]) ccAgg[label] = { count: 0, total: 0 };
@@ -267,7 +268,7 @@ export default function FinancialReports() {
       });
       setExpenditureSummary({
         count: eRows.length,
-        total: eRows.reduce((sum, r: any) => sum + Number(r.amount), 0),
+        total: eRows.reduce((sum, r) => sum + Number(r.amount), 0),
         byCostCenter: Object.entries(ccAgg)
           .map(([cost_center_label, stats]) => ({ cost_center_label, count: stats.count, total: stats.total }))
           .sort((a, b) => b.total - a.total),
@@ -303,10 +304,13 @@ export default function FinancialReports() {
     { header: 'Total', accessor: (r) => r.total, align: 'right' },
   ];
 
-  const sections: ReportSection<any>[] = [];
+  const sections: ReportSection<unknown>[] = [];
+  function addSection<T>(section: ReportSection<T>) {
+    sections.push(eraseSection(section));
+  }
 
   if (supplierSummary) {
-    sections.push({
+    addSection({
       title: 'Supplier Invoices',
       summaryLines: [
         `${supplierSummary.count} invoices | ${supplierSummary.totalInclVat.toLocaleString()} total incl. VAT | ${supplierSummary.totalVat.toLocaleString()} VAT`,
@@ -318,7 +322,7 @@ export default function FinancialReports() {
   }
 
   if (receivableSummary) {
-    sections.push({
+    addSection({
       title: 'Receivable Invoices',
       summaryLines: [
         `${receivableSummary.openCount} open — ${receivableSummary.openTotal.toLocaleString()}`,
@@ -330,7 +334,7 @@ export default function FinancialReports() {
   }
 
   if (cashBankSummary) {
-    sections.push({
+    addSection({
       title: 'Cash and Bank Movement',
       summaryLines: [
         `Receipts: ${cashBankSummary.receiptsTotal.toLocaleString()} | Payments: ${cashBankSummary.paymentsTotal.toLocaleString()} | Net: ${cashBankSummary.netMovement.toLocaleString()}`,
@@ -343,7 +347,7 @@ export default function FinancialReports() {
   }
 
   if (expenditureSummary) {
-    sections.push({
+    addSection({
       title: 'Expenditure Slips',
       summaryLines: [`${expenditureSummary.count} slips | ${expenditureSummary.total.toLocaleString()} total`],
       columns: [
@@ -355,7 +359,7 @@ export default function FinancialReports() {
     });
   }
 
-  sections.push({
+  addSection({
     title: 'Petty Cash Floats',
     summaryLines: ['Current snapshot — not date-filtered.'],
     columns: [

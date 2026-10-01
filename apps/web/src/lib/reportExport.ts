@@ -33,6 +33,21 @@ export interface ReportSection<T> {
 }
 
 /**
+ * jspdf-autotable v5 records the last table it drew on the jsPDF instance
+ * but does not declare it in its typings.
+ */
+type DocWithAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
+
+/**
+ * Lets a dashboard hold sections with different row types in one array.
+ * Safe because each section's `rows` and `columns` are only ever used
+ * together, inside this module, so the row type never gets mixed up.
+ */
+export function eraseSection<T>(section: ReportSection<T>): ReportSection<unknown> {
+  return section as unknown as ReportSection<unknown>;
+}
+
+/**
  * Exports rows to a single-sheet .xlsx file using the same column
  * definitions the on-screen table uses. Numbers are written as real
  * numbers (not strings) so totals/sums work if the user pivots the sheet.
@@ -115,7 +130,7 @@ export function exportReportToPdf<T>(
  */
 export function exportMultiSectionToExcel(
   filename: string,
-  sections: ReportSection<any>[]
+  sections: ReportSection<unknown>[]
 ): void {
   const workbook = XLSX.utils.book_new();
   const usedNames = new Set<string>();
@@ -165,7 +180,7 @@ export function exportMultiSectionToExcel(
 export function exportMultiSectionToPdf(
   filename: string,
   title: string,
-  sections: ReportSection<any>[],
+  sections: ReportSection<unknown>[],
   subtitle?: string
 ): void {
   const doc = new jsPDF({ orientation: "landscape" });
@@ -229,7 +244,7 @@ export function exportMultiSectionToPdf(
       ),
     });
 
-    cursorY = (doc as any).lastAutoTable.finalY + 10;
+    cursorY = ((doc as DocWithAutoTable).lastAutoTable?.finalY ?? cursorY) + 10;
   });
 
   doc.save(filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
