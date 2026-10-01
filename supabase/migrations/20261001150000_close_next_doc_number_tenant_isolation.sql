@@ -17,7 +17,9 @@
 --   is an in-function tenant check. Grants are left unchanged.
 --
 -- Rule enforced (same convention as 20260929120000_harden_post_journal_entry):
---   * No auth.uid() (service_role, cron, owner/migration connections): allowed.
+--   * No auth.uid() and the session role is not anon/authenticated (service_role,
+--     cron, owner/migration connections): allowed. anon/authenticated without a
+--     user id are denied.
 --   * Otherwise p_tenant_id must equal get_my_tenant_id(), which already honours
 --     active impersonation, OR the caller must be a platform admin who is not
 --     impersonating (platform_admin_bypass()).
@@ -38,10 +40,12 @@ set search_path to 'public', 'pg_temp'
 as $function$
 begin
   -- Trusted contexts (service_role, cron, owner connections) have no user session.
-  -- An anonymous API session also has no auth.uid(), so refuse it explicitly rather
-  -- than relying only on the EXECUTE grants (defence in depth).
+  -- Client-facing API roles (anon, authenticated) never legitimately lack one: an
+  -- anonymous session, or an `authenticated` token without a `sub`, would otherwise
+  -- look like a trusted context. Refuse both explicitly rather than relying only on
+  -- the EXECUTE grants (defence in depth).
   if auth.uid() is null then
-    if current_setting('role', true) = 'anon' then
+    if current_setting('role', true) in ('anon', 'authenticated') then
       raise exception 'not authorized to generate numbers'
         using errcode = '42501';
     end if;

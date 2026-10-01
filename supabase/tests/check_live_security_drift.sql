@@ -344,6 +344,42 @@ begin
     v_fail := v_fail || 'organizations SELECT policy does not admit the company admin (is_tenant_admin())'::text;
   end if;
 
+  ---------------------------------------------------------------------
+  -- 12. Document-numbering tenant isolation (20261001150000)
+  ---------------------------------------------------------------------
+  if to_regprocedure('public.assert_tenant_access(uuid)') is null then
+    v_fail := v_fail || 'missing function public.assert_tenant_access(uuid)'::text;
+  else
+    foreach t in array array['anon', 'authenticated', 'public'] loop
+      if has_function_privilege(t, 'public.assert_tenant_access(uuid)', 'EXECUTE') then
+        v_fail := v_fail || format('role %s can EXECUTE assert_tenant_access', t);
+      end if;
+    end loop;
+  end if;
+  foreach t in array array[
+    'public.next_doc_number(uuid,text,text,integer)',
+    'public.next_asset_tag(uuid)',
+    'public.next_mr_number(uuid)',
+    'public.next_ticket_number(uuid)',
+    'public.next_problem_number(uuid)',
+    'public.next_material_catalog_code(uuid)'
+  ] loop
+    if to_regprocedure(t) is null then
+      v_fail := v_fail || format('missing function %s', t);
+    else
+      if (select prosrc !~* 'assert_tenant_access' from pg_proc where oid = to_regprocedure(t)) then
+        v_fail := v_fail || format('%s does not call assert_tenant_access', t);
+      end if;
+      -- numbering triggers are SECURITY INVOKER: authenticated must keep EXECUTE
+      if not has_function_privilege('authenticated', to_regprocedure(t), 'EXECUTE') then
+        v_fail := v_fail || format('authenticated lost EXECUTE on %s', t);
+      end if;
+      if has_function_privilege('anon', to_regprocedure(t), 'EXECUTE') then
+        v_fail := v_fail || format('anon can EXECUTE %s', t);
+      end if;
+    end if;
+  end loop;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');

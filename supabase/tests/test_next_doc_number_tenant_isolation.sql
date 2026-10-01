@@ -13,6 +13,7 @@
 --   3. Cross-tenant calls are denied (42501) and leave tenant B's counter untouched.
 --   4. A platform admin who is not impersonating may act for any tenant.
 --   5. A session with no user (owner / service role / cron) may act for any tenant.
+--   Also (3f): the guard itself denies anon and token-without-sub callers.
 --
 -- Not covered here (add if the fixtures become available): active impersonation
 -- of a user in another tenant, and a suspended-tenant caller.
@@ -175,6 +176,56 @@ begin
     raise exception 'FAIL: anon next_asset_tag was not denied (sqlstate=%)', coalesce(v_caught, 'none: call succeeded');
   end if;
   raise notice 'PASS: anon denied';
+
+  -- 3f. The guard's own anon/authenticated branches. Grants normally stop these
+  --     callers first, so exercise the helper directly: grant it for the length
+  --     of this (rolled back) transaction and call it with no user session.
+  reset role;
+  grant execute on function public.assert_tenant_access(uuid) to anon, authenticated;
+
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+  set local role anon;
+  v_caught := null;
+  begin
+    perform public.assert_tenant_access(v_tenant_a);
+  exception when others then v_caught := sqlstate;
+  end;
+  if v_caught is distinct from '42501' then
+    raise exception 'FAIL: guard did not deny anon with no user session (sqlstate=%)', coalesce(v_caught, 'none: call succeeded');
+  end if;
+
+  reset role;
+  perform set_config('request.jwt.claims', json_build_object('role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_caught := null;
+  begin
+    perform public.assert_tenant_access(v_tenant_a);
+  exception when others then v_caught := sqlstate;
+  end;
+  if v_caught is distinct from '42501' then
+    raise exception 'FAIL: guard did not deny authenticated token without sub (sqlstate=%)', coalesce(v_caught, 'none: call succeeded');
+  end if;
+  -- ...and through the real entry points.
+  v_caught := null;
+  begin
+    perform next_doc_number(v_tenant_a, 'docno_test', 'TST');
+  exception when others then v_caught := sqlstate;
+  end;
+  if v_caught is distinct from '42501' then
+    raise exception 'FAIL: authenticated without sub could call next_doc_number (sqlstate=%)', coalesce(v_caught, 'none: call succeeded');
+  end if;
+  v_caught := null;
+  begin
+    perform next_asset_tag(v_tenant_a);
+  exception when others then v_caught := sqlstate;
+  end;
+  if v_caught is distinct from '42501' then
+    raise exception 'FAIL: authenticated without sub could call next_asset_tag (sqlstate=%)', coalesce(v_caught, 'none: call succeeded');
+  end if;
+
+  reset role;
+  revoke execute on function public.assert_tenant_access(uuid) from anon, authenticated;
+  raise notice 'PASS: guard denies anon / authenticated callers that carry no user id';
 
   -- Tenant B's counters must be untouched by everything above.
   reset role;
