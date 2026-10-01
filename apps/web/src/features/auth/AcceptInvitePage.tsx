@@ -104,7 +104,7 @@ export default function AcceptInvitePage() {
     // tenant. Everyone else goes straight into the app, same as a normal
     // login.
     const destination =
-      acceptResult?.role_bundle === 'company_admin' ? '/setup' : '/requests/new';
+      acceptResult?.role_bundle === 'company_admin' ? '/company-admin/setup' : '/requests/new';
     navigate(destination, { replace: true });
   };
 

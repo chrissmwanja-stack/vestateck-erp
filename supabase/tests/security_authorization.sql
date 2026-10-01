@@ -12,6 +12,8 @@
 --   * direct cross-tenant and self-escalation INSERT/UPDATE/DELETE on the
 --     underlying tables
 --   * company-level vs user-level platform-admin impersonation
+--   * departments / organizations ownership: company admin (no module role)
+--     writes, module admin / finance team / other tenants do not
 --
 -- Product decisions this file encodes (2026-09-29):
 --   1. Payroll: the preparer of a run must NOT be able to approve it.
@@ -22,6 +24,9 @@
 --   3. PO handoff: only the selected-offer submitter and PO-access holders
 --      (incl. their active delegates) may share a PO or confirm delivery.
 --      Members of the approval chain get no handoff rights.
+--   4. Departments and organizations are company-level configuration owned
+--      by the company admin (is_tenant_admin()); finance keeps READ on
+--      organizations, every tenant member reads departments (2026-10-01).
 --
 -- Result model: nothing aborts on the first problem. Every check records
 -- PASS, FAIL or GAP in authz_t.results and one summary block at the end
@@ -1176,6 +1181,135 @@ begin
       perform authz_t.check('anon has no EXECUTE on ' || v_sig, true);
     end if;
   end loop;
+end $$;
+
+-- =====================================================================
+-- H. Company admin owns departments and organizations (2026-10-01)
+--    Writes are keyed to is_tenant_admin(): a company admin with no module
+--    role and no finance row can write; a module admin and the finance team
+--    cannot; nobody crosses tenants; a platform admin outside View-as cannot
+--    touch a customer tenant's rows; a user-level View-as gets exactly that
+--    user's rights (decision 2). Reads: everyone in the tenant reads
+--    departments; organizations are read by finance, PO-access holders and
+--    the company admin only.
+-- =====================================================================
+do $$
+declare
+  v_t1 uuid := authz_t.id('T1');
+  v_dept uuid;
+  v_org uuid;
+  k text;
+begin
+  raise notice '--- H. departments / organizations ownership ---';
+
+  -- Fixture sanity (owner context): the personas are what the checks assume.
+  perform authz_t.check('fixture: cadmin is a company admin with no module role and no finance row',
+    authz_t.q(format('select (a.is_company_admin and not exists (select 1 from staff_roles s where s.user_id = a.id) and not exists (select 1 from finance_team_members f where f.user_id = a.id))::text from app_users a where a.id = %L', authz_t.id('cadmin'))) = 'true');
+  perform authz_t.check('fixture: hradmin holds an hr admin role and is not a company admin',
+    authz_t.q(format('select (exists (select 1 from staff_roles s where s.user_id = a.id and s.module = %L and s.role = %L) and not a.is_company_admin)::text from app_users a where a.id = %L', 'hr', 'admin', authz_t.id('hradmin'))) = 'true');
+  perform authz_t.check('fixture: fin is on the finance team and is not a company admin',
+    authz_t.q(format('select (exists (select 1 from finance_team_members f where f.user_id = a.id and f.role = %L) and not a.is_company_admin)::text from app_users a where a.id = %L', 'finance', authz_t.id('fin'))) = 'true');
+
+  -- ---- departments ---------------------------------------------------
+  perform authz_t.become('cadmin');
+  perform authz_t.expect_ok('departments: company admin (no module role) can create a department',
+    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H dept'));
+  v_dept := authz_t.q(format('select id::text from departments where tenant_id = %L and name = %L', v_t1, 'AuthZ H dept'))::uuid;
+  perform authz_t.check('departments: company admin can rename a department',
+    authz_t.rows_hit(format('update departments set name = %L where id = %L', 'AuthZ H dept 2', v_dept)) = '1');
+
+  foreach k in array array['hradmin', 'fin', 'plain'] loop
+    perform authz_t.become(k);
+    perform authz_t.expect_blocked(format('departments: %s cannot create a department', k),
+      format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H denied ' || k));
+    perform authz_t.expect_blocked(format('departments: %s cannot update a department', k),
+      format('update departments set name = %L where id = %L', 'AuthZ H hijack', v_dept));
+    perform authz_t.expect_blocked(format('departments: %s cannot delete a department', k),
+      format('delete from departments where id = %L', v_dept));
+    perform authz_t.check(format('departments: %s can still read the list', k),
+      authz_t.rows_hit(format('select 1 from departments where id = %L', v_dept)) = '1');
+  end loop;
+  perform authz_t.check('departments: the denied attempts changed nothing',
+    authz_t.q(format('select name from departments where id = %L', v_dept)) = 'AuthZ H dept 2');
+
+  perform authz_t.become('xadmin');
+  perform authz_t.expect_blocked('departments: another tenant''s company admin cannot create here',
+    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H cross-tenant'));
+  perform authz_t.expect_blocked('departments: another tenant''s company admin cannot update here',
+    format('update departments set name = %L where id = %L', 'AuthZ H hijack', v_dept));
+  perform authz_t.expect_blocked('departments: another tenant''s company admin cannot delete here',
+    format('delete from departments where id = %L', v_dept));
+  perform authz_t.check('departments: another tenant''s company admin cannot read this tenant''s list',
+    authz_t.rows_hit(format('select 1 from departments where id = %L', v_dept)) = '0');
+
+  perform authz_t.become('cadmin');
+  perform authz_t.check('departments: company admin can delete a department',
+    authz_t.rows_hit(format('delete from departments where id = %L', v_dept)) = '1');
+
+  -- ---- organizations -------------------------------------------------
+  perform authz_t.become('cadmin');
+  perform authz_t.expect_ok('organizations: company admin (no finance row) can create an organization',
+    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H1', 'AuthZ Org H1'));
+  v_org := authz_t.q(format('select id::text from organizations where tenant_id = %L and company_code = %L', v_t1, 'AZ-H1'))::uuid;
+  perform authz_t.check('organizations: company admin can read the list',
+    authz_t.rows_hit(format('select 1 from organizations where id = %L', v_org)) = '1');
+  perform authz_t.check('organizations: company admin can update an organization',
+    authz_t.rows_hit(format('update organizations set site_name = %L where id = %L', 'AuthZ Org H1 renamed', v_org)) = '1');
+
+  -- finance keeps READ (company-code pickers) but no longer writes
+  perform authz_t.become('fin');
+  perform authz_t.check('organizations: finance team can still read the list',
+    authz_t.rows_hit(format('select 1 from organizations where id = %L', v_org)) = '1');
+  perform authz_t.expect_blocked('organizations: finance team cannot create an organization',
+    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H2', 'AuthZ Org H2'));
+  perform authz_t.expect_blocked('organizations: finance team cannot update an organization',
+    format('update organizations set site_name = %L where id = %L', 'AuthZ hijack', v_org));
+  perform authz_t.expect_blocked('organizations: finance team cannot delete an organization',
+    format('delete from organizations where id = %L', v_org));
+
+  -- an hr module admin and a plain member neither read nor write
+  foreach k in array array['hradmin', 'plain'] loop
+    perform authz_t.become(k);
+    perform authz_t.check(format('organizations: %s cannot read the list', k),
+      authz_t.rows_hit(format('select 1 from organizations where id = %L', v_org)) = '0');
+    perform authz_t.expect_blocked(format('organizations: %s cannot create an organization', k),
+      format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H3', 'AuthZ Org H3'));
+  end loop;
+
+  perform authz_t.become('xadmin');
+  perform authz_t.check('organizations: another tenant''s company admin cannot read this tenant''s list',
+    authz_t.rows_hit(format('select 1 from organizations where id = %L', v_org)) = '0');
+  perform authz_t.expect_blocked('organizations: another tenant''s company admin cannot create here',
+    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H4', 'AuthZ Org H4'));
+  perform authz_t.expect_blocked('organizations: another tenant''s company admin cannot update here',
+    format('update organizations set site_name = %L where id = %L', 'AuthZ hijack', v_org));
+
+  perform authz_t.check('organizations: the denied attempts changed nothing',
+    authz_t.q(format('select site_name from organizations where id = %L', v_org)) = 'AuthZ Org H1 renamed');
+
+  perform authz_t.become('cadmin');
+  perform authz_t.check('organizations: company admin can delete an organization',
+    authz_t.rows_hit(format('delete from organizations where id = %L', v_org)) = '1');
+
+  -- ---- platform admin: outside View-as, user-level, company-level -------
+  perform authz_t.x(format('update impersonation_sessions set ended_at = now() where platform_admin_id = %L and ended_at is null', authz_t.id('padmin')));
+  perform authz_t.become('padmin');
+  perform authz_t.expect_blocked('departments: platform admin outside View-as cannot write a customer tenant''s departments',
+    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H operator no-session'));
+  perform authz_t.expect_blocked('organizations: platform admin outside View-as cannot write a customer tenant''s organizations',
+    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H5', 'AuthZ Org H5'));
+
+  perform authz_t.expect_ok('departments: platform admin can start a user-level session on a plain member',
+    format('select * from start_impersonation(%L, %L, %L)', v_t1, 'authz H user-level', authz_t.id('plain')));
+  perform authz_t.expect_blocked('departments: a user-level session on a plain member gets no company-admin rights',
+    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H operator as plain'));
+  perform authz_t.x(format('update impersonation_sessions set ended_at = now() where platform_admin_id = %L and ended_at is null', authz_t.id('padmin')));
+
+  perform authz_t.expect_ok('departments: platform admin can start a company-level session',
+    format('select * from start_impersonation(%L, %L)', v_t1, 'authz H company-level'));
+  perform authz_t.expect_ok('departments: a company-level session may write the company''s departments',
+    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H operator dept'));
+  perform authz_t.x(format('update impersonation_sessions set ended_at = now() where platform_admin_id = %L and ended_at is null', authz_t.id('padmin')));
 end $$;
 
 -- =====================================================================

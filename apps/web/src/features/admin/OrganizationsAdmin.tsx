@@ -26,6 +26,7 @@ import { Add as AddIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
 import { resolveTenantId } from '../../lib/ResolveTenantId';
+import { useTenantAdminAccess } from '../team/useTenantAdminAccess';
 
 interface Organization {
   id: string;
@@ -36,28 +37,22 @@ interface Organization {
 
 const emptyForm = { company_code: '', site_name: '', is_active: true };
 
-// Read/write are both Finance-only server-side (organizations_select /
-// organizations_insert / organizations_update all require
-// is_finance_team_member(...)). This client check just keeps the screen
-// itself from being shown to people who'd fail every call on it -- same
-// pattern as ProcurementTrack.tsx / CostCodeListNew.tsx.
-function useFinanceAccess() {
-  const [isFinance, setIsFinance] = useState<boolean | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    supabase.rpc('am_i_finance').then(({ data, error }) => {
-      if (cancelled) return;
-      setIsFinance(error ? false : Boolean(data));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return isFinance;
+// Organizations (company codes / sites) are company-level configuration, so
+// the company admin owns them: organizations_insert / _update / _delete
+// require is_tenant_admin(), and organizations_select is open to the company
+// admin as well as the finance team and PO-access holders (who read the list
+// to pick a company code) -- see
+// 20261001120000_company_admin_owns_departments_organizations. This client
+// check just keeps the screen from being shown to people who'd fail every
+// call on it; the route is also behind RequireTenantAdmin. Null while the
+// check is in flight.
+function useCanManageOrganizations(): boolean | null {
+  const access = useTenantAdminAccess();
+  return access ? access.isAdmin : null;
 }
 
 export default function OrganizationsAdmin() {
-  const isFinance = useFinanceAccess();
+  const canManage = useCanManageOrganizations();
   const { session } = useAuth();
   const [rows, setRows] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,10 +137,10 @@ export default function OrganizationsAdmin() {
     load();
   };
 
-  if (isFinance === false) {
+  if (canManage === false) {
     return (
       <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
-        Organizations (company codes / sites) are managed by Finance.
+        Organizations (company codes / sites) are managed by your company admin.
       </Alert>
     );
   }

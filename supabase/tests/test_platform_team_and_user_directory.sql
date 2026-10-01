@@ -418,7 +418,7 @@ declare
   v_cadmin uuid := (select v from test_ids where k = 'cadmin');
 begin
   perform set_tenant_read_only(v_tenant, true, 'Billing hold for test');
-  -- View as the company admin (module admin -> departments write policy passes)
+  -- View as the company admin (is_tenant_admin() -> departments write policy passes)
   perform start_impersonation(v_tenant, 'Check what the admin sees during hold', v_cadmin);
   begin
     insert into departments (tenant_id, name) values (v_tenant, 'Should be refused');

@@ -205,18 +205,20 @@ export const portals: Portal[] = [
       {
         // Purchasing & Logistics → Administration. Ownership per the
         // admin-architecture rework (§11): material classification /
-        // catalog / receipt are procurement configuration -- their RLS
-        // writes are keyed to has_po_access(), so nav mirrors that tier
-        // (requiredAccess "po"); warehouses writes are finance-team-keyed,
-        // so that entry keeps the finance gate. Cost codes moved to the
-        // Financial Management portal's Admin group.
+        // catalog are procurement configuration -- their RLS writes are
+        // keyed to has_po_access(), so nav mirrors that tier
+        // (requiredAccess "po"). Warehouses and Material Receipt access
+        // are finance-team-keyed (assign_receipt_access() requires
+        // is_finance_team_member('finance')), so those entries keep the
+        // finance gate. Cost codes moved to the Financial Management
+        // portal's Admin group.
         id: "admin",
         label: "Admin",
         icon: <AdminPanelSettings fontSize="small" />,
         children: [
           { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-lookups", requiredAccess: "po" },
           { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-catalog", requiredAccess: "po" },
-          { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-receipt", requiredAccess: "po" },
+          { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/warehouse/admin/material-receipt", requiredAccess: "finance" },
           { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/warehouse/admin/warehouses", requiredAccess: "finance" },
         ],
       },

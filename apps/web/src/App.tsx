@@ -467,24 +467,27 @@ export default function App() {
                     in RLS, so the finance gate stays; only the URL moves
                     (warehouse namespace, next to goods-issue/stock-balances). */}
                 <Route path="/warehouse/admin/warehouses" element={<WarehousesAdmin />} />
-                {/* Redirect: organizations moved to Company Admin →
-                    Organization (company-admin domain, not finance). */}
-                <Route path="/admin/organizations" element={<Navigate to="/company-admin/organization/organizations" replace />} />
+                {/* Material Receipt access: the screen assigns/revokes who may
+                    receive goods through assign_receipt_access() /
+                    revoke_receipt_access(), which require
+                    is_finance_team_member('finance') -- NOT has_po_access().
+                    The route lives with the other finance-authority admin
+                    screen, so the guard matches the RPC authority. */}
+                <Route path="/warehouse/admin/material-receipt" element={<MaterialReceiptAdmin />} />
                 <Route path="/financial-management/admin/account-categories" element={<AccountCategoriesAdmin />} />
               </Route>
 
-              {/* PROCUREMENT ADMIN (material classification / catalog /
-                  receipt) -- moved out of /admin/* and out of the finance
+              {/* PROCUREMENT ADMIN (material classification / catalog) -- moved out of /admin/* and out of the finance
                   gate: these tables' RLS writes are keyed to
                   has_po_access(), not to the finance team, so the route
                   guard now mirrors the write authority exactly
                   (RequireRpcAccess, same pattern as payroll approvals).
-                  Material screens moved here; warehouses kept its finance
-                  gate because warehouses RLS is finance-team-keyed. */}
+                  Material classification / catalog live here; warehouses
+                  and material-receipt access keep the finance gate
+                  because their write authority is finance-team-keyed. */}
               <Route element={<RequireRpcAccess rpc="has_po_access" />}>
                 <Route path="/procurement/admin/material-lookups" element={<MaterialLookupsAdmin />} />
                 <Route path="/procurement/admin/material-catalog" element={<MaterialCatalogAdmin />} />
-                <Route path="/procurement/admin/material-receipt" element={<MaterialReceiptAdmin />} />
               </Route>
 
               {/* Old homes of the module-admin screens above -- redirects
@@ -499,7 +502,13 @@ export default function App() {
               <Route path="/admin/warehouses" element={<Navigate to="/warehouse/admin/warehouses" replace />} />
               <Route path="/admin/material-lookups" element={<Navigate to="/procurement/admin/material-lookups" replace />} />
               <Route path="/admin/material-catalog" element={<Navigate to="/procurement/admin/material-catalog" replace />} />
-              <Route path="/admin/material-receipt" element={<Navigate to="/procurement/admin/material-receipt" replace />} />
+              <Route path="/admin/material-receipt" element={<Navigate to="/warehouse/admin/material-receipt" replace />} />
+              <Route path="/procurement/admin/material-receipt" element={<Navigate to="/warehouse/admin/material-receipt" replace />} />
+              {/* Organizations moved to Company Admin -> Organization. The
+                  redirect sits out here, not inside RequireFinanceTeam, so
+                  a company admin who is not on the finance team still
+                  reaches it. */}
+              <Route path="/admin/organizations" element={<Navigate to="/company-admin/organization/organizations" replace />} />
 
               {/* PROCUREMENT - gated by staff_roles module="procurement" (added
                   2026-08-15). These were previously reachable by any

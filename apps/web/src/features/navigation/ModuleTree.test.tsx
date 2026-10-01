@@ -130,19 +130,25 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
     // Post-Phase-2: material admin screens moved to the po tier (their
     // RLS writes are has_po_access-keyed); cost codes moved into the
-    // finance portal. Warehouses stays finance (finance-team RLS).
-    const financeGatedIds = ['purchase-orders', 'payment-approvals', 'warehouses-admin'];
+    // finance portal. Warehouses and Material Receipt access stay finance
+    // (finance-team authority: assign_receipt_access() requires
+    // is_finance_team_member('finance')).
+    const financeGatedIds = ['purchase-orders', 'payment-approvals', 'warehouses-admin', 'material-receipt-admin'];
     for (const id of financeGatedIds) {
       expect(findNode(portal.nodes, id)).toMatchObject({ requiredAccess: 'finance' });
     }
   });
 
-  it('tags the material admin nodes with requiredAccess: "po" at their new procurement URLs', () => {
+  it('keeps Material Receipt access in the warehouse namespace behind the finance gate', () => {
     const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
     expect(findNode(portal.nodes, 'material-receipt-admin')).toMatchObject({
-      requiredAccess: 'po',
-      to: '/procurement/admin/material-receipt',
+      requiredAccess: 'finance',
+      to: '/warehouse/admin/material-receipt',
     });
+  });
+
+  it('tags the material classification/catalog nodes with requiredAccess: "po" at their procurement URLs', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
     expect(findNode(portal.nodes, 'material-lookups-admin')).toMatchObject({
       requiredAccess: 'po',
       to: '/procurement/admin/material-lookups',
@@ -165,13 +171,13 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
     const denied = filterNodesByAccess(portal.nodes, financeAccess({ canAccessFinance: true }));
     expect(findNode(denied, 'material-catalog-admin')).toBeUndefined();
-    // warehouses keeps showing on finance access alone
+    // warehouses and material-receipt access keep showing on finance access alone
     expect(findNode(denied, 'warehouses-admin')).toBeDefined();
+    expect(findNode(denied, 'material-receipt-admin')).toBeDefined();
 
     const allowed = filterNodesByAccess(portal.nodes, financeAccess({ hasPoAccess: true }));
     expect(findNode(allowed, 'material-catalog-admin')).toBeDefined();
     expect(findNode(allowed, 'material-lookups-admin')).toBeDefined();
-    expect(findNode(allowed, 'material-receipt-admin')).toBeDefined();
   });
 
   it('hides finance-only purchasing-logistics nodes from a user without finance access', () => {

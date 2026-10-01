@@ -316,6 +316,34 @@ begin
     v_fail := v_fail || format('%s is executable by anon', r.sig);
   end loop;
 
+  -- 11. departments / organizations belong to the company admin
+  --     (20261001120000): every write policy must be keyed to
+  --     is_tenant_admin() and must not still admit the finance team or any
+  --     module admin; organizations_select must also admit the company admin.
+  foreach t in array array['departments', 'organizations'] loop
+    for r in select c as cmd from unnest(array['INSERT', 'UPDATE', 'DELETE']) as c loop
+      if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and cmd = r.cmd) then
+        v_fail := v_fail || format('%s has no %s policy', t, r.cmd);
+      end if;
+    end loop;
+    for r in
+      select policyname, cmd from pg_policies
+      where schemaname = 'public' and tablename = t and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+        and (coalesce(qual, '') || coalesce(with_check, '') !~* 'is_tenant_admin'
+             or coalesce(qual, '') || coalesce(with_check, '') ~* 'is_finance_team_member'
+             or coalesce(qual, '') || coalesce(with_check, '') ~* 'is_any_module_admin')
+    loop
+      v_fail := v_fail || format('%s.%s (%s) is not keyed to is_tenant_admin() alone', t, r.policyname, r.cmd);
+    end loop;
+  end loop;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'organizations' and cmd = 'SELECT'
+      and coalesce(qual, '') !~* 'is_tenant_admin'
+  ) then
+    v_fail := v_fail || 'organizations SELECT policy does not admit the company admin (is_tenant_admin())'::text;
+  end if;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');

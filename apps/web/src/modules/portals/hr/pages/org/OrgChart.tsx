@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, TextField, Tooltip, Typography } from "@mui/material";
 import { AccountTree, Add, Edit, PersonAdd, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useTenantAdminAccess } from "../../../../../features/team/useTenantAdminAccess";
 
 interface Department { id: string; name: string; parent_department_id: string | null; tenant_id?: string; }
 interface Employee { id: string; first_name: string; last_name: string; department_id: string | null; hr_positions?: { title: string } | null; }
 
 export default function OrgChart() {
+  // Departments are company-level structure owned by the company admin
+  // (departments RLS: is_tenant_admin()). HR admins still run the HR side of
+  // this screen -- assigning employees to departments -- but the department
+  // create/edit/delete controls are shown to the company admin only.
+  const adminAccess = useTenantAdminAccess();
+  const canManageDepts = !!adminAccess?.isAdmin;
   const [depts, setDepts] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,10 +133,10 @@ export default function OrgChart() {
               <Chip label={`${deptEmployees.length} employees`} size="small" />
             </Box>
             <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
-              <Tooltip title="Add child department"><IconButton size="small" aria-label="Add child" onClick={() => openCreateDept(dept.id)}><Add fontSize="small" /></IconButton></Tooltip>
+              {canManageDepts && <Tooltip title="Add child department"><IconButton size="small" aria-label="Add child" onClick={() => openCreateDept(dept.id)}><Add fontSize="small" /></IconButton></Tooltip>}
               <Tooltip title="Assign employee"><IconButton size="small" aria-label="Assign employee" onClick={() => openAssign(dept.id)}><PersonAdd fontSize="small" /></IconButton></Tooltip>
-              <Tooltip title="Edit department"><IconButton size="small" aria-label="Edit department" onClick={() => openEditDept(dept)}><Edit fontSize="small" /></IconButton></Tooltip>
-              <Tooltip title="Delete department"><IconButton size="small" aria-label="Delete department" onClick={() => handleDeptDelete(dept)}><Delete fontSize="small" /></IconButton></Tooltip>
+              {canManageDepts && <Tooltip title="Edit department"><IconButton size="small" aria-label="Edit department" onClick={() => openEditDept(dept)}><Edit fontSize="small" /></IconButton></Tooltip>}
+              {canManageDepts && <Tooltip title="Delete department"><IconButton size="small" aria-label="Delete department" onClick={() => handleDeptDelete(dept)}><Delete fontSize="small" /></IconButton></Tooltip>}
             </Box>
           </CardContent>
         </Card>
@@ -163,16 +170,16 @@ export default function OrgChart() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2, gap: 2, flexWrap: "wrap" }}>
         <Box>
           <Typography variant="h5" fontWeight={700} gutterBottom>Organization Chart</Typography>
-          <Typography variant="body2" color="text.secondary">Hierarchical view of departments and employees. Click + to add child departments, assign employees, or edit/delete.</Typography>
+          <Typography variant="body2" color="text.secondary">Hierarchical view of departments and employees. Assign employees to departments{canManageDepts ? ", add child departments, or edit/delete them" : "; departments themselves are managed by your company admin"}.</Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Button variant="outlined" startIcon={<Add />} onClick={() => openCreateDept(null)}>New Top Department</Button>
+          {canManageDepts && <Button variant="outlined" startIcon={<Add />} onClick={() => openCreateDept(null)}>New Top Department</Button>}
           <Button variant="outlined" startIcon={<PersonAdd />} onClick={() => openAssign(topLevel[0]?.id || "")} disabled={unassigned.length === 0}>Assign Unassigned</Button>
         </Box>
       </Box>
 
       {topLevel.length === 0 ? (
-        <Card><CardContent><Typography color="text.secondary">No departments yet. Create your first top-level department.</Typography><Button sx={{ mt: 1 }} variant="contained" startIcon={<Add />} onClick={() => openCreateDept(null)}>Create Department</Button></CardContent></Card>
+        <Card><CardContent><Typography color="text.secondary">{canManageDepts ? "No departments yet. Create your first top-level department." : "No departments yet. Ask your company admin to set them up."}</Typography>{canManageDepts && <Button sx={{ mt: 1 }} variant="contained" startIcon={<Add />} onClick={() => openCreateDept(null)}>Create Department</Button>}</CardContent></Card>
       ) : (
         <Box>{topLevel.map(dept => renderDept(dept, 0))}</Box>
       )}

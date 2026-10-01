@@ -27,6 +27,7 @@ import { Add as AddIcon, UploadFile as UploadFileIcon } from '@mui/icons-materia
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
 import { resolveTenantId } from '../../lib/ResolveTenantId';
+import { useTenantAdminAccess } from '../team/useTenantAdminAccess';
 
 interface Department {
   id: string;
@@ -83,34 +84,20 @@ function parseDepartmentsCsv(text: string): ParsedDeptRow[] {
 }
 
 // departments_select_tenant is open to every tenant member (any requester
-// needs to see the list to pick their department) -- insert/update/delete
-// are open to Finance team members OR any module admin (see
-// broaden_departments_write_to_any_module_admin migration), so this screen
-// shows the read-only table to everyone and only hides the New/Edit actions
-// from users who are neither.
-function useFinanceAccess() {
-  const [isFinance, setIsFinance] = useState<boolean | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      supabase.rpc('am_i_finance'),
-      supabase.rpc('is_any_module_admin'),
-    ]).then(([financeResult, moduleAdminResult]) => {
-      if (cancelled) return;
-      const canWrite =
-        (!financeResult.error && Boolean(financeResult.data)) ||
-        (!moduleAdminResult.error && Boolean(moduleAdminResult.data));
-      setIsFinance(canWrite);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return isFinance;
+// needs to see the list to pick their department). insert/update/delete
+// belong to the company admin (is_tenant_admin(); see
+// 20261001120000_company_admin_owns_departments_organizations) -- module
+// admins and the finance team no longer hold write access. This screen
+// shows the read-only table to everyone and only offers the New/Edit/Delete
+// actions to the company admin (or a platform admin viewing as the company).
+// Null while the check is in flight, so the actions never flash.
+function useCanManageDepartments(): boolean | null {
+  const access = useTenantAdminAccess();
+  return access ? access.isAdmin : null;
 }
 
 export default function DepartmentsAdmin() {
-  const isFinance = useFinanceAccess();
+  const canManage = useCanManageDepartments();
   const { session } = useAuth();
   const [rows, setRows] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,7 +323,7 @@ export default function DepartmentsAdmin() {
     <Box sx={{ maxWidth: 900 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h5">Departments</Typography>
-        {isFinance && (
+        {canManage && (
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={openImport}>
               Bulk Import
@@ -347,9 +334,14 @@ export default function DepartmentsAdmin() {
           </Stack>
         )}
       </Stack>
+      {canManage === false && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Departments are managed by your company admin. You can view the list here.
+        </Alert>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Departments used for request routing and approvals. Everyone in the tenant can see this list; Finance
-        and module admins can add or edit.
+        Departments used for request routing and approvals. Everyone in the tenant can see this list; only the
+        company admin can add or edit.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -367,7 +359,7 @@ export default function DepartmentsAdmin() {
                   <TableCell>Name</TableCell>
                   <TableCell>Parent Department</TableCell>
                   <TableCell>Status</TableCell>
-                  {isFinance && <TableCell align="right">Actions</TableCell>}
+                  {canManage && <TableCell align="right">Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -380,7 +372,7 @@ export default function DepartmentsAdmin() {
                     <TableCell>
                       <Chip size="small" label={row.is_active ? 'Active' : 'Inactive'} color={row.is_active ? 'success' : 'default'} />
                     </TableCell>
-                    {isFinance && (
+                    {canManage && (
                       <TableCell align="right">
                         <Button size="small" onClick={() => openEdit(row)}>
                           Edit
@@ -394,7 +386,7 @@ export default function DepartmentsAdmin() {
                 ))}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isFinance ? 4 : 3} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={canManage ? 4 : 3} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No departments yet.
                     </TableCell>
                   </TableRow>

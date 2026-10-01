@@ -513,8 +513,6 @@ export default function PlatformDashboard() {
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button component={RouterLink} to="/admin/companies" startIcon={<Business />} variant="outlined" size="small">Companies</Button>
-            <Button component={RouterLink} to="/team/invite" startIcon={<People />} variant="outlined" size="small">Invite team</Button>
-            <Button component={RouterLink} to="/setup" startIcon={<Settings />} variant="outlined" size="small">Setup checklist</Button>
           </Stack>
           <Divider sx={{ my: 2 }} />
           <Alert severity="info">
