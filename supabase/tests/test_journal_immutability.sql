@@ -75,11 +75,18 @@ begin
   insert into finance_team_members (tenant_id, user_id, role)
   values (v_tenant, v_finance, 'finance');
 
+  -- Organizations are company-admin owned (20261001120000), so a plain finance-team user can no
+  -- longer create one. Give the fixture user the company-admin flag for this single insert only,
+  -- then drop it so the rest of the test still runs as a plain finance-team member.
+  update app_users set is_company_admin = true where id = v_finance;
   perform set_config('request.jwt.claims', json_build_object('sub', v_finance)::text, true);
   set local role authenticated;
 
   insert into organizations (tenant_id, company_code, site_name)
   values (v_tenant, 'JIT', 'Immutability Test Site') returning id into v_org_id;
+  reset role;
+  update app_users set is_company_admin = false where id = v_finance;
+  set local role authenticated;
 
   insert into gl_accounts (tenant_id, account_code, name, account_type)
   values (v_tenant, '5000', 'Test Expense', 'expense') returning id into v_exp_acct;

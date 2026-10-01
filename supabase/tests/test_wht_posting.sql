@@ -62,12 +62,19 @@ begin
   -- claims -- and this must happen before organizations (its
   -- set_organization_defaults() trigger needs it) and before any RLS-
   -- gated insert below.
+  -- Organizations are company-admin owned (20261001120000), so a plain finance-team user can no
+  -- longer create one. Give the fixture user the company-admin flag for this single insert only,
+  -- then drop it so the rest of the test still runs as a plain finance-team member.
+  update app_users set is_company_admin = true where id = v_user_id;
   perform set_config('request.jwt.claims', json_build_object('sub', v_user_id)::text, true);
   set local role authenticated;
 
   insert into organizations (tenant_id, company_code, site_name)
   values (v_tenant_id, 'WHTT', 'WHT Test Site')
   returning id into v_org_id;
+  reset role;
+  update app_users set is_company_admin = false where id = v_user_id;
+  set local role authenticated;
 
   insert into accounts (tenant_id, account_code, name, account_type, tax_id)
   values (v_tenant_id, 'V-001', 'Test Vendor Ltd', 'vendor', 'TIN-1234567')

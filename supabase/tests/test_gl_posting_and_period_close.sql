@@ -67,12 +67,19 @@ begin
   -- trigger unconditionally overwrites tenant_id via get_my_tenant_id(),
   -- raising if it can't resolve one. So this must happen before the
   -- organizations insert below, not after it.
+  -- Organizations are company-admin owned (20261001120000), so a plain finance-team user can no
+  -- longer create one. Give the fixture user the company-admin flag for this single insert only,
+  -- then drop it so the rest of the test still runs as a plain finance-team member.
+  update app_users set is_company_admin = true where id = v_user_id;
   perform set_config('request.jwt.claims', json_build_object('sub', v_user_id)::text, true);
   set local role authenticated;
 
   insert into organizations (tenant_id, company_code, site_name)
   values (v_tenant_id, 'GLT', 'GL Test Site')
   returning id into v_org_id;
+  reset role;
+  update app_users set is_company_admin = false where id = v_user_id;
+  set local role authenticated;
 
   insert into gl_accounts (tenant_id, account_code, name, account_type)
   values (v_tenant_id, '5000', 'Test Expense', 'expense')

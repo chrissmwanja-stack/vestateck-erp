@@ -1202,6 +1202,11 @@ declare
 begin
   raise notice '--- H. departments / organizations ownership ---';
 
+  -- Section F ends with `reset role`; without this the checks below would run as
+  -- the table owner (a superuser in CI), which bypasses RLS, and every denial
+  -- would look like a policy hole.
+  set local role authenticated;
+
   -- Fixture sanity (owner context): the personas are what the checks assume.
   perform authz_t.check('fixture: cadmin is a company admin with no module role and no finance row',
     authz_t.q(format('select (a.is_company_admin and not exists (select 1 from staff_roles s where s.user_id = a.id) and not exists (select 1 from finance_team_members f where f.user_id = a.id))::text from app_users a where a.id = %L', authz_t.id('cadmin'))) = 'true');
@@ -1233,8 +1238,12 @@ begin
     authz_t.q(format('select name from departments where id = %L', v_dept)) = 'AuthZ H dept 2');
 
   perform authz_t.become('xadmin');
-  perform authz_t.expect_blocked('departments: another tenant''s company admin cannot create here',
-    format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H cross-tenant'));
+  -- The BEFORE INSERT defaults triggers rewrite tenant_id to the caller's own tenant,
+  -- so a cross-tenant insert may "succeed" -- but the row lands in the caller's tenant.
+  -- The invariant is that nothing is created in THIS tenant.
+  perform authz_t.attempt(format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H cross-tenant'));
+  perform authz_t.check('departments: another tenant''s company admin cannot create here (nothing lands in this tenant)',
+    authz_t.q(format('select count(*)::text from departments where tenant_id = %L and name = %L', v_t1, 'AuthZ H cross-tenant')) = '0');
   perform authz_t.expect_blocked('departments: another tenant''s company admin cannot update here',
     format('update departments set name = %L where id = %L', 'AuthZ H hijack', v_dept));
   perform authz_t.expect_blocked('departments: another tenant''s company admin cannot delete here',
@@ -1279,8 +1288,9 @@ begin
   perform authz_t.become('xadmin');
   perform authz_t.check('organizations: another tenant''s company admin cannot read this tenant''s list',
     authz_t.rows_hit(format('select 1 from organizations where id = %L', v_org)) = '0');
-  perform authz_t.expect_blocked('organizations: another tenant''s company admin cannot create here',
-    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H4', 'AuthZ Org H4'));
+  perform authz_t.attempt(format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H4', 'AuthZ Org H4'));
+  perform authz_t.check('organizations: another tenant''s company admin cannot create here (nothing lands in this tenant)',
+    authz_t.q(format('select count(*)::text from organizations where tenant_id = %L and company_code = %L', v_t1, 'AZ-H4')) = '0');
   perform authz_t.expect_blocked('organizations: another tenant''s company admin cannot update here',
     format('update organizations set site_name = %L where id = %L', 'AuthZ hijack', v_org));
 
@@ -1296,8 +1306,9 @@ begin
   perform authz_t.become('padmin');
   perform authz_t.expect_blocked('departments: platform admin outside View-as cannot write a customer tenant''s departments',
     format('insert into departments (tenant_id, name) values (%L, %L)', v_t1, 'AuthZ H operator no-session'));
-  perform authz_t.expect_blocked('organizations: platform admin outside View-as cannot write a customer tenant''s organizations',
-    format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H5', 'AuthZ Org H5'));
+  perform authz_t.attempt(format('insert into organizations (tenant_id, company_code, site_name) values (%L, %L, %L)', v_t1, 'AZ-H5', 'AuthZ Org H5'));
+  perform authz_t.check('organizations: platform admin outside View-as cannot write a customer tenant''s organizations (nothing lands in this tenant)',
+    authz_t.q(format('select count(*)::text from organizations where tenant_id = %L and company_code = %L', v_t1, 'AZ-H5')) = '0');
 
   perform authz_t.expect_ok('departments: platform admin can start a user-level session on a plain member',
     format('select * from start_impersonation(%L, %L, %L)', v_t1, 'authz H user-level', authz_t.id('plain')));
