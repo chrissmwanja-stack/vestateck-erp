@@ -35,6 +35,7 @@ export function useMyModuleAccess() {
             isImpersonating: false,
             canAccessFinance: false,
             isCompanyAdmin: false,
+            hasPoAccess: false,
           });
         return;
       }
@@ -52,6 +53,7 @@ export function useMyModuleAccess() {
           isImpersonating: false,
           canAccessFinance: false,
           isCompanyAdmin: false,
+          hasPoAccess: false,
         });
         return;
       }
@@ -85,16 +87,20 @@ export function useMyModuleAccess() {
             // sense only while actually inside a company via View-as --
             // never in console-only mode.
             isCompanyAdmin: !!imp,
+            // has_po_access() grants platform admins an automatic bypass,
+            // mirror that so po-gated nav stays visible in View-as.
+            hasPoAccess: true,
           });
           return;
         }
         subjectUserId = imp.impersonated_user_id;
         subjectTenantId = imp.tenant_id;
       }
-      const [{ data: roles }, { data: entitlements }, { data: financeAccess }, { data: subjectUser }] = await Promise.all([
+      const [{ data: roles }, { data: entitlements }, { data: financeAccess }, { data: poAccess }, { data: subjectUser }] = await Promise.all([
         supabase.from("staff_roles").select("module, role").eq("user_id", subjectUserId).eq("tenant_id", subjectTenantId),
         supabase.from("tenant_modules").select("module").eq("tenant_id", subjectTenantId),
         supabase.rpc("can_access_finance"),
+        supabase.rpc("has_po_access"),
         // The nav subject's own company-admin flag. Reuse the caller's row
         // (already fetched) unless we're viewing as a specific user.
         subjectUserId === userId
@@ -121,6 +127,7 @@ export function useMyModuleAccess() {
         isImpersonating: subjectUserId !== userId,
         canAccessFinance: Boolean(financeAccess),
         isCompanyAdmin: Boolean(subjectUser?.is_company_admin),
+        hasPoAccess: Boolean(poAccess),
       });
     };
 

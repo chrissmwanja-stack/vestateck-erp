@@ -16,14 +16,19 @@ export interface TreeNode {
   // shown. This mirrors, but does not replace, the real enforcement in
   // RequireModule at the route level -- this is nav visibility only.
   requiredModule?: ModuleKey;
-  // Gate for access checks that aren't staff_roles/tenant_modules-based
-  // (finance: can_access_finance() -- the OR of is_finance_team_member()
-  // and has_po_access(), enforced by RequireFinanceTeam; company-admin:
-  // the tenant's company admin or a platform admin, enforced by
-  // RequireTenantAdmin). Nav visibility only -- mirrors requiredModule
-  // but checked against access.canAccessFinance / access.isCompanyAdmin
+  // Gate for access checks that aren't staff_roles/tenant_modules-based:
+  //   finance       -> can_access_finance(), the OR of
+  //                    is_finance_team_member() and has_po_access()
+  //                    (enforced by RequireFinanceTeam)
+  //   company-admin -> the tenant's company admin or a platform admin
+  //                    (enforced by RequireTenantAdmin)
+  //   po            -> has_po_access(): the authority tier that can write
+  //                    material catalog / classification rows (enforced
+  //                    by RequireRpcAccess rpc="has_po_access").
+  // Nav visibility only -- mirrors requiredModule but checked against
+  // access.canAccessFinance / access.isCompanyAdmin / access.hasPoAccess
   // instead of access.modules. See useMyModuleAccess below.
-  requiredAccess?: "finance" | "company-admin";
+  requiredAccess?: "finance" | "company-admin" | "po";
   // Role gate on top of requiredModule -- for a node inside a single-module
   // portal (e.g. bd), the module checked is that portal's requiredModule;
   // for a node that also sets its own requiredModule (mixed portals like
@@ -75,6 +80,12 @@ export interface ModuleAccessState {
   // route level). Fetched here purely so nav visibility matches what
   // the route guard will actually allow.
   canAccessFinance: boolean;
+  // has_po_access() on its own -- the write authority behind the
+  // material catalog / classification admin screens (their RLS is
+  // keyed to has_po_access(), not to the finance team or the
+  // procurement module role). Separate from canAccessFinance so nav
+  // can mirror RequireRpcAccess rpc="has_po_access" exactly.
+  hasPoAccess: boolean;
   // app_users.is_company_admin for the nav subject (the impersonated
   // user when viewing as one): the tenant's overall company admin, who
   // owns the Company Administration area. Mirrors useTenantAdminAccess

@@ -13,6 +13,7 @@ let mockModuleAccess: ModuleAccessState = {
   isImpersonating: false,
   canAccessFinance: false,
   isCompanyAdmin: false,
+  hasPoAccess: false,
 };
 vi.mock('./useMyModuleAccess', () => ({
   useMyModuleAccess: () => mockModuleAccess,
@@ -56,6 +57,7 @@ function accessFor(role: string | null, opts: { isPlatformAdmin?: boolean; canAc
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
     isCompanyAdmin: false,
+    hasPoAccess: false,
   };
 }
 
@@ -109,13 +111,14 @@ describe('BD nav role gating (filterNodesByAccess + businessDevNodes)', () => {
 // purchasing-logistics, must not render without canAccessFinance/platform
 // admin, and must render when either is true.
 describe('finance nav gating (requiredAccess: "finance")', () => {
-  const financeAccess = (opts: { canAccessFinance?: boolean; isPlatformAdmin?: boolean } = {}) => ({
+  const financeAccess = (opts: { canAccessFinance?: boolean; isPlatformAdmin?: boolean; hasPoAccess?: boolean } = {}) => ({
     isPlatformAdmin: !!opts.isPlatformAdmin,
     modules: new Set<string>(),
     rolesByModule: new Map<string, Set<string>>(),
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
     isCompanyAdmin: false,
+    hasPoAccess: !!opts.hasPoAccess,
   });
 
   it('tags the whole financial-management portal with requiredAccess: "finance"', () => {
@@ -125,19 +128,50 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
 
   it('tags every finance-only node inside purchasing-logistics', () => {
     const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
-    const financeGatedIds = [
-      'purchase-orders',
-      'payment-approvals',
-      'cost-code-list',
-      'cost-code-list-new',
-      'material-receipt-admin',
-      'material-lookups-admin',
-      'material-catalog-admin',
-      'warehouses-admin',
-    ];
+    // Post-Phase-2: material admin screens moved to the po tier (their
+    // RLS writes are has_po_access-keyed); cost codes moved into the
+    // finance portal. Warehouses stays finance (finance-team RLS).
+    const financeGatedIds = ['purchase-orders', 'payment-approvals', 'warehouses-admin'];
     for (const id of financeGatedIds) {
       expect(findNode(portal.nodes, id)).toMatchObject({ requiredAccess: 'finance' });
     }
+  });
+
+  it('tags the material admin nodes with requiredAccess: "po" at their new procurement URLs', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    expect(findNode(portal.nodes, 'material-receipt-admin')).toMatchObject({
+      requiredAccess: 'po',
+      to: '/procurement/admin/material-receipt',
+    });
+    expect(findNode(portal.nodes, 'material-lookups-admin')).toMatchObject({
+      requiredAccess: 'po',
+      to: '/procurement/admin/material-lookups',
+    });
+    expect(findNode(portal.nodes, 'material-catalog-admin')).toMatchObject({
+      requiredAccess: 'po',
+      to: '/procurement/admin/material-catalog',
+    });
+  });
+
+  it('moved the cost-code nodes into the finance portal admin group', () => {
+    const portal = portals.find((p) => p.id === 'financial-management')!;
+    expect(findNode(portal.nodes, 'cost-code-list')).toMatchObject({ to: '/financial-management/admin/cost-codes' });
+    expect(findNode(portal.nodes, 'cost-code-list-new')).toMatchObject({ to: '/financial-management/admin/cost-codes/new' });
+    expect(findNode(portal.nodes, 'accounts-admin')).toMatchObject({ to: '/financial-management/admin/accounts' });
+    expect(findNode(portal.nodes, 'chart-of-accounts-admin')).toMatchObject({ to: '/financial-management/admin/chart-of-accounts' });
+  });
+
+  it('hides material admin nodes without po access, shows them with it', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    const denied = filterNodesByAccess(portal.nodes, financeAccess({ canAccessFinance: true }));
+    expect(findNode(denied, 'material-catalog-admin')).toBeUndefined();
+    // warehouses keeps showing on finance access alone
+    expect(findNode(denied, 'warehouses-admin')).toBeDefined();
+
+    const allowed = filterNodesByAccess(portal.nodes, financeAccess({ hasPoAccess: true }));
+    expect(findNode(allowed, 'material-catalog-admin')).toBeDefined();
+    expect(findNode(allowed, 'material-lookups-admin')).toBeDefined();
+    expect(findNode(allowed, 'material-receipt-admin')).toBeDefined();
   });
 
   it('hides finance-only purchasing-logistics nodes from a user without finance access', () => {
@@ -146,7 +180,7 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
 
     expect(findNode(visible, 'purchase-orders')).toBeUndefined();
     expect(findNode(visible, 'payment-approvals')).toBeUndefined();
-    expect(findNode(visible, 'cost-code-list')).toBeUndefined();
+    expect(findNode(visible, 'warehouses-admin')).toBeUndefined();
   });
 
   it('shows finance-only purchasing-logistics nodes to a user with finance access', () => {
@@ -155,7 +189,7 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
 
     expect(findNode(visible, 'purchase-orders')).toBeDefined();
     expect(findNode(visible, 'payment-approvals')).toBeDefined();
-    expect(findNode(visible, 'cost-code-list')).toBeDefined();
+    expect(findNode(visible, 'warehouses-admin')).toBeDefined();
   });
 
   it('shows finance-only nodes to a platform admin regardless of canAccessFinance', () => {
@@ -187,6 +221,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
     isImpersonating: false,
     canAccessFinance: false,
     isCompanyAdmin: !!opts.isCompanyAdmin,
+    hasPoAccess: false,
   });
 
   it('tags the whole company-admin portal with requiredAccess: "company-admin"', () => {
@@ -227,6 +262,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
         isImpersonating: false,
         canAccessFinance: false,
         isCompanyAdmin,
+        hasPoAccess: false,
       };
       render(
         <MemoryRouter>

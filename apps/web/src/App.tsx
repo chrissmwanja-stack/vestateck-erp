@@ -433,8 +433,8 @@ export default function App() {
                     path redirects so existing bookmarks keep working. */}
                 <Route path="/finance/purchase-orders" element={<Navigate to="/financial-management/purchase-orders" replace />} />
                 <Route path="/financial-management/purchase-orders" element={<PurchaseOrders />} />
-                <Route path="/admin/cost-codes" element={<CostCodeList />} />
-                <Route path="/admin/cost-codes/new" element={<CostCodeListNew />} />
+                <Route path="/financial-management/admin/cost-codes" element={<CostCodeList />} />
+                <Route path="/financial-management/admin/cost-codes/new" element={<CostCodeListNew />} />
                 <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />
                 <Route path="/financial-management/invoices/supplier-invoice-po" element={<SupplierInvoices />} />
                 <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
@@ -445,16 +445,16 @@ export default function App() {
                 <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
                 <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />
                 <Route path="/financial-management/reports" element={<FinancialReports />} />
-                <Route path="/admin/accounts" element={<AccountsAdmin />} />
+                <Route path="/financial-management/admin/accounts" element={<AccountsAdmin />} />
                 <Route path="/financial-management/petty-cash-floats" element={<PettyCashFloats />} />
                 <Route path="/financial-management/petty-cash-register" element={<PettyCashRegister />} />
                 <Route path="/financial-management/reports/cost-transactions-inquiry" element={<CostTransactionsInquiry />} />
                 <Route path="/financial-management/reports/current-account-extract" element={<CurrentAccountExtract />} />
                 <Route path="/financial-management/reports/trial-balance" element={<TrialBalance />} />
                 <Route path="/financial-management/reports/general-ledger" element={<GeneralLedger />} />
-                <Route path="/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
-                <Route path="/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
-                <Route path="/admin/statutory-rates" element={<StatutoryRatesAdmin />} />
+                <Route path="/financial-management/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
+                <Route path="/financial-management/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
+                <Route path="/financial-management/admin/statutory-rates" element={<StatutoryRatesAdmin />} />
                 <Route path="/financial-management/reports/vat-report" element={<VatReport />} />
                 <Route path="/financial-management/reports/wht-report" element={<WhtReport />} />
                 <Route path="/financial-management/reports/paye-nssf-remittance" element={<PayeNssfRemittance />} />
@@ -463,15 +463,43 @@ export default function App() {
                 <Route path="/financial-management/reports/payment-plan" element={<PaymentPlanReport />} />
                 <Route path="/financial-management/upload/mass-slip" element={<MassSlip />} />
                 <Route path="/financial-management/payroll-disbursement" element={<PayrollDisbursement />} />
-                <Route path="/admin/material-receipt" element={<MaterialReceiptAdmin />} />
-                <Route path="/admin/warehouses" element={<WarehousesAdmin />} />
-                <Route path="/admin/material-lookups" element={<MaterialLookupsAdmin />} />
-                <Route path="/admin/material-catalog" element={<MaterialCatalogAdmin />} />
+                {/* Warehouses: writes are keyed to is_finance_team_member()
+                    in RLS, so the finance gate stays; only the URL moves
+                    (warehouse namespace, next to goods-issue/stock-balances). */}
+                <Route path="/warehouse/admin/warehouses" element={<WarehousesAdmin />} />
                 {/* Redirect: organizations moved to Company Admin →
                     Organization (company-admin domain, not finance). */}
                 <Route path="/admin/organizations" element={<Navigate to="/company-admin/organization/organizations" replace />} />
-                <Route path="/admin/account-categories" element={<AccountCategoriesAdmin />} />
+                <Route path="/financial-management/admin/account-categories" element={<AccountCategoriesAdmin />} />
               </Route>
+
+              {/* PROCUREMENT ADMIN (material classification / catalog /
+                  receipt) -- moved out of /admin/* and out of the finance
+                  gate: these tables' RLS writes are keyed to
+                  has_po_access(), not to the finance team, so the route
+                  guard now mirrors the write authority exactly
+                  (RequireRpcAccess, same pattern as payroll approvals).
+                  Material screens moved here; warehouses kept its finance
+                  gate because warehouses RLS is finance-team-keyed. */}
+              <Route element={<RequireRpcAccess rpc="has_po_access" />}>
+                <Route path="/procurement/admin/material-lookups" element={<MaterialLookupsAdmin />} />
+                <Route path="/procurement/admin/material-catalog" element={<MaterialCatalogAdmin />} />
+                <Route path="/procurement/admin/material-receipt" element={<MaterialReceiptAdmin />} />
+              </Route>
+
+              {/* Old homes of the module-admin screens above -- redirects
+                  only, bookmarks keep working. */}
+              <Route path="/admin/cost-codes" element={<Navigate to="/financial-management/admin/cost-codes" replace />} />
+              <Route path="/admin/cost-codes/new" element={<Navigate to="/financial-management/admin/cost-codes/new" replace />} />
+              <Route path="/admin/accounts" element={<Navigate to="/financial-management/admin/accounts" replace />} />
+              <Route path="/admin/chart-of-accounts" element={<Navigate to="/financial-management/admin/chart-of-accounts" replace />} />
+              <Route path="/admin/accounting-periods" element={<Navigate to="/financial-management/admin/accounting-periods" replace />} />
+              <Route path="/admin/statutory-rates" element={<Navigate to="/financial-management/admin/statutory-rates" replace />} />
+              <Route path="/admin/account-categories" element={<Navigate to="/financial-management/admin/account-categories" replace />} />
+              <Route path="/admin/warehouses" element={<Navigate to="/warehouse/admin/warehouses" replace />} />
+              <Route path="/admin/material-lookups" element={<Navigate to="/procurement/admin/material-lookups" replace />} />
+              <Route path="/admin/material-catalog" element={<Navigate to="/procurement/admin/material-catalog" replace />} />
+              <Route path="/admin/material-receipt" element={<Navigate to="/procurement/admin/material-receipt" replace />} />
 
               {/* PROCUREMENT - gated by staff_roles module="procurement" (added
                   2026-08-15). These were previously reachable by any

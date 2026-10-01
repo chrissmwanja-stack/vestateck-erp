@@ -203,23 +203,21 @@ export const portals: Portal[] = [
         ],
       },
       {
+        // Purchasing & Logistics → Administration. Ownership per the
+        // admin-architecture rework (§11): material classification /
+        // catalog / receipt are procurement configuration -- their RLS
+        // writes are keyed to has_po_access(), so nav mirrors that tier
+        // (requiredAccess "po"); warehouses writes are finance-team-keyed,
+        // so that entry keeps the finance gate. Cost codes moved to the
+        // Financial Management portal's Admin group.
         id: "admin",
         label: "Admin",
         icon: <AdminPanelSettings fontSize="small" />,
         children: [
-          {
-            id: "cost-code-transaction",
-            label: "Cost Code Transaction",
-            icon: <Build fontSize="small" />,
-            children: [
-              { id: "cost-code-list", label: "Cost Code List", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes", requiredAccess: "finance" },
-              { id: "cost-code-list-new", label: "Cost Code List New", icon: <ReceiptLong fontSize="small" />, to: "/admin/cost-codes/new", requiredAccess: "finance" },
-              { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-receipt", requiredAccess: "finance" },
-            ],
-          },
-          { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-lookups", requiredAccess: "finance" },
-          { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/admin/material-catalog", requiredAccess: "finance" },
-          { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/admin/warehouses", requiredAccess: "finance" },
+          { id: "material-lookups-admin", label: "Material Classification", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-lookups", requiredAccess: "po" },
+          { id: "material-catalog-admin", label: "Material Catalog", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-catalog", requiredAccess: "po" },
+          { id: "material-receipt-admin", label: "Material Receipt", icon: <ReceiptLong fontSize="small" />, to: "/procurement/admin/material-receipt", requiredAccess: "po" },
+          { id: "warehouses-admin", label: "Warehouses", icon: <Inventory2 fontSize="small" />, to: "/warehouse/admin/warehouses", requiredAccess: "finance" },
         ],
       },
       {
@@ -295,11 +293,13 @@ export const portals: Portal[] = [
         label: "Admin",
         icon: <AdminPanelSettings fontSize="small" />,
         children: [
-          { id: "accounts-admin", label: "Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounts" },
-          { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/admin/chart-of-accounts" },
-          { id: "accounting-periods-admin", label: "Accounting Periods", icon: <ReceiptLong fontSize="small" />, to: "/admin/accounting-periods" },
-          { id: "statutory-rates-admin", label: "Statutory Rates (PAYE/NSSF)", icon: <ReceiptLong fontSize="small" />, to: "/admin/statutory-rates" },
-          { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/admin/account-categories" },
+          { id: "accounts-admin", label: "Accounts", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/accounts" },
+          { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/chart-of-accounts" },
+          { id: "accounting-periods-admin", label: "Accounting Periods", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/accounting-periods" },
+          { id: "statutory-rates-admin", label: "Statutory Rates (PAYE/NSSF)", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/statutory-rates" },
+          { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/account-categories" },
+          { id: "cost-code-list", label: "Cost Code List", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/cost-codes" },
+          { id: "cost-code-list-new", label: "Cost Code List New", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/cost-codes/new" },
         ],
       },
     ],
