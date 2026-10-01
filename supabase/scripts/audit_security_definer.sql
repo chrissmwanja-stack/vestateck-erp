@@ -24,7 +24,7 @@ with fn as (
          p.prorettype = 'pg_catalog.trigger'::regtype as trigger_fn,
          coalesce(pg_get_function_arguments(p.oid) ~* 'tenant_id', false) as takes_tenant_id,
          p.prosrc ~* '\m(insert\s+into|update\s+\S+\s+set|delete\s+from|truncate|alter\s|drop\s|execute\s+format)' as mutates,
-         p.prosrc ~* '(get_my_tenant_id|effective_user_id|auth\.uid|is_platform_admin|require_platform_admin|has_module_role|can_access_finance|is_finance_team_member|is_company_admin|is_tenant_admin|is_hr_team_member|is_it_support|has_po_access|has_receipt_access|is_payroll_approver|platform_admin_bypass|auth\.role|current_user)' as has_guard,
+         p.prosrc ~* '(get_my_tenant_id|effective_user_id|auth\.uid|is_platform_admin|require_platform_admin|has_module_role|can_access_finance|is_finance_team_member|is_company_admin|is_tenant_admin|is_hr_team_member|is_it_support|has_po_access|has_receipt_access|is_payroll_approver|platform_admin_bypass|assert_tenant_access|auth\.role|current_user)' as has_guard,
          has_function_privilege('anon', p.oid, 'EXECUTE') as anon_exec,
          has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_exec
   from pg_proc p
@@ -39,12 +39,10 @@ with fn as (
   -- Confirmed gaps that cannot be fixed by a simple REVOKE and are tracked
   -- separately. Listed so CI stays green while they stay VISIBLE in the
   -- output as KNOWN-OPEN; remove an entry as soon as its fix ships.
-  --   next_doc_number(p_tenant_id, ...): bumps doc_sequences for any tenant
-  --   the caller names. Cannot be revoked: the generate_*/set_* numbering
-  --   triggers are SECURITY INVOKER and call it as the inserting user. Fix
-  --   is an in-function tenant check (get_my_tenant_id() unless
-  --   platform_admin_bypass() or service_role), not a grant change.
-  values ('next_doc_number')
+  --   (empty) next_doc_number() was closed in
+  --   20261001150000_close_next_doc_number_tenant_isolation.sql via
+  --   assert_tenant_access(). Add new entries as: values ('fn_name')
+  select null::text where false
 )
 select proname as function,
        args,
