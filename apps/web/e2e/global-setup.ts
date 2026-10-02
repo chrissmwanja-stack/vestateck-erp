@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import type { FullConfig } from '@playwright/test';
+import { dirname, resolve } from 'node:path';
 
 /**
  * Prints which Supabase backend the web app under test will talk to
@@ -31,7 +32,7 @@ function parseEnvFile(filePath: string): Map<string, string> {
   return vars;
 }
 
-export default function globalSetup(config: { configDir: string }): void {
+export default function globalSetup(config: FullConfig): void {
   if (process.env.E2E_BASE_URL) {
     console.log(
       `\n[e2e] E2E_BASE_URL=${process.env.E2E_BASE_URL}: using an already-running app, ` +
@@ -44,8 +45,13 @@ export default function globalSetup(config: { configDir: string }): void {
   // passes { ...process.env, ...e2eEnv } and Vite lets real env vars beat
   // .env files): .env.e2e > process.env > .env. Reading only .env would report
   // the wrong backend whenever .env.e2e is what points the app at the local stack.
-  const dotEnv = parseEnvFile(resolve(config.configDir, '.env'));
-  const e2eEnv = parseEnvFile(resolve(config.configDir, '.env.e2e'));
+  // FullConfig has no `configDir` (that is Playwright-internal, so it was
+  // undefined at runtime). Derive the directory from the public `configFile`
+  // (apps/web/playwright.config.ts); fall back to cwd, which is apps/web when
+  // run via `npm run test:e2e --workspace=apps/web`.
+  const configDir = config.configFile ? dirname(config.configFile) : process.cwd();
+  const dotEnv = parseEnvFile(resolve(configDir, '.env'));
+  const e2eEnv = parseEnvFile(resolve(configDir, '.env.e2e'));
   const pick = (key: string): string | undefined =>
     e2eEnv.get(key) ?? process.env[key] ?? dotEnv.get(key);
 
