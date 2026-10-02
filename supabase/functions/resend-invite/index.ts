@@ -12,7 +12,7 @@
 // not something to paper over.
 //
 // Authorization mirrors invite-user / revoke_invitation (20261002054037):
-// platform admins can resend anything; the tenant's COMPANY admin
+// platform admins can resend anything (no impersonation needed); the tenant's COMPANY admin
 // (app_users.is_company_admin) can resend 'member' invites in their own
 // tenant only. A module admin (staff_roles.role = 'admin') who is not a
 // company admin cannot -- resending also flips an expired invitation back
@@ -93,10 +93,14 @@ serve(async (req) => {
     if (callerError) return jsonResponse(corsHeaders, { error: callerError.message }, 500);
     if (!callerRow) return jsonResponse(corsHeaders, { error: 'Caller has no app_users record' }, 403);
 
-    if (invitation.role_bundle === 'company_admin') {
-      if (!callerRow.is_platform_admin) {
-        return jsonResponse(corsHeaders, { error: 'Only platform admins can resend a company admin invite' }, 403);
-      }
+    if (callerRow.is_platform_admin) {
+      // Platform admins can resend any pending/expired invitation, with or
+      // without an active impersonation session. Resending only re-mails an
+      // address that was already invited into the invitation's own tenant, so
+      // it grants nothing new. (invite-user is stricter -- it creates access
+      // -- and requires the platform admin to be viewing the target tenant.)
+    } else if (invitation.role_bundle === 'company_admin') {
+      return jsonResponse(corsHeaders, { error: 'Only platform admins can resend a company admin invite' }, 403);
     } else {
       if (invitation.tenant_id !== callerRow.tenant_id) {
         return jsonResponse(corsHeaders, { error: 'You can only resend invites within your own tenant' }, 403);

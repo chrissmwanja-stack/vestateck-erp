@@ -29,4 +29,8 @@ describe.each(['invite-user', 'resend-invite'])('%s edge function authorization'
   it("does not query staff_roles to decide who may manage invitations", () => {
     expect(code).not.toMatch(/\.from\(\s*['"]staff_roles['"]\s*\)/);
   });
+
+  it('lets platform admins through via is_platform_admin', () => {
+    expect(code).toMatch(/is_platform_admin/);
+  });
 });
