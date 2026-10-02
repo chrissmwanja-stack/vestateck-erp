@@ -113,7 +113,14 @@ test.describe('Company Admin: members and invitations', () => {
         p_modules: originalModules,
         p_finance_role: originalFinance,
       });
-      expect(restore.ok(), 'restoring the member\'s original access must succeed').toBeTruthy();
+      // Include the database's own message: a bare "false" hides why the RPC
+      // refused, and this finally block would otherwise replace (mask) any
+      // error thrown by the try body above.
+      const restoreBody = restore.ok() ? '' : await restore.text();
+      expect(
+        restore.ok(),
+        `restoring the member's original access must succeed (HTTP ${restore.status()}: ${restoreBody})`,
+      ).toBeTruthy();
     }
   });
 
