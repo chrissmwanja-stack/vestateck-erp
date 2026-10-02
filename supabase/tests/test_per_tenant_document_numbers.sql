@@ -46,13 +46,13 @@ begin
   -- 2. Behaviour -------------------------------------------------------
   insert into tenants (id, name) values (v_a, 'PerTenantNo Tenant A'), (v_b, 'PerTenantNo Tenant B');
 
-  insert into assets (tenant_id, type, name, asset_tag) values (v_a, 'laptop', 'A1', 'AST-00001');
-  insert into assets (tenant_id, type, name, asset_tag) values (v_b, 'laptop', 'B1', 'AST-00001');
+  insert into assets (tenant_id, type, name, asset_tag) values (v_a, 'hardware', 'A1', 'AST-00001');
+  insert into assets (tenant_id, type, name, asset_tag) values (v_b, 'hardware', 'B1', 'AST-00001');
   select count(distinct tenant_id) into v_n from assets where asset_tag = 'AST-00001' and tenant_id in (v_a, v_b);
   if v_n <> 2 then raise exception 'FAIL 2a: expected the same asset tag in 2 tenants, got %', v_n; end if;
 
   begin
-    insert into assets (tenant_id, type, name, asset_tag) values (v_a, 'laptop', 'A2', 'AST-00001');
+    insert into assets (tenant_id, type, name, asset_tag) values (v_a, 'hardware', 'A2', 'AST-00001');
     raise exception 'FAIL 2b: duplicate asset tag inside one tenant was accepted';
   exception when unique_violation then v_caught := 'ok';
   end;
