@@ -39,10 +39,32 @@ $$;
 
 revoke execute on function public.platform_admin_mfa_gate(text) from public, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION "public"."get_companies_overview"() RETURNS TABLE("tenant_id" "uuid", "name" "text", "status" "text", "created_at" timestamp with time zone, "member_count" bigint, "module_count" bigint, "request_count_30d" bigint, "pending_request_count" bigint)
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'public'
-    AS $$
+create or replace function public.get_companies_overview()
+returns table (
+  tenant_id             uuid,
+  name                  text,
+  status                text,
+  created_at            timestamptz,
+  member_count          bigint,
+  module_count          bigint,
+  request_count_30d     bigint,
+  pending_request_count bigint,
+  plan                  text,
+  subscription_status   text,
+  seat_limit            integer,
+  trial_ends_at         timestamptz,
+  read_only             boolean,
+  contact_email         text,
+  last_activity_at      timestamptz,
+  onboarding_stage      text,
+  onboarding_next_step  text,
+  onboarding_stalled    boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
   select
     t.id,
     t.name,
@@ -51,8 +73,19 @@ CREATE OR REPLACE FUNCTION "public"."get_companies_overview"() RETURNS TABLE("te
     (select count(*) from app_users u where u.tenant_id = t.id),
     (select count(*) from tenant_modules tm where tm.tenant_id = t.id),
     (select count(*) from requests r where r.tenant_id = t.id and r.created_at >= now() - interval '30 days'),
-    (select count(*) from requests r where r.tenant_id = t.id and r.status = 'pending')
+    (select count(*) from requests r where r.tenant_id = t.id and r.status = 'open'),
+    t.plan,
+    t.subscription_status,
+    t.seat_limit,
+    t.trial_ends_at,
+    t.read_only,
+    t.contact_email,
+    o.last_activity_at,
+    o.stage_key,
+    o.next_step,
+    o.stalled
   from tenants t
+  left join get_tenant_onboarding_status() o on o.tenant_id = t.id
   where public.platform_admin_mfa_gate('get companies overview')
   order by t.created_at desc;
 $$;
@@ -626,22 +659,24 @@ as $$
 $$;
 
 create or replace function public.list_impersonation_history(
-  p_tenant_id uuid    default null,
-  p_limit     integer default 50,
-  p_offset    integer default 0
+  p_tenant_id uuid default null,
+  p_limit integer default 50,
+  p_offset integer default 0
 )
 returns table (
-  id                   uuid,
-  platform_admin_id    uuid,
-  platform_admin_email text,
-  tenant_id            uuid,
-  tenant_name          text,
-  reason               text,
-  started_at           timestamptz,
-  ended_at             timestamptz,
-  expires_at           timestamptz,
-  is_active            boolean,
-  total_count          bigint
+  id                      uuid,
+  platform_admin_id       uuid,
+  platform_admin_email    text,
+  tenant_id               uuid,
+  tenant_name             text,
+  reason                  text,
+  started_at              timestamptz,
+  ended_at                timestamptz,
+  expires_at              timestamptz,
+  is_active               boolean,
+  impersonated_user_id    uuid,
+  impersonated_user_email text,
+  total_count             bigint
 )
 language sql
 stable
@@ -659,10 +694,13 @@ as $$
     s.ended_at,
     s.expires_at,
     (s.ended_at is null and s.expires_at > now()) as is_active,
+    s.impersonated_user_id,
+    iu.email,
     count(*) over () as total_count
   from impersonation_sessions s
   join tenants t on t.id = s.tenant_id
   left join auth.users u on u.id = s.platform_admin_id
+  left join app_users iu on iu.id = s.impersonated_user_id
   where public.platform_admin_mfa_gate('list impersonation history')
     and (p_tenant_id is null or s.tenant_id = p_tenant_id)
   order by s.started_at desc
