@@ -9,14 +9,16 @@
 // Authorization:
 //   - role_bundle = 'company_admin' -> caller must be a platform admin
 //     (app_users.is_platform_admin). Any tenant.
-//   - role_bundle = 'member'        -> caller must be a module admin
-//     (staff_roles.role = 'admin') WITHIN the tenant they're inviting into.
-//     tenant_id in the request body must equal the caller's own tenant_id.
+//   - role_bundle = 'member'        -> caller must be the tenant's company
+//     admin (app_users.is_company_admin) WITHIN the tenant they're
+//     inviting into. A module admin (staff_roles.role = 'admin') is not
+//     enough. tenant_id in the request body must equal the caller's own
+//     tenant_id.
 //
-// This mirrors the invitations table's RLS policies (see the
-// onboarding_invitations migration) — the RLS would block a mismatched
-// insert anyway, but we check explicitly here so we can return a clear
-// 403 instead of a generic Postgres RLS error.
+// This mirrors the invitations table's RLS policies and revoke_invitation()
+// (see 20261002054037_invitations_company_admin_only) — the RLS would block
+// a mismatched insert anyway, but we check explicitly here so we can return
+// a clear 403 instead of a generic Postgres RLS error.
 //
 // NOTE: this function assumes `tenant_id` already exists in `tenants`.
 // Tenant creation (Companies console "create tenant" action) is a

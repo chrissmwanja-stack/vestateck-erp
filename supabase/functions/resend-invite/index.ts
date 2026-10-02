@@ -11,9 +11,12 @@
 // surfaced as-is -- that's a real conflict the admin needs to know about,
 // not something to paper over.
 //
-// Authorization mirrors invite-user / revoke_invitation: platform admins
-// can resend anything; tenant module admins can resend 'member' invites
-// in their own tenant only.
+// Authorization mirrors invite-user / revoke_invitation (20261002054037):
+// platform admins can resend anything; the tenant's COMPANY admin
+// (app_users.is_company_admin) can resend 'member' invites in their own
+// tenant only. A module admin (staff_roles.role = 'admin') who is not a
+// company admin cannot -- resending also flips an expired invitation back
+// to pending using the service role, so it is as sensitive as creating one.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
@@ -83,7 +86,7 @@ serve(async (req) => {
     // --- Authorization (same shape as invite-user) ---
     const { data: callerRow, error: callerError } = await admin
       .from('app_users')
-      .select('tenant_id, is_platform_admin')
+      .select('tenant_id, is_platform_admin, is_company_admin')
       .eq('id', callerId)
       .maybeSingle();
 
@@ -98,18 +101,8 @@ serve(async (req) => {
       if (invitation.tenant_id !== callerRow.tenant_id) {
         return jsonResponse(corsHeaders, { error: 'You can only resend invites within your own tenant' }, 403);
       }
-      const { data: adminRole, error: adminRoleError } = await admin
-        .from('staff_roles')
-        .select('id')
-        .eq('user_id', callerId)
-        .eq('tenant_id', invitation.tenant_id)
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-
-      if (adminRoleError) return jsonResponse(corsHeaders, { error: adminRoleError.message }, 500);
-      if (!adminRole) {
-        return jsonResponse(corsHeaders, { error: 'Only a module admin can resend team member invites' }, 403);
+      if (!callerRow.is_company_admin) {
+        return jsonResponse(corsHeaders, { error: 'Only a company admin can resend team member invites' }, 403);
       }
     }
 

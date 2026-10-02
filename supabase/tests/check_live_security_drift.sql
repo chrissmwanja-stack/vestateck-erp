@@ -434,6 +434,29 @@ begin
       v_fail := v_fail || 'revoke_invitation(uuid) is executable by anon'::text;
     end if;
   end if;
+  -- Tenant scoping and the member-bundle restriction must survive too: an
+  -- is_tenant_admin() check alone is not tenant-scoped, and dropping
+  -- role_bundle = 'member' would let a company admin mint company_admin
+  -- invitations straight through PostgREST.
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'invitations' and cmd = 'SELECT'
+      and coalesce(qual, '') ~* 'get_my_tenant_id'
+  ) then
+    v_fail := v_fail || 'invitations SELECT policy is not scoped to get_my_tenant_id()'::text;
+  end if;
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'invitations' and cmd = 'INSERT'
+      and coalesce(with_check, '') ~* 'get_my_tenant_id'
+      and coalesce(with_check, '') ~* 'role_bundle'
+  ) then
+    v_fail := v_fail || 'invitations INSERT policy lost its tenant scope or its role_bundle = member restriction'::text;
+  end if;
+  if to_regprocedure('public.revoke_invitation(uuid)') is not null
+     and not has_function_privilege('authenticated', to_regprocedure('public.revoke_invitation(uuid)'), 'EXECUTE') then
+    v_fail := v_fail || 'revoke_invitation(uuid) is not executable by authenticated'::text;
+  end if;
 
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',

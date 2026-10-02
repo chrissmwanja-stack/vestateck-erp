@@ -31,10 +31,13 @@ import {
  *   4. Company admin: invite form validation, then a pending invitation is
  *      listed and revoked through the UI.
  *
- * NOT covered here: sending an invite through the invite-user edge function
- * (it needs `supabase functions serve` plus an email sink, neither of which
- * the CI stack runs) and accepting one (accept-invite). Those need their own
- * harness.
+ * NOT covered here: sending an invite through the invite-user edge function,
+ * resending one through resend-invite (it needs `supabase functions serve`
+ * plus an email sink, neither of which the CI stack runs) and accepting one
+ * (accept-invite). Those need their own harness. Until then, the shape of
+ * invite-user's and resend-invite's authorization (is_company_admin, no
+ * staff_roles lookup) is pinned by
+ * src/features/team/inviteEdgeAuth.test.ts.
  *
  * Personas: company.admin@test.local (company admin, no module role),
  * hr@test.local (hr module admin, not a company admin), finance@test.local
