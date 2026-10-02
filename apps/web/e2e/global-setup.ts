@@ -16,20 +16,10 @@ import { resolve } from 'node:path';
  * Fail loudly (well, banner loudly) here instead of 20 minutes into a
  * spec run wondering why the dropdowns are empty.
  */
-export default function globalSetup(config: { configDir: string }): void {
-  const envPath = resolve(config.configDir, '.env');
-
-  if (!existsSync(envPath)) {
-    console.warn(
-      `\n[e2e] No apps/web/.env found -- the dev server will have no VITE_SUPABASE_URL.` +
-        `\n      Copy apps/web/.env.example and point it at the Supabase stack you seeded` +
-        `\n      (local: http://127.0.0.1:54321 -- get the anon key from 'supabase status').\n`
-    );
-    return;
-  }
-
+function parseEnvFile(filePath: string): Map<string, string> {
   const vars = new Map<string, string>();
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+  if (!existsSync(filePath)) return vars;
+  for (const line of readFileSync(filePath, 'utf8').split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const eq = trimmed.indexOf('=');
@@ -38,21 +28,51 @@ export default function globalSetup(config: { configDir: string }): void {
     const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
     vars.set(key, value);
   }
+  return vars;
+}
 
-  const url = vars.get('VITE_SUPABASE_URL') ?? '(missing)';
-  const anon = vars.get('VITE_SUPABASE_ANON_KEY') ?? '';
+export default function globalSetup(config: { configDir: string }): void {
+  if (process.env.E2E_BASE_URL) {
+    console.log(
+      `\n[e2e] E2E_BASE_URL=${process.env.E2E_BASE_URL}: using an already-running app, ` +
+        `so which Supabase backend it talks to is not checked here.\n`
+    );
+    return;
+  }
+
+  // Same precedence the dev server Playwright boots sees (playwright.config.ts
+  // passes { ...process.env, ...e2eEnv } and Vite lets real env vars beat
+  // .env files): .env.e2e > process.env > .env. Reading only .env would report
+  // the wrong backend whenever .env.e2e is what points the app at the local stack.
+  const dotEnv = parseEnvFile(resolve(config.configDir, '.env'));
+  const e2eEnv = parseEnvFile(resolve(config.configDir, '.env.e2e'));
+  const pick = (key: string): string | undefined =>
+    e2eEnv.get(key) ?? process.env[key] ?? dotEnv.get(key);
+
+  const url = pick('VITE_SUPABASE_URL');
+  if (!url) {
+    console.warn(
+      `\n[e2e] No VITE_SUPABASE_URL found in apps/web/.env.e2e, the environment, or apps/web/.env --` +
+        `\n      the dev server will have no Supabase URL.` +
+        `\n      Copy apps/web/.env.e2e.example to .env.e2e and fill it from 'supabase status'` +
+        `\n      (local: http://127.0.0.1:54321).\n`
+    );
+    return;
+  }
+
+  const anon = pick('VITE_SUPABASE_ANON_KEY') ?? '';
   const looksLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(url);
 
   console.log(`\n[e2e] Web app will talk to Supabase at ${url} (${looksLocal ? 'LOCAL' : 'REMOTE'})`);
-  console.log(`[e2e] anon key configured: ${anon.length > 20 ? 'yes' : 'NO -- check apps/web/.env'}\n`);
+  console.log(`[e2e] anon key configured: ${anon.length > 20 ? 'yes' : 'NO -- check apps/web/.env.e2e or apps/web/.env'}\n`);
 
   if (!looksLocal) {
     console.warn(
       `[e2e] WARNING: that URL is NOT the local Supabase stack. 'supabase db reset' only` +
-        `\n      resets the LOCAL database and will not affect ${url}. Either point` +
-        `\n      apps/web/.env at http://127.0.0.1:54321 (or run this against the project` +
-        `\n      you actually reset), and make sure no stale 'npm run dev' on :5173 is being` +
-        `\n      reused -- stop it and let Playwright boot its own server.\n`
+        `\n      resets the LOCAL database and will not affect ${url}. Point .env.e2e at` +
+        `\n      http://127.0.0.1:54321 (or run this against the project you actually reset),` +
+        `\n      and make sure no stale 'npm run dev' on :5173 is being reused -- stop it and` +
+        `\n      let Playwright boot its own server.\n`
     );
   }
 }

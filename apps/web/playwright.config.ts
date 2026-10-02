@@ -51,6 +51,7 @@ const processEnvClean: Record<string, string> = Object.fromEntries(
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/global-setup.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false, // specs share seeded workflow state (one request moving through stages)
