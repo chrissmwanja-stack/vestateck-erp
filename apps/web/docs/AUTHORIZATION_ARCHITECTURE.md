@@ -100,7 +100,7 @@ RLS policies that call the helper; "Fn callers" counts other functions that do.
 | `is_platform_admin()` | flag on **`auth.uid()`** (real identity) | n/a | 27 | 22 |
 | `has_po_access()` | bypass OR assigned to a terminal approval stage (own or delegated) | passes | 18 | 10 |
 | `is_it_support()` | `has_module_role('it', admin/manager/member)` | passes | 17 | 46 |
-| `is_tenant_admin()` | bypass OR effective user is company admin | passes | 14 | 7 |
+| `is_tenant_admin()` | bypass OR effective user is company admin | passes | 16 | 8 |
 | `is_hr_team_member(role?)` | bypass OR row in `hr_team_members` | passes | 4 | 7 |
 | `can_act_on_stage(stage)` | bypass OR assigned to, or delegated for, that stage | passes | 4 | 4 |
 | `platform_admin_bypass()` | `is_platform_admin() AND impersonated_user_id() IS NULL` | true outside View-as and in company-level View-as | 3 | 11 |
@@ -235,6 +235,10 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 - Procurement approvals follow configurable per-tenant `workflow_stages` and
   `approval_assignments`, with threshold branching and time-boxed delegations.
 - Payroll: the preparer may not approve their own run, checked against both identities.
+- Payroll approvers: an HR admin grants approver access to someone else, never to themselves
+  (`grant_payroll_approver`, `set_payroll_approver_active`). Usually the approver is the HR manager.
+- Salaries: `record_employee_compensation` requires an `hr_team_members` row **and** the HR
+  module `manager` role.
 - Journal entries are immutable once posted; corrections go through `void_journal_entry`.
 - Posting and period-close functions are internal or finance-gated, never
   client-callable with an arbitrary tenant id.
@@ -245,6 +249,9 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 |---|---|
 | Role and tenant matrix, Company Admin (section H), View-as | `supabase/tests/security_authorization.sql` |
 | Definer callers and grants | `supabase/tests/test_definer_authorization.sql` |
+| Invitations are Company Admin only (RLS, `resend-invite` / `invite-user` edge functions) | `supabase/tests/test_invitations_authorization.sql` |
+| `set_member_access` (Company Admin only, tenant-scoped, finance role handling) | `supabase/tests/test_set_member_access.sql` |
+| Internal helpers not client-executable; salary and payroll-approver rules (section 8) | `supabase/tests/test_authorization_review_lockdown.sql` |
 | Numbering tenant isolation (caller may only number its own tenant) | `supabase/tests/test_next_doc_number_tenant_isolation.sql` |
 | Numbering uniqueness (same number allowed across tenants, not within one) | `supabase/tests/test_per_tenant_document_numbers.sql` |
 | View-as actor attribution | `supabase/tests/test_impersonation_attribution.sql` |
