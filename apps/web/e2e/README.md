@@ -19,6 +19,15 @@ against a real Supabase backend (no mocking):
   route guard; and direct API writes with a non-admin's own JWT are
   refused by RLS (finance keeps read access to organizations). Cleans up
   after itself, so it is safe to rerun.
+- **Company Admin: members and invitations** — the company admin edits a
+  member's module access through the UI (restored afterwards), validates the
+  invite form, and lists/revokes a pending invitation; HR (a module admin who
+  is not a company admin) and finance are stopped at the route guards and
+  refused by the database (`set_member_access`, `revoke_invitation`, and
+  direct invitation reads/inserts). Sending an invite through the
+  `invite-user` edge function is not covered — the CI stack does not serve
+  edge functions. Revoked invitation rows remain after a run (invitations
+  have no DELETE policy by design).
 
 These are separate from the Vitest component-test suite (`npm test`) and
 run in their own CI workflow (`.github/workflows/e2e.yml`, on every

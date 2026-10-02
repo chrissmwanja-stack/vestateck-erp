@@ -397,6 +397,44 @@ begin
     v_fail := v_fail || 'missing unique index (tenant_id, mr_number) on requests'::text;
   end if;
 
+  ---------------------------------------------------------------------
+  -- 14. Invitations belong to the company admin (20261002054037):
+  --     SELECT / INSERT policies and revoke_invitation() must use
+  --     is_tenant_admin() and must not fall back to "admin of any module"
+  --     (staff_roles), which let a module admin read and mint invitations.
+  ---------------------------------------------------------------------
+  for r in
+    select policyname, cmd from pg_policies
+    where schemaname = 'public' and tablename = 'invitations'
+      and cmd in ('SELECT', 'INSERT', 'ALL')
+      and (coalesce(qual, '') || coalesce(with_check, '') !~* 'is_tenant_admin'
+           or coalesce(qual, '') || coalesce(with_check, '') ~* 'staff_roles')
+  loop
+    v_fail := v_fail || format('invitations.%s (%s) is not keyed to is_tenant_admin() alone', r.policyname, r.cmd);
+  end loop;
+  foreach t in array array['SELECT', 'INSERT'] loop
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'invitations' and cmd = t) then
+      v_fail := v_fail || format('invitations has no %s policy', t);
+    end if;
+  end loop;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'invitations' and cmd in ('UPDATE', 'DELETE', 'ALL')
+  ) then
+    v_fail := v_fail || 'invitations has an UPDATE/DELETE/ALL policy (status changes must go through revoke_invitation / accept-invite only)'::text;
+  end if;
+  if to_regprocedure('public.revoke_invitation(uuid)') is null then
+    v_fail := v_fail || 'missing function public.revoke_invitation(uuid)'::text;
+  else
+    if pg_get_functiondef(to_regprocedure('public.revoke_invitation(uuid)')) !~* 'is_tenant_admin\(\)'
+       or pg_get_functiondef(to_regprocedure('public.revoke_invitation(uuid)')) ~* 'staff_roles' then
+      v_fail := v_fail || 'revoke_invitation() is not keyed to is_tenant_admin() alone'::text;
+    end if;
+    if has_function_privilege('anon', to_regprocedure('public.revoke_invitation(uuid)'), 'EXECUTE') then
+      v_fail := v_fail || 'revoke_invitation(uuid) is executable by anon'::text;
+    end if;
+  end if;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');
