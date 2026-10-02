@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Chip,
   Divider,
@@ -169,6 +170,16 @@ export default function AdminLayout() {
             {current.label}
           </Typography>
         </Stack>
+        {session?.hasMfaFactor && !session.sessionIsMfa && (
+          // Console reads and actions both require a session verified with the
+          // authenticator (require_platform_admin / platform_admin_mfa_gate).
+          // Without this, the first sign is a raw PLATFORM_MFA_REQUIRED error
+          // on whichever page loads first.
+          <Alert severity="warning" sx={{ mb: 2 }} data-testid="mfa-stepup-banner">
+            This session was not verified with your authenticator, so platform data will not load. Sign out and back in
+            with your code.
+          </Alert>
+        )}
         <Outlet />
       </Box>
     </Box>

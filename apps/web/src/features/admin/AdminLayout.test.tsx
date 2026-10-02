@@ -159,6 +159,22 @@ describe('AdminLayout', () => {
     renderAt('/admin');
     expect(screen.getByText('Step-up needed')).toBeInTheDocument();
   });
+
+  it('shows the step-up banner only when a factor exists but the session is aal1', () => {
+    adminSession = { isPlatformAdmin: true, hasMfaFactor: true, sessionIsMfa: false, canAct: false };
+    const { unmount } = renderAt('/admin');
+    expect(screen.getByTestId('mfa-stepup-banner')).toBeInTheDocument();
+    unmount();
+
+    adminSession = { isPlatformAdmin: true, hasMfaFactor: true, sessionIsMfa: true, canAct: true };
+    const second = renderAt('/admin');
+    expect(screen.queryByTestId('mfa-stepup-banner')).not.toBeInTheDocument();
+    second.unmount();
+
+    adminSession = { isPlatformAdmin: true, hasMfaFactor: false, sessionIsMfa: false, canAct: true };
+    renderAt('/admin');
+    expect(screen.queryByTestId('mfa-stepup-banner')).not.toBeInTheDocument();
+  });
 });
 
 describe('console route table is the single source of truth', () => {

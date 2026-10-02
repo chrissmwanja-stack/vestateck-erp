@@ -17,8 +17,8 @@
 --   6. update_workflow_stage_threshold audits with old/new values.
 --   7. platform_settings UPDATE is audited by trigger.
 --   8. Once the platform admin has a verified TOTP factor, the same
---      actions on an aal1 session are refused with PLATFORM_MFA_REQUIRED,
---      and succeed again on an aal2 session.
+--      actions (and console reads) on an aal1 session are refused with
+--      PLATFORM_MFA_REQUIRED, and succeed again on an aal2 session.
 --   9. list_platform_audit_events / list_impersonation_history filter and
 --      page; non-platform callers get zero rows.
 --  10. Clients cannot write platform_audit_events directly (no INSERT
@@ -325,12 +325,16 @@ begin
     if sqlerrm not like 'PLATFORM_MFA_REQUIRED%' then raise exception 'FAIL: unexpected: %', sqlerrm; end if;
   end;
 
-  -- Reads still work on aal1 (the flag alone gates reads).
-  if (select count(*) from list_platform_audit_events()) = 0 then
-    raise exception 'FAIL: enrolled admin on aal1 cannot read the audit log';
-  end if;
+  -- Reads are gated the same way (20261002090000_console_reads_require_mfa.sql).
+  -- Full coverage of every console read is in test_console_reads_require_mfa.sql.
+  begin
+    perform count(*) from list_platform_audit_events();
+    raise exception 'FAIL: enrolled admin on aal1 read the audit log';
+  exception when others then
+    if sqlerrm not like 'PLATFORM_MFA_REQUIRED%' then raise exception 'FAIL: unexpected: %', sqlerrm; end if;
+  end;
 
-  raise notice 'PASS: with a verified factor, aal1 session is refused for writes, allowed for reads';
+  raise notice 'PASS: with a verified factor, aal1 session is refused for writes and console reads';
 end $$;
 
 select pg_temp.become('admin', 'aal2');

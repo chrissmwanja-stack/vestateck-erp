@@ -120,6 +120,9 @@ RLS policies that call the helper; "Fn callers" counts other functions that do.
 - Company configuration: `is_tenant_admin()`. Never `is_company_admin()`.
 - Platform-only operations: `require_platform_admin(action)` inside the function body.
   Use `is_platform_admin()` only to branch, not to authorize.
+  Console reads that return rows (`list_*`, `get_*`) use `platform_admin_mfa_gate(action)` in
+  the `where` clause instead: non-admins still get an empty set, admins with an enrolled factor
+  on an `aal1` session get `PLATFORM_MFA_REQUIRED`.
 - Cross-module finance reads: `can_access_finance()`.
 - Anything involving approvals: the workflow helpers (`has_po_access`,
   `can_act_on_stage`, `is_payroll_approver`), not module roles.
@@ -251,6 +254,7 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 | Definer callers and grants | `supabase/tests/test_definer_authorization.sql` |
 | Invitations are Company Admin only (RLS, `resend-invite` / `invite-user` edge functions) | `supabase/tests/test_invitations_authorization.sql` |
 | `set_member_access` (Company Admin only, tenant-scoped, finance role handling) | `supabase/tests/test_set_member_access.sql` |
+| Every console read refuses an enrolled operator on `aal1` (15 RPCs) | `supabase/tests/test_console_reads_require_mfa.sql` |
 | Internal helpers not client-executable; salary and payroll-approver rules (section 8) | `supabase/tests/test_authorization_review_lockdown.sql` |
 | Numbering tenant isolation (caller may only number its own tenant) | `supabase/tests/test_next_doc_number_tenant_isolation.sql` |
 | Numbering uniqueness (same number allowed across tenants, not within one) | `supabase/tests/test_per_tenant_document_numbers.sql` |
