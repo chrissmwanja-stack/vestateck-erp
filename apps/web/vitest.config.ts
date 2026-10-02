@@ -38,8 +38,12 @@ export default defineConfig({
           environment: 'jsdom',
           include: ['src/**/*.test.tsx'],
           setupFiles: ['./src/test/setup.ts'],
-          testTimeout: 15000,
-          hookTimeout: 15000, 
+          // Heavy MUI + userEvent tests take 2-3s each on a fast box but can
+          // spike well past 15s under full-suite parallel contention on
+          // slower machines (observed flakes at 15s); 30s keeps the
+          // hang-detector meaningful without punting on loaded dev boxes.
+          testTimeout: 30000,
+          hookTimeout: 30000,
         },
       },
     ],
