@@ -98,6 +98,7 @@ declare
   v_member uuid := (select v from test_ids where k = 'member');
   r record;
   v_modules jsonb;
+  v_rows int;
 begin
   -- 1. add a module grant
   select * into r from set_member_access(v_member,
@@ -129,9 +130,15 @@ begin
   if r.finance_role is distinct from 'cost_control' then
     raise exception 'FAIL 3b: finance_role was %', r.finance_role;
   end if;
-  if (select count(*) from finance_team_members
-      where user_id = v_member and tenant_id = (select v from test_ids where k = 'tenant')) <> 1 then
-    raise exception 'FAIL 3b: switching finance role left more than one finance_team_members row';
+  -- Count as the table owner: finance_team_members is RLS-protected and the
+  -- company admin cannot necessarily read it, so a count taken as the caller
+  -- would be 0 whatever the function did.
+  reset role;
+  select count(*) into v_rows from finance_team_members
+  where user_id = v_member and tenant_id = (select v from test_ids where k = 'tenant');
+  set local role authenticated;
+  if v_rows <> 1 then
+    raise exception 'FAIL 3b: expected exactly 1 finance_team_members row after switching role, found %', v_rows;
   end if;
   select * into r from set_member_access(v_member, r.modules, '');
   if r.finance_role is not null then
