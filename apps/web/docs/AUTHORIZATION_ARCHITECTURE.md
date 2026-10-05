@@ -110,14 +110,13 @@ RLS policies that call the helper; "Fn callers" counts other functions that do.
 | `can_manage_po_handoff(po)` | selected offer's submitter OR `has_po_access()` | via `has_po_access` | 0 | 2 |
 | `has_receipt_access()` | row in `material_receipt_assignments` | **no bypass** | 0 | 2 |
 | `can_view_payroll_approvals()` | `is_hr_team_member()` OR `is_payroll_approver()` | passes | 0 | 1 |
-| `is_company_admin()` | flag on **`effective_user_id()`** | false | 0 | 0 |
-| `is_any_module_admin()` | bypass OR `role='admin'` in any module | passes | 0 | 0 |
 
 ### 3.1 Which helper to use
 
 - Module permission: `has_module_role(module, tier_roles)`. The `is_*` wrappers are
   shorthand for it and add nothing else.
-- Company configuration: `is_tenant_admin()`. Never `is_company_admin()`.
+- Company configuration: `is_tenant_admin()`. (`is_company_admin()` and `is_any_module_admin()`
+  were removed in `20261002110000`; the `app_users.is_company_admin` column remains.)
 - Platform-only operations: `require_platform_admin(action)` inside the function body.
   Use `is_platform_admin()` only to branch, not to authorize.
   Console reads that return rows (`list_*`, `get_*`) use `platform_admin_mfa_gate(action)` in
@@ -129,13 +128,13 @@ RLS policies that call the helper; "Fn callers" counts other functions that do.
 
 ### 3.2 Findings from the usage counts
 
-1. **`is_company_admin()` and `is_any_module_admin()` are unused.** No policy or
-   function calls either. `is_any_module_admin()` was the old gate for department
-   writes; `20261001120000` replaced it with `is_tenant_admin()`. It survives only in
-   a test, a comment and a regex in `check_live_security_drift.sql`. Both are
-   candidates for removal. They are also the two helpers with surprising semantics,
-   so removing them is a safety gain, not just tidiness.
-2. **`is_company_admin()` and `is_tenant_admin()` disagree for platform admins**
+1. **`is_company_admin()` and `is_any_module_admin()` were unused: removed.** No policy,
+   function, view or edge function called either (re-verified against production
+   before the drop). `is_any_module_admin()` was the old gate for department writes;
+   `20261001120000` replaced it with `is_tenant_admin()`. Both had surprising semantics,
+   so removing them was a safety gain, not just tidiness. `20261002110000` drops them;
+   `check_live_security_drift.sql` fails if either comes back.
+2. **`is_company_admin()` and `is_tenant_admin()` disagreed for platform admins**
    (false vs true). Resolved by 3.1 plus removing the former.
 3. **`has_receipt_access()` has no platform-admin bypass** while its siblings do.
    It has no policy callers, only two functions. Decide whether that is deliberate.
@@ -276,13 +275,14 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 
 ## 11. Open decisions
 
-1. Remove `is_company_admin()` and `is_any_module_admin()`? (Section 3.2, item 1.)
+1. ~~Remove `is_company_admin()` and `is_any_module_admin()`?~~ Done in `20261002110000`.
 2. Rename `*_ADMIN_ROLES` and `is_business_dev_admin()` to say "manager"? (Section 2.2.)
 3. Should `has_receipt_access()` get the platform-admin bypass, or stay as is on purpose?
 4. Should `require_platform_admin()` demand MFA even when no factor is enrolled?
 5. Procurement and IT/BD tiers: confirm that procurement staying outside `staff_roles`
    policies is intended, since it has `staff_roles` admin rows but no policies using them.
-6. Serialise the `next_*` numbering functions (advisory lock or a counter row) so concurrent
-   inserts in one tenant stop failing on `unique_violation`.
+6. ~~Serialise the `next_*` numbering functions.~~ Done in `20261002100000`: the five
+   `max()+1` functions take a per-(kind, tenant) advisory lock; `next_doc_number` was already
+   an atomic upsert.
 7. A single permission matrix (role by capability) is still to be written once the
    points above are settled.

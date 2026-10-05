@@ -10278,9 +10278,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      is_any_module_admin: { Args: never; Returns: boolean }
       is_business_dev: { Args: never; Returns: boolean }
-      is_company_admin: { Args: never; Returns: boolean }
       is_finance_team_member: { Args: { p_role?: string }; Returns: boolean }
       is_hr_team_member: { Args: { p_role?: string }; Returns: boolean }
       is_it_support: { Args: never; Returns: boolean }

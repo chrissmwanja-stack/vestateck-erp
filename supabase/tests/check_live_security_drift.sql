@@ -458,6 +458,40 @@ begin
     v_fail := v_fail || 'revoke_invitation(uuid) is not executable by authenticated'::text;
   end if;
 
+  -- Removed helpers must stay removed (20261002110000). They had surprising
+  -- semantics (is_company_admin() is false for platform admins; is_any_module_admin()
+  -- means "admin in any module") and no callers; do not let a re-applied old
+  -- migration quietly bring them back.
+  if to_regprocedure('public.is_company_admin()') is not null then
+    v_fail := v_fail || 'removed helper public.is_company_admin() exists again'::text;
+  end if;
+  if to_regprocedure('public.is_any_module_admin()') is not null then
+    v_fail := v_fail || 'removed helper public.is_any_module_admin() exists again'::text;
+  end if;
+
+  -- Per-tenant number generation stays serialized (20261002100000): the five
+  -- max()+1 functions must take lock_number_sequence() after the tenant check, and
+  -- the lock helper must not be client-executable.
+  if to_regprocedure('public.lock_number_sequence(uuid,text)') is null then
+    v_fail := v_fail || 'missing function public.lock_number_sequence(uuid,text)'::text;
+  else
+    foreach t in array array['anon', 'authenticated'] loop
+      if has_function_privilege(t, 'public.lock_number_sequence(uuid,text)', 'EXECUTE') then
+        v_fail := v_fail || format('role %s can EXECUTE lock_number_sequence', t);
+      end if;
+    end loop;
+    foreach t in array array[
+      'public.next_asset_tag(uuid)', 'public.next_mr_number(uuid)',
+      'public.next_ticket_number(uuid)', 'public.next_problem_number(uuid)',
+      'public.next_material_catalog_code(uuid)'
+    ] loop
+      if to_regprocedure(t) is not null
+         and (select prosrc !~* 'lock_number_sequence' from pg_proc where oid = to_regprocedure(t)) then
+        v_fail := v_fail || format('%s does not take lock_number_sequence (concurrent inserts can collide)', t);
+      end if;
+    end loop;
+  end if;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');

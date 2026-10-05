@@ -73,9 +73,10 @@ begin
     (v_user,    v_tenant, 'Customer Admin', 'profile-customer-admin@test.local', false, true),
     (v_other_u, v_other,  'Other User',     'profile-other-user@test.local',     false, true);
 
-  -- departments' write policies need is_any_module_admin() (staff_roles
-  -- role='admin'); give both customer users that so RLS is not what
-  -- blocks them -- the read-only guard must be the thing that refuses.
+  -- Historical: departments writes used to need a module-admin staff_roles row.
+  -- They are company-admin only since 20261001120000 (both customer users above
+  -- are company admins), so RLS is not what blocks them -- the read-only guard
+  -- must be the thing that refuses. The rows are kept so the fixture is unchanged.
   insert into staff_roles (tenant_id, user_id, module, role) values
     (v_tenant, v_user,    'procurement', 'admin'),
     (v_other,  v_other_u, 'procurement', 'admin');

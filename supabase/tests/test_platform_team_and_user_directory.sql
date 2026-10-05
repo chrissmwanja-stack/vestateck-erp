@@ -390,8 +390,8 @@ begin
   if not has_module_role('hr', array['member']) then raise exception 'FAIL: hr member role not seen'; end if;
   if has_module_role('hr', array['admin']) then raise exception 'FAIL: hr admin granted to a member'; end if;
   if has_module_role('legal', array['admin','manager','member']) then raise exception 'FAIL: legal granted without staff_roles'; end if;
-  if is_tenant_admin() or is_company_admin() then raise exception 'FAIL: tenant admin granted to a member'; end if;
-  if is_any_module_admin() then raise exception 'FAIL: module admin granted to a member'; end if;
+  if is_tenant_admin() then raise exception 'FAIL: tenant admin granted to a member'; end if;
+  if has_module_role('hr', array['admin','manager']) then raise exception 'FAIL: hr admin/manager tier granted to a member'; end if;
   if not is_finance_team_member('cost_control') or is_finance_team_member('finance') then raise exception 'FAIL: finance role mismatch'; end if;
   if not can_access_finance() then raise exception 'FAIL: cost_control should reach finance'; end if;
   if has_po_access() then raise exception 'FAIL: PO access granted without assignments'; end if;
