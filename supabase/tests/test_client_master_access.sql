@@ -67,6 +67,12 @@ begin
   insert into bd_contacts (tenant_id, client_id, first_name, last_name)
     select t_ins, id, 'Ann', 'Ins' from bd_clients where tenant_id = t_ins;
   -- BD-only pipeline data in the insurance tenant (should stay invisible to insurance users).
+  -- bd_opportunities.stage defaults to 'identification' and has a composite FK
+  -- to bd_opportunity_stages(tenant_id, stage); fresh test tenants have no
+  -- lookup rows, so seed the default stage for both.
+  insert into bd_opportunity_stages (tenant_id, stage, label, probability_default, order_index) values
+    (t_ins, 'identification', 'Identification', 10, 1),
+    (t_bd,  'identification', 'Identification', 10, 1);
   insert into bd_opportunities (tenant_id, title) values (t_ins, 'Hidden Opp'), (t_bd, 'BD Opp');
   insert into bd_tenders (tenant_id, title) values (t_ins, 'Hidden Tender'), (t_bd, 'BD Tender');
   insert into bd_leads (tenant_id, company_name, contact_name) values (t_ins, 'Hidden Lead', 'X'), (t_bd, 'BD Lead', 'Y');
