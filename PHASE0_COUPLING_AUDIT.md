@@ -87,7 +87,7 @@ D4 is built in lettered steps. Receipts are modelled as **settlements** (money i
 |------|-------|--------|
 | D4a | `fin_bank_accounts` registry: operating vs client-money kind, each mapped to its own GL account | Done (`20261008120000`) |
 | D4b-1 | `fin_open_items` subledger and `fin_open_item_balances` view | Done (`20261008202213`) |
-| D4b-2 | Credit notes | Not started |
+| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Written (`20261009001500`, `test_fin_credit_notes.sql`); not yet run or applied |
 | D4c | `fin_settlements`, `fin_allocations`, `fin_record_settlement`, `fin_void_settlement` | Done (`20261008202213`) |
 | D4d | Reconciliation of settlements against bank statements | Not started |
 
@@ -147,5 +147,12 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** not started.
 - **Open decision:** whether `apply_template` into an existing tenant should leave `tenants.industry_template` unchanged. The only relabel today is in `seed_tenant_defaults` (first run).
 
+### D4b-2 design (confirmed 2026-10-09)
+- A credit note is a separate document; `fin_open_items` stays immutable and positive-only.
+- It is **fully applied to open items when raised**, so the GL control account always equals the sum of outstanding items (same rule as settlements). No unapplied credit and no cash refund in v1; a refund would be a later step (D4b-3).
+- One credit note can be split across several items of the same party, side, control role and currency.
+- Raising posts one journal (receivable: Dr offset / Cr control; payable: Dr control / Cr offset). The caller picks the offset account, which cannot be a control, bank or client-money account. Voiding posts the reversal and the applications stop counting.
+- `fin_allocations_guard` is replaced so settlements and credit notes share one outstanding amount; `fin_open_item_balances` gains `credited_amount` (appended).
+
 ### Next
-D4b-2 (credit notes), then D4d (reconciliation of settlements).
+Run `test_fin_credit_notes.sql` (and `test_fin_settlements.sql`) on a local stack, then D4d (reconciliation of settlements).
