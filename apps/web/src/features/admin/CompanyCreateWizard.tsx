@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { CheckCircle, Business } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useModuleRegistry } from '../../lib/useModuleRegistry';
 
 type IndustryTemplate = 'general' | 'construction';
 
@@ -45,16 +46,21 @@ const INDUSTRY_TEMPLATES: { value: IndustryTemplate; label: string; description:
   },
 ];
 
-const MODULE_OPTIONS: { value: string; label: string; hint: string }[] = [
-  { value: 'hr', label: 'HR', hint: 'Employees, leave, payroll, recruitment' },
-  { value: 'legal', label: 'Law & Compliance', hint: 'Contracts, cases, compliance register' },
-  { value: 'bd', label: 'Business Development', hint: 'Leads, opportunities, proposals, tenders' },
-  { value: 'it', label: 'IT Support', hint: 'Tickets, assets, KB, SLAs' },
-  { value: 'pmo', label: 'PMO', hint: 'Projects, tasks, Gantt, resources' },
-  { value: 'procurement', label: 'Purchasing Extras', hint: 'Advanced procurement (core procurement is always on)' },
-  { value: 'machine_operation', label: 'Machine Operation', hint: 'Equipment, maintenance, fuel logs' },
-  { value: 'sustainability', label: 'Sustainability', hint: 'Carbon, energy, waste, initiatives' },
-];
+// Which modules a new company starts with. Keys must exist in platform_modules.
+const DEFAULT_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'procurement'];
+
+// Short descriptions shown under each module. Names come from the registry;
+// a module added later without a hint here still renders, just without one.
+const MODULE_HINTS: Record<string, string> = {
+  hr: 'Employees, leave, payroll, recruitment',
+  legal: 'Contracts, cases, compliance register',
+  bd: 'Leads, opportunities, proposals, tenders',
+  it: 'Tickets, assets, KB, SLAs',
+  pmo: 'Projects, tasks, Gantt, resources',
+  procurement: 'Advanced procurement (core procurement is always on)',
+  machine_operation: 'Equipment, maintenance, fuel logs',
+  sustainability: 'Carbon, energy, waste, initiatives',
+};
 
 const APPROVAL_PIPELINE = [
   'Cost Control Engineer',
@@ -65,11 +71,12 @@ const APPROVAL_PIPELINE = [
 ];
 
 export default function CompanyCreateWizard({ open, onClose, onCreated }: WizardProps) {
+  const { entitledModules } = useModuleRegistry();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [template, setTemplate] = useState<IndustryTemplate>('general');
-  const [modules, setModules] = useState<Set<string>>(new Set(['hr', 'legal', 'bd', 'it', 'pmo', 'procurement']));
+  const [modules, setModules] = useState<Set<string>>(new Set(DEFAULT_MODULES));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -80,7 +87,7 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
     setName('');
     setAdminEmail('');
     setTemplate('general');
-    setModules(new Set(['hr', 'legal', 'bd', 'it', 'pmo', 'procurement']));
+    setModules(new Set(DEFAULT_MODULES));
     setError(null);
     setSeedWarning(null);
     setSuccessId(null);
@@ -259,11 +266,11 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
                 Finance + core Procurement are always on. Tick the rest. You can change this anytime from <em>Companies → Modules</em>.
               </Typography>
               <FormGroup sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
-                {MODULE_OPTIONS.map((opt) => (
+                {entitledModules.map((opt) => (
                   <FormControlLabel
-                    key={opt.value}
-                    control={<Checkbox checked={modules.has(opt.value)} onChange={() => toggle(opt.value)} disabled={saving} />}
-                    label={<Box><Typography variant="body2">{opt.label}</Typography><Typography variant="caption" color="text.secondary">{opt.hint}</Typography></Box>}
+                    key={opt.key}
+                    control={<Checkbox checked={modules.has(opt.key)} onChange={() => toggle(opt.key)} disabled={saving} />}
+                    label={<Box><Typography variant="body2">{opt.name}</Typography><Typography variant="caption" color="text.secondary">{MODULE_HINTS[opt.key]}</Typography></Box>}
                   />
                 ))}
               </FormGroup>

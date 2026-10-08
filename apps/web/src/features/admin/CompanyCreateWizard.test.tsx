@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import CompanyCreateWizard from './CompanyCreateWizard';
+import { registryState } from '../../test/moduleRegistryMock';
 
 // Platform-admin-only tenant provisioning: create-tenant (edge function) ->
 // set_tenant_modules (RPC, non-fatal on failure) -> invite-user (edge
@@ -10,6 +11,10 @@ import CompanyCreateWizard from './CompanyCreateWizard';
 // a real email, not just "contains @"), the default module preselection,
 // and that a failure at each of the three calls degrades the right way
 // instead of all being treated as a hard stop.
+
+vi.mock('../../lib/useModuleRegistry', () => ({
+  useModuleRegistry: () => registryState(),
+}));
 
 const mockInvoke = vi.fn();
 const mockRpc = vi.fn();
@@ -86,7 +91,7 @@ describe('CompanyCreateWizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(screen.getByText(/6 modules selected/)).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /^HR/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /^Human Resources/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: /^Sustainability/ })).not.toBeChecked();
 
     await user.click(screen.getByRole('checkbox', { name: /^Sustainability/ }));

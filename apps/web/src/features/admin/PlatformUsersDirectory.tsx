@@ -28,12 +28,11 @@ import {
 import { Download as DownloadIcon, Search as SearchIcon, VerifiedUser, Visibility } from '@mui/icons-material';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import ImpersonationReasonDialog from './ImpersonationReasonDialog';
 import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from './usePlatformAdminSession';
 import { downloadCsv } from './companiesList';
 import {
-  MODULE_KEYS,
-  MODULE_LABELS,
   USER_KIND_LABELS,
   lastSeenLabel,
   parseModules,
@@ -67,6 +66,7 @@ export default function PlatformUsersDirectory() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { session: adminSession } = usePlatformAdminSession();
   const blockedReason = describeBlockedReason(adminSession);
+  const { entitledModules, labelFor } = useModuleRegistry();
 
   const [rows, setRows] = useState<DirectoryUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -229,9 +229,9 @@ export default function PlatformUsersDirectory() {
             <InputLabel>Module</InputLabel>
             <Select label="Module" value={moduleKey} onChange={(e) => setModuleKey(e.target.value)}>
               <MenuItem value="">Any module</MenuItem>
-              {MODULE_KEYS.map((m) => (
-                <MenuItem key={m} value={m}>
-                  {MODULE_LABELS[m]}
+              {entitledModules.map((m) => (
+                <MenuItem key={m.key} value={m.key}>
+                  {m.name}
                 </MenuItem>
               ))}
             </Select>
@@ -303,7 +303,7 @@ export default function PlatformUsersDirectory() {
                       )}
                     </TableCell>
                     <TableCell sx={{ maxWidth: 380 }}>
-                      <Tooltip title={summariseAccess(u)}>
+                      <Tooltip title={summariseAccess(u, labelFor)}>
                         <Stack direction="row" flexWrap="wrap" gap={0.5}>
                           {u.is_platform_admin && <Chip size="small" label="Platform admin" color="secondary" />}
                           {u.is_company_admin && <Chip size="small" label="Company admin" color="primary" />}
@@ -315,7 +315,7 @@ export default function PlatformUsersDirectory() {
                               key={m.module}
                               size="small"
                               variant="outlined"
-                              label={`${MODULE_LABELS[m.module] ?? m.module} ${m.role}`}
+                              label={`${labelFor(m.module)} ${m.role}`}
                             />
                           ))}
                           {mods.length > 4 && <Chip size="small" variant="outlined" label={`+${mods.length - 4}`} />}

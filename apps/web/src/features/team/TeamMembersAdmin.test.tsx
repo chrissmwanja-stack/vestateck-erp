@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import TeamMembersAdmin from './TeamMembersAdmin';
 import { mockSupabaseRpc } from '../../test/rpcHarness';
+import { registryState } from '../../test/moduleRegistryMock';
 
 // This page sits behind useTenantAdminAccess (company admin or platform
 // admin only) -- mocked directly here rather than simulated through
@@ -21,6 +22,10 @@ import { mockSupabaseRpc } from '../../test/rpcHarness';
 const mockRpc = vi.fn();
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: { rpc: (...args: unknown[]) => mockRpc(...args) },
+}));
+
+vi.mock('../../lib/useModuleRegistry', () => ({
+  useModuleRegistry: () => registryState(),
 }));
 
 const mockUseTenantAdminAccess = vi.fn();
@@ -75,7 +80,7 @@ describe('TeamMembersAdmin', () => {
     await waitFor(() => expect(screen.getByText('Amina Okello')).toBeInTheDocument());
 
     const rowA = screen.getByText('Amina Okello').closest('tr') as HTMLElement;
-    expect(within(rowA).getByText('HR (admin)')).toBeInTheDocument();
+    expect(within(rowA).getByText('Human Resources (admin)')).toBeInTheDocument();
     expect(within(rowA).queryByText('Company admin')).not.toBeInTheDocument();
     expect(within(rowA).getByText('None')).toBeInTheDocument(); // no finance access
 
@@ -130,7 +135,7 @@ describe('TeamMembersAdmin', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Edit access — chris@test.local')).toBeInTheDocument();
-    expect((screen.getByLabelText('HR') as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText('Human Resources') as HTMLInputElement).checked).toBe(false);
     // "Finance (view & edit)" also appears in the table row behind the
     // dialog (chip), so scope to the dialog for the select's displayed value.
     expect(within(dialog).getByText('Finance (view & edit)')).toBeInTheDocument();
@@ -150,7 +155,7 @@ describe('TeamMembersAdmin', () => {
     // hr is pre-checked from MEMBER_A's existing grant; add IT Support too.
     await user.click(screen.getByLabelText('IT Support'));
 
-    // Role selects render in ALL_MODULES order: hr, legal, bd, it, ... --
+    // Role selects render in registry order: hr, procurement, legal, it, ... --
     // set the newly-checked IT Support module (index 3) to "manager".
     const roleSelects = screen.getAllByLabelText('Role');
     await user.click(roleSelects[3]);

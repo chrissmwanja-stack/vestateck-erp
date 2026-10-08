@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { registryState } from '../../test/moduleRegistryMock';
 import {
   daysSince,
   lastSeenLabel,
@@ -74,8 +75,12 @@ describe('summariseAccess', () => {
           modules: [{ module: 'hr', role: 'admin' }, { module: 'bd', role: 'member' }],
           finance_role: 'cost_control',
         }),
+        registryState().labelFor,
       ),
-    ).toBe('Company admin · Business Dev member, HR admin · Cost control');
+    ).toBe('Company admin · Business Development member, Human Resources admin · Cost control');
+  });
+  it('shows raw module keys when no labeller is given', () => {
+    expect(summariseAccess(user({ modules: [{ module: 'hr', role: 'admin' }] }))).toBe('hr admin');
   });
   it('says so when nothing is granted', () => {
     expect(summariseAccess(user())).toBe('No access granted');

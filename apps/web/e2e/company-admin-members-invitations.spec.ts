@@ -52,7 +52,7 @@ import {
 const MEMBERS_URL = '/company-admin/users/members';
 const INVITE_URL = '/company-admin/users/invite';
 const MEMBER_EMAIL = 'machine.ops@test.local';
-const ADDED_MODULE_LABEL = 'Sustainability & Business Excellence';
+const ADDED_MODULE_LABEL = 'Sustainability';
 
 interface Grant {
   module: string;

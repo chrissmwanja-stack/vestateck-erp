@@ -25,20 +25,10 @@ import {
   Typography,
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import { resendInvite, revokeInvite } from './inviteActions';
 import { useTenantAdminAccess } from './useTenantAdminAccess';
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
-const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
-  hr: 'HR',
-  legal: 'Legal & Compliance',
-  bd: 'Business Development',
-  it: 'IT Support',
-  pmo: 'Project Management Office',
-  machine_operation: 'Machine Operation',
-  sustainability: 'Sustainability & Business Excellence',
-  procurement: 'Procurement & Purchasing',
-};
 const ROLES = ['admin', 'manager', 'member'] as const;
 
 // Not a module -- finance access is a separate mechanism
@@ -60,18 +50,7 @@ interface Invitation {
   created_at: string;
 }
 
-type ModuleSelection = Record<(typeof ALL_MODULES)[number], { checked: boolean; role: (typeof ROLES)[number] }>;
-
-const emptyModuleSelection: ModuleSelection = {
-  hr: { checked: false, role: 'member' },
-  legal: { checked: false, role: 'member' },
-  bd: { checked: false, role: 'member' },
-  it: { checked: false, role: 'member' },
-  pmo: { checked: false, role: 'member' },
-  machine_operation: { checked: false, role: 'member' },
-  sustainability: { checked: false, role: 'member' },
-  procurement: { checked: false, role: 'member' },
-};
+type ModuleSelection = Record<string, { checked: boolean; role: (typeof ROLES)[number] }>;
 
 const statusColor: Record<Invitation['status'], 'default' | 'success' | 'warning' | 'error'> = {
   pending: 'warning',
@@ -82,9 +61,10 @@ const statusColor: Record<Invitation['status'], 'default' | 'success' | 'warning
 
 export default function InviteMember() {
   const access = useTenantAdminAccess();
+  const { entitledModules, labelFor, loading: registryLoading, error: registryError } = useModuleRegistry();
 
   const [email, setEmail] = useState('');
-  const [modules, setModules] = useState<ModuleSelection>(emptyModuleSelection);
+  const [modules, setModules] = useState<ModuleSelection>({});
   const [financeRole, setFinanceRole] = useState<(typeof FINANCE_ROLES)[number]>('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -146,12 +126,18 @@ export default function InviteMember() {
     loadInvitations();
   };
 
-  const toggleModule = (module: (typeof ALL_MODULES)[number]) => {
-    setModules((v) => ({ ...v, [module]: { ...v[module], checked: !v[module].checked } }));
+  const toggleModule = (module: string) => {
+    setModules((v) => {
+      const current = v[module] ?? { checked: false, role: 'member' as const };
+      return { ...v, [module]: { ...current, checked: !current.checked } };
+    });
   };
 
-  const setModuleRole = (module: (typeof ALL_MODULES)[number], role: (typeof ROLES)[number]) => {
-    setModules((v) => ({ ...v, [module]: { ...v[module], role } }));
+  const setModuleRole = (module: string, role: (typeof ROLES)[number]) => {
+    setModules((v) => {
+      const current = v[module] ?? { checked: false, role: 'member' as const };
+      return { ...v, [module]: { ...current, role } };
+    });
   };
 
   const send = async () => {
@@ -164,10 +150,12 @@ export default function InviteMember() {
       return;
     }
 
-    const modulesAndRoles = ALL_MODULES.filter((m) => modules[m].checked).map((m) => ({
-      module: m,
-      role: modules[m].role,
-    }));
+    const modulesAndRoles = entitledModules
+      .filter((m) => modules[m.key]?.checked)
+      .map((m) => ({
+        module: m.key,
+        role: modules[m.key].role,
+      }));
     if (modulesAndRoles.length === 0 && !financeRole) {
       setSaveError('Select at least one module, or grant finance access.');
       return;
@@ -200,7 +188,7 @@ export default function InviteMember() {
 
     setSaveNotice(`Invite sent to ${trimmedEmail}.`);
     setEmail('');
-    setModules(emptyModuleSelection);
+    setModules({});
     setFinanceRole('');
     loadInvitations();
   };
@@ -234,27 +222,29 @@ export default function InviteMember() {
             disabled={saving}
           />
 
+          {registryError && <Alert severity="error">Could not load the module list: {registryError}</Alert>}
+          {registryLoading && <CircularProgress size={20} />}
           <Stack spacing={1.5}>
-            {ALL_MODULES.map((module) => (
+            {entitledModules.map(({ key: module }) => (
               <Stack key={module} direction="row" spacing={2} alignItems="center">
                 <FormControlLabel
                   sx={{ minWidth: 220 }}
                   control={
                     <Checkbox
-                      checked={modules[module].checked}
+                      checked={modules[module]?.checked ?? false}
                       onChange={() => toggleModule(module)}
                       disabled={saving}
                     />
                   }
-                  label={MODULE_LABELS[module]}
+                  label={labelFor(module)}
                 />
                 <TextField
                   select
                   size="small"
                   label="Role"
-                  value={modules[module].role}
+                  value={modules[module]?.role ?? 'member'}
                   onChange={(e) => setModuleRole(module, e.target.value as (typeof ROLES)[number])}
-                  disabled={!modules[module].checked || saving}
+                  disabled={!modules[module]?.checked || saving}
                   sx={{ width: 160 }}
                 >
                   {ROLES.map((role) => (
@@ -337,7 +327,7 @@ export default function InviteMember() {
                         ? 'All modules + Finance (admin)'
                         : [
                             ...(inv.modules_and_roles ?? []).map(
-                              (mr) => `${MODULE_LABELS[mr.module as (typeof ALL_MODULES)[number]] ?? mr.module} (${mr.role})`
+                              (mr) => `${labelFor(mr.module)} (${mr.role})`
                             ),
                             ...(inv.finance_role ? [FINANCE_ROLE_LABELS[inv.finance_role]] : []),
                           ].join(', ') || '—'}

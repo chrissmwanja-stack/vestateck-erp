@@ -30,9 +30,9 @@ import {
 } from '@mui/material';
 import { Add, ArrowDownward, ArrowUpward, ContentCopy, Delete, Edit, Star, StarBorder } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from './usePlatformAdminSession';
 import {
-  TEMPLATE_MODULES,
   describeStage,
   draftFromTemplate,
   emptyStage,
@@ -298,6 +298,7 @@ function TemplateEditorDialog({
   onClose: () => void;
   onSaved: (msg: string) => void;
 }) {
+  const { entitledModules } = useModuleRegistry();
   const [d, setD] = useState<TemplateDraft>(initial);
   const [keyTouched, setKeyTouched] = useState(!isNew);
   const [newDept, setNewDept] = useState('');
@@ -423,19 +424,19 @@ function TemplateEditorDialog({
               Finance and core Procurement are always on. The wizard lets the operator adjust per company.
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', mt: 0.5 }}>
-              {TEMPLATE_MODULES.map((m) => (
+              {entitledModules.map((m) => (
                 <FormControlLabel
-                  key={m.value}
+                  key={m.key}
                   control={
                     <Checkbox
                       size="small"
-                      checked={d.modules.includes(m.value)}
+                      checked={d.modules.includes(m.key)}
                       onChange={(e) =>
-                        patch({ modules: e.target.checked ? [...d.modules, m.value] : d.modules.filter((x) => x !== m.value) })
+                        patch({ modules: e.target.checked ? [...d.modules, m.key] : d.modules.filter((x) => x !== m.key) })
                       }
                     />
                   }
-                  label={m.label}
+                  label={m.name}
                 />
               ))}
             </Box>

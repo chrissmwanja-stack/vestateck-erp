@@ -1,18 +1,6 @@
 import { Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormGroup, Stack, Typography } from "@mui/material";
 import type { Tenant } from "./companiesList";
-
-const MODULE_OPTIONS: { value: string; label: string }[] = [
-  { value: "hr", label: "HR" },
-  { value: "legal", label: "Law & Compliance" },
-  { value: "bd", label: "Business Development" },
-  { value: "it", label: "IT Support" },
-  { value: "pmo", label: "PMO" },
-  { value: "procurement", label: "Purchasing & Logistics extras" },
-  { value: "machine_operation", label: "Machine Operation" },
-  { value: "sustainability", label: "Sustainability" },
-];
-
-export { MODULE_OPTIONS };
+import { useModuleRegistry } from "../../lib/useModuleRegistry";
 
 export function ModulesDialog({
   target,
@@ -33,11 +21,13 @@ export function ModulesDialog({
   onToggle: (m: string) => void;
   onSave: () => void;
 }) {
+  const { entitledModules, loading: registryLoading, error: registryError } = useModuleRegistry();
+  const busy = loading || registryLoading;
   return (
     <Dialog open={!!target} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Modules — {target?.name}</DialogTitle>
       <DialogContent>
-        {loading ? (
+        {busy ? (
           <Box display="flex" justifyContent="center" py={3}>
             <CircularProgress size={24} />
           </Box>
@@ -47,15 +37,15 @@ export function ModulesDialog({
               Modules this company can access. Finance and core Purchasing & Logistics aren't listed — every tenant has those by default.
             </Typography>
             <FormGroup>
-              {MODULE_OPTIONS.map((opt) => (
+              {entitledModules.map((opt) => (
                 <FormControlLabel
-                  key={opt.value}
-                  control={<Checkbox checked={selection.has(opt.value)} onChange={() => onToggle(opt.value)} disabled={saving} />}
-                  label={opt.label}
+                  key={opt.key}
+                  control={<Checkbox checked={selection.has(opt.key)} onChange={() => onToggle(opt.key)} disabled={saving} />}
+                  label={opt.name}
                 />
               ))}
             </FormGroup>
-            {error && <Alert severity="error">{error}</Alert>}
+            {(error || registryError) && <Alert severity="error">{error ?? registryError}</Alert>}
           </Stack>
         )}
       </DialogContent>
@@ -63,7 +53,7 @@ export function ModulesDialog({
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={onSave} variant="contained" disabled={saving || loading}>
+        <Button onClick={onSave} variant="contained" disabled={saving || busy}>
           {saving ? "Saving…" : "Save"}
         </Button>
       </DialogActions>

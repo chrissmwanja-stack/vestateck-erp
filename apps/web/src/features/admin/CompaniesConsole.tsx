@@ -14,7 +14,8 @@ import { useCompanyFilters } from "./useCompanyFilters";
 import { CompaniesTable, InvitationsTable } from "./CompaniesTable";
 import { RevokeInviteDialog } from "./RevokeInviteDialog";
 import { SuspendReactivateDialog } from "./SuspendReactivateDialog";
-import { ModulesDialog, MODULE_OPTIONS } from "./ModulesDialog";
+import { ModulesDialog } from "./ModulesDialog";
+import { useModuleRegistry } from "../../lib/useModuleRegistry";
 
 function usePlatformAdminAccess() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null);
@@ -48,6 +49,7 @@ function usePlatformAdminAccess() {
 export default function CompaniesConsole() {
   const isPlatformAdmin = usePlatformAdminAccess();
   const navigate = useNavigate();
+  const { entitledModules } = useModuleRegistry();
   const { rows, loading, error, setError, invitations, loadingInvites, actionError, setActionError, actionNotice, setActionNotice, load, loadInvitations } =
     useCompaniesData();
 
@@ -363,7 +365,7 @@ export default function CompaniesConsole() {
           }}
           onImpersonate={handleImpersonate}
           blockedReason={blockedReason}
-          moduleCount={MODULE_OPTIONS.length}
+          moduleCount={entitledModules.length}
         />
       )}
 

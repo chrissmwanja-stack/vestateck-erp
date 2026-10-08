@@ -66,17 +66,6 @@ export interface TemplateDraft {
   stages: StageDraft[];
 }
 
-export const TEMPLATE_MODULES: { value: string; label: string }[] = [
-  { value: 'hr', label: 'HR' },
-  { value: 'legal', label: 'Law & Compliance' },
-  { value: 'bd', label: 'Business Development' },
-  { value: 'it', label: 'IT Support' },
-  { value: 'pmo', label: 'PMO' },
-  { value: 'procurement', label: 'Purchasing Extras' },
-  { value: 'machine_operation', label: 'Machine Operation' },
-  { value: 'sustainability', label: 'Sustainability' },
-];
-
 export const TEMPLATE_KEY_RE = /^[a-z][a-z0-9_]{1,39}$/;
 
 export function slugifyTemplateKey(name: string): string {

@@ -25,19 +25,9 @@ import {
 } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import { useTenantAdminAccess } from './useTenantAdminAccess';
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
-const MODULE_LABELS: Record<(typeof ALL_MODULES)[number], string> = {
-  hr: 'HR',
-  legal: 'Legal & Compliance',
-  bd: 'Business Development',
-  it: 'IT Support',
-  pmo: 'Project Management Office',
-  machine_operation: 'Machine Operation',
-  sustainability: 'Sustainability & Business Excellence',
-  procurement: 'Procurement & Purchasing',
-};
 const ROLES = ['admin', 'manager', 'member'] as const;
 
 const FINANCE_ROLES = ['', 'cost_control', 'finance'] as const;
@@ -64,6 +54,7 @@ interface TeamMember {
 
 export default function TeamMembersAdmin() {
   const access = useTenantAdminAccess();
+  const { entitledModules, labelFor } = useModuleRegistry();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,7 +109,7 @@ export default function TeamMembersAdmin() {
     setSaveError(null);
     setEditing(member);
     const modules: Record<string, { checked: boolean; role: (typeof ROLES)[number] }> = {};
-    for (const m of ALL_MODULES) {
+    for (const { key: m } of entitledModules) {
       const existing = member.modules.find((g) => g.module === m);
       modules[m] = { checked: !!existing, role: (existing?.role as (typeof ROLES)[number]) ?? 'member' };
     }
@@ -144,10 +135,12 @@ export default function TeamMembersAdmin() {
     // so this is all-or-nothing -- no risk of a partial update if one of
     // several changes fails partway through, the way the old per-module
     // rpc() loop could leave a member half-updated.
-    const modules = ALL_MODULES.filter((m) => draftModules[m]?.checked).map((m) => ({
-      module: m,
-      role: draftModules[m].role,
-    }));
+    const modules = entitledModules
+      .filter((m) => draftModules[m.key]?.checked)
+      .map((m) => ({
+        module: m.key,
+        role: draftModules[m.key].role,
+      }));
 
     const { error } = await supabase.rpc('set_member_access', {
       p_user_id: editing.user_id,
@@ -224,7 +217,7 @@ export default function TeamMembersAdmin() {
                           <Chip
                             key={g.module}
                             size="small"
-                            label={`${MODULE_LABELS[g.module as (typeof ALL_MODULES)[number]] ?? g.module} (${g.role})`}
+                            label={`${labelFor(g.module)} (${g.role})`}
                           />
                         ))}
                         {m.modules.length === 0 && !m.is_company_admin && (
@@ -269,7 +262,7 @@ export default function TeamMembersAdmin() {
         <DialogTitle>Edit access — {editing?.email}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ mt: 1 }}>
-            {ALL_MODULES.map((module) => (
+            {entitledModules.map(({ key: module }) => (
               <Stack key={module} direction="row" spacing={2} alignItems="center">
                 <FormControlLabel
                   sx={{ minWidth: 220 }}
@@ -280,7 +273,7 @@ export default function TeamMembersAdmin() {
                       disabled={saving}
                     />
                   }
-                  label={MODULE_LABELS[module]}
+                  label={labelFor(module)}
                 />
                 <TextField
                   select

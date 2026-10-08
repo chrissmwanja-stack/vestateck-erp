@@ -4,17 +4,10 @@ import { Outlet } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/authContext';
 
-// Keep in sync with the staff_roles.module CHECK constraint
-// (see 0001_init_core_schema.sql + later module-add migrations).
-export type ModuleKey =
-  | 'hr'
-  | 'legal'
-  | 'bd'
-  | 'it'
-  | 'pmo'
-  | 'machine_operation'
-  | 'sustainability'
-  | 'procurement';
+// Valid keys live in the platform_modules registry (tenant_modules.module and
+// staff_roles.module are foreign keys to it), so this is a plain string alias
+// rather than a union that has to be kept in sync by hand.
+export type ModuleKey = string;
 
 const DEFAULT_ROLES = ['admin', 'manager', 'member'] as const;
 

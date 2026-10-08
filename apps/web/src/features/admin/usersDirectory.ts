@@ -45,19 +45,6 @@ export const USER_KIND_LABELS: Record<Exclude<UserKind, ''>, string> = {
   member: 'Members',
 };
 
-export const MODULE_LABELS: Record<string, string> = {
-  hr: 'HR',
-  legal: 'Legal',
-  bd: 'Business Dev',
-  it: 'IT',
-  pmo: 'PMO',
-  machine_operation: 'Machines',
-  sustainability: 'Sustainability',
-  procurement: 'Procurement',
-};
-
-export const MODULE_KEYS = Object.keys(MODULE_LABELS);
-
 export interface ModuleRole {
   module: string;
   role: string;
@@ -77,12 +64,17 @@ export function parseModules(value: Json | null | undefined): ModuleRole[] {
   return out.sort((a, b) => a.module.localeCompare(b.module));
 }
 
-// One-line access summary: "Company admin · HR admin, Procurement member · Finance"
-export function summariseAccess(u: Pick<DirectoryUser, 'is_platform_admin' | 'is_company_admin' | 'modules' | 'finance_role'>): string {
+// One-line access summary: "Company admin · Human Resources admin, Procurement member · Finance"
+// Module names come from the platform_modules registry (useModuleRegistry().labelFor);
+// without a labeller the raw module key is shown.
+export function summariseAccess(
+  u: Pick<DirectoryUser, 'is_platform_admin' | 'is_company_admin' | 'modules' | 'finance_role'>,
+  labelFor: (key: string) => string = (key) => key,
+): string {
   const parts: string[] = [];
   if (u.is_platform_admin) parts.push('Platform admin');
   if (u.is_company_admin) parts.push('Company admin');
-  const mods = parseModules(u.modules).map((m) => `${MODULE_LABELS[m.module] ?? m.module} ${m.role}`);
+  const mods = parseModules(u.modules).map((m) => `${labelFor(m.module)} ${m.role}`);
   if (mods.length) parts.push(mods.join(', '));
   if (u.finance_role) parts.push(u.finance_role === 'finance' ? 'Finance' : 'Cost control');
   return parts.length ? parts.join(' · ') : 'No access granted';
