@@ -317,6 +317,7 @@ begin
     ('STANBIC-1', 'UGX'), ('STANBIC-1', 'UGX'), ('STANBIC-1', 'UGX'), ('STANBIC-1', 'USD'),
     ('  STANBIC-1  ', 'UGX'),
     ('DFCU-USD', 'USD'),
+    ('MIXED-2', 'USD'), ('MIXED-2', 'USD'), ('MIXED-2', 'USD'), ('MIXED-2', 'UGX'),
     ('JUNKCUR', 'ugx '),
     ('BADCUR', 'XX')
   ) as c(acct, cur);
@@ -338,9 +339,9 @@ begin
   insert into gl_posting_rules (tenant_id, account_role, gl_account_id) values
     (v_tc, 'bank', v_bank_c), (v_tc, 'client_money_bank', v_trust_c), (v_te, 'bank', v_liab_e);
 
-  -- Tenant C: STANBIC-1 (merged across spellings and sources), DFCU-USD, JUNKCUR, BADCUR, CENTENARY.
+  -- Tenant C: STANBIC-1 (merged across spellings and sources), DFCU-USD, MIXED-2, JUNKCUR, BADCUR, CENTENARY.
   v_n := public.platform_fin_backfill_bank_accounts(v_tc);
-  if v_n <> 5 then raise exception 'FAIL: backfill registered % accounts for tenant C, expected 5', v_n; end if;
+  if v_n <> 6 then raise exception 'FAIL: backfill registered % accounts for tenant C, expected 6', v_n; end if;
 
   select * into v_row from fin_bank_accounts where tenant_id = v_tc and name = 'STANBIC-1';
   if v_row.currency <> 'UGX' or v_row.gl_account_id is distinct from v_bank_c or v_row.kind <> 'operating' then
@@ -348,6 +349,8 @@ begin
   end if;
   select * into v_row from fin_bank_accounts where tenant_id = v_tc and name = 'DFCU-USD';
   if v_row.currency <> 'USD' then raise exception 'FAIL: DFCU-USD currency is %', v_row.currency; end if;
+  select * into v_row from fin_bank_accounts where tenant_id = v_tc and name = 'MIXED-2';
+  if v_row.currency <> 'USD' then raise exception 'FAIL: MIXED-2 is mostly USD but was registered as %', v_row.currency; end if;
   select * into v_row from fin_bank_accounts where tenant_id = v_tc and name = 'JUNKCUR';
   if v_row.currency <> 'UGX' then raise exception 'FAIL: ''ugx '' should normalise to UGX, got %', v_row.currency; end if;
   select * into v_row from fin_bank_accounts where tenant_id = v_tc and name = 'BADCUR';
