@@ -60,6 +60,7 @@ const MODULE_HINTS: Record<string, string> = {
   procurement: 'Advanced procurement (core procurement is always on)',
   machine_operation: 'Equipment, maintenance, fuel logs',
   sustainability: 'Carbon, energy, waste, initiatives',
+  insurance: 'Clients, policies, renewals, commissions',
 };
 
 const APPROVAL_PIPELINE = [
