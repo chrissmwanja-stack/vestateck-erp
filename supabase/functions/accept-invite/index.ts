@@ -19,10 +19,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
-
 interface ModuleRole {
-  module: (typeof ALL_MODULES)[number];
+  // Validated against platform_modules by invite-user and by the staff_roles FK.
+  module: string;
   role: 'admin' | 'manager' | 'member';
 }
 
@@ -121,9 +120,22 @@ serve(async (req) => {
     }
 
     // --- Create staff_roles rows ---
+    // A company admin gets 'admin' on every module the tenant is entitled to
+    // (tenant_modules), not a hard-coded list. Modules entitled later are
+    // granted by set_tenant_modules().
+    let entitledModules: string[] = [];
+    if (invitation.role_bundle === 'company_admin') {
+      const { data: tmRows, error: tmError } = await admin
+        .from('tenant_modules')
+        .select('module')
+        .eq('tenant_id', invitation.tenant_id);
+      if (tmError) return jsonResponse(corsHeaders, { error: tmError.message }, 500);
+      entitledModules = (tmRows ?? []).map((r: { module: string }) => r.module);
+    }
+
     const roleRows =
       invitation.role_bundle === 'company_admin'
-        ? ALL_MODULES.map((module) => ({
+        ? entitledModules.map((module) => ({
             tenant_id: invitation.tenant_id,
             user_id: userId,
             module,

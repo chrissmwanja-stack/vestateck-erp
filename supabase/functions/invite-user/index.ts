@@ -38,15 +38,14 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // screen once it exists, e.g. https://app.vestaportal.com/accept-invite
 const ACCEPT_INVITE_URL = Deno.env.get('ACCEPT_INVITE_URL') ?? '';
 
-const ALL_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'machine_operation', 'sustainability', 'procurement'] as const;
 const VALID_ROLES = ['admin', 'manager', 'member'] as const;
-// Not part of ALL_MODULES/staff_roles -- finance access is a separate
+// Not a staff_roles module (platform_modules.tenant_entitled = false) -- finance access is a separate
 // mechanism (finance_team_members / is_finance_team_member()), see
 // 20260816_add_finance_role_to_invitations.
 const VALID_FINANCE_ROLES = ['finance', 'cost_control'] as const;
 
 interface ModuleRole {
-  module: (typeof ALL_MODULES)[number];
+  module: string;
   role: (typeof VALID_ROLES)[number];
 }
 
@@ -65,13 +64,13 @@ function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   });
 }
 
-function isValidModuleRoleArray(value: unknown): value is ModuleRole[] {
+function isValidModuleRoleArray(value: unknown, validModules: readonly string[]): value is ModuleRole[] {
   if (!Array.isArray(value) || value.length === 0) return false;
   return value.every(
     (v) =>
       v &&
       typeof v === 'object' &&
-      ALL_MODULES.includes((v as ModuleRole).module) &&
+      validModules.includes((v as ModuleRole).module) &&
       VALID_ROLES.includes((v as ModuleRole).role)
   );
 }
@@ -123,6 +122,19 @@ serve(async (req) => {
       financeRole = body.finance_role;
     }
 
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Valid module keys come from the registry (platform_modules), not a
+    // hard-coded list: active and tenant-entitled keys only.
+    const { data: registryRows, error: registryError } = await admin
+      .from('platform_modules')
+      .select('key')
+      .eq('is_active', true)
+      .eq('tenant_entitled', true)
+      .order('sort_order');
+    if (registryError) return jsonResponse(corsHeaders, { error: registryError.message }, 500);
+    const validModules = (registryRows ?? []).map((r: { key: string }) => r.key);
+
     let modulesAndRoles: ModuleRole[] | null = null;
     if (role_bundle === 'member') {
       const hasModules = Array.isArray(body.modules_and_roles) && body.modules_and_roles.length > 0;
@@ -135,19 +147,16 @@ serve(async (req) => {
           400
         );
       }
-      if (hasModules && !isValidModuleRoleArray(body.modules_and_roles)) {
+      if (hasModules && !isValidModuleRoleArray(body.modules_and_roles, validModules)) {
         return jsonResponse(corsHeaders,
           {
-            error:
-              'modules_and_roles must be a non-empty array of { module, role }, module in hr/legal/bd/it/pmo/machine_operation/sustainability/procurement, role in admin/manager/member',
+            error: `modules_and_roles must be a non-empty array of { module, role }, module in ${validModules.join('/')}, role in admin/manager/member`,
           },
           400
         );
       }
       modulesAndRoles = hasModules ? body.modules_and_roles! : [];
     }
-
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // --- Load caller's own app_users row (platform admin flag + tenant) ---
     const { data: callerRow, error: callerError } = await admin

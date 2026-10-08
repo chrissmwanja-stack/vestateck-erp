@@ -34,8 +34,6 @@ interface CreateTenantBody {
   industry_template?: string;
 }
 
-const VALID_INDUSTRY_TEMPLATES = ['general', 'construction'] as const;
-
 function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
@@ -71,15 +69,22 @@ serve(async (req) => {
       return jsonResponse(corsHeaders, { error: 'name is required' }, 400);
     }
 
-    const industryTemplate = body.industry_template ?? 'general';
-    if (!VALID_INDUSTRY_TEMPLATES.includes(industryTemplate as (typeof VALID_INDUSTRY_TEMPLATES)[number])) {
-      return jsonResponse(corsHeaders,
-        { error: `industry_template must be one of: ${VALID_INDUSTRY_TEMPLATES.join(', ')}` },
-        400
-      );
-    }
-
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Any ACTIVE row in industry_templates is valid (templates are data now),
+    // so a template saved in the admin UI can be used for a new company.
+    // Omitted -> the registry's default template.
+    let industryTemplate = body.industry_template?.trim();
+    if (!industryTemplate) {
+      const { data: def, error: defError } = await admin
+        .from('industry_templates')
+        .select('key')
+        .eq('is_active', true)
+        .eq('is_default', true)
+        .maybeSingle();
+      if (defError) return jsonResponse(corsHeaders, { error: defError.message }, 500);
+      industryTemplate = def?.key ?? 'general';
+    }
 
     // --- Authorization: platform admin only ---
     const { data: callerRow, error: callerError } = await admin
@@ -91,6 +96,26 @@ serve(async (req) => {
     if (callerError) return jsonResponse(corsHeaders, { error: callerError.message }, 500);
     if (!callerRow?.is_platform_admin) {
       return jsonResponse(corsHeaders, { error: 'Only platform admins can create tenants' }, 403);
+    }
+
+    // --- Template must exist and be active ---
+    const { data: tpl, error: tplError } = await admin
+      .from('industry_templates')
+      .select('key')
+      .eq('key', industryTemplate)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (tplError) return jsonResponse(corsHeaders, { error: tplError.message }, 500);
+    if (!tpl) {
+      const { data: all } = await admin
+        .from('industry_templates')
+        .select('key')
+        .eq('is_active', true)
+        .order('sort_order');
+      return jsonResponse(corsHeaders,
+        { error: `industry_template must be one of: ${(all ?? []).map((r: { key: string }) => r.key).join(', ')}` },
+        400
+      );
     }
 
     // --- Prevent obvious accidental duplicates ---
