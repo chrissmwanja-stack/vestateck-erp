@@ -240,8 +240,12 @@ begin
     perform seed_tenant_defaults(gen_random_uuid(), 'mining');
     raise exception 'FAIL: inactive template accepted';
   exception when others then if sqlerrm not like 'TEMPLATE_NOT_FOUND%' then raise; end if; end;
-  if (select count(*) from list_industry_templates()) <> 2 then raise exception 'FAIL: inactive still listed'; end if;
-  if (select count(*) from list_industry_templates(true)) <> 3 then raise exception 'FAIL: include_inactive'; end if;
+  -- Independent of how many preset templates exist (general, construction,
+  -- insurance, ...): only the deactivated custom one must disappear.
+  if exists (select 1 from list_industry_templates() where key = 'mining') then raise exception 'FAIL: inactive still listed'; end if;
+  if not exists (select 1 from list_industry_templates(true) where key = 'mining')
+     or (select count(*) from list_industry_templates(true)) <> (select count(*) from list_industry_templates()) + 1
+  then raise exception 'FAIL: include_inactive'; end if;
 
   raise notice 'PASS: 1. industry templates seed identically to the old code, custom templates work, validation holds';
 end $$;

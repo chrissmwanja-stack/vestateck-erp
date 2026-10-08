@@ -139,6 +139,8 @@ begin
   -------------------------------------------------------------------
   -- 4. next_doc_number is an atomic upsert and must not take an advisory lock.
   -------------------------------------------------------------------
+  -- doc_sequences.tenant_id has an FK to tenants, so this one needs a real tenant row.
+  insert into tenants (id, name) values (v_tenant_a, 'Numlock Test Co');
   select count(*) into v_before from pg_locks where locktype = 'advisory' and pid = pg_backend_pid();
   perform public.next_doc_number(v_tenant_a, 'numlock_test', 'NLT');
   select count(*) into v_after from pg_locks where locktype = 'advisory' and pid = pg_backend_pid();
