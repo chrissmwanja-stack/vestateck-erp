@@ -135,7 +135,23 @@ describe('industry template drafts', () => {
     expect(errs.some((e) => /approver role/.test(e))).toBe(true);
     expect(errs.some((e) => /no "above threshold"/.test(e))).toBe(true);
     expect(errs.some((e) => /does not exist/.test(e))).toBe(true);
-    expect(validateTemplateDraft({ ...bad, stages: [] }).some((e) => /at least one approval stage/.test(e))).toBe(true);
+    expect(
+      validateTemplateDraft({ ...bad, modules: ['procurement'], stages: [] }).some((e) => /at least one approval stage/.test(e)),
+    ).toBe(true);
+  });
+
+  it('allows a template with no approval stages unless it enables procurement', () => {
+    const noWorkflow: TemplateDraft = {
+      key: 'insurance',
+      name: 'Insurance Brokerage',
+      description: '',
+      is_active: true,
+      departments: ['Brokerage'],
+      modules: ['hr', 'insurance'],
+      stages: [],
+    };
+    expect(validateTemplateDraft(noWorkflow)).toEqual([]);
+    expect(validateTemplateDraft({ ...noWorkflow, modules: ['procurement'] }).some((e) => /at least one approval stage/.test(e))).toBe(true);
   });
 
   it('re-points routing when a stage is removed or moved', () => {

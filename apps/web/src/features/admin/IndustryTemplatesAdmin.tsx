@@ -422,7 +422,7 @@ function TemplateEditorDialog({
           <Box>
             <Typography variant="subtitle2">Modules enabled by default</Typography>
             <Typography variant="caption" color="text.secondary">
-              Finance and core Procurement are always on. The wizard lets the operator adjust per company.
+              Finance and core Procurement are always on. A template with no approval stages is fine unless it enables advanced Procurement, but requests cannot be submitted until a stage exists. The wizard lets the operator adjust per company.
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', mt: 0.5 }}>
               {entitledModules.map((m) => (

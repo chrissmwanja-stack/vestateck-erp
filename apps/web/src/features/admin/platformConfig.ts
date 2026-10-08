@@ -203,7 +203,11 @@ export function validateTemplateDraft(d: TemplateDraft): string[] {
   const depts = d.departments.map((s) => s.trim()).filter(Boolean);
   if (depts.length === 0) errors.push('Add at least one department.');
   if (new Set(depts.map((s) => s.toLowerCase())).size !== depts.length) errors.push('Department names must be unique.');
-  if (d.stages.length === 0) errors.push('Add at least one approval stage (requests cannot be submitted without one).');
+  // The server does not require stages. Only a template that enables advanced
+  // procurement needs an approval flow; e.g. an insurance template can ship with none.
+  if (d.stages.length === 0 && d.modules.includes('procurement')) {
+    errors.push('Add at least one approval stage (advanced procurement is enabled, and requests cannot be submitted without one).');
+  }
   const orders = new Set(d.stages.map((_, i) => i + 1));
   d.stages.forEach((s, i) => {
     const n = i + 1;
