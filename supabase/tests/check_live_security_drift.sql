@@ -139,11 +139,25 @@ begin
     for r in
       select policyname from pg_policies
       where schemaname='public' and tablename=t and cmd in ('INSERT','UPDATE','DELETE','ALL')
-        and coalesce(qual,'') || coalesce(with_check,'') !~* 'is_business_dev_admin'
+        -- can_manage_client_master() is the admin-tier helper for the client
+        -- master (BD admin tier OR insurance admin tier); its body is
+        -- verified below so accepting it here does not weaken the check.
+        and coalesce(qual,'') || coalesce(with_check,'') !~* '(is_business_dev_admin|can_manage_client_master)'
     loop
       v_fail := v_fail || format('%s.%s write policy not admin-tier', t, r.policyname);
     end loop;
   end loop;
+
+  -- The helper accepted above must itself be admin-tier: BD admin helper plus
+  -- only the admin/manager insurance roles (never 'member').
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname='public' and p.proname='can_manage_client_master'
+      and pg_get_functiondef(p.oid) ~* 'is_business_dev_admin'
+      and pg_get_functiondef(p.oid) !~* 'member'
+  ) then
+    v_fail := v_fail || 'can_manage_client_master() missing, or not admin-tier (must use is_business_dev_admin and no member role)';
+  end if;
 
   ---------------------------------------------------------------------
   -- 6. IT Support lookup SELECT gated by is_it_support()
