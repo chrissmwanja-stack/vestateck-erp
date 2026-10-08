@@ -26,3 +26,6 @@ function-signature-diff.txt
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/e2e/.auth/
+
+test-results/
+playwright-report/

@@ -98,12 +98,24 @@ test.describe('Company Admin: members and invitations', () => {
       await expect(page.getByRole('heading', { name: 'Team members' })).toBeVisible();
 
       const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: MEMBER_EMAIL, exact: true }) });
-      await row.getByRole('button', { name: 'Edit access' }).click();
+      // Explicit short timeouts: without them a missing element waits for the
+      // whole 60s test budget, the finally block's restore call then dies with
+      // "Test timeout exceeded", and the real cause is hidden.
+      await expect(row, `${MEMBER_EMAIL} must be listed on the Team members screen`).toBeVisible({ timeout: 15_000 });
+      await row.getByRole('button', { name: 'Edit access' }).click({ timeout: 10_000 });
 
       const dialog = page.getByRole('dialog');
-      await expect(dialog.getByText(`Edit access — ${MEMBER_EMAIL}`)).toBeVisible();
-      await dialog.getByRole('checkbox', { name: ADDED_MODULE_LABEL }).check();
-      await dialog.getByRole('button', { name: 'Save changes' }).click();
+      await expect(dialog.getByText(`Edit access — ${MEMBER_EMAIL}`)).toBeVisible({ timeout: 10_000 });
+      // The checkbox list is built from the platform_modules registry
+      // (tenant_entitled rows only), so a missing box means the registry did
+      // not load or the module is not in it -- say so instead of hanging.
+      const moduleBox = dialog.getByRole('checkbox', { name: ADDED_MODULE_LABEL });
+      await expect(
+        moduleBox,
+        `"${ADDED_MODULE_LABEL}" checkbox missing from the Edit access dialog (platform_modules registry not loaded, or migrations not applied to this stack?)`,
+      ).toBeVisible({ timeout: 10_000 });
+      await moduleBox.check({ timeout: 10_000 });
+      await dialog.getByRole('button', { name: 'Save changes' }).click({ timeout: 10_000 });
 
       await expect(page.getByText(`Updated access for ${MEMBER_EMAIL}.`)).toBeVisible({ timeout: 15_000 });
       await expect(row.getByText(`${ADDED_MODULE_LABEL} (member)`)).toBeVisible({ timeout: 15_000 });
