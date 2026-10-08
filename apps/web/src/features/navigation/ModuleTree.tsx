@@ -1,4 +1,4 @@
-import { useState, MouseEvent, useMemo } from "react";
+import { useState, MouseEvent, useMemo, useEffect } from "react";
 import { Box, List, ListItemIcon, ListItemText, Typography, Divider, Menu, MenuItem, TextField, InputAdornment, Chip } from "@mui/material";
 import { ExpandMore, Search } from "@mui/icons-material";
 import { useLocation } from "react-router-dom";
@@ -7,6 +7,7 @@ import { useMyModuleAccess } from "./useMyModuleAccess";
 import { filterNodesByAccess } from "./filterNodesByAccess";
 import { TreeItem } from "./TreeItem";
 import { portals } from "./moduleTreeData";
+import { warnOnUnknownNavModules } from "./validateNavModules";
 import type { TreeNode, Portal } from "./types";
 
 export default function ModuleTree() {
@@ -14,6 +15,12 @@ export default function ModuleTree() {
   const location = useLocation();
   const [search, setSearch] = useState("");
   const access = useMyModuleAccess();
+
+  // Dev-only guard against a mistyped requiredModule (nodes would silently
+  // vanish for everyone). Skipped under vitest, where MODE is "test".
+  useEffect(() => {
+    if (import.meta.env.DEV && import.meta.env.MODE !== "test") void warnOnUnknownNavModules(portals);
+  }, []);
   const [activePortalId, setActivePortalId] = useState(() => {
     return localStorage.getItem("activePortalId") || portals[0].id;
   });
