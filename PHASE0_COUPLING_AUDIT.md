@@ -135,10 +135,17 @@ Evidence is from the repo's migrations, edge functions and commit history, not a
 
 Also shipped: `insurance` registered as a module (`20261008085228`), the BD document-number uniqueness fix (`20261008130000`), and Phase 2 D4a, D4b-1 and D4c (Section 4).
 
-### Seams not yet closed or re-verified
-- **7 (finance vs PO access):** `can_access_finance()` not re-checked against D3.
-- **10 (chart of accounts in seeding):** the `gl_account` kind exists; whether the insurance template carries a chart of accounts has not been confirmed here.
+### Seams closed or re-verified since the audit
+- **7 (finance vs PO access): verified for access, two residual items.** Checked 2026-10-09 against the repo.
+  - `can_access_finance()` is `has_po_access() OR is_finance_team_member(NULL)`. `is_finance_team_member` reads `finance_team_members` directly (tenant-scoped, roles `finance` / `cost_control`), with no dependency on procurement, workflow stages or `tenant_modules`. A tenant with no procurement gets finance access through that table alone, and `set_finance_role` (tenant admin) is how rows get there. D3's second half ("`has_po_access()` is not needed for finance without procurement") therefore holds.
+  - The D4 objects (`fin_bank_accounts`, open items, settlements, allocations and their functions) authorize on `is_finance_team_member` only and never touch `has_po_access()`.
+  - Residual 1: `financeRoutes.tsx` puts Purchase Orders and SAP Payment Approvals under the same `RequireFinanceTeam` guard as the finance screens. Whether those routes are also hidden for a tenant without `procurement` depends on nav filtering, not the route guard. Not yet checked; an insurance finance user could reach those URLs directly.
+  - Residual 2: the operator-console SQL (`20261002090000_console_reads_require_mfa`, two places) treats `procurement` and `finance` as always enabled (`m.module in ('procurement','finance') or exists (...)`). `finance` is correct (core, not entitled). `procurement` is an optional, entitled module, so the console reports it enabled for tenants that do not have it, including insurance tenants. The onboarding-funnel count has the same shape.
+- **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carries 18 `gl_account` and 18 `posting_rule` items.
+
+### Seams not yet closed
 - **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** not started.
+- **Open decision:** whether `apply_template` into an existing tenant should leave `tenants.industry_template` unchanged. The only relabel today is in `seed_tenant_defaults` (first run).
 
 ### Next
 D4b-2 (credit notes), then D4d (reconciliation of settlements).
