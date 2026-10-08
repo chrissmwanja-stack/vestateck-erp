@@ -4,6 +4,7 @@ import {
   choiceOf,
   cronLevel,
   describeStage,
+  describePassthrough,
   draftFromTemplate,
   emptyStage,
   enabledFromChoice,
@@ -82,6 +83,36 @@ describe('industry template drafts', () => {
     expect(chief.payload).toEqual({ approver_role: 'Chief', threshold_amount: 5000000, next_low: 3, next_high: 3 });
     const fin = items.find((i) => i.name === 'Finance' && i.kind === 'workflow_stage')!;
     expect(fin.payload).toEqual({ approver_role: 'FO', is_finance_terminal_stage: true });
+  });
+
+  it('carries kinds it cannot edit through a load, edit, save round-trip', () => {
+    const extra = [
+      { id: 'g1', kind: 'gl_account', sort_order: 1, name: '1000', payload: { name: 'Bank', account_type: 'asset', is_control_account: true } },
+      { id: 'g2', kind: 'posting_rule', sort_order: 1, name: 'bank', payload: { account_code: '1000' } },
+      { id: 'g3', kind: 'feature_flag', sort_order: 1, name: 'some.flag', payload: { enabled: false } },
+      { id: 'g4', kind: 'lookup', sort_order: 7, name: 'future-kind', payload: { x: 1 } },
+    ];
+    const row = { ...GENERAL_ROW, items: [...(GENERAL_ROW.items as unknown as object[]), ...extra] } as unknown as TemplateRow;
+    const d = draftFromTemplate(row);
+    expect(d.passthrough).toHaveLength(4);
+    expect(describePassthrough(d)).toBe('1 GL account, 1 posting rule, 1 feature flag, 1 lookup item');
+
+    // Edit something the editor does handle, then save.
+    const items = itemsFromDraft({ ...d, departments: [...d.departments, 'Claims'] });
+    for (const e of extra) {
+      expect(items).toContainEqual({ kind: e.kind, sort_order: e.sort_order, name: e.name, payload: e.payload });
+    }
+    expect(items.filter((i) => i.kind === 'department').map((i) => i.name)).toEqual(['Cost Control', 'Finance', 'Claims']);
+    // Nothing is duplicated either.
+    expect(items.filter((i) => i.kind === 'gl_account')).toHaveLength(1);
+  });
+
+  it('has nothing to describe, and sends nothing extra, for a template without such items', () => {
+    const d = draftFromTemplate(GENERAL_ROW);
+    expect(d.passthrough).toEqual([]);
+    expect(describePassthrough(d)).toBe('');
+    expect(itemsFromDraft(d).every((i) => ['department', 'module', 'workflow_stage'].includes(i.kind))).toBe(true);
+    expect(describePassthrough({ ...d, passthrough: undefined })).toBe('');
   });
 
   it('validates the same rules the server enforces, with readable messages', () => {

@@ -33,6 +33,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from './usePlatformAdminSession';
 import {
+  describePassthrough,
   describeStage,
   draftFromTemplate,
   emptyStage,
@@ -441,6 +442,18 @@ function TemplateEditorDialog({
               ))}
             </Box>
           </Box>
+
+          {describePassthrough(d) && (
+            <>
+              <Divider />
+              <Box>
+                <Typography variant="subtitle2">Also in this template</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {describePassthrough(d)}. These are kept as they are when you save, but cannot be edited on this screen yet.
+                </Typography>
+              </Box>
+            </>
+          )}
 
           <Divider />
           <Box>

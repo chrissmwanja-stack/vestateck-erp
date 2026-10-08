@@ -8,7 +8,16 @@ import type { Json } from '@erp-platform/shared';
 // ---------------------------------------------------------------------
 // Industry templates
 // ---------------------------------------------------------------------
-export type TemplateItemKind = 'department' | 'module' | 'workflow_stage';
+export type TemplateItemKind =
+  | 'department'
+  | 'module'
+  | 'workflow_stage'
+  | 'gl_account'
+  | 'posting_rule'
+  | 'feature_flag';
+
+/** The kinds this editor has controls for. Every other kind is carried through untouched. */
+const EDITED_KINDS: readonly string[] = ['department', 'module', 'workflow_stage'];
 
 export interface StagePayload {
   approver_role: string;
@@ -64,6 +73,13 @@ export interface TemplateDraft {
   departments: string[];
   modules: string[];
   stages: StageDraft[];
+  /**
+   * Items of kinds the editor has no controls for (gl_account, posting_rule,
+   * feature_flag, and any kind added later). save_industry_template() replaces ALL of a
+   * template's items, so these must be sent back exactly as read or the next save
+   * would delete them.
+   */
+  passthrough?: TemplateItem[];
 }
 
 export const TEMPLATE_KEY_RE = /^[a-z][a-z0-9_]{1,39}$/;
@@ -106,7 +122,7 @@ export function emptyStage(sort_order: number): StageDraft {
 }
 
 export function emptyTemplateDraft(): TemplateDraft {
-  return { key: '', name: '', description: '', is_active: true, departments: [], modules: [], stages: [] };
+  return { key: '', name: '', description: '', is_active: true, departments: [], modules: [], stages: [], passthrough: [] };
 }
 
 /** Server row -> editable draft. */
@@ -120,6 +136,7 @@ export function draftFromTemplate(row: TemplateRow): TemplateDraft {
     is_active: row.is_active,
     departments: by('department').map((i) => i.name),
     modules: by('module').map((i) => i.name),
+    passthrough: items.filter((i) => !EDITED_KINDS.includes(i.kind)),
     stages: by('workflow_stage').map((i) => {
       const p = (i.payload ?? {}) as Partial<StagePayload>;
       return {
@@ -155,7 +172,27 @@ export function itemsFromDraft(d: TemplateDraft): TemplateItem[] {
     if (s.blocks_offer_submitter_approval) payload.blocks_offer_submitter_approval = true;
     out.push({ kind: 'workflow_stage', sort_order: i + 1, name: s.name.trim(), payload });
   });
+  // Kinds this editor cannot edit go back exactly as they came.
+  (d.passthrough ?? []).forEach((i) => out.push({ kind: i.kind, sort_order: i.sort_order, name: i.name, payload: i.payload }));
   return out;
+}
+
+const PASSTHROUGH_LABELS: Record<string, [string, string]> = {
+  gl_account: ['GL account', 'GL accounts'],
+  posting_rule: ['posting rule', 'posting rules'],
+  feature_flag: ['feature flag', 'feature flags'],
+};
+
+/** "3 GL accounts, 3 posting rules, 1 feature flag", or '' when there is nothing carried through. */
+export function describePassthrough(d: TemplateDraft): string {
+  const counts = new Map<string, number>();
+  (d.passthrough ?? []).forEach((i) => counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1));
+  return [...counts.entries()]
+    .map(([kind, n]) => {
+      const [one, many] = PASSTHROUGH_LABELS[kind] ?? [`${kind} item`, `${kind} items`];
+      return `${n} ${n === 1 ? one : many}`;
+    })
+    .join(', ');
 }
 
 /** Client-side mirror of the server checks so the dialog can explain before submitting. */
