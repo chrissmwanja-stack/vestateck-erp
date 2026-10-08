@@ -269,6 +269,12 @@ begin
   insert into pmo_projects (tenant_id, project_no, name) values (t_ins, 'INS-001', 'Hidden Project');
   insert into machines (tenant_id, machine_no, name) values (t_ins, 'INS-M1', 'Hidden Machine');
   insert into sustainability_certifications (tenant_id, name) values (t_ins, 'Hidden Certification');
+  -- bd_opportunities.stage defaults to 'identification' and has a composite FK to
+  -- bd_opportunity_stages(tenant_id, stage). An insurance tenant does not own the bd
+  -- module, so seeding gives it no stage rows; add the default one here (as owner)
+  -- so the hidden row can exist for the denial checks below.
+  insert into bd_opportunity_stages (tenant_id, stage, label, probability_default, order_index) values
+    (t_ins, 'identification', 'Identification', 10, 1);
   insert into bd_opportunities (tenant_id, title) values (t_ins, 'Hidden Opportunity');
 end $$;
 
