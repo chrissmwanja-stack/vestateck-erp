@@ -106,6 +106,14 @@ function asItems(items: Json): TemplateItem[] {
     }));
 }
 
+/** Names of a template's items of one kind, in sort order (e.g. its module keys). */
+export function templateItemNames(row: TemplateRow, kind: TemplateItemKind): string[] {
+  return asItems(row.items)
+    .filter((i) => i.kind === kind)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((i) => i.name);
+}
+
 export function emptyStage(sort_order: number): StageDraft {
   return {
     sort_order,

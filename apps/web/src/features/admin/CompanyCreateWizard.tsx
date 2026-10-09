@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -24,30 +24,14 @@ import {
 import { CheckCircle, Business } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { useModuleRegistry } from '../../lib/useModuleRegistry';
-
-type IndustryTemplate = 'general' | 'construction';
+import { templateItemNames, type TemplateRow } from './platformConfig';
+import { friendlyPlatformError } from './usePlatformAdminSession';
 
 interface WizardProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
-
-const INDUSTRY_TEMPLATES: { value: IndustryTemplate; label: string; description: string }[] = [
-  {
-    value: 'general',
-    label: 'General',
-    description: '8 departments: IT, Finance, Procurement & Logistics, HR, Law & Compliance, BD, PMO, Admin.',
-  },
-  {
-    value: 'construction',
-    label: 'Construction',
-    description: 'General + Machine Operations and Sustainability & Business Excellence (10 departments).',
-  },
-];
-
-// Which modules a new company starts with. Keys must exist in platform_modules.
-const DEFAULT_MODULES = ['hr', 'legal', 'bd', 'it', 'pmo', 'procurement'];
 
 // Short descriptions shown under each module. Names come from the registry;
 // a module added later without a hint here still renders, just without one.
@@ -63,40 +47,82 @@ const MODULE_HINTS: Record<string, string> = {
   insurance: 'Clients, policies, renewals, commissions',
 };
 
-const APPROVAL_PIPELINE = [
-  'Cost Control Engineer',
-  'Cost Control Manager',
-  'Procurement: Offer Entry',
-  'Control Chief/Manager (splits by amount)',
-  'Finance (if under 5M) or PM → Deputy GM → Finance (if over)',
-];
-
 export default function CompanyCreateWizard({ open, onClose, onCreated }: WizardProps) {
   const { entitledModules } = useModuleRegistry();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-  const [template, setTemplate] = useState<IndustryTemplate>('general');
-  const [modules, setModules] = useState<Set<string>>(new Set(DEFAULT_MODULES));
+  // Templates are data (industry_templates): the wizard offers whatever is active
+  // and starts the module selection from the chosen template's own module items,
+  // so a template like Insurance Brokerage is not overwritten by construction defaults.
+  const [templates, setTemplates] = useState<TemplateRow[] | null>(null);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [template, setTemplate] = useState('');
+  const [modules, setModules] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [seedWarning, setSeedWarning] = useState<string | null>(null);
 
+  const entitledKeys = useMemo(() => new Set(entitledModules.map((m) => m.key)), [entitledModules]);
+
+  // Module keys a template seeds that a company can actually be granted.
+  const modulesOf = useCallback(
+    (t: TemplateRow) => new Set(templateItemNames(t, 'module').filter((k) => entitledKeys.has(k))),
+    [entitledKeys],
+  );
+
   const reset = useCallback(() => {
     setStep(0);
     setName('');
     setAdminEmail('');
-    setTemplate('general');
-    setModules(new Set(DEFAULT_MODULES));
+    setTemplates(null);
+    setTemplatesError(null);
+    setTemplate('');
+    setModules(new Set());
     setError(null);
     setSeedWarning(null);
     setSuccessId(null);
   }, []);
 
   useEffect(() => {
-    if (!open) reset();
+    if (!open) {
+      reset();
+      return;
+    }
+    let cancelled = false;
+    supabase.rpc('list_industry_templates', { p_include_inactive: false }).then(({ data, error: err }) => {
+      if (cancelled) return;
+      if (err) {
+        setTemplates([]);
+        setTemplatesError(friendlyPlatformError(err.message));
+        return;
+      }
+      const list = ((data ?? []) as TemplateRow[]).filter((t) => t.is_active);
+      setTemplates(list);
+      setTemplatesError(list.length === 0 ? 'No active industry templates are available.' : null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open, reset]);
+
+  // Once templates (and the module registry) are in, preselect the default template.
+  useEffect(() => {
+    if (!templates || templates.length === 0 || template) return;
+    if (entitledModules.length === 0) return;
+    const initial = templates.find((t) => t.is_default) ?? templates[0];
+    setTemplate(initial.key);
+    setModules(modulesOf(initial));
+  }, [templates, template, entitledModules.length, modulesOf]);
+
+  const selectedTemplate = useMemo(() => templates?.find((t) => t.key === template) ?? null, [templates, template]);
+
+  const selectTemplate = (key: string) => {
+    setTemplate(key);
+    const t = templates?.find((x) => x.key === key);
+    if (t) setModules(modulesOf(t));
+  };
 
   const toggle = (v: string) => {
     setModules((prev) => {
@@ -111,6 +137,10 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
   const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 
   const handleCreate = async () => {
+    if (!template) {
+      setError('Choose an industry template.');
+      return;
+    }
     if (!name.trim() || !isValidEmail(adminEmail)) {
       setError('Company name and a valid admin email are required.');
       return;
@@ -231,13 +261,8 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
             <Box sx={{ bgcolor: 'action.hover', borderRadius: 1.5, p: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 0.5 }}>What happens on create</Typography>
               <Typography variant="body2" color="text.secondary">
-                A fresh tenant is created with a 7-stage approval pipeline, departments for the chosen industry, and an invite email. The new admin accepts via <code>/accept-invite</code> and lands in their own isolated workspace.
+                A fresh tenant is created from the industry template you pick next: its departments, modules, chart of accounts and approval workflow (if the template has one) are seeded, and an invite email goes to the admin. They accept via <code>/accept-invite</code> and land in their own isolated workspace.
               </Typography>
-              <Box component="ol" sx={{ pl: 2.5, mt: 1, mb: 0 }}>
-                {APPROVAL_PIPELINE.map((s) => (
-                  <Typography key={s} component="li" variant="body2" color="text.secondary">{s}</Typography>
-                ))}
-              </Box>
             </Box>
 
             {error && <Alert severity="error">{error}</Alert>}
@@ -250,21 +275,52 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
               label="Industry template"
               fullWidth
               value={template}
-              onChange={(e) => setTemplate(e.target.value as IndustryTemplate)}
-              disabled={saving}
-              helperText={INDUSTRY_TEMPLATES.find((t) => t.value === template)?.description}
+              onChange={(e) => selectTemplate(e.target.value)}
+              disabled={saving || !templates || templates.length === 0}
+              helperText={
+                templates === null
+                  ? 'Loading templates…'
+                  : selectedTemplate
+                    ? selectedTemplate.description ?? undefined
+                    : undefined
+              }
             >
-              {INDUSTRY_TEMPLATES.map((t) => (
-                <MenuItem key={t.value} value={t.value}>{t.label} — {t.description}</MenuItem>
+              {(templates ?? []).map((t) => (
+                <MenuItem key={t.key} value={t.key}>{t.name}</MenuItem>
               ))}
             </TextField>
+
+            {templatesError && <Alert severity="error">{templatesError}</Alert>}
+
+            {selectedTemplate && (
+              <Box sx={{ bgcolor: 'action.hover', borderRadius: 1.5, p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>This template sets up</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedTemplate.department_count} departments · {selectedTemplate.module_count} modules
+                  {templateItemNames(selectedTemplate, 'gl_account').length > 0
+                    ? ` · ${templateItemNames(selectedTemplate, 'gl_account').length} GL accounts`
+                    : ''}
+                  {' · '}
+                  {selectedTemplate.stage_count > 0
+                    ? `${selectedTemplate.stage_count}-stage approval pipeline`
+                    : 'no approval pipeline'}
+                </Typography>
+                {selectedTemplate.stage_count > 0 && (
+                  <Box component="ol" sx={{ pl: 2.5, mt: 1, mb: 0 }}>
+                    {templateItemNames(selectedTemplate, 'workflow_stage').map((st) => (
+                      <Typography key={st} component="li" variant="body2" color="text.secondary">{st}</Typography>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
 
             <Divider />
 
             <Box>
               <Typography variant="subtitle2">Modules for this company</Typography>
               <Typography variant="caption" color="text.secondary">
-                Finance + core Procurement are always on. Tick the rest. You can change this anytime from <em>Companies → Modules</em>.
+                Finance is always on. The modules below start from the template; change them if needed. You can change this anytime from <em>Companies → Modules</em>.
               </Typography>
               <FormGroup sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
                 {entitledModules.map((opt) => (
@@ -276,7 +332,7 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
                 ))}
               </FormGroup>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                {modules.size} modules selected — {Array.from(modules).join(', ') || 'none (company will only have Finance + Procurement)'}
+                {modules.size} modules selected — {Array.from(modules).join(', ') || 'none (company will only have the always-on modules)'}
               </Typography>
             </Box>
 
@@ -298,7 +354,7 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
           <>
             <Button onClick={() => setStep(0)} disabled={saving}>Back</Button>
             <Button onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={handleCreate} variant="contained" disabled={saving || !canNext}>
+            <Button onClick={handleCreate} variant="contained" disabled={saving || !canNext || !template}>
               {saving ? <><CircularProgress size={16} sx={{ mr: 1 }} />Creating…</> : 'Create & invite'}
             </Button>
           </>
