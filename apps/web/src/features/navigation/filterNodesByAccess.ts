@@ -25,6 +25,7 @@ export function filterNodesByAccess(
   const canSee = (n: TreeNode) => {
     const m = n.requiredModule ?? portalModule;
     if (m && !access.isPlatformAdmin && !access.modules.has(m)) return false;
+    if (n.requiredEntitlement && !access.isPlatformAdmin && !access.entitledModules.has(n.requiredEntitlement)) return false;
     if (n.requiredAccess === "finance" && !access.isPlatformAdmin && !access.canAccessFinance) return false;
     if (n.requiredAccess === "company-admin" && !access.isPlatformAdmin && !access.isCompanyAdmin) return false;
     if (n.requiredAccess === "po" && !access.isPlatformAdmin && !access.hasPoAccess) return false;

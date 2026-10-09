@@ -9,6 +9,7 @@ import type { ModuleAccessState } from './types';
 let mockModuleAccess: ModuleAccessState = {
   isPlatformAdmin: false,
   modules: new Set<string>(),
+  entitledModules: new Set<string>(),
   rolesByModule: new Map<string, Set<string>>(),
   isImpersonating: false,
   canAccessFinance: false,
@@ -53,6 +54,7 @@ function accessFor(role: string | null, opts: { isPlatformAdmin?: boolean; canAc
   return {
     isPlatformAdmin: !!opts.isPlatformAdmin,
     modules: new Set(['bd']),
+    entitledModules: new Set(['bd']),
     rolesByModule,
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
@@ -111,9 +113,11 @@ describe('BD nav role gating (filterNodesByAccess + businessDevNodes)', () => {
 // purchasing-logistics, must not render without canAccessFinance/platform
 // admin, and must render when either is true.
 describe('finance nav gating (requiredAccess: "finance")', () => {
-  const financeAccess = (opts: { canAccessFinance?: boolean; isPlatformAdmin?: boolean; hasPoAccess?: boolean } = {}) => ({
+  // entitled defaults to a procurement tenant, so existing cases keep modelling one.
+  const financeAccess = (opts: { canAccessFinance?: boolean; isPlatformAdmin?: boolean; hasPoAccess?: boolean; entitled?: string[] } = {}) => ({
     isPlatformAdmin: !!opts.isPlatformAdmin,
     modules: new Set<string>(),
+    entitledModules: new Set<string>(opts.entitled ?? ['procurement']),
     rolesByModule: new Map<string, Set<string>>(),
     isImpersonating: false,
     canAccessFinance: !!opts.canAccessFinance,
@@ -205,6 +209,41 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     expect(findNode(visible, 'purchase-orders')).toBeDefined();
   });
 
+  it('tags Purchase Orders and Payment Approvals with requiredEntitlement: "procurement"', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    for (const id of ['purchase-orders', 'payment-approvals']) {
+      expect(findNode(portal.nodes, id)).toMatchObject({ requiredAccess: 'finance', requiredEntitlement: 'procurement' });
+    }
+  });
+
+  it('hides Purchase Orders and Payment Approvals from finance users of a tenant without procurement', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    const visible = filterNodesByAccess(portal.nodes, financeAccess({ canAccessFinance: true, entitled: [] }));
+
+    expect(findNode(visible, 'purchase-orders')).toBeUndefined();
+    expect(findNode(visible, 'payment-approvals')).toBeUndefined();
+    // other finance-only nodes are not affected by the procurement entitlement
+    expect(findNode(visible, 'warehouses-admin')).toBeDefined();
+    expect(findNode(visible, 'material-receipt-admin')).toBeDefined();
+  });
+
+  it('shows them on entitlement alone, without a procurement staff role', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    // financeAccess() has modules empty (no staff_roles), as for a finance-team-only user.
+    const visible = filterNodesByAccess(portal.nodes, financeAccess({ canAccessFinance: true, entitled: ['procurement'] }));
+
+    expect(findNode(visible, 'purchase-orders')).toBeDefined();
+    expect(findNode(visible, 'payment-approvals')).toBeDefined();
+  });
+
+  it('shows them to a platform admin whatever the entitlements', () => {
+    const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
+    const visible = filterNodesByAccess(portal.nodes, financeAccess({ isPlatformAdmin: true, entitled: [] }));
+
+    expect(findNode(visible, 'purchase-orders')).toBeDefined();
+    expect(findNode(visible, 'payment-approvals')).toBeDefined();
+  });
+
   it('does not gate non-finance purchasing-logistics nodes on canAccessFinance', () => {
     const portal = portals.find((p) => p.id === 'purchasing-logistics')!;
     const visible = filterNodesByAccess(portal.nodes, financeAccess());
@@ -223,6 +262,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
   const companyAdminAccess = (opts: { isCompanyAdmin?: boolean; isPlatformAdmin?: boolean } = {}) => ({
     isPlatformAdmin: !!opts.isPlatformAdmin,
     modules: new Set<string>(),
+    entitledModules: new Set<string>(),
     rolesByModule: new Map<string, Set<string>>(),
     isImpersonating: false,
     canAccessFinance: false,
@@ -264,6 +304,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
       mockModuleAccess = {
         isPlatformAdmin: false,
         modules: new Set<string>(),
+        entitledModules: new Set<string>(),
         rolesByModule: new Map<string, Set<string>>(),
         isImpersonating: false,
         canAccessFinance: false,
@@ -321,6 +362,7 @@ describe('platform-admin portal visibility', () => {
 
     const base = {
       modules: new Set<string>(),
+      entitledModules: new Set<string>(),
       rolesByModule: new Map<string, Set<string>>(),
       canAccessFinance: false,
       isCompanyAdmin: false,

@@ -87,7 +87,7 @@ D4 is built in lettered steps. Receipts are modelled as **settlements** (money i
 |------|-------|--------|
 | D4a | `fin_bank_accounts` registry: operating vs client-money kind, each mapped to its own GL account | Done (`20261008120000`) |
 | D4b-1 | `fin_open_items` subledger and `fin_open_item_balances` view | Done (`20261008202213`) |
-| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Written (`20261009001500`, `test_fin_credit_notes.sql`); not yet run or applied |
+| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Done locally (`20261009001500`): `test_fin_credit_notes.sql` and `test_fin_settlements.sql` pass on a fresh `supabase db reset` (2026-10-09). Not yet confirmed in CI or applied to production |
 | D4c | `fin_settlements`, `fin_allocations`, `fin_record_settlement`, `fin_void_settlement` | Done (`20261008202213`) |
 | D4d | Reconciliation of settlements against bank statements | Not started |
 
@@ -139,8 +139,9 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - **7 (finance vs PO access): verified for access, two residual items.** Checked 2026-10-09 against the repo.
   - `can_access_finance()` is `has_po_access() OR is_finance_team_member(NULL)`. `is_finance_team_member` reads `finance_team_members` directly (tenant-scoped, roles `finance` / `cost_control`), with no dependency on procurement, workflow stages or `tenant_modules`. A tenant with no procurement gets finance access through that table alone, and `set_finance_role` (tenant admin) is how rows get there. D3's second half ("`has_po_access()` is not needed for finance without procurement") therefore holds.
   - The D4 objects (`fin_bank_accounts`, open items, settlements, allocations and their functions) authorize on `is_finance_team_member` only and never touch `has_po_access()`.
-  - Residual 1: `financeRoutes.tsx` puts Purchase Orders and SAP Payment Approvals under the same `RequireFinanceTeam` guard as the finance screens. Whether those routes are also hidden for a tenant without `procurement` depends on nav filtering, not the route guard. Not yet checked; an insurance finance user could reach those URLs directly.
-  - Residual 2: the operator-console SQL (`20261002090000_console_reads_require_mfa`, two places) treats `procurement` and `finance` as always enabled (`m.module in ('procurement','finance') or exists (...)`). `finance` is correct (core, not entitled). `procurement` is an optional, entitled module, so the console reports it enabled for tenants that do not have it, including insurance tenants. The onboarding-funnel count has the same shape.
+  - Residual 1 (fixed in the web app, not yet run in CI): `financeRoutes.tsx` put Purchase Orders (`/financial-management/purchase-orders`) and SAP Payment Approvals (`/sap/payment-approvals`) under the same `RequireFinanceTeam` guard as the finance screens, and their nav nodes carried `requiredAccess: "finance"` only, so a finance user in a tenant without `procurement` saw both and could open the URLs. Data was always protected by RLS; this was visibility and consistency. The fix is an entitlement-only check (a `tenant_modules` row exists; platform admins pass), not `requiredModule` / `RequireModule`, because those also test `staff_roles` and would hide the screens from construction finance users who are on the finance team but hold no procurement role. Built as `entitledModules` on `ModuleAccessState`, a `requiredEntitlement` field on nav nodes (validated against the registry like `requiredModule`), and a `RequireEntitlement` route guard wrapping the two routes.
+  - Not reviewed, may be the same leak: other finance-group screens that look procurement-related (`supplier-invoice-po`, cost codes, and the finance-gated warehouse and material-receipt admin screens). They are left as they were; decide per screen whether they also need `requiredEntitlement: "procurement"`.
+  - Residual 2 (fixed in `20261009010000`, not yet run in CI): the operator-console SQL treated `procurement` and `finance` as always enabled in `get_company_analytics()` and `get_platform_dashboard_stats()`. Only `finance` (core, not entitled per tenant) is now treated that way; `procurement` reads from `tenant_modules`. Tenants without a `procurement` row will show it as not enabled. `test_onboarding_funnel_and_usage.sql` was updated to match.
 - **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carries 18 `gl_account` and 18 `posting_rule` items.
 
 ### Seams not yet closed
@@ -155,4 +156,4 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - `fin_allocations_guard` is replaced so settlements and credit notes share one outstanding amount; `fin_open_item_balances` gains `credited_amount` (appended).
 
 ### Next
-Run `test_fin_credit_notes.sql` (and `test_fin_settlements.sql`) on a local stack, then D4d (reconciliation of settlements).
+D4d (reconciliation of settlements), which needs a design pass first.

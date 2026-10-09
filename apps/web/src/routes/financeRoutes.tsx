@@ -6,6 +6,7 @@
 import { lazy } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import RequireFinanceTeam from '../components/RequireFinanceTeam';
+import RequireEntitlement from '../components/RequireEntitlement';
 
 const AccountCategoriesAdmin = lazy(() => import('../features/admin/AccountCategoriesAdmin'));
 const AccountingPeriodsAdmin = lazy(() => import('../features/admin/AccountingPeriodsAdmin'));
@@ -53,10 +54,16 @@ export const financeRoutes = (
           URL taxonomy consistency (roadmap P3); the old /finance/
           path redirects so existing bookmarks keep working. */}
       <Route path="/finance/purchase-orders" element={<Navigate to="/financial-management/purchase-orders" replace />} />
-      <Route path="/financial-management/purchase-orders" element={<PurchaseOrders />} />
+      {/* Purchase Orders and SAP Payment Approvals belong to procurement:
+          finance access alone is not enough, the tenant must also have the
+          procurement module (entitlement only; staff_roles are not checked,
+          so finance-team users without a procurement role keep access). */}
+      <Route element={<RequireEntitlement module="procurement" />}>
+        <Route path="/financial-management/purchase-orders" element={<PurchaseOrders />} />
+        <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />
+      </Route>
       <Route path="/financial-management/admin/cost-codes" element={<CostCodeList />} />
       <Route path="/financial-management/admin/cost-codes/new" element={<CostCodeListNew />} />
-      <Route path="/sap/payment-approvals" element={<SapPaymentApprovals />} />
       <Route path="/financial-management/invoices/supplier-invoice-po" element={<SupplierInvoices />} />
       <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
       <Route path="/financial-management/invoices/supplier-invoice-non-po" element={<SupplierInvoiceNonPO />} />

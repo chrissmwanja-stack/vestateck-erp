@@ -16,6 +16,15 @@ export interface TreeNode {
   // shown. This mirrors, but does not replace, the real enforcement in
   // RequireModule at the route level -- this is nav visibility only.
   requiredModule?: ModuleKey;
+  // Entitlement-only gate: the tenant has a tenant_modules row for this
+  // module, regardless of the user's staff_roles. Use it for a screen that
+  // belongs to an optional module but is reached through a non-module
+  // authority (e.g. Purchase Orders: finance team access, but only for
+  // tenants that actually have procurement). requiredModule would also demand
+  // a staff_roles row, which finance-team users without a procurement role
+  // do not have. Platform admins pass. Nav visibility only; the route is
+  // enforced by RequireEntitlement.
+  requiredEntitlement?: ModuleKey;
   // Gate for access checks that aren't staff_roles/tenant_modules-based:
   //   finance       -> can_access_finance(), the OR of
   //                    is_finance_team_member() and has_po_access()
@@ -70,6 +79,10 @@ export interface Portal {
 export interface ModuleAccessState {
   isPlatformAdmin: boolean;
   modules: Set<string>;
+  // Every module the nav subject's tenant is entitled to (tenant_modules),
+  // before the staff_roles intersection that produces `modules`. Backs
+  // requiredEntitlement nodes and RequireEntitlement.
+  entitledModules: Set<string>;
   // Module -> the roles the caller actually holds in staff_roles for it
   // (almost always one row per module, but staff_roles doesn't enforce
   // that). Used for nodes with requiredRoles (e.g. BD's admin lookups /
