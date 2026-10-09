@@ -87,7 +87,7 @@ D4 is built in lettered steps. Receipts are modelled as **settlements** (money i
 |------|-------|--------|
 | D4a | `fin_bank_accounts` registry: operating vs client-money kind, each mapped to its own GL account | Done (`20261008120000`) |
 | D4b-1 | `fin_open_items` subledger and `fin_open_item_balances` view | Done (`20261008202213`) |
-| D4b-2 | Credit notes | Not started |
+| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Done locally (`20261009001500`): `test_fin_credit_notes.sql` and `test_fin_settlements.sql` pass on a fresh `supabase db reset` (2026-10-09). Not yet confirmed in CI or applied to production |
 | D4c | `fin_settlements`, `fin_allocations`, `fin_record_settlement`, `fin_void_settlement` | Done (`20261008202213`) |
 | D4d | Reconciliation of settlements against bank statements | Not started |
 
@@ -135,10 +135,25 @@ Evidence is from the repo's migrations, edge functions and commit history, not a
 
 Also shipped: `insurance` registered as a module (`20261008085228`), the BD document-number uniqueness fix (`20261008130000`), and Phase 2 D4a, D4b-1 and D4c (Section 4).
 
-### Seams not yet closed or re-verified
-- **7 (finance vs PO access):** `can_access_finance()` not re-checked against D3.
-- **10 (chart of accounts in seeding):** the `gl_account` kind exists; whether the insurance template carries a chart of accounts has not been confirmed here.
+### Seams closed or re-verified since the audit
+- **7 (finance vs PO access): verified for access, two residual items.** Checked 2026-10-09 against the repo.
+  - `can_access_finance()` is `has_po_access() OR is_finance_team_member(NULL)`. `is_finance_team_member` reads `finance_team_members` directly (tenant-scoped, roles `finance` / `cost_control`), with no dependency on procurement, workflow stages or `tenant_modules`. A tenant with no procurement gets finance access through that table alone, and `set_finance_role` (tenant admin) is how rows get there. D3's second half ("`has_po_access()` is not needed for finance without procurement") therefore holds.
+  - The D4 objects (`fin_bank_accounts`, open items, settlements, allocations and their functions) authorize on `is_finance_team_member` only and never touch `has_po_access()`.
+  - Residual 1 (fixed in the web app, not yet run in CI): `financeRoutes.tsx` put Purchase Orders (`/financial-management/purchase-orders`) and SAP Payment Approvals (`/sap/payment-approvals`) under the same `RequireFinanceTeam` guard as the finance screens, and their nav nodes carried `requiredAccess: "finance"` only, so a finance user in a tenant without `procurement` saw both and could open the URLs. Data was always protected by RLS; this was visibility and consistency. The fix is an entitlement-only check (a `tenant_modules` row exists; platform admins pass), not `requiredModule` / `RequireModule`, because those also test `staff_roles` and would hide the screens from construction finance users who are on the finance team but hold no procurement role. Built as `entitledModules` on `ModuleAccessState`, a `requiredEntitlement` field on nav nodes (validated against the registry like `requiredModule`), and a `RequireEntitlement` route guard wrapping the two routes.
+  - Not reviewed, may be the same leak: other finance-group screens that look procurement-related (`supplier-invoice-po`, cost codes, and the finance-gated warehouse and material-receipt admin screens). They are left as they were; decide per screen whether they also need `requiredEntitlement: "procurement"`.
+  - Residual 2 (fixed in `20261009010000`, not yet run in CI): the operator-console SQL treated `procurement` and `finance` as always enabled in `get_company_analytics()` and `get_platform_dashboard_stats()`. Only `finance` (core, not entitled per tenant) is now treated that way; `procurement` reads from `tenant_modules`. Tenants without a `procurement` row will show it as not enabled. `test_onboarding_funnel_and_usage.sql` was updated to match.
+- **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carries 18 `gl_account` and 18 `posting_rule` items.
+
+### Seams not yet closed
 - **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** not started.
+- **Open decision:** whether `apply_template` into an existing tenant should leave `tenants.industry_template` unchanged. The only relabel today is in `seed_tenant_defaults` (first run).
+
+### D4b-2 design (confirmed 2026-10-09)
+- A credit note is a separate document; `fin_open_items` stays immutable and positive-only.
+- It is **fully applied to open items when raised**, so the GL control account always equals the sum of outstanding items (same rule as settlements). No unapplied credit and no cash refund in v1; a refund would be a later step (D4b-3).
+- One credit note can be split across several items of the same party, side, control role and currency.
+- Raising posts one journal (receivable: Dr offset / Cr control; payable: Dr control / Cr offset). The caller picks the offset account, which cannot be a control, bank or client-money account. Voiding posts the reversal and the applications stop counting.
+- `fin_allocations_guard` is replaced so settlements and credit notes share one outstanding amount; `fin_open_item_balances` gains `credited_amount` (appended).
 
 ### Next
-D4b-2 (credit notes), then D4d (reconciliation of settlements).
+D4d (reconciliation of settlements), which needs a design pass first.

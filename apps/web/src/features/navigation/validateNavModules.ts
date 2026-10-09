@@ -1,12 +1,12 @@
 import { loadModuleRegistry } from '../../lib/useModuleRegistry';
 import type { Portal, TreeNode } from './types';
 
-// Nav nodes and portals gate on `requiredModule` keys. Those keys are free-form
+// Nav nodes and portals gate on `requiredModule` (and, for nodes, `requiredEntitlement`) keys. Those keys are free-form
 // strings now (ModuleKey is a string alias; the platform_modules registry is the
 // source of truth), so a typo would silently hide a node for everyone instead
 // of failing to compile. This catches that:
 //   - in CI, validateNavModules.test.ts checks the real portal tree and the
-//     <RequireModule module="..."> route guards against the registry's seeded keys
+//     <RequireModule module="..."> / <RequireEntitlement module="..."> route guards against the registry's seeded keys
 //   - in dev, ModuleTree calls warnOnUnknownNavModules() once against the live registry
 
 export interface NavModuleRef {
@@ -18,6 +18,7 @@ export interface NavModuleRef {
 function walkNodes(nodes: TreeNode[], out: NavModuleRef[]): void {
   for (const n of nodes) {
     if (n.requiredModule) out.push({ where: `node:${n.id}`, module: n.requiredModule });
+    if (n.requiredEntitlement) out.push({ where: `node:${n.id}`, module: n.requiredEntitlement });
     if (n.children) walkNodes(n.children, out);
   }
 }

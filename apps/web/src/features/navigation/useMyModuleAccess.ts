@@ -31,6 +31,7 @@ export function useMyModuleAccess() {
           setState({
             isPlatformAdmin: false,
             modules: new Set(),
+            entitledModules: new Set(),
             rolesByModule: new Map(),
             isImpersonating: false,
             canAccessFinance: false,
@@ -49,6 +50,7 @@ export function useMyModuleAccess() {
         setState({
           isPlatformAdmin: false,
           modules: new Set(),
+          entitledModules: new Set(),
           rolesByModule: new Map(),
           isImpersonating: false,
           canAccessFinance: false,
@@ -80,6 +82,7 @@ export function useMyModuleAccess() {
           setState({
             isPlatformAdmin: true,
             modules: new Set(),
+            entitledModules: new Set(),
             rolesByModule: new Map(),
             isImpersonating: !!imp,
             canAccessFinance: true,
@@ -123,6 +126,7 @@ export function useMyModuleAccess() {
         // user's reality, not the operator's bypass.
         isPlatformAdmin: false,
         modules: effectiveModules,
+        entitledModules,
         rolesByModule,
         isImpersonating: subjectUserId !== userId,
         canAccessFinance: Boolean(financeAccess),

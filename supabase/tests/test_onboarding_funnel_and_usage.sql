@@ -1,5 +1,6 @@
 -- Regression test for:
 --   supabase/migrations/20260922220000_onboarding_funnel_and_usage.sql
+--   supabase/migrations/20261009010000_console_module_usage_reads_procurement_entitlement.sql
 --
 -- Verifies, against a fully-migrated fresh stack:
 --   1. Non-platform users get nothing from get_tenant_onboarding_status /
@@ -24,6 +25,8 @@
 --      stalled and a module-aware last_activity_at.
 --   6. get_company_analytics carries module_usage / onboarding /
 --      last_activity_at plus the legacy keys.
+--   7. `finance` reads as enabled for every tenant; `procurement` reads as enabled
+--      only for tenants entitled to it (20261009010000).
 --
 -- Run against a fresh local stack only (`supabase start`, then
 -- `psql -f`) -- never against a linked/remote project.
@@ -295,6 +298,12 @@ begin
   if (select (e->>'tenants_active_30d')::int from jsonb_array_elements(x) e where e->>'module' = 'hr') < 1 then raise exception 'FAIL: hr tenants_active_30d'; end if;
   if (select (e->>'tenants_enabled')::int from jsonb_array_elements(x) e where e->>'module' = 'it') < 2 then raise exception 'FAIL: it tenants_enabled (t4 + t6)'; end if;
   if (select (e->>'events_prev_30d')::int from jsonb_array_elements(x) e where e->>'module' = 'hr') < 3 then raise exception 'FAIL: hr events_prev_30d (t5:2 + t6:1)'; end if;
+  -- finance counts every tenant; procurement only those entitled to it. t6 (and others) have no
+  -- procurement row, so procurement must be strictly lower (20261009010000).
+  if (select (e->>'tenants_enabled')::int from jsonb_array_elements(x) e where e->>'module' = 'procurement')
+     >= (select (e->>'tenants_enabled')::int from jsonb_array_elements(x) e where e->>'module' = 'finance') then
+    raise exception 'FAIL: procurement tenants_enabled should be below finance (entitled only)';
+  end if;
 
   x := j->'trial_ending_soon';
   if not exists (select 1 from jsonb_array_elements(x) e where (e->>'id')::uuid = t6 and (e->>'days_left')::int between 4 and 6) then
@@ -343,8 +352,13 @@ begin
   end if;
   select e into m from jsonb_array_elements(j->'module_usage') e where e->>'module' = 'legal';
   if (m->>'enabled')::boolean or (m->>'events_30d')::int <> 0 then raise exception 'FAIL: analytics legal usage: %', m; end if;
+  -- finance is core and cannot be entitled per tenant, so it always reads enabled.
+  -- procurement is an optional entitled module: t6 has no tenant_modules row for it
+  -- (20261009010000), so it must read as not enabled.
+  select e into m from jsonb_array_elements(j->'module_usage') e where e->>'module' = 'finance';
+  if not (m->>'enabled')::boolean then raise exception 'FAIL: finance should read as baseline-enabled'; end if;
   select e into m from jsonb_array_elements(j->'module_usage') e where e->>'module' = 'procurement';
-  if not (m->>'enabled')::boolean then raise exception 'FAIL: procurement should read as baseline-enabled'; end if;
+  if (m->>'enabled')::boolean then raise exception 'FAIL: procurement should read as not enabled for a tenant without the module: %', m; end if;
   select e into m from jsonb_array_elements(j->'module_usage') e where e->>'module' = 'pmo';
   if (m->>'enabled')::boolean or (m->>'events_30d')::int <> 1 then raise exception 'FAIL: pmo should be used-but-not-enabled: %', m; end if;
   if (j->'onboarding'->>'stage_key') <> 'live' or (j->'onboarding') ? 'name' then raise exception 'FAIL: analytics onboarding: %', j->'onboarding'; end if;

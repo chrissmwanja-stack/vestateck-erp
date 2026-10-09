@@ -166,7 +166,7 @@ export const portals: Portal[] = [
         icon: <Folder fontSize="small" />,
         children: [
           { id: "procurement-info", label: "Procurement Info", icon: <OpenInNew fontSize="small" />, to: "/procurement/info", requiredModule: "procurement" },
-          { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/purchase-orders", requiredAccess: "finance" },
+          { id: "purchase-orders", label: "Purchase Orders", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/purchase-orders", requiredAccess: "finance", requiredEntitlement: "procurement" },
         ],
       },
       {
@@ -222,7 +222,7 @@ export const portals: Portal[] = [
         id: "sap",
         label: "SAP Operations",
         icon: <AccountBalance fontSize="small" />,
-        children: [{ id: "payment-approvals", label: "Payment Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/sap/payment-approvals", requiredAccess: "finance" }],
+        children: [{ id: "payment-approvals", label: "Payment Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/sap/payment-approvals", requiredAccess: "finance", requiredEntitlement: "procurement" }],
       },
     ],
   },

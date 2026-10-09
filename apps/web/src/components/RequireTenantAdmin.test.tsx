@@ -21,6 +21,7 @@ const nav = (opts: { isPlatformAdmin?: boolean; isImpersonating?: boolean } = {}
   isPlatformAdmin: !!opts.isPlatformAdmin,
   isImpersonating: !!opts.isImpersonating,
   modules: new Set<string>(),
+  entitledModules: new Set<string>(),
   rolesByModule: new Map<string, Set<string>>(),
   canAccessFinance: false,
   isCompanyAdmin: false,

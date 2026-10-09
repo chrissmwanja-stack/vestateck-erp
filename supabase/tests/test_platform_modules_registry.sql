@@ -1,6 +1,6 @@
 -- Regression test for:
---   supabase/migrations/20261008090000_platform_modules_registry.sql
---   supabase/migrations/20261008091000_template_module_validation_uses_registry.sql
+--   supabase/migrations/20261008061315_platform_modules_registry.sql
+--   supabase/migrations/20261008061330_template_module_validation_uses_registry.sql
 --
 -- Verifies, against a fully-migrated fresh stack:
 --   1. The registry holds the 8 previously-valid module keys plus 'finance',
