@@ -15,6 +15,7 @@ const AdvancePayments = lazy(() => import('../features/financial/AdvancePayments
 const BankReconciliation = lazy(() => import('../features/financial/BankReconciliation'));
 const CashBankOperations = lazy(() => import('../features/financial/CashBankOperations'));
 const ChartOfAccountsAdmin = lazy(() => import('../features/admin/ChartOfAccountsAdmin'));
+const BankAccountsAdmin = lazy(() => import('../features/admin/BankAccountsAdmin'));
 const CostCodeList = lazy(() => import('../features/admin/CostCodeList'));
 const CostCodeListNew = lazy(() => import('../features/admin/CostCodeListNew'));
 const CostTransactionsInquiry = lazy(() => import('../features/financial/CostTransactionsInquiry'));
@@ -81,6 +82,7 @@ export const financeRoutes = (
       <Route path="/financial-management/reports/trial-balance" element={<TrialBalance />} />
       <Route path="/financial-management/reports/general-ledger" element={<GeneralLedger />} />
       <Route path="/financial-management/admin/chart-of-accounts" element={<ChartOfAccountsAdmin />} />
+      <Route path="/financial-management/admin/bank-accounts" element={<BankAccountsAdmin />} />
       <Route path="/financial-management/admin/accounting-periods" element={<AccountingPeriodsAdmin />} />
       <Route path="/financial-management/admin/statutory-rates" element={<StatutoryRatesAdmin />} />
       <Route path="/financial-management/reports/vat-report" element={<VatReport />} />

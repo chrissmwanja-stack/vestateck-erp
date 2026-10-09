@@ -293,6 +293,7 @@ export const portals: Portal[] = [
         children: [
           { id: "accounts-admin", label: "Accounts", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/accounts" },
           { id: "chart-of-accounts-admin", label: "Chart of Accounts", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/chart-of-accounts" },
+          { id: "bank-accounts-admin", label: "Bank Accounts", icon: <AccountBalance fontSize="small" />, to: "/financial-management/admin/bank-accounts" },
           { id: "accounting-periods-admin", label: "Accounting Periods", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/accounting-periods" },
           { id: "statutory-rates-admin", label: "Statutory Rates (PAYE/NSSF)", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/statutory-rates" },
           { id: "account-categories-admin", label: "Account Categories", icon: <ReceiptLong fontSize="small" />, to: "/financial-management/admin/account-categories" },
