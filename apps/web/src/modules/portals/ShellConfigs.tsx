@@ -30,8 +30,13 @@ import {
   Lightbulb,
   ContactPage,
   CalendarMonth,
+  Shield,
+  Policy,
+  Autorenew,
+  Business,
 } from "@mui/icons-material";
 import { BD_ADMIN_ROLES } from "./business-development/access";
+import { INS_ADMIN_ROLES } from "./insurance/access";
 
 interface TreeNode {
   id: string;
@@ -445,6 +450,59 @@ export const sustainabilityNodes: TreeNode[] = [
     children: [
       { id: "metric-types", label: "Metric Types", icon: <ReceiptLong fontSize="small" />, to: "/sustainability/admin/metric-types" },
       { id: "initiative-categories", label: "Initiative Categories", icon: <ReceiptLong fontSize="small" />, to: "/sustainability/admin/categories" },
+    ],
+  },
+];
+
+// Insurance Brokerage. Gated by requiredModule at the portal level (moduleTreeData.tsx).
+// Product-line admin is limited to admin/manager on the nav node as well as the route.
+export const insuranceNodes: TreeNode[] = [
+  {
+    id: "ins-dashboard",
+    label: "Dashboard",
+    icon: <Shield fontSize="small" />,
+    to: "/insurance",
+  },
+  {
+    id: "ins-parties",
+    label: "Clients & Insurers",
+    icon: <Business fontSize="small" />,
+    children: [
+      { id: "ins-clients", label: "Clients", icon: <Groups fontSize="small" />, to: "/insurance/clients" },
+      { id: "ins-insurers", label: "Insurers", icon: <Business fontSize="small" />, to: "/insurance/insurers" },
+    ],
+  },
+  {
+    id: "ins-policies",
+    label: "Policies",
+    icon: <Policy fontSize="small" />,
+    children: [
+      { id: "ins-policy-list", label: "All Policies", icon: <Policy fontSize="small" />, to: "/insurance/policies" },
+      { id: "ins-policy-new", label: "New Policy", icon: <Description fontSize="small" />, to: "/insurance/policies/new" },
+    ],
+  },
+  {
+    id: "ins-renewals",
+    label: "Renewals",
+    icon: <Autorenew fontSize="small" />,
+    to: "/insurance/renewals",
+  },
+  {
+    id: "ins-claims",
+    label: "Claims",
+    icon: <Gavel fontSize="small" />,
+    children: [
+      { id: "ins-claim-list", label: "Claims", icon: <Gavel fontSize="small" />, to: "/insurance/claims" },
+      { id: "ins-claim-new", label: "Report Claim", icon: <Description fontSize="small" />, to: "/insurance/claims/new" },
+    ],
+  },
+  {
+    id: "ins-admin",
+    label: "Admin",
+    icon: <AdminPanelSettings fontSize="small" />,
+    requiredRoles: INS_ADMIN_ROLES,
+    children: [
+      { id: "ins-product-lines", label: "Product Lines", icon: <ReceiptLong fontSize="small" />, to: "/insurance/admin/product-lines" },
     ],
   },
 ];

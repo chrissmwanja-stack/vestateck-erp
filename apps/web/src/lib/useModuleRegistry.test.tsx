@@ -28,9 +28,9 @@ describe('useModuleRegistry', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('platform_modules');
     expect(mockEq).toHaveBeenCalledWith('is_active', true);
-    expect(result.current.modules).toHaveLength(9);
+    expect(result.current.modules).toHaveLength(10);
     expect(result.current.entitledModules.map((m) => m.key)).not.toContain('finance');
-    expect(result.current.entitledModules).toHaveLength(8);
+    expect(result.current.entitledModules).toHaveLength(9);
     expect(result.current.labelFor('hr')).toBe('Human Resources');
     expect(result.current.labelFor('not_a_module')).toBe('not_a_module');
   });
@@ -42,7 +42,7 @@ describe('useModuleRegistry', () => {
     await waitFor(() => expect(first.result.current.loading).toBe(false));
     const second = renderHook(() => useModuleRegistry());
 
-    expect(second.result.current.modules).toHaveLength(9);
+    expect(second.result.current.modules).toHaveLength(10);
     expect(second.result.current.loading).toBe(false);
     expect(mockFrom).toHaveBeenCalledTimes(1);
   });
@@ -56,7 +56,7 @@ describe('useModuleRegistry', () => {
 
     mockOrder.mockResolvedValueOnce({ data: REGISTRY_FIXTURE, error: null });
     const second = renderHook(() => useModuleRegistry());
-    await waitFor(() => expect(second.result.current.modules).toHaveLength(9));
+    await waitFor(() => expect(second.result.current.modules).toHaveLength(10));
     expect(second.result.current.error).toBeNull();
   });
 });

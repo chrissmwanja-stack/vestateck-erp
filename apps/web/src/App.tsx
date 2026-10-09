@@ -27,6 +27,7 @@ import { hrRoutes } from './routes/hrRoutes';
 import { machineOperationRoutes } from './routes/machineOperationRoutes';
 import { pmoRoutes } from './routes/pmoRoutes';
 import { sustainabilityRoutes } from './routes/sustainabilityRoutes';
+import { insuranceRoutes } from './routes/insuranceRoutes';
 
 function TopNav() {
   const { session, signOut } = useAuth();
@@ -121,6 +122,7 @@ export default function App() {
               {machineOperationRoutes}
               {pmoRoutes}
               {sustainabilityRoutes}
+              {insuranceRoutes}
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

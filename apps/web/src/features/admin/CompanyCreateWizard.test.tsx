@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import CompanyCreateWizard from './CompanyCreateWizard';
 import { REGISTRY_FIXTURE, registryState } from '../../test/moduleRegistryMock';
-import type { PlatformModule } from '../../lib/useModuleRegistry';
 import type { TemplateRow } from './platformConfig';
 
 // Platform-admin-only tenant provisioning: create-tenant (edge function) ->
@@ -14,20 +13,8 @@ import type { TemplateRow } from './platformConfig';
 // and that a failure at each of the three calls degrades the right way
 // instead of all being treated as a hard stop.
 
-// The shared fixture mirrors the construction-era registry; add the insurance
-// vertical so the wizard can offer its module.
-const INSURANCE_MODULE: PlatformModule = {
-  key: 'insurance',
-  name: 'Insurance Brokerage',
-  tier: 'vertical',
-  vertical: 'insurance',
-  route_base: '/insurance',
-  depends_on: [],
-  tenant_entitled: true,
-  is_active: true,
-  sort_order: 100,
-};
-const REGISTRY = registryState([...REGISTRY_FIXTURE, INSURANCE_MODULE]);
+// The shared fixture mirrors the seeded registry, including the insurance vertical.
+const REGISTRY = registryState(REGISTRY_FIXTURE);
 
 vi.mock('../../lib/useModuleRegistry', () => ({
   useModuleRegistry: () => REGISTRY,

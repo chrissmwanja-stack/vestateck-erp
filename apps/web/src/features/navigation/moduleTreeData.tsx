@@ -30,6 +30,7 @@ import {
   Checklist,
   PersonAdd,
   Rule,
+  Shield,
 } from "@mui/icons-material";
 import {
   lawComplianceNodes,
@@ -38,6 +39,7 @@ import {
   machineOperationNodes,
   pmoNodes,
   sustainabilityNodes,
+  insuranceNodes,
 } from "../../modules/portals/ShellConfigs";
 import type { Portal, TreeNode } from "./types";
 import { CONSOLE_SECTIONS } from "../admin/consoleRoutes";
@@ -351,6 +353,13 @@ export const portals: Portal[] = [
     icon: <Folder fontSize="small" />,
     nodes: sustainabilityNodes,
     requiredModule: "sustainability",
+  },
+  {
+    id: "insurance",
+    label: "Insurance Brokerage",
+    icon: <Shield fontSize="small" />,
+    nodes: insuranceNodes,
+    requiredModule: "insurance",
   },
   {
     id: "my-approvals",

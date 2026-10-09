@@ -32,6 +32,7 @@ export const REGISTRY_FIXTURE: PlatformModule[] = [
   row('pmo', 'Project Management', 'vertical', 70, { vertical: 'construction' }),
   row('machine_operation', 'Machine Operation', 'vertical', 80, { vertical: 'construction' }),
   row('sustainability', 'Sustainability', 'vertical', 90, { vertical: 'construction' }),
+  row('insurance', 'Insurance Brokerage', 'vertical', 100, { vertical: 'insurance', route_base: '/insurance' }),
 ];
 
 export function registryState(modules: PlatformModule[] = REGISTRY_FIXTURE): ModuleRegistryState {
