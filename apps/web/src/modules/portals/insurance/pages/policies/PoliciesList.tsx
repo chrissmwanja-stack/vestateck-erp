@@ -4,8 +4,10 @@ import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { errorText, rows, table } from '../../db';
 import { formatMoney, POLICY_STATUS_LABEL } from '../../logic';
-import type { Policy } from '../../types';
+import type { Policy, PolicyStatus } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
+
+const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed'];
 
 export default function PoliciesList() {
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export default function PoliciesList() {
         <CardContent>
           <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} sx={{ minWidth: 200 }}>
             <MenuItem value="all">All</MenuItem>
-            {(Object.keys(POLICY_STATUS_LABEL) as Array<keyof typeof POLICY_STATUS_LABEL>).map((s) => (
+            {POLICY_STATUSES.map((s) => (
               <MenuItem key={s} value={s}>{POLICY_STATUS_LABEL[s]}</MenuItem>
             ))}
           </TextField>
