@@ -1,6 +1,6 @@
 # Insurance Brokerage: Analysis and Working Draft
 
-Status: **draft, not reviewed by an accountant, not deployed.** Committed locally on branch `feat/insurance-brokerage-draft`. Not pushed.
+Status: **draft, not reviewed by an accountant.** The core is on `main` (schema, RPCs, UI, `test_ins_core.sql`, hardening and currency/KYC migrations). Do not enable it for a real tenant until the section 7 questions are answered.
 
 ## 1. Scope
 
@@ -140,7 +140,7 @@ Wiring:
 
 | Check | Result | Notes |
 |---|---|---|
-| SQL behaviour, PGlite harness | **21/21 pass** (re-run on the committed migration) | Harness at `/home/user/verify-db/`, outside the repo. Uses stubs for the Supabase auth and tenant helpers, and pgcrypto is unavailable. **Not run against a real Supabase database.** |
+| SQL behaviour, `supabase/tests/test_ins_core.sql` | About 100 assertions in the repo suite, run by `scripts/run-sql-tests.ps1` and CI | Replaces the earlier 21-case PGlite harness, which lived outside the repo. One `GAP:` notice remains: commission stays in client money (section 7, question 6). |
 | Existing repo insurance SQL tests (`supabase/tests/test_insurance_*.sql`) | **Not run** | They need a real database (CI db-shadow-replay). They cover the template, module registration and client master, none of which this migration changes. |
 | TypeScript (`tsc --noEmit`) | **Pass** | Needed a larger heap (`NODE_OPTIONS=--max-old-space-size=6144`). The default heap runs out. |
 | Vitest, full web suite | **526/526 pass** (69 files) | Needs `--experimental-websocket` on Node 20. The repo targets Node 22. |
@@ -193,9 +193,8 @@ Decisions already made in this draft:
 
 ## 10. Next steps
 
-1. Push the branch when approved (not pushed yet).
-2. Apply the migration to a Supabase branch and run the existing insurance SQL tests.
-3. Get the accountant's answers to section 7.
-4. Regenerate DB types and remove the loose client in `db.ts`.
-5. Add component tests for the bind and claim dialogs.
-6. Build the deferred items in section 8, in the order the accountant's answers require.
+1. Get the accountant's answers to section 7, starting with question 6 (how commission leaves client money).
+2. Regenerate DB types and remove the loose client in `db.ts`.
+3. Decide whether policies in other currencies should be supported; until then the bind refuses them.
+4. Add component tests for the bind and claim dialogs.
+5. Build the deferred items in section 8, in the order the accountant's answers require.

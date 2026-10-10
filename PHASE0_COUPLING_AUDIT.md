@@ -89,7 +89,7 @@ D4 is built in lettered steps. Receipts are modelled as **settlements** (money i
 | D4b-1 | `fin_open_items` subledger and `fin_open_item_balances` view | Done (`20261008202213`) |
 | D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Done locally (`20261009001500`): `test_fin_credit_notes.sql` and `test_fin_settlements.sql` pass on a fresh `supabase db reset` (2026-10-09). Not yet confirmed in CI or applied to production |
 | D4c | `fin_settlements`, `fin_allocations`, `fin_record_settlement`, `fin_void_settlement` | Done (`20261008202213`) |
-| D4d | Reconciliation of settlements against bank statements | Not started |
+| D4d | Reconciliation of settlements against bank statements | Done: D4d-1 schema, functions and `test_fin_reconciliation.sql` (`20261009120000`, `1cf8c90`); D4d-2 matching, double-entry warning and position on `BankReconciliation.tsx` (`ea79509`) |
 
 ### Where the build differs from the text above
 - **D7:** the template item kinds actually added are `gl_account`, `posting_rule` and `feature_flag`. `doc_sequence` and `lookup` were not added.
@@ -133,7 +133,7 @@ Evidence is from the repo's migrations, edge functions and commit history, not a
 | 6 | Insurance Brokerage template v0 | Done | `20261008100625`, `9efa5da` |
 | 7 | Acceptance test v0 | Done, fixtures since corrected | `9ce91f4`, `a4017c9`, `768f99c`, `6319fa1` |
 
-Also shipped: `insurance` registered as a module (`20261008085228`), the BD document-number uniqueness fix (`20261008130000`), and Phase 2 D4a, D4b-1 and D4c (Section 4).
+Also shipped: `insurance` registered as a module (`20261008085228`), the BD document-number uniqueness fix (`20261008130000`), and Phase 2 D4a, D4b-1, D4b-2, D4c and D4d (Section 4).
 
 ### Seams closed or re-verified since the audit
 - **7 (finance vs PO access): verified for access, two residual items.** Checked 2026-10-09 against the repo.
@@ -156,4 +156,4 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - `fin_allocations_guard` is replaced so settlements and credit notes share one outstanding amount; `fin_open_item_balances` gains `credited_amount` (appended).
 
 ### Next
-D4d (reconciliation of settlements), which needs a design pass first.
+D4e: post an adjustment for bank statement lines that have no book entry (D4d only reports them). Also open: CSV re-import duplicates statement lines (add an import batch id and a warning).
