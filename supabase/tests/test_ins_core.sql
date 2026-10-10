@@ -824,17 +824,35 @@ begin
     and not has_table_privilege('anon', 'public.ins_claim_events', 'select')
     and not has_table_privilege('anon', 'public.ins_renewal_pipeline', 'select'),
     'anon must not read any insurance table or view');
-  perform pg_temp.assert(
-    has_table_privilege('authenticated', 'public.ins_claim_events', 'select')
-    and not has_table_privilege('authenticated', 'public.ins_claim_events', 'insert')
-    and not has_table_privilege('authenticated', 'public.ins_claim_events', 'update')
-    and not has_table_privilege('authenticated', 'public.ins_claim_events', 'delete'),
-    'claim events are read-only for clients');
 
   set local role anon;
   perform pg_temp.expect_error('select count(*) from ins_policies', 'permission denied', 'anon reading policies');
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_d.id), 'permission denied', 'anon binding a policy');
   reset role;
+
+  -- The audit trail is read-only for clients. The baseline's default privileges
+  -- give `authenticated` ALL on every new public table, so the migration's
+  -- "grant select" does not restrict anything: RLS (a SELECT policy only) is the
+  -- barrier, and that is what is asserted here, even for the top tier.
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  perform pg_temp.assert((select count(*) from ins_claim_events where claim_id = cl1.id) = 5, 'a manager reads the claim events');
+  perform pg_temp.expect_state(
+    format('insert into ins_claim_events (tenant_id, claim_id, to_status) values (%L, %L, ''closed'')', v_ta, cl_ren.id),
+    '42501', 'direct claim event insert');
+  update ins_claim_events set note = 'tampered' where claim_id = cl1.id;
+  get diagnostics v_n = row_count;
+  perform pg_temp.assert(v_n = 0, 'a manager cannot edit a claim event');
+  delete from ins_claim_events where claim_id = cl1.id;
+  get diagnostics v_n = row_count;
+  perform pg_temp.assert(v_n = 0, 'a manager cannot delete a claim event');
+  reset role;
+  perform pg_temp.assert(pg_temp.scalar(format('select count(*) from ins_claim_events where claim_id = %L and note = ''tampered''', cl1.id)) = 0
+                         and pg_temp.scalar(format('select count(*) from ins_claim_events where claim_id = %L', cl1.id)) = 5,
+                         'the claim event trail is intact after the write attempts');
+  if has_table_privilege('authenticated', 'public.ins_claim_events', 'insert') then
+    raise notice 'NOTE: authenticated holds INSERT on ins_claim_events through default privileges; only RLS (no INSERT policy) protects the audit trail';
+  end if;
 
   -- Tenant B sees none of tenant A, and cannot act on it.
   perform pg_temp.jwt(u_mgr_b);
