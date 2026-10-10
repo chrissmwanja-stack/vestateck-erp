@@ -166,6 +166,7 @@ Decisions already made in this draft:
 3. **Net-of-commission:** does the insurer remit the net, so the broker never pays the gross on? This draft assumes yes.
 4. **Account names and VAT/WHT:** the template's names and the VAT and WHT accounts still need confirmation.
 5. **Corrections:** a bound policy cannot be edited. The fix is a reversing journal entry, which is not built yet. Confirm that is acceptable for v1.
+6. **Commission out of client money:** if the client pays the gross premium into the client-money account (1020) and only the net is remitted to the insurer, the commission stays in 1020. The settlement rules stop a client-money account settling anything except AR receipts and insurer payments, and no client-money-to-operating transfer exists. How should the broker's commission leave client money: a transfer entry on a schedule, at the time the premium is received, or a settlement against a commission receivable (which would also change question 2)? `test_ins_core.sql` reports this as a `GAP:` notice until it is answered.
 
 ## 8. Not in this draft
 
