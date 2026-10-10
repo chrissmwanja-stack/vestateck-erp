@@ -200,16 +200,10 @@ approvals, and company-admin member/invitation and organization setup).
   client money to an operating account yet. The commission-timing and transfer
   questions for the accountant are listed in
   `docs/insurance-brokerage/ANALYSIS.md`.
-- **Insurance — policy currency is not validated at bind.** A policy can carry
-  any ISO currency, but the bind posts its face amount in the ledger currency
-  (UGX) with no conversion, while settlements refuse non-UGX bank accounts.
-  Treat non-UGX policies as unsupported until multi-currency is designed.
-- **Insurance — a few draft/claim fields are editable outside their RPC.**
-  Members can set `renewal_of_id` on a draft policy and edit a claim's
-  `loss_date` after creation, and the manager DELETE policy for notified claims
-  cannot succeed because every claim has a creation event with
-  `ON DELETE RESTRICT`. `supabase/tests/test_ins_core.sql` reports each as a
-  `GAP:` notice.
+- **Insurance — non-UGX policies cannot be bound.** `ins_bind_policy` refuses a
+  policy whose currency differs from the tenant's ledger currency
+  (`INS_CURRENCY_UNSUPPORTED`); such a policy can be saved as a draft only. The
+  bind and the subledger are single-currency until multi-currency is designed.
 - `xlsx` (SheetJS) is installed from SheetJS's own patched tarball
   (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, 0.20.3) rather than
   the abandoned npm registry release (0.18.5), which carries an unfixed

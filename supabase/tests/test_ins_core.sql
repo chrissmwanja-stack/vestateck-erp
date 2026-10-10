@@ -320,6 +320,43 @@ begin
   set local role authenticated;
   perform pg_temp.expect_error('select ins_register_client(''Nope'')', 'INS_FORBIDDEN', 'outsider registering a client');
   reset role;
+  -- KYC approval is a manager decision: a member keeps the profile up to date
+  -- but cannot verify a client, reset a verified one, or start one as verified.
+  perform pg_temp.flag_off();
+  perform pg_temp.jwt(u_mem);
+  set local role authenticated;
+  perform pg_temp.expect_state(format('update ins_clients set kyc_status = ''verified'' where id = %L', c2.id),
+    '42501', 'a member verifying KYC');
+  update ins_clients set risk_rating = 'high' where id = c2.id;
+  get diagnostics v_n = row_count;
+  perform pg_temp.assert(v_n = 1, 'a member can still edit other client profile fields');
+  perform pg_temp.expect_state(
+    format('insert into ins_clients (tenant_id, client_id, kyc_status) values (%L, %L, ''verified'')', v_ta, c2.client_id),
+    '42501', 'a member registering a client as already verified');
+  reset role;
+  perform pg_temp.assert((select kyc_status from ins_clients where id = c2.id) = 'pending', 'KYC stays pending after the member attempts');
+
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  update ins_clients set kyc_status = 'verified' where id = c2.id;
+  get diagnostics v_n = row_count;
+  perform pg_temp.assert(v_n = 1, 'a manager can verify KYC');
+  reset role;
+  perform pg_temp.assert((select kyc_status from ins_clients where id = c2.id) = 'verified', 'KYC is verified after the manager update');
+
+  perform pg_temp.flag_off();
+  perform pg_temp.jwt(u_mem);
+  set local role authenticated;
+  perform pg_temp.expect_state(format('update ins_clients set kyc_status = ''pending'' where id = %L', c2.id),
+    '42501', 'a member resetting a verified client');
+  reset role;
+  perform pg_temp.assert((select kyc_status from ins_clients where id = c2.id) = 'verified', 'KYC stays verified after a member attempt to reset it');
+  -- back to the state later sections expect
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  update ins_clients set kyc_status = 'pending' where id = c2.id;
+  reset role;
+
   raise notice 'PASS: client registration';
 
   -------------------------------------------------------------------
@@ -526,6 +563,18 @@ begin
                          and (select party_account_id from ins_insurers where id = v_insr_b) is null
                          and pg_temp.n_bind_journals(v_tb) = 0 and pg_temp.n_ins_items(v_tb) = 0,
                          'a missing posting rule stops the bind before any write');
+
+  -- A policy in a non-ledger currency can be drafted but not bound.
+  perform pg_temp.jwt(u_mem);
+  set local role authenticated;
+  p_x := ins_create_policy(c1.id, v_insr, v_pl, current_date - 1, current_date + 364, 1000, 'USD', 1000, 10, null, null);
+  reset role;
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'INS_CURRENCY_UNSUPPORTED', 'binding a USD policy');
+  reset role;
+  perform pg_temp.assert((select status from ins_policies where id = p_x.id) = 'draft'
+                         and pg_temp.n_items_for(p_x.id) = 0, 'a non-ledger currency bind leaves the policy a draft with no open items');
 
   perform pg_temp.assert(pg_temp.n_bind_journals(v_ta) = v_j0 and pg_temp.n_ins_items(v_ta) = v_i0,
                          'refused binds in tenant A posted no journal and created no open items');
@@ -899,31 +948,6 @@ begin
   -- 16. Known-gap probes. Nothing here fails the run; each probe is rolled
   --     back. A GAP notice means the schema still allows it.
   -------------------------------------------------------------------
-
-  -- G1. A non-UGX policy binds and books its face amount as UGX. Settlements
-  --     refuse non-ledger bank accounts (SETTLEMENT_CURRENCY); the bind does not
-  --     check the policy currency.
-  v_probe := 'untouched';
-  perform pg_temp.jwt(u_mem);
-  set local role authenticated;
-  begin
-    p_x := ins_create_policy(c1.id, v_insr, v_pl, current_date - 1, current_date + 364, 1000, 'USD', 1000, 10, null, null);
-    reset role;
-    perform pg_temp.jwt(u_mgr);
-    set local role authenticated;
-    p_x := ins_bind_policy(p_x.id);
-    v_probe := 'bound';
-    raise exception 'probe_done';
-  exception when others then
-    if sqlerrm <> 'probe_done' then v_probe := 'refused: ' || sqlerrm; end if;
-  end;
-  reset role;
-  if v_probe = 'bound' then
-    v_gaps := v_gaps + 1;
-    raise notice 'GAP: a USD policy binds and posts its face amount as UGX (open item currency is the ledger currency); ins_bind_policy never checks the policy currency';
-  else
-    raise notice 'PASS: non-ledger currency policies are refused at bind (%)', v_probe;
-  end if;
 
   -- G2. A member can repoint renewal_of_id on a draft, so a manager's bind would
   --     mark an unrelated policy renewed.
