@@ -840,19 +840,23 @@ begin
   perform pg_temp.expect_state(
     format('insert into ins_claim_events (tenant_id, claim_id, to_status) values (%L, %L, ''closed'')', v_ta, cl_ren.id),
     '42501', 'direct claim event insert');
-  update ins_claim_events set note = 'tampered' where claim_id = cl1.id;
-  get diagnostics v_n = row_count;
-  perform pg_temp.assert(v_n = 0, 'a manager cannot edit a claim event');
-  delete from ins_claim_events where claim_id = cl1.id;
-  get diagnostics v_n = row_count;
-  perform pg_temp.assert(v_n = 0, 'a manager cannot delete a claim event');
+  -- UPDATE and DELETE are revoked from authenticated (20261010120000), so the
+  -- privilege check refuses before RLS: 42501, not a silent zero-row result.
+  perform pg_temp.expect_state(
+    format('update ins_claim_events set note = ''tampered'' where claim_id = %L', cl1.id),
+    '42501', 'a manager editing a claim event');
+  perform pg_temp.expect_state(
+    format('delete from ins_claim_events where claim_id = %L', cl1.id),
+    '42501', 'a manager deleting a claim event');
   reset role;
   perform pg_temp.assert(pg_temp.scalar(format('select count(*) from ins_claim_events where claim_id = %L and note = ''tampered''', cl1.id)) = 0
                          and pg_temp.scalar(format('select count(*) from ins_claim_events where claim_id = %L', cl1.id)) = 5,
                          'the claim event trail is intact after the write attempts');
-  if has_table_privilege('authenticated', 'public.ins_claim_events', 'insert') then
-    raise notice 'NOTE: authenticated holds INSERT on ins_claim_events through default privileges; only RLS (no INSERT policy) protects the audit trail';
-  end if;
+  perform pg_temp.assert(
+    not has_table_privilege('authenticated', 'public.ins_claim_events', 'insert')
+    and not has_table_privilege('authenticated', 'public.ins_claim_events', 'update')
+    and not has_table_privilege('authenticated', 'public.ins_claim_events', 'delete'),
+    'authenticated holds no write privilege on the claim audit trail');
 
   -- Tenant B sees none of tenant A, and cannot act on it.
   perform pg_temp.jwt(u_mgr_b);
@@ -964,8 +968,8 @@ begin
     raise notice 'PASS: claim loss dates stay inside the policy period (%)', v_probe;
   end if;
 
-  -- G4. The claim DELETE policy allows managers to delete notified claims, but
-  --     every claim has a creation event with ON DELETE RESTRICT.
+  -- G4. Claims cannot be deleted: every claim has a creation event with
+  --     ON DELETE RESTRICT, so DELETE was revoked from authenticated.
   v_probe := 'untouched';
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
@@ -979,11 +983,11 @@ begin
     if sqlerrm <> 'probe_done' then v_probe := 'refused: ' || sqlerrm; end if;
   end;
   reset role;
-  if v_probe like 'refused:%' then
-    v_gaps := v_gaps + 1;
-    raise notice 'GAP: a manager cannot delete a notified claim although the policy allows it (%)', v_probe;
+  if v_probe like 'refused: permission denied%' then
+    raise notice 'PASS: claims cannot be deleted by authenticated (%)', v_probe;
   else
-    raise notice 'PASS: a manager can delete a notified claim (%)', v_probe;
+    v_gaps := v_gaps + 1;
+    raise notice 'GAP: a manager reached the claim DELETE path although the grant was revoked (%)', v_probe;
   end if;
 
   raise notice 'ins_core: all assertions passed, % known-gap notice(s)', v_gaps;
