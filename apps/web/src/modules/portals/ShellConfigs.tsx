@@ -497,6 +497,12 @@ export const insuranceNodes: TreeNode[] = [
     ],
   },
   {
+    id: "ins-commission",
+    label: "Commission",
+    icon: <Payments fontSize="small" />,
+    to: "/insurance/commission",
+  },
+  {
     id: "ins-admin",
     label: "Admin",
     icon: <AdminPanelSettings fontSize="small" />,

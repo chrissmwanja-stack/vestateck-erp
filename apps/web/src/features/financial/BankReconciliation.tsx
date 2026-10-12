@@ -72,6 +72,30 @@ interface SettlementRow {
   notes: string | null;
 }
 
+// One side of a posted commission transfer that has no reconciliation row yet.
+// A transfer touches two banks, so the same transfer can appear on either
+// account's screen (as money out of client money, or money into operating).
+interface TransferSideRow {
+  id: string;
+  transfer_no: string;
+  side: 'from' | 'to';
+  signed: number;
+  currency: string;
+  transfer_date: string;
+  notes: string | null;
+}
+
+interface CommissionTransferRow {
+  id: string;
+  transfer_no: string;
+  from_bank_account_id: string;
+  to_bank_account_id: string;
+  transfer_date: string;
+  amount: number;
+  currency: string;
+  notes: string | null;
+}
+
 interface BankAccountRow {
   id: string;
   name: string;
@@ -104,7 +128,7 @@ interface VarianceRow {
   source?: string | null;
 }
 
-type BookSource = 'cash' | 'settlement';
+type BookSource = 'cash' | 'settlement' | 'transfer';
 interface BookSelection {
   source: BookSource;
   id: string;
@@ -176,6 +200,7 @@ export default function BankReconciliation() {
   const [statementLines, setStatementLines] = useState<StatementLine[]>([]);
   const [cashTxns, setCashTxns] = useState<CashBankTxn[]>([]);
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
+  const [transferSides, setTransferSides] = useState<TransferSideRow[]>([]);
   const [doubleEntryLineIds, setDoubleEntryLineIds] = useState<Set<string>>(new Set());
   const [position, setPosition] = useState<PositionRow[] | null>(null);
   const [positionError, setPositionError] = useState<string | null>(null);
@@ -224,6 +249,7 @@ export default function BankReconciliation() {
       setStatementLines([]);
       setCashTxns([]);
       setSettlements([]);
+      setTransferSides([]);
       setDoubleEntryLineIds(new Set());
       setPosition(null);
       setPositionError(null);
@@ -247,6 +273,19 @@ export default function BankReconciliation() {
           .order('settlement_date')
       : Promise.resolve({ data: [] as SettlementRow[], error: null });
 
+    // Commission transfers are read by account in JS below: the table is
+    // tenant-scoped by RLS and small, and filtering on either bank column
+    // would need an OR the other lists do not.
+    const transfersQuery = resolvedAccountId
+      ? db
+          .from('ins_commission_transfers')
+          .select('id, transfer_no, from_bank_account_id, to_bank_account_id, transfer_date, amount, currency, notes')
+          .eq('status', 'posted')
+          .gte('transfer_date', bookFrom)
+          .lte('transfer_date', bookTo)
+          .order('transfer_date')
+      : Promise.resolve({ data: [] as CommissionTransferRow[], error: null });
+
     const positionQuery = resolvedAccountId
       ? db.rpc('fin_bank_reconciliation_position', { p_bank_account_id: resolvedAccountId, p_as_of: dateTo })
       : Promise.resolve({ data: null, error: null });
@@ -256,6 +295,7 @@ export default function BankReconciliation() {
       { data: txns, error: txnErr },
       { data: varRows, error: varErr },
       { data: settleRows, error: settleErr },
+      { data: transferRows, error: transferErr },
       { data: doubleRows, error: doubleErr },
       { data: posRows, error: posErr },
     ] = await Promise.all([
@@ -279,6 +319,7 @@ export default function BankReconciliation() {
         .eq('bank_account', account)
         .order('matched_at', { ascending: false }),
       settlementsQuery,
+      transfersQuery,
       db.from('v_bank_possible_double_entries').select('statement_line_id').eq('bank_account', account),
       positionQuery,
     ]);
@@ -304,13 +345,54 @@ export default function BankReconciliation() {
       }
     }
 
-    const firstError = lineErr ?? txnErr ?? varErr ?? settleErr ?? doubleErr;
-    if (firstError || reconErr) {
-      setError(firstError?.message ?? reconErr ?? 'Could not load reconciliation data.');
+    // Keep only the side of each transfer that belongs to this bank, and drop
+    // sides that already have a reconciliation row.
+    let openTransferSides: TransferSideRow[] = [];
+    let transferReconErr: string | null = null;
+    const transferList = ((transferRows ?? []) as CommissionTransferRow[]).filter(
+      (t) => t.from_bank_account_id === resolvedAccountId || t.to_bank_account_id === resolvedAccountId
+    );
+    if (!transferErr && transferList.length > 0) {
+      const { data: tReconRows, error: tErr } = await db
+        .from('bank_reconciliations')
+        .select('commission_transfer_id, transfer_side')
+        .in(
+          'commission_transfer_id',
+          transferList.map((t) => t.id)
+        );
+      if (tErr) {
+        transferReconErr = tErr.message;
+      } else {
+        const done = new Set(
+          (tReconRows ?? []).map(
+            (r: { commission_transfer_id: string; transfer_side: string }) => `${r.commission_transfer_id}:${r.transfer_side}`
+          )
+        );
+        openTransferSides = transferList
+          .map((t): TransferSideRow => {
+            const side = t.from_bank_account_id === resolvedAccountId ? 'from' : 'to';
+            return {
+              id: t.id,
+              transfer_no: t.transfer_no,
+              side,
+              signed: side === 'to' ? Number(t.amount) : -Number(t.amount),
+              currency: t.currency,
+              transfer_date: t.transfer_date,
+              notes: t.notes,
+            };
+          })
+          .filter((t) => !done.has(`${t.id}:${t.side}`));
+      }
+    }
+
+    const firstError = lineErr ?? txnErr ?? varErr ?? settleErr ?? transferErr ?? doubleErr;
+    if (firstError || reconErr || transferReconErr) {
+      setError(firstError?.message ?? reconErr ?? transferReconErr ?? 'Could not load reconciliation data.');
     } else {
       setStatementLines((lines ?? []) as StatementLine[]);
       setCashTxns((txns ?? []) as CashBankTxn[]);
       setSettlements(openSettlements);
+      setTransferSides(openTransferSides);
       setVariances((varRows ?? []) as unknown as VarianceRow[]);
       const lineIds = new Set(((lines ?? []) as StatementLine[]).map((l) => l.id));
       setDoubleEntryLineIds(
@@ -351,10 +433,15 @@ export default function BankReconciliation() {
             p_statement_line_id: selectedStatementLine,
             p_settlement_id: selectedBook.id,
           })
-        : await supabase.rpc('match_bank_statement_line', {
-            p_statement_line_id: selectedStatementLine,
-            p_cash_bank_transaction_id: selectedBook.id,
-          });
+        : selectedBook.source === 'transfer'
+          ? await db.rpc('match_bank_statement_line_to_commission_transfer', {
+              p_statement_line_id: selectedStatementLine,
+              p_transfer_id: selectedBook.id,
+            })
+          : await supabase.rpc('match_bank_statement_line', {
+              p_statement_line_id: selectedStatementLine,
+              p_cash_bank_transaction_id: selectedBook.id,
+            });
     setMatching(false);
     if (err) {
       setError(err.message ?? 'Could not match those two lines.');
@@ -458,7 +545,7 @@ export default function BankReconciliation() {
         <AccountBalanceIcon /> Bank Reconciliation
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Import a bank statement, then match each line against a posted settlement or a recorded cash/bank transaction —
+        Import a bank statement, then match each line against a posted settlement, a commission transfer or a recorded cash/bank transaction —
         automatically where the amount and date line up, manually otherwise.
       </Typography>
 
@@ -695,6 +782,56 @@ export default function BankReconciliation() {
                 </TableContainer>
               )}
 
+              {resolvedAccount && transferSides.length > 0 && (
+                <TableContainer component={Paper} data-testid="transfer-sides-table">
+                  <Box sx={{ p: 1.5, pb: 0 }}>
+                    <Typography variant="subtitle2">Book — Open Commission Transfers ({transferSides.length})</Typography>
+                  </Box>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell />
+                        <TableCell>Date</TableCell>
+                        <TableCell>Transfer</TableCell>
+                        <TableCell align="right">Amount</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {transferSides.map((t) => (
+                        <TableRow
+                          key={`${t.id}:${t.side}`}
+                          hover
+                          selected={isSelected('transfer', t.id)}
+                          onClick={() => toggleBook('transfer', t.id)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Chip size="small" label={isSelected('transfer', t.id) ? 'Selected' : ''} sx={{ visibility: isSelected('transfer', t.id) ? 'visible' : 'hidden' }} color="primary" />
+                          </TableCell>
+                          <TableCell>{t.transfer_date}</TableCell>
+                          <TableCell>
+                            {t.transfer_no}
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {t.side === 'from' ? 'Out of this account' : 'Into this account'}
+                              {t.notes ? ` · ${t.notes}` : ''}
+                            </Typography>
+                            {amountMatchesLine(t.signed) && (
+                              <Chip size="small" variant="outlined" color="success" label="Amount matches" sx={{ mt: 0.5 }} />
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            {t.signed.toLocaleString()}
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {t.currency}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+
               <TableContainer component={Paper}>
                 <Box sx={{ p: 1.5, pb: 0 }}>
                   <Typography variant="subtitle2">Book — Cash/Bank Transactions ({cashTxns.length})</Typography>
@@ -786,7 +923,11 @@ export default function BankReconciliation() {
                     <TableCell>
                       {v.transaction_date} — {v.transaction_description ?? '—'}
                       <Typography variant="caption" color="text.secondary" display="block">
-                        {v.source === 'settlement' ? 'Settlement' : 'Cash/bank transaction'}
+                        {v.source === 'settlement'
+                          ? 'Settlement'
+                          : v.source === 'commission_transfer'
+                            ? 'Commission transfer'
+                            : 'Cash/bank transaction'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">{fmt(v.transaction_amount)}</TableCell>

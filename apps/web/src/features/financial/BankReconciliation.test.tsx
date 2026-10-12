@@ -31,6 +31,19 @@ const SETTLEMENT_OPEN = {
   notes: null,
 };
 const SETTLEMENT_RECONCILED = { ...SETTLEMENT_OPEN, id: 'set-done', settlement_no: 'STL-0002' };
+// Commission transfers: money moves between two registered banks.
+const TRANSFER_IN = {
+  id: 'tr-in',
+  transfer_no: 'CTR-0001',
+  from_bank_account_id: 'bank-client-money',
+  to_bank_account_id: BANK_ID,
+  transfer_date: '2026-10-01',
+  amount: 500000,
+  currency: 'UGX',
+  notes: null,
+};
+const TRANSFER_OUT_DONE = { ...TRANSFER_IN, id: 'tr-out-done', transfer_no: 'CTR-0002', from_bank_account_id: BANK_ID, to_bank_account_id: 'bank-other' };
+const TRANSFER_ELSEWHERE = { ...TRANSFER_IN, id: 'tr-else', transfer_no: 'CTR-0003', from_bank_account_id: 'bank-x', to_bank_account_id: 'bank-y' };
 const CASH_TXN = {
   id: 'cash-1',
   transaction_date: '2026-10-02',
@@ -67,6 +80,8 @@ function setup(opts: {
   position?: unknown[];
   positionError?: { message: string } | null;
   extraHandlers?: Record<string, (args: unknown) => { data?: unknown; error?: unknown }>;
+  transfers?: unknown[];
+  reconRows?: unknown[];
 } = {}) {
   tableData = {
     fin_bank_accounts: opts.registry ?? [{ id: BANK_ID, name: 'Stanbic-001', currency: 'UGX' }],
@@ -75,7 +90,8 @@ function setup(opts: {
     v_bank_reconciliation_variance: [],
     v_bank_possible_double_entries: [],
     fin_settlements: [SETTLEMENT_OPEN, SETTLEMENT_RECONCILED],
-    bank_reconciliations: [{ settlement_id: SETTLEMENT_RECONCILED.id }],
+    bank_reconciliations: opts.reconRows ?? [{ settlement_id: SETTLEMENT_RECONCILED.id }],
+    ins_commission_transfers: opts.transfers ?? [],
   };
   fromCalls = [];
   mockFrom.mockImplementation((table: string) => {
@@ -97,6 +113,7 @@ function setup(opts: {
           },
     match_bank_statement_line_to_settlement: () => ({ data: { variance: 0 }, error: null }),
     match_bank_statement_line: () => ({ data: { variance: 0 }, error: null }),
+    match_bank_statement_line_to_commission_transfer: () => ({ data: { variance: 0 }, error: null }),
     auto_match_bank_statement: () => ({ data: 2, error: null }),
     ...opts.extraHandlers,
   });
@@ -159,6 +176,50 @@ describe('BankReconciliation', () => {
     await screen.findByText('STL-0001');
     expect(screen.queryByText('STL-0002')).toBeNull();
     expect(screen.getByText(/Open Settlements \(1\)/)).toBeTruthy();
+  });
+
+  it('matches a statement line to a commission transfer through the transfer RPC', async () => {
+    const { callsTo } = setup({ transfers: [TRANSFER_IN] });
+    const user = userEvent.setup();
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText('CTR-0001');
+    expect(screen.getByText('Into this account')).toBeTruthy();
+    await user.click(screen.getByText('CLIENT DEPOSIT'));
+    await user.click(screen.getByText('CTR-0001'));
+    await user.click(screen.getByRole('button', { name: 'Match Selected Pair' }));
+
+    await waitFor(() => expect(callsTo('match_bank_statement_line_to_commission_transfer')).toHaveLength(1));
+    expect(callsTo('match_bank_statement_line_to_commission_transfer')[0].args).toEqual({
+      p_statement_line_id: 'line-1',
+      p_transfer_id: 'tr-in',
+    });
+    expect(callsTo('match_bank_statement_line_to_settlement')).toHaveLength(0);
+    expect(callsTo('match_bank_statement_line')).toHaveLength(0);
+  });
+
+  it('hides a transfer side that is already reconciled and transfers between other banks', async () => {
+    setup({
+      transfers: [TRANSFER_IN, TRANSFER_OUT_DONE, TRANSFER_ELSEWHERE],
+      reconRows: [{ commission_transfer_id: 'tr-out-done', transfer_side: 'from' }],
+    });
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText('CTR-0001');
+    expect(screen.queryByText('CTR-0002')).toBeNull();
+    expect(screen.queryByText('CTR-0003')).toBeNull();
+    expect(screen.getByText(/Open Commission Transfers \(1\)/)).toBeTruthy();
+  });
+
+  it('shows no transfer list when the account has no open transfers', async () => {
+    setup();
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText('STL-0001');
+    expect(screen.queryByTestId('transfer-sides-table')).toBeNull();
   });
 
   it('does not query settlements or the position for a bank name missing from the registry', async () => {
