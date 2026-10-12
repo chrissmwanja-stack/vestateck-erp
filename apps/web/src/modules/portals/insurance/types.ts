@@ -3,6 +3,54 @@
 
 export type PolicyStatus = 'draft' | 'active' | 'renewed';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';
+export type CommissionStatus = 'deferred' | 'earned' | 'transferred';
+
+export interface CommissionEntry {
+  id: string;
+  tenant_id: string;
+  policy_id: string;
+  policy_no: string;
+  insurer_id: string;
+  client_id: string;
+  amount: number;
+  status: CommissionStatus;
+  earned_on: string | null;
+  transfer_id: string | null;
+  transfer_no: string | null;
+  transfer_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommissionPosition {
+  tenant_id: string;
+  unearned_amount: number;
+  earned_in_client_money: number;
+  transferred_amount: number;
+}
+
+export interface CommissionTransfer {
+  id: string;
+  tenant_id: string;
+  transfer_no: string;
+  from_bank_account_id: string;
+  to_bank_account_id: string;
+  transfer_date: string;
+  amount: number;
+  currency: string;
+  status: 'posted' | 'void';
+  notes: string | null;
+  void_reason: string | null;
+  created_at: string;
+}
+
+export interface TransferBankAccount {
+  id: string;
+  name: string;
+  kind: 'operating' | 'client_money';
+  currency: string;
+  bank_name: string | null;
+}
 
 export interface ProductLine {
   id: string;

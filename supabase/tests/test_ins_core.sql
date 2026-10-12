@@ -146,7 +146,7 @@ declare
   u_mgr_b uuid := gen_random_uuid();  -- B: insurance manager
 
   -- GL accounts (codes follow the insurance template)
-  g_bank uuid; g_trust uuid; g_ar uuid; g_pay uuid; g_inc uuid; gb_ar uuid; gb_inc uuid;
+  g_bank uuid; g_trust uuid; g_ar uuid; g_pay uuid; g_inc uuid; g_unear uuid; gb_ar uuid; gb_inc uuid;
   b_acc  uuid;                        -- an accounts row owned by tenant B
 
   -- tenant A masters and policies
@@ -200,15 +200,16 @@ begin
   insert into finance_team_members (tenant_id, user_id, role) values (v_ta, u_fin, 'finance');
 
   -- Tenant A mirrors the insurance template's mapping: ar_control 1100,
-  -- insurer_payable 2010, commission_income 4000, client money in 1020.
+  -- insurer_payable 2010, unearned_commission 2020, commission_income 4000, client money in 1020.
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '1000', 'Operating Bank', 'asset') returning id into g_bank;
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '1020', 'Client Money Bank (Premium Trust)', 'asset') returning id into g_trust;
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '1100', 'Accounts Receivable Control', 'asset') returning id into g_ar;
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '2010', 'Insurer Payable', 'liability') returning id into g_pay;
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '4000', 'Commission Income', 'revenue') returning id into g_inc;
+  insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '2020', 'Unearned Commission', 'liability') returning id into g_unear;
   insert into gl_posting_rules (tenant_id, account_role, gl_account_id) values
     (v_ta, 'bank', g_bank), (v_ta, 'client_money_bank', g_trust), (v_ta, 'ar_control', g_ar),
-    (v_ta, 'insurer_payable', g_pay), (v_ta, 'commission_income', g_inc);
+    (v_ta, 'insurer_payable', g_pay), (v_ta, 'commission_income', g_inc), (v_ta, 'unearned_commission', g_unear);
 
   -- Tenant B deliberately has no insurer_payable rule.
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_tb, '1100', 'Accounts Receivable Control', 'asset') returning id into gb_ar;
@@ -444,7 +445,8 @@ begin
   perform pg_temp.assert(pg_temp.je_lines(v_je) = 3 and pg_temp.je_bal(v_je) = 0, 'journal has three lines and balances');
   perform pg_temp.assert(pg_temp.je_net(v_je, g_ar) = 1000000, 'Dr AR control for the gross premium');
   perform pg_temp.assert(pg_temp.je_net(v_je, g_pay) = -900000, 'Cr insurer payable for the net premium');
-  perform pg_temp.assert(pg_temp.je_net(v_je, g_inc) = -100000, 'Cr commission income for the commission');
+  perform pg_temp.assert(pg_temp.je_net(v_je, g_unear) = -100000 and pg_temp.je_net(v_je, g_inc) = 0,
+                         'Cr unearned commission (not income) for the commission at bind');
 
   select party_account_id into v_pcli from ins_clients where id = c1.id;
   select party_account_id into v_pins from ins_insurers where id = v_insr;
@@ -491,7 +493,7 @@ begin
   perform pg_temp.assert(pg_temp.je_bal(p_r.journal_entry_id) = 0
                          and pg_temp.je_net(p_r.journal_entry_id, g_ar) = 100001.00
                          and pg_temp.je_net(p_r.journal_entry_id, g_pay) = -87500.87
-                         and pg_temp.je_net(p_r.journal_entry_id, g_inc) = -12500.13,
+                         and pg_temp.je_net(p_r.journal_entry_id, g_unear) = -12500.13,
                          'rounded journal balances to the cent');
   perform pg_temp.assert((select party_account_id from ins_clients where id = c1.id) = v_pcli
                          and (select party_account_id from ins_insurers where id = v_insr) = v_pins
@@ -512,8 +514,8 @@ begin
   reset role;
   perform pg_temp.assert(p_z.commission_amount = 0 and p_z.net_premium_to_insurer = 500000, 'zero commission binds with net = gross');
   perform pg_temp.assert(pg_temp.je_lines(p_z.journal_entry_id) = 2 and pg_temp.je_bal(p_z.journal_entry_id) = 0
-                         and pg_temp.je_net(p_z.journal_entry_id, g_inc) = 0,
-                         'zero commission posts two lines and nothing to commission income');
+                         and pg_temp.je_net(p_z.journal_entry_id, g_inc) = 0 and pg_temp.je_net(p_z.journal_entry_id, g_unear) = 0,
+                         'zero commission posts two lines and nothing to unearned or earned commission');
   perform pg_temp.assert(pg_temp.n_items_for(p_z.id) = 2, 'zero commission still creates both open items');
   raise notice 'PASS: zero commission';
 
@@ -845,8 +847,18 @@ begin
   select coalesce(sum(debit - credit), 0) into v_num from journal_entry_lines where tenant_id = v_ta and gl_account_id = g_trust;
   perform pg_temp.assert(v_num = 100000, 'client money should hold exactly the commission after both settlements, got ' || v_num);
   raise notice 'PASS: bind output settles through the D4 subledger (receipt of gross, remittance of net)';
-  v_gaps := v_gaps + 1;
-  raise notice 'GAP: % of commission remains in client-money GL 1020 after full settlement; there is no path to move it to the operating account (see docs/insurance-brokerage/ANALYSIS.md section 7)', v_num;
+  -- The commission is earned once the insurer is paid, and waits in client money
+  -- for a transfer (ins_transfer_earned_commission, covered by test_ins_commission.sql).
+  perform pg_temp.assert(
+    (select status from ins_commission_entries where policy_id = p1.id) = 'earned'
+    and pg_temp.je_net((select ev.journal_entry_id from ins_commission_events ev
+                          join ins_commission_entries en on en.id = ev.entry_id
+                         where en.policy_id = p1.id and ev.event = 'recognised'), g_inc) = -100000
+    and pg_temp.je_net((select ev.journal_entry_id from ins_commission_events ev
+                          join ins_commission_entries en on en.id = ev.entry_id
+                         where en.policy_id = p1.id and ev.event = 'recognised'), g_unear) = 100000,
+    'paying the insurer in full moves the commission from unearned to income');
+  raise notice 'PASS: commission recognised when the insurer net item is fully settled; the transfer path is tested in test_ins_commission.sql';
 
   -------------------------------------------------------------------
   -- 15. Grants, anon and tenant isolation

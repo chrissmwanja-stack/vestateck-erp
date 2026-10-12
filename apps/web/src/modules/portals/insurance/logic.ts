@@ -1,4 +1,4 @@
-import type { ClaimStatus, PolicyStatus } from './types';
+import type { ClaimStatus, CommissionEntry, CommissionStatus, PolicyStatus } from './types';
 
 // Pure helpers for the insurance screens. Nothing here touches the database.
 // The server (ins_* RPCs and guards) is the source of truth. These mirror it so
@@ -39,6 +39,48 @@ export const POLICY_STATUS_LABEL: Record<PolicyStatus, string> = {
   active: 'Active',
   renewed: 'Renewed',
 };
+
+export const COMMISSION_STATUS_LABEL: Record<CommissionStatus, string> = {
+  deferred: 'Deferred',
+  earned: 'Earned',
+  transferred: 'Transferred',
+};
+
+export function isTransferable(entry: CommissionEntry): boolean {
+  return entry.status === 'earned';
+}
+
+export function sumAmounts(entries: CommissionEntry[]): number {
+  return entries.reduce((total, entry) => total + Number(entry.amount), 0);
+}
+
+export function validateTransferInput(input: {
+  fromId: string;
+  toId: string;
+  date: string;
+  selected: CommissionEntry[];
+  todayIso: string;
+}): string[] {
+  const errors: string[] = [];
+  if (!input.fromId) errors.push('Choose a client-money account.');
+  if (!input.toId) errors.push('Choose an operating account.');
+  if (input.fromId && input.toId && input.fromId === input.toId) errors.push('Choose different bank accounts.');
+  if (!input.date) errors.push('Choose a transfer date.');
+  else if (daysBetween(input.todayIso, input.date) > 1) errors.push('Transfer date cannot be more than one day in the future.');
+  if (input.selected.length === 0) errors.push('Select at least one earned commission entry.');
+  const latestEarnedDate = input.selected.reduce<string | null>(
+    (latest, entry) => entry.earned_on && (!latest || entry.earned_on > latest) ? entry.earned_on : latest,
+    null,
+  );
+  if (input.date && latestEarnedDate && input.date < latestEarnedDate) {
+    errors.push('Transfer date cannot be before commission was earned.');
+  }
+  return errors;
+}
+
+export function isValidVoidReason(reason: string): boolean {
+  return reason.trim().length >= 5;
+}
 
 /** Open claims are those still being worked on (not settled, repudiated or closed). */
 export function isClaimOpen(status: ClaimStatus): boolean {

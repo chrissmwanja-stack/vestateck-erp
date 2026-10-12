@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Alert, Box, Chip, Typography } from '@mui/material';
-import { CLAIM_STATUS_LABEL, POLICY_STATUS_LABEL } from './logic';
-import type { ClaimStatus, PolicyStatus } from './types';
+import { CLAIM_STATUS_LABEL, COMMISSION_STATUS_LABEL, POLICY_STATUS_LABEL } from './logic';
+import type { ClaimStatus, CommissionStatus, PolicyStatus } from './types';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
@@ -36,12 +36,22 @@ const CLAIM_COLOR: Record<ClaimStatus, 'default' | 'primary' | 'warning' | 'succ
   closed: 'default',
 };
 
+const COMMISSION_COLOR: Record<CommissionStatus, 'default' | 'primary' | 'success'> = {
+  deferred: 'default',
+  earned: 'success',
+  transferred: 'primary',
+};
+
 export function PolicyStatusChip({ status }: { status: PolicyStatus }) {
   return <Chip size="small" label={POLICY_STATUS_LABEL[status]} color={POLICY_COLOR[status]} variant={status === 'draft' ? 'outlined' : 'filled'} />;
 }
 
 export function ClaimStatusChip({ status }: { status: ClaimStatus }) {
   return <Chip size="small" label={CLAIM_STATUS_LABEL[status]} color={CLAIM_COLOR[status]} variant={status === 'closed' ? 'outlined' : 'filled'} />;
+}
+
+export function CommissionStatusChip({ status }: { status: CommissionStatus }) {
+  return <Chip size="small" label={COMMISSION_STATUS_LABEL[status]} color={COMMISSION_COLOR[status]} variant={status === 'deferred' ? 'outlined' : 'filled'} />;
 }
 
 export function ErrorBanner({ message }: { message: string | null }) {
