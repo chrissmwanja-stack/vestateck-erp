@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Database } from '@erp-platform/shared';
 import { supabase } from '../../../lib/supabaseClient';
 import { friendlyError } from './logic';
 
-// The generated Database types do not include the insurance tables or RPCs yet
-// (same situation as platform_modules; see lib/useModuleRegistry.ts). Calls go
-// through this loose view of the client, and the result shapes are typed in types.ts.
-// Regenerate packages/shared/src/database.types.ts to remove the casts.
+// Table, view and function NAMES are checked against the generated Database
+// types, so a typo or a renamed object fails the build instead of failing at
+// runtime. Query shapes stay loose on purpose: result rows are typed in types.ts,
+// and the builders are used with a few patterns (joins, filters) that the
+// generated generics make awkward. Regenerate packages/shared/src/database.types.ts
+// after every migration so the name lists stay current.
+
+type PublicSchema = Database['public'];
+export type TableName = keyof PublicSchema['Tables'] | keyof PublicSchema['Views'];
+export type RpcName = keyof PublicSchema['Functions'];
 
 type QueryResult = { data: unknown; error: { message: string } | null };
 interface LooseClient {
@@ -15,7 +22,7 @@ interface LooseClient {
 const db = supabase as unknown as LooseClient;
 
 /** Table or view builder (select / eq / order / insert / update / delete). */
-export function table(name: string): any {
+export function table(name: TableName): any {
   return db.from(name);
 }
 
@@ -33,7 +40,7 @@ export async function write(builder: PromiseLike<QueryResult>): Promise<void> {
 }
 
 /** Calls an RPC. Returns its result, or throws the friendly message. */
-export async function rpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
+export async function rpc<T>(fn: RpcName, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await db.rpc(fn, args);
   if (error) throw new Error(friendlyError(error.message));
   return data as T;
