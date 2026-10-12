@@ -131,7 +131,11 @@ Location: `apps/web/src/modules/portals/insurance/`
 | `pages/claims/NewClaim.tsx` | Notify a loss against a bound policy, with date and sum-insured checks |
 | `pages/claims/ClaimDetail.tsx` | Claim detail with transition buttons, reason and amount dialogs, and history |
 | `pages/admin/ProductLinesAdmin.tsx` | Product lines (admin and manager) |
+<<<<<<< ours
 | `pages/commission/CommissionPage.tsx` | Commission entries and position, plus transfers of earned commission out of client money and voiding them (managers). Has a component test, `CommissionPage.test.tsx` |
+=======
+| `pages/commission/CommissionPage.tsx` | Commission entries and position, plus transfers of earned commission out of client money and voiding them (managers). Has a component test, `CommissionPage.test.tsx`. **Not yet routed:** `insuranceRoutes.tsx` has no `/insurance/commission` route and `ShellConfigs.tsx` has no nav entry, so the page is unreachable |
+>>>>>>> theirs
 
 Wiring:
 
@@ -170,7 +174,11 @@ Commission decisions confirmed 2026-10-11 and built in `20261011090000`:
 
 5. Commission is credited to an unearned-commission liability when the policy is bound, not to income.
 6. It is recognised as income when the insurer's net item for that policy is fully settled, meaning the broker has paid the insurer. Recognition counts payments only; a credit note on an insurer item does not make it "fully settled".
+<<<<<<< ours
 7. Earned commission stays in the client-money bank account until a manager moves it to an operating bank account with a transfer batch (`ins_transfer_earned_commission`, voidable with `ins_void_commission_transfer`). Each side of a transfer is reconciled separately against bank statement lines (`20261012090000`).
+=======
+7. Earned commission stays in the client-money bank account until a manager moves it to an operating bank account with a transfer batch (`ins_transfer_earned_commission`, voidable with `ins_void_commission_transfer`). Each side of a transfer is reconciled separately against bank statement lines (`20261012090000`). Status: auto-match is wired into the reconciliation screen, but the manual-match RPC `match_bank_statement_line_to_commission_transfer` is not called from the UI, and no SQL test exercises transfer reconciliation yet.
+>>>>>>> theirs
 8. No VAT or WHT lines on commission.
 9. Corrections to a bound policy stay "reverse and re-issue" for v1. Policies bound before the deferral migration keep the old treatment (commission to income at bind) and are not backfilled.
 
