@@ -160,6 +160,28 @@ jobs:
           fi
           echo "SECURITY DEFINER audit: no CRITICAL exposures."
 
+      # Generated types must match the migrations (12 Oct 2026 analysis, F4/F9).
+      # The insurance client checks table and RPC names against
+      # packages/shared/src/database.types.ts, so a stale file silently rejects
+      # new objects (or accepts removed ones). Regenerates from this job's local
+      # stack and compares ignoring line endings and the PostgREST version stamp.
+      # Report-only for now (continue-on-error): the committed file was generated
+      # from the live project, which has had migration drift before, so the first
+      # runs may show noise. Once it is clean on main, delete the
+      # continue-on-error line to make it block.
+      # Fix a failure with scripts/gen-types.ps1 (UTF-8; a plain PowerShell `>` writes UTF-16).
+      - name: Check generated types match the migrations
+        continue-on-error: true
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/types.local.ts
+          norm() { sed -e 's/\r$//' -e '/__InternalSupabase/,/^  }$/d' "$1"; }
+          if ! diff <(norm packages/shared/src/database.types.ts) <(norm /tmp/types.local.ts) > /tmp/types.diff; then
+            echo "::warning::packages/shared/src/database.types.ts is out of date with the migrations. Run scripts/gen-types.ps1 and commit the result."
+            head -60 /tmp/types.diff
+            exit 1
+          fi
+          echo "Generated types match the migrations."
+
       # Functional coverage for the accounting workstreams (A/B/F):
       # db-shadow-replay above only proves the migrations apply
       # cleanly -- it says nothing about whether GL posting actually
