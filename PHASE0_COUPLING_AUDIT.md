@@ -6,6 +6,8 @@
 
 **Status (updated 2026-10-08, repo at `f1282d0`):** Phase 0 is closed; all decisions D1-D7 are confirmed. Sections 1-3 are the audit as it stood at `2fc0c46` and are kept as a historical record, so their present-tense statements describe that commit, not today's repo. Section 4 carries the decisions and Section 7 carries what has been built since.
 
+**Update 2026-10-12:** the insurance commission follow-on (deferral, bank picker, transfer reconciliation) is built, which grows the posting roles to 19 and the insurance template to 19 accounts and 19 posting rules; see the end of Section 7. The full CI run (build, unit tests, migration replay and every SQL test) was reported green on 2026-10-12, which clears the "not yet run in CI" notes below.
+
 ---
 
 ## 1. Verdict
@@ -87,13 +89,13 @@ D4 is built in lettered steps. Receipts are modelled as **settlements** (money i
 |------|-------|--------|
 | D4a | `fin_bank_accounts` registry: operating vs client-money kind, each mapped to its own GL account | Done (`20261008120000`) |
 | D4b-1 | `fin_open_items` subledger and `fin_open_item_balances` view | Done (`20261008202213`) |
-| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Done locally (`20261009001500`): `test_fin_credit_notes.sql` and `test_fin_settlements.sql` pass on a fresh `supabase db reset` (2026-10-09). Not yet confirmed in CI or applied to production |
+| D4b-2 | Credit notes: `fin_credit_notes`, `fin_credit_applications`, `fin_raise_credit_note`, `fin_void_credit_note` | Done locally (`20261009001500`): `test_fin_credit_notes.sql` and `test_fin_settlements.sql` pass on a fresh `supabase db reset` (2026-10-09). CI green as of 2026-10-12; not confirmed applied to production |
 | D4c | `fin_settlements`, `fin_allocations`, `fin_record_settlement`, `fin_void_settlement` | Done (`20261008202213`) |
 | D4d | Reconciliation of settlements against bank statements | Done: D4d-1 schema, functions and `test_fin_reconciliation.sql` (`20261009120000`, `1cf8c90`); D4d-2 matching, double-entry warning and position on `BankReconciliation.tsx` (`ea79509`) |
 
 ### Where the build differs from the text above
 - **D7:** the template item kinds actually added are `gl_account`, `posting_rule` and `feature_flag`. `doc_sequence` and `lookup` were not added.
-- **Seam 9:** the posting-role list grew from 13 to 18 roles (adds `client_money_bank`, `insurer_payable`, `commission_receivable`, `commission_income`, `wht_receivable`).
+- **Seam 9:** the posting-role list grew from 13 to 18 roles (adds `client_money_bank`, `insurer_payable`, `commission_receivable`, `commission_income`, `wht_receivable`), and to 19 on 2026-10-11 (adds `unearned_commission`, migration `20261011090000`).
 - **D3:** `finance` is registered in `platform_modules` as a core key with `tenant_entitled = false`, so it cannot be entitled per tenant. That `has_po_access()` is not needed for finance on a tenant without procurement has **not** been re-verified (see Section 7).
 
 ---
@@ -139,10 +141,10 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - **7 (finance vs PO access): verified for access, two residual items.** Checked 2026-10-09 against the repo.
   - `can_access_finance()` is `has_po_access() OR is_finance_team_member(NULL)`. `is_finance_team_member` reads `finance_team_members` directly (tenant-scoped, roles `finance` / `cost_control`), with no dependency on procurement, workflow stages or `tenant_modules`. A tenant with no procurement gets finance access through that table alone, and `set_finance_role` (tenant admin) is how rows get there. D3's second half ("`has_po_access()` is not needed for finance without procurement") therefore holds.
   - The D4 objects (`fin_bank_accounts`, open items, settlements, allocations and their functions) authorize on `is_finance_team_member` only and never touch `has_po_access()`.
-  - Residual 1 (fixed in the web app, not yet run in CI): `financeRoutes.tsx` put Purchase Orders (`/financial-management/purchase-orders`) and SAP Payment Approvals (`/sap/payment-approvals`) under the same `RequireFinanceTeam` guard as the finance screens, and their nav nodes carried `requiredAccess: "finance"` only, so a finance user in a tenant without `procurement` saw both and could open the URLs. Data was always protected by RLS; this was visibility and consistency. The fix is an entitlement-only check (a `tenant_modules` row exists; platform admins pass), not `requiredModule` / `RequireModule`, because those also test `staff_roles` and would hide the screens from construction finance users who are on the finance team but hold no procurement role. Built as `entitledModules` on `ModuleAccessState`, a `requiredEntitlement` field on nav nodes (validated against the registry like `requiredModule`), and a `RequireEntitlement` route guard wrapping the two routes.
+  - Residual 1 (fixed in the web app; CI green as of 2026-10-12): `financeRoutes.tsx` put Purchase Orders (`/financial-management/purchase-orders`) and SAP Payment Approvals (`/sap/payment-approvals`) under the same `RequireFinanceTeam` guard as the finance screens, and their nav nodes carried `requiredAccess: "finance"` only, so a finance user in a tenant without `procurement` saw both and could open the URLs. Data was always protected by RLS; this was visibility and consistency. The fix is an entitlement-only check (a `tenant_modules` row exists; platform admins pass), not `requiredModule` / `RequireModule`, because those also test `staff_roles` and would hide the screens from construction finance users who are on the finance team but hold no procurement role. Built as `entitledModules` on `ModuleAccessState`, a `requiredEntitlement` field on nav nodes (validated against the registry like `requiredModule`), and a `RequireEntitlement` route guard wrapping the two routes.
   - Not reviewed, may be the same leak: other finance-group screens that look procurement-related (`supplier-invoice-po`, cost codes, and the finance-gated warehouse and material-receipt admin screens). They are left as they were; decide per screen whether they also need `requiredEntitlement: "procurement"`.
-  - Residual 2 (fixed in `20261009010000`, not yet run in CI): the operator-console SQL treated `procurement` and `finance` as always enabled in `get_company_analytics()` and `get_platform_dashboard_stats()`. Only `finance` (core, not entitled per tenant) is now treated that way; `procurement` reads from `tenant_modules`. Tenants without a `procurement` row will show it as not enabled. `test_onboarding_funnel_and_usage.sql` was updated to match.
-- **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carries 18 `gl_account` and 18 `posting_rule` items.
+  - Residual 2 (fixed in `20261009010000`; CI green as of 2026-10-12): the operator-console SQL treated `procurement` and `finance` as always enabled in `get_company_analytics()` and `get_platform_dashboard_stats()`. Only `finance` (core, not entitled per tenant) is now treated that way; `procurement` reads from `tenant_modules`. Tenants without a `procurement` row will show it as not enabled. `test_onboarding_funnel_and_usage.sql` was updated to match.
+- **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carried 18 `gl_account` and 18 `posting_rule` items; `20261011090000` adds account 2020 (Unearned Commission) and its rule, so the template now carries 19 of each.
 
 ### Seams not yet closed
 - **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** not started.
@@ -154,6 +156,11 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - One credit note can be split across several items of the same party, side, control role and currency.
 - Raising posts one journal (receivable: Dr offset / Cr control; payable: Dr control / Cr offset). The caller picks the offset account, which cannot be a control, bank or client-money account. Voiding posts the reversal and the applications stop counting.
 - `fin_allocations_guard` is replaced so settlements and credit notes share one outstanding amount; `fin_open_item_balances` gains `credited_amount` (appended).
+
+### Insurance commission follow-on (decisions confirmed 2026-10-11)
+- `20261011090000_ins_commission_deferral.sql`: commission is credited to an unearned-commission liability at bind (new posting role `unearned_commission`, template account 2020) and recognised as income when a posted settlement fully pays the insurer's net item; voiding that settlement reverses the recognition. New tables `ins_commission_entries`, `ins_commission_events` and `ins_commission_transfers`; `ins_transfer_earned_commission` and `ins_void_commission_transfer` (manager only) move earned commission from client money to an operating bank account. No VAT or WHT lines on commission. Policies bound earlier keep the old treatment and are not backfilled.
+- `20261011100000_ins_commission_bank_picker.sql`: `ins_commission_bank_accounts()` lets insurance managers who are not on the finance team list the accounts a transfer can use, without account numbers.
+- `20261012090000_ins_commission_transfer_reconciliation.sql`: extends D4d. Each side of a transfer (the client-money line and the operating line) is matched one-to-one against a statement line, offered by `fin_bank_line_candidates`, auto-matched when it is the only candidate, and counted as a book item in the position summary; voiding a transfer is refused while either side is reconciled.
 
 ### Next
 D4e: post an adjustment for bank statement lines that have no book entry (D4d only reports them). Also open: CSV re-import duplicates statement lines (add an import batch id and a warning).

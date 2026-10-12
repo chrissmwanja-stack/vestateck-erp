@@ -2,6 +2,8 @@
 
 Status: **draft, not reviewed by an accountant.** The core is on `main` (schema, RPCs, UI, `test_ins_core.sql`, hardening and currency/KYC migrations). Do not enable it for a real tenant until the section 7 questions are answered.
 
+**Update 2026-10-12:** the commission decisions in section 6 (items 5 to 9) were confirmed on 2026-10-11 and are built (`20261011090000`, `20261011100000`, `20261012090000`), which settles section 7 questions 2, 5 and 6 and part of question 4. Whether an accountant has signed off the full treatment is not recorded in the repo, so the "do not enable" rule above still stands until questions 1 and 3 are answered. The text below was written for the first draft; where a later migration changed it, the section says so.
+
 ## 1. Scope
 
 Add an Insurance Brokerage management system to VestaPortal. It covers the agency's core workflow:
@@ -21,13 +23,13 @@ The request said "all of those". No attachments were provided, so this analysis 
 |---|---|---|
 | Platform | Multi-tenant ERP. React 18, Vite 6, TypeScript, MUI 5 in `apps/web`. Supabase Postgres with RLS and SECURITY DEFINER RPCs. Deno edge functions. Default currency UGX. | `README.md`, `apps/web/package.json` |
 | Module registry | `platform_modules` lists modules. `insurance` is registered as a `vertical` module with route base `/insurance`. | `20261008061315_platform_modules_registry.sql`, `20261008085228_register_insurance_module.sql` |
-| Industry template | `insurance` template v0: modules insurance, hr, it, legal. 8 departments. 18 GL accounts (1000 to 5100) and 18 posting rules. | `20261008100625_insurance_brokerage_template_v0.sql` |
+| Industry template | `insurance` template v0: modules insurance, hr, it, legal. 8 departments. 19 GL accounts (1000 to 5100, plus 2020 Unearned Commission) and 19 posting rules (v0 shipped 18 of each; 2020 and its rule were added by `20261011090000`). | `20261008100625_insurance_brokerage_template_v0.sql`, `20261011090000_ins_commission_deferral.sql` |
 | Client master | `bd_clients` is shared with Business Development. Access helpers `can_access_client_master()` and `can_manage_client_master()` already accept insurance members. | `20261008094326_client_master_access_helpers.sql` |
 | Finance | GL core, posting rules, open-items subledger (`fin_open_items`), `fin_create_open_item`, `post_journal_entry`, and the journal source-type check. | `20260903110944_gl_core_schema.sql`, `20260904100000_gl_posting_rules.sql`, `20261008202213_fin_open_items_settlements_allocations.sql` |
 | Frontend pattern | Vertical portals are built as lazy routes (`routes/*Routes.tsx`) under `RequireModule`, with nav trees in `ShellConfigs.tsx` and portal entries in `moduleTreeData.tsx`. | `apps/web/src/App.tsx`, `apps/web/src/modules/portals/law-compliance/` |
 | Route guard checks | `validateNavModules.test.ts` checks every nav and route guard key against `REGISTRY_FIXTURE`. | `apps/web/src/features/navigation/` |
 
-The repo's own audit doc (`PHASE0_COUPLING_AUDIT.md`) says D4d (bank reconciliation) is "not started". The git log shows D4d-1 and D4d-2 commits and a reconciliation migration, so that doc is probably stale. It does not affect this draft.
+When this draft was written, `PHASE0_COUPLING_AUDIT.md` still listed D4d (bank reconciliation) as "not started". That doc has since been updated: D4d is done, and `20261012090000` extends it to commission transfers.
 
 ## 3. Design
 
@@ -69,6 +71,8 @@ notified --> assessing --> approved --> settled --> closed
 - `settled` sets `paid_amount = approved_amount` and records the settlement date. **No cash is posted.** That is a status change only, so the UI labels it "Mark settled" and states that no cash is posted.
 
 ### 3.4 Accounting treatment (requires accountant sign-off)
+
+> **Superseded for new policies (2026-10-11).** Since `20261011090000` the bind credits the commission to **Unearned Commission** (`unearned_commission`, account 2020) instead of Commission Income (4000), so the bind journal is Dr 1100 G, Cr 2010 N, Cr 2020 C. Commission moves to income (Dr 2020, Cr 4000) when a posted settlement fully pays the insurer's net item, and the open items are unchanged. The first-draft treatment below still applies to policies bound before that migration.
 
 On bind, with gross premium G and commission rate r:
 
@@ -127,6 +131,7 @@ Location: `apps/web/src/modules/portals/insurance/`
 | `pages/claims/NewClaim.tsx` | Notify a loss against a bound policy, with date and sum-insured checks |
 | `pages/claims/ClaimDetail.tsx` | Claim detail with transition buttons, reason and amount dialogs, and history |
 | `pages/admin/ProductLinesAdmin.tsx` | Product lines (admin and manager) |
+| `pages/commission/CommissionPage.tsx` | Commission entries and position, plus transfers of earned commission out of client money and voiding them (managers). Has a component test, `CommissionPage.test.tsx` |
 
 Wiring:
 
@@ -140,13 +145,15 @@ Wiring:
 
 | Check | Result | Notes |
 |---|---|---|
-| SQL behaviour, `supabase/tests/test_ins_core.sql` | About 100 assertions in the repo suite, run by `scripts/run-sql-tests.ps1` and CI | Replaces the earlier 21-case PGlite harness, which lived outside the repo. One `GAP:` notice remains: commission stays in client money (section 7, question 6). |
+| SQL behaviour, `supabase/tests/test_ins_core.sql` | About 100 assertions in the repo suite, run by `scripts/run-sql-tests.ps1` and CI | Replaces the earlier 21-case PGlite harness, which lived outside the repo. The commission-stays-in-client-money gap that this row originally reported was closed by `20261011090000`; three other `GAP:` notices remain (a member can set `renewal_of_id` on a draft, a claim's `loss_date` can be edited outside the policy period, and a manager can reach the claim DELETE path). |
 | Existing repo insurance SQL tests (`supabase/tests/test_insurance_*.sql`) | **Not run** | They need a real database (CI db-shadow-replay). They cover the template, module registration and client master, none of which this migration changes. |
 | TypeScript (`tsc --noEmit`) | **Pass** | Needed a larger heap (`NODE_OPTIONS=--max-old-space-size=6144`). The default heap runs out. |
 | Vitest, full web suite | **526/526 pass** (69 files) | Needs `--experimental-websocket` on Node 20. The repo targets Node 22. |
 | Production build (`vite build`) | **Pass with `--minify false`** | The sandbox has about 2 GB of RAM. Minified rollup was killed by the OS, even with a 1.5 GB heap. Not a code error. CI should run the full `npm run build`. |
 | Migration policy script | **Pass** | `scripts/check-migration-policy.sh 367ccb8` on the commit. |
 | Page-level UI | **Not tested in a browser** | Pages compile and their pure logic is tested. No component tests for the new pages yet. |
+
+The rows above record the sandbox run made when the draft was written. On 2026-10-12 the full CI run (build, unit tests, from-scratch migration replay and every `supabase/tests/*.sql` file) was reported green after the insurance tests were updated for the 19-role template; the web suite is now 70 test files and there are 44 SQL test files.
 
 Dependencies: `npm ci` was run in the background with `npm_config_engine_strict=false`. Its exit code was not captured, but `tsc`, `vite` and `vitest` all ran against `node_modules`.
 
@@ -157,9 +164,19 @@ Decisions already made in this draft:
 1. Commission is computed as `round(gross × rate / 100, 2)`, and the net to the insurer is the remainder.
 2. Binding books the premium on the inception date, and the policy is locked afterwards.
 3. Insurance policies live under the insurance vertical and reuse `bd_clients` as the client master, with the D4 open-items subledger for receivables and payables.
-4. The bind requires the posting roles `ar_control`, `insurer_payable`, and `commission_income`. If any is missing, the bind stops with `INS_POSTING_RULE_MISSING`.
+4. The bind requires the posting roles `ar_control`, `insurer_payable`, `unearned_commission` and `commission_income` (the last was the only commission role in the first draft). If any is missing, the bind stops with `INS_POSTING_RULE_MISSING`.
+
+Commission decisions confirmed 2026-10-11 and built in `20261011090000`:
+
+5. Commission is credited to an unearned-commission liability when the policy is bound, not to income.
+6. It is recognised as income when the insurer's net item for that policy is fully settled, meaning the broker has paid the insurer. Recognition counts payments only; a credit note on an insurer item does not make it "fully settled".
+7. Earned commission stays in the client-money bank account until a manager moves it to an operating bank account with a transfer batch (`ins_transfer_earned_commission`, voidable with `ins_void_commission_transfer`). Each side of a transfer is reconciled separately against bank statement lines (`20261012090000`).
+8. No VAT or WHT lines on commission.
+9. Corrections to a bound policy stay "reverse and re-issue" for v1. Policies bound before the deferral migration keep the old treatment (commission to income at bind) and are not backfilled.
 
 ## 7. Open questions for the accountant
+
+Status as of 2026-10-12: questions 2, 5 and 6 are decided (section 6, items 5 to 9) and question 4 is half decided (no VAT or WHT on commission; account names are still unconfirmed). Questions 1 and 3 are open. The original wording is kept below.
 
 1. **Gross-up:** should gross premium be booked to AR (1100) at bind, as in this draft? Or should client money go straight to the premium trust account (1020) when it is received?
 2. **Commission timing:** is commission earned at bind (this draft), or only when the insurer pays? If the latter, the commission receivable account (1110) would be used at bind instead of income.
@@ -174,12 +191,12 @@ Decisions already made in this draft:
 - Endorsements, mid-term changes, and cancellation or refund of bound policies
 - Policy approval workflow (the shared approval engine is an open audit seam, 14 to 17)
 - Cash collection from clients and remittance to insurers, with reconciliation against the open items
-- Commission statements per insurer, and a commission receivable process
+- Commission statements per insurer, and a commission receivable process (the deferral, recognition and transfer mechanics are built; see section 6)
 - Document attachments (policy wordings, claim documents). The generic document store is an open audit seam.
 - Notifications for expiries and claim decisions (the generic notifications seam is open)
 - Regenerating `packages/shared/src/database.types.ts`. The loose client in `db.ts` covers the gap.
 - Reports beyond the dashboard
-- Checks on a real Supabase project: the migration has not been applied anywhere, and the RLS has been tested only on PGlite with stubs
+- Checks on a real Supabase project: as of this draft the migration had not been applied anywhere and the RLS had been tested only on PGlite with stubs. The SQL tests now run in CI against a local Supabase stack; whether the insurance migrations have been applied to a hosted project is not recorded in the repo
 
 ## 9. Risks
 
@@ -193,8 +210,8 @@ Decisions already made in this draft:
 
 ## 10. Next steps
 
-1. Get the accountant's answers to section 7, starting with question 6 (how commission leaves client money).
+1. Get the accountant's answers to the open section 7 questions (1 and 3) and a sign-off of the deferred-commission treatment in section 6.
 2. Regenerate DB types and remove the loose client in `db.ts`.
 3. Decide whether policies in other currencies should be supported; until then the bind refuses them.
-4. Add component tests for the bind and claim dialogs.
+4. Add component tests for the bind and claim dialogs (the Commission page already has one).
 5. Build the deferred items in section 8, in the order the accountant's answers require.

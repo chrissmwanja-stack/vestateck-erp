@@ -27,7 +27,7 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       115 incremental migrations layered on top as work
+                       120 incremental migrations layered on top as work
                        continues (supabase/migrations_archive holds the 201
                        pre-squash migrations, kept for history). Verified
                        2026-09-16: replaying every tracked migration from an
@@ -64,7 +64,7 @@ BULK_IMPORT_NOTES.md       Bulk-import file list and per-screen column specs
 | PMO | Real workflow — projects, tasks, milestones, resources, Gantt with dependencies/critical path; project approval RPCs plus a real time/cost ledger (`pmo_time_entries`, `pmo_cost_entries`) backing the budget-vs-actual report |
 | Machine Operation | Real workflow — equipment, logs, fuel, maintenance; `transition_maintenance_request` state machine with an overdue sweep, and fuel/maintenance costs auto-post to GL |
 | Sustainability | Operational — metrics, audits, certifications (with expiry sweep), initiatives; no targets/baselines or emission-factor computation yet |
-| Insurance Brokerage (`modules/portals/insurance`) | New, core slice — clients, insurers, product lines, policies, renewals pipeline (120-day window) and claims. Policies are created and bound only through RPCs: binding posts one journal (Dr AR control / Cr insurer payable / Cr commission income) and creates a premium receivable and an insurer payable in the open-item subledger. Claims follow a server-side state machine (notified → assessing → approved → settled → closed, or repudiated) with an audit trail; claim settlement posts no cash. Not yet built: quotes/submissions, placement, endorsements, cancellations, commission statements, remittances, and moving commission out of client money (see Known issues) |
+| Insurance Brokerage (`modules/portals/insurance`) | Core slice plus deferred commission — clients, insurers, product lines, policies, renewals pipeline (120-day window), claims and a Commission page. Policies are created and bound only through RPCs: binding posts one journal (Dr AR control / Cr insurer payable / Cr unearned commission) and creates a premium receivable and an insurer payable in the open-item subledger. Commission is recognised as income when a posted settlement fully pays the insurer's net item for that policy, and the recognition is reversed if that settlement is voided. Earned commission still sits in the client-money bank account until a manager moves it to an operating account with a commission transfer (`ins_transfer_earned_commission`, voidable); each side of a transfer is matched separately in bank reconciliation. Policies bound before the deferral migration (`20261011090000`) keep the old treatment (commission to income at bind). Claims follow a server-side state machine (notified → assessing → approved → settled → closed, or repudiated) with an audit trail; claim settlement posts no cash. Not yet built: quotes/submissions, placement, endorsements, cancellations, commission statements per insurer, remittances, and claim cash payments. The accounting treatment is not yet signed off by an accountant (see `docs/insurance-brokerage/ANALYSIS.md`) |
 ## Getting started
 
 1. Install dependencies from the repo root:
@@ -148,15 +148,16 @@ PostgREST's root, which only proves the edge is up, not the database.
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
-`npm run test --workspace=apps/web` (Vitest) are the web checks — 69 test files
-as of 2026-10-10 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 43 SQL test files in `supabase/tests/`. Coverage
+`npm run test --workspace=apps/web` (Vitest) are the web checks — 70 test files
+as of 2026-10-12 (see the `test` job in `foundation-checks.yml` for the
+current passing count), plus 44 SQL test files in `supabase/tests/`. Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
 Platform/Admin and Insurance Brokerage's database layer have the deepest SQL
 coverage; shallower modules (PMO, Machine Operation, Sustainability) have less.
-The Insurance Brokerage screens have unit tests for their pure logic only, not
-page-level component tests yet.
+The Insurance Brokerage screens have unit tests for their pure logic and a
+component test for the Commission page; the policy, claim and bind dialogs have
+no page-level component tests yet.
 
 ### SQL tests
 
@@ -192,14 +193,15 @@ approvals, and company-admin member/invitation and organization setup).
 
 ## Known issues
 
-- **Insurance — commission stays in client money.** Binding books commission
-  income at bind, but the client pays the gross premium into the client-money
-  account and only the net is remitted to the insurer, so the commission remains
-  in the client-money GL (1020). The settlement rules deliberately stop a
-  client-money account from settling anything else, and there is no transfer from
-  client money to an operating account yet. The commission-timing and transfer
-  questions for the accountant are listed in
-  `docs/insurance-brokerage/ANALYSIS.md`.
+- **Insurance — commission sign-off and legacy policies.** Commission is now
+  deferred at bind and recognised when the insurer's net item is fully paid, and
+  a manager moves earned commission out of client money with a transfer batch
+  (see the module table). The remaining caveats: the accountant has not signed
+  off the treatment (open questions in `docs/insurance-brokerage/ANALYSIS.md`);
+  policies bound before `20261011090000` keep the old treatment and are not
+  backfilled; recognition counts payments only, so a credit note on an insurer
+  item does not make it "fully settled"; and bound-policy corrections remain
+  "reverse and re-issue".
 - **Insurance — non-UGX policies cannot be bound.** `ins_bind_policy` refuses a
   policy whose currency differs from the tenant's ledger currency
   (`INS_CURRENCY_UNSUPPORTED`); such a policy can be saved as a draft only. The
