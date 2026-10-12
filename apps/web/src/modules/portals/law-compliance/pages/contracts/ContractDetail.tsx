@@ -110,7 +110,7 @@ export default function ContractDetail() {
     const { error } = await supabase.rpc("decide_contract", {
       p_contract_id: record.id,
       p_decision: dialog.decision,
-      p_notes: trimmed || null,
+      p_notes: trimmed || undefined,
     });
     setBusy(false);
     if (error) { setActionError(error.message); return; }

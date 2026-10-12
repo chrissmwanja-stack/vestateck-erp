@@ -136,8 +136,8 @@ export default function MaintenanceRequests() {
     const { error } = await supabase.rpc("transition_maintenance_request", {
       p_request_id: row.id,
       p_status: to,
-      p_note: note ?? null,
-      p_actual_cost: actualCost ?? null,
+      p_note: note ?? undefined,
+      p_actual_cost: actualCost ?? undefined,
     });
     setBusy(false);
     if (error) setCostError(error.message);

@@ -158,8 +158,8 @@ export default function TendersList() {
     const { error } = await supabase.rpc("transition_tender", {
       p_tender_id: t.id,
       p_status: to,
-      p_ref: ref ?? null,
-      p_note: note ?? null,
+      p_ref: ref ?? undefined,
+      p_note: note ?? undefined,
     });
     setBusy(false);
     if (error) setActError(error.message);

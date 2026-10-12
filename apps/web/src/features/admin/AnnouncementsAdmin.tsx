@@ -283,7 +283,7 @@ function AnnouncementDialog({
     setSaving(true);
     setServerError(null);
     const { error } = await supabase.rpc('save_platform_announcement', {
-      p_id: d.id,
+      p_id: d.id as string, // RPC has no default; null creates a new row (generated type is non-null)
       p_title: d.title.trim(),
       p_body: d.body.trim(),
       p_severity: d.severity,

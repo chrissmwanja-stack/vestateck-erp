@@ -183,7 +183,7 @@ export function useCompanyDetail() {
     const { error: err } = await supabase.rpc('set_tenant_read_only', {
       p_tenant_id: tenantId,
       p_read_only: readOnlyDialog,
-      p_reason: reason.trim() || null,
+      p_reason: reason.trim() || undefined,
     });
     setDialogSaving(false);
     if (err) {

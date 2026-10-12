@@ -103,7 +103,7 @@ export default function FilingsList() {
     const { error } = await supabase.rpc("transition_filing", {
       p_filing_id: transition.filing.id,
       p_status: transition.to,
-      p_note: note.trim() || null,
+      p_note: note.trim() || undefined,
     });
     setBusy(false);
     if (error) { setError(error.message); return; }

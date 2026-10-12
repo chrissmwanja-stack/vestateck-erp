@@ -73,7 +73,7 @@ export default function ContractApprovals() {
     const { error } = await supabase.rpc("decide_contract", {
       p_contract_id: dialog.contract.id,
       p_decision: dialog.decision,
-      p_notes: trimmed || null,
+      p_notes: trimmed || undefined,
     });
     setDeciding(false);
     if (error) {

@@ -76,7 +76,7 @@ export default function PMOApprovals() {
     const { error } = await supabase.rpc("decide_pmo_project", {
       p_project_id: dialog.project.id,
       p_decision: dialog.decision,
-      p_notes: trimmed || null,
+      p_notes: trimmed || undefined,
     });
     setDeciding(false);
     if (error) {
