@@ -9,6 +9,7 @@ import { useInsuranceAccess } from '../../access';
 import { CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, nextClaimStatuses } from '../../logic';
 import type { Claim, ClaimEvent, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
+import ClaimPayments from './ClaimPayments';
 
 // Each transition the UI can offer and what it needs from the user.
 type Step = { to: ClaimStatus; label: string; needsAmount?: boolean; needsNote?: boolean; note: string };
@@ -16,9 +17,8 @@ type Step = { to: ClaimStatus; label: string; needsAmount?: boolean; needsNote?:
 const STEPS: Record<string, Step> = {
   notified_assessing: { to: 'assessing', label: 'Start assessment', note: 'Moves the claim into assessment. No amounts change.' },
   notified_repudiated: { to: 'repudiated', label: 'Repudiate', needsNote: true, note: 'The insurer or broker declines the claim. A reason is required.' },
-  assessing_approved: { to: 'approved', label: 'Approve', needsAmount: true, note: 'Records the approved amount. It cannot exceed the sum insured.' },
+  assessing_approved: { to: 'approved', label: 'Approve', needsAmount: true, note: "Records the approved amount, which cannot exceed the sum insured. How the claim is then paid follows the insurer's setting: the insurer pays the client directly, or the brokerage pays the client through client money. That is fixed when you approve." },
   assessing_repudiated: { to: 'repudiated', label: 'Repudiate', needsNote: true, note: 'The claim is declined. A reason is required.' },
-  approved_settled: { to: 'settled', label: 'Mark settled', note: 'Marks the claim settled at the approved amount. No cash is posted to the ledger in this release.' },
   settled_closed: { to: 'closed', label: 'Close', note: 'Closes the file.' },
   repudiated_closed: { to: 'closed', label: 'Close', note: 'Closes the file.' },
 };
@@ -139,15 +139,17 @@ export default function ClaimDetail() {
               <Typography variant="subtitle2" gutterBottom>Amounts ({currency})</Typography>
               <Row label="Reserve" value={formatMoney(claim.reserve_amount, currency)} />
               <Row label="Approved" value={claim.approved_amount == null ? '-' : formatMoney(claim.approved_amount, currency)} />
-              <Row label="Recorded as paid" value={formatMoney(claim.paid_amount, currency)} />
+              <Row label="Paid to the client" value={formatMoney(claim.paid_amount, currency)} />
               {claim.settled_at && <Row label="Settled" value={new Date(claim.settled_at).toLocaleString()} />}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Reserve is set when the claim is reported. Cash payments are not posted by this module yet.
+                Reserve is set when the claim is reported. A claim settles by itself once payments cover the approved amount.
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      <ClaimPayments claim={claim} currency={currency} canManage={canManage} onChanged={load} />
 
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>History</Typography>
       <Card variant="outlined">

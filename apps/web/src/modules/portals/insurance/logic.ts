@@ -1,4 +1,4 @@
-import type { ClaimStatus, CommissionEntry, CommissionStatus, PolicyStatus } from './types';
+import type { ClaimPaymentKind, ClaimPaymentMode, ClaimStatus, CommissionEntry, CommissionStatus, PolicyStatus } from './types';
 
 // Pure helpers for the insurance screens. Nothing here touches the database.
 // The server (ins_* RPCs and guards) is the source of truth. These mirror it so
@@ -33,6 +33,65 @@ export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
   repudiated: 'Repudiated',
   closed: 'Closed',
 };
+
+export const CLAIM_PAYMENT_MODE_LABEL: Record<ClaimPaymentMode, string> = {
+  insurer_direct: 'Insurer pays the client',
+  via_broker: 'Brokerage pays the client',
+};
+
+export const CLAIM_PAYMENT_MODE_HELP: Record<ClaimPaymentMode, string> = {
+  insurer_direct:
+    'The insurer pays the client directly. Record each payment the insurer confirms. Nothing is posted to the ledger because the brokerage never holds the money.',
+  via_broker:
+    'The insurer pays the brokerage and the brokerage pays the client, both through a client-money bank account. Each step is posted to the ledger. The brokerage cannot pay the client ahead of the insurer.',
+};
+
+export const CLAIM_PAYMENT_KIND_LABEL: Record<ClaimPaymentKind, string> = {
+  insurer_direct: 'Paid by insurer to client',
+  insurer_receipt: 'Received from insurer',
+  client_payout: 'Paid to client',
+};
+
+/** What is still unpaid on an approved claim (insurer-direct), floored at zero. */
+export function claimRemainingToPay(approved: number | null, paid: number): number {
+  return Math.max(0, Math.round(((approved ?? 0) - paid) * 100) / 100);
+}
+
+export type ClaimMoneyKind = 'direct' | 'receipt' | 'payout';
+
+/**
+ * Client-side checks that match ins_record_claim_payment / _receipt / _payout.
+ * `max` is what the server will accept: the unpaid balance (direct), what the
+ * insurer still owes (receipt) or what is held for the client (payout).
+ */
+export function validateClaimMoneyInput(input: {
+  kind: ClaimMoneyKind;
+  amount: number;
+  max: number;
+  currency: string;
+  date: string;
+  todayIso: string;
+  notifiedIso: string;
+  reference: string;
+  bankId: string;
+}): string[] {
+  const errors: string[] = [];
+  if (!(input.amount > 0)) errors.push('Enter an amount above zero.');
+  else if (input.amount > input.max) {
+    const cap = formatMoney(input.max, input.currency);
+    errors.push(
+      input.kind === 'direct' ? `Only ${cap} is still unpaid on this claim.`
+        : input.kind === 'receipt' ? `The insurer owes only ${cap} on this claim.`
+        : `Only ${cap} has been received from the insurer and not yet paid out.`,
+    );
+  }
+  if (!input.date) errors.push('Choose a date.');
+  else if (input.date > input.todayIso) errors.push('The date cannot be in the future.');
+  else if (input.date < input.notifiedIso) errors.push('The date cannot be before the claim was notified.');
+  if (input.kind === 'direct' && !input.reference.trim()) errors.push("Enter the insurer's payment reference.");
+  if (input.kind !== 'direct' && !input.bankId) errors.push('Choose a client-money bank account.');
+  return errors;
+}
 
 export const POLICY_STATUS_LABEL: Record<PolicyStatus, string> = {
   draft: 'Draft',

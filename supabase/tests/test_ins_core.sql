@@ -790,9 +790,11 @@ begin
   cl1 := ins_transition_claim(cl1.id, 'approved', 'Approved after assessment', 1500000);
   perform pg_temp.assert(cl1.status = 'approved' and cl1.approved_amount = 1500000 and cl1.paid_amount = 0, 'approval records the approved amount');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''repudiated'', ''too late'')', cl1.id), 'INS_CLAIM_TRANSITION', 'repudiating an approved claim');
-  cl1 := ins_transition_claim(cl1.id, 'settled');
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''settled'')', cl1.id), 'INS_CLAIM_PAYMENT_REQUIRED', 'settling an unpaid claim by hand');
+  perform ins_record_claim_payment(cl1.id, 1500000, current_date, 'INSURER-PAY-001');
+  select * into cl1 from ins_claims where id = cl1.id;
   perform pg_temp.assert(cl1.status = 'settled' and cl1.paid_amount = 1500000 and cl1.settled_at is not null,
-                         'settling sets paid = approved and stamps the settlement date');
+                         'paying the approved amount settles the claim and stamps the settlement date');
   cl1 := ins_transition_claim(cl1.id, 'closed', 'File closed');
   perform pg_temp.assert(cl1.status = 'closed', 'a settled claim closes');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'')', cl1.id), 'INS_CLAIM_TRANSITION', 'reopening a closed claim');

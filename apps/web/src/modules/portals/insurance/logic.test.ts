@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  claimRemainingToPay,
   commissionSplit,
   daysBetween,
   formatMoney,
@@ -9,6 +10,7 @@ import {
   nextClaimStatuses,
   policyTermDays,
   renewalBucket,
+  validateClaimMoneyInput,
   validatePolicyInput,
 } from './logic';
 
@@ -113,5 +115,54 @@ describe('formatting', () => {
       'policy POL-2026-00001 is already active',
     );
     expect(friendlyError('new row violates row-level security policy')).toBe('new row violates row-level security policy');
+  });
+});
+
+
+// These mirror ins_record_claim_payment / ins_record_claim_receipt /
+// ins_record_claim_payout in supabase/migrations/20261013090000_ins_claim_payments.sql.
+describe('claim payment helpers', () => {
+  const base = {
+    amount: 100, max: 500, currency: 'UGX', date: '2026-10-13', todayIso: '2026-10-13',
+    notifiedIso: '2026-10-01', reference: 'REF-1', bankId: 'bank-1',
+  };
+
+  it('works out what is still unpaid and never goes below zero', () => {
+    expect(claimRemainingToPay(1000, 400)).toBe(600);
+    expect(claimRemainingToPay(1000, 1000)).toBe(0);
+    expect(claimRemainingToPay(null, 0)).toBe(0);
+    expect(claimRemainingToPay(0.3, 0.1)).toBe(0.2);
+  });
+
+  it('accepts a valid insurer-direct payment without a bank account', () => {
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', bankId: '' })).toEqual([]);
+  });
+
+  it('requires the insurer reference for a direct payment, because nothing else evidences it', () => {
+    const errors = validateClaimMoneyInput({ ...base, kind: 'direct', reference: '  ' });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/reference/i);
+  });
+
+  it('requires a client-money bank account for a receipt and a payout, not a reference', () => {
+    expect(validateClaimMoneyInput({ ...base, kind: 'receipt', bankId: '', reference: '' })).toHaveLength(1);
+    expect(validateClaimMoneyInput({ ...base, kind: 'payout', bankId: '', reference: '' })).toHaveLength(1);
+    expect(validateClaimMoneyInput({ ...base, kind: 'receipt', reference: '' })).toEqual([]);
+    expect(validateClaimMoneyInput({ ...base, kind: 'payout', reference: '' })).toEqual([]);
+  });
+
+  it('rejects zero, negative and over-limit amounts, with a message per kind', () => {
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', amount: 0 })[0]).toMatch(/above zero/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', amount: -5 })[0]).toMatch(/above zero/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', amount: 501 })[0]).toMatch(/still unpaid/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'receipt', amount: 501 })[0]).toMatch(/insurer owes/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'payout', amount: 501 })[0]).toMatch(/received from the insurer/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'payout', amount: 500 })).toEqual([]);
+  });
+
+  it('rejects a future date and a date before the claim was notified', () => {
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', date: '2026-10-14' })[0]).toMatch(/future/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', date: '2026-09-30' })[0]).toMatch(/before the claim was notified/i);
+    expect(validateClaimMoneyInput({ ...base, kind: 'direct', date: '' })[0]).toMatch(/choose a date/i);
   });
 });

@@ -13,7 +13,7 @@ Add an Insurance Brokerage management system to VestaPortal. It covers the agenc
 - track renewals before expiry
 - notify and assess claims against bound policies
 
-**Out of this draft:** claim cash payments and their ledger posting, endorsements, cancellation of bound policies, a policy approval workflow, and collection or remittance of cash. Each is a deliberate scope cut and is listed in section 8.
+**Out of this draft:** endorsements, cancellation of bound policies, a policy approval workflow, and collection or remittance of cash. Each is a deliberate scope cut and is listed in section 8.
 
 The request said "all of those". No attachments were provided, so this analysis is based on the repository contents.
 
@@ -43,6 +43,7 @@ When this draft was written, `PHASE0_COUPLING_AUDIT.md` still listed D4d (bank r
 | `ins_policies` | Policy header. Statuses: `draft`, `active`, `renewed`. Premium, commission and net stored on bind. | Inserts go through `ins_create_policy`. Bound rows are locked by a guard. |
 | `ins_claims` | Claim header. Reserve, approved and paid amounts. | Status moves go through `ins_transition_claim`. |
 | `ins_claim_events` | Append-only claim history. | Written by RPCs. |
+| `ins_claim_payments` | One row per claim payment, receipt or payout. | Written by RPCs and a settlement-void trigger. See 3.4. |
 
 Views: `ins_renewal_pipeline` (`security_invoker = true`, so the caller's RLS applies).
 
@@ -66,9 +67,20 @@ notified --> assessing --> approved --> settled --> closed
 ```
 
 - Notify and assess: any insurance member.
-- Approve, settle, repudiate, close: admin and manager.
+- Approve, repudiate, close: admin and manager. Recording claim payments is also admin and manager. A claim settles by itself when its payments cover the approved amount.
 - Approval amount must be above zero and at most the sum insured. Repudiation requires a reason.
-- `settled` sets `paid_amount = approved_amount` and records the settlement date. **No cash is posted.** That is a status change only, so the UI labels it "Mark settled" and states that no cash is posted.
+- `settled` can no longer be set by hand. `ins_transition_claim(..., 'settled')` is refused with `INS_CLAIM_PAYMENT_REQUIRED` unless payments already cover the approved amount; the payment functions settle the claim themselves. Voiding a payment on a settled claim moves it back to `approved`.
+
+### 3.4 Claim payments (`20261013090000_ins_claim_payments.sql`)
+
+Each insurer has `claim_payment_mode`: `insurer_direct` (default) or `via_broker`. Approval copies it to `ins_claims.payment_mode`, so a later change to the insurer never alters a claim already approved.
+
+- **Insurer-direct:** the insurer pays the client. `ins_record_claim_payment` records the payment with a required insurer reference. Nothing is posted: the brokerage never holds the money. Partial payments are allowed.
+- **Brokerage-managed:** approval posts `Dr insurer_claim_receivable (1120) / Cr client_claim_payable (2030)` for the approved amount (source type `ins_claim_accrual`) and opens a receivable item against the insurer and a payable item to the client. `ins_record_claim_receipt` takes the insurer's money into a client-money account; `ins_record_claim_payout` pays the client out of it. Both are ordinary settlements, so they reconcile to the bank like any other.
+- **Controls:** the brokerage cannot pay out more than it has received for the claim (`INS_CLAIM_FUNDS_NOT_RECEIVED`). A receipt that has been paid out cannot be voided, from the claim or from Finance (`INS_CLAIM_FUNDS_PAID_OUT`). The settlement engine accepts the two claim roles only when called from the claim functions, so Finance cannot settle a claim item from the generic screen. Claim money goes through a client-money bank account only.
+- **Records:** `ins_claim_payments` (RPC-written, one row per payment, receipt or payout, voidable) and the view `ins_claim_cash_position` (received, paid to client, held for the client, due from the insurer).
+- **Posting roles:** `insurer_claim_receivable` and `client_claim_payable` bring the platform total to 21. The insurance template and existing insurance tenants gain accounts 1120 and 2030.
+- **Not covered:** un-approving a brokerage-managed claim (approval posts the accrual and there is no reversal), credit notes on claim items, overpayment or recovery. Booking at approval rather than at receipt follows how premium is booked at bind and needs the same accountant sign-off as the commission rules.
 
 ### 3.4 Accounting treatment (requires accountant sign-off)
 
@@ -130,12 +142,9 @@ Location: `apps/web/src/modules/portals/insurance/`
 | `pages/claims/ClaimsList.tsx` | Claims, filterable |
 | `pages/claims/NewClaim.tsx` | Notify a loss against a bound policy, with date and sum-insured checks |
 | `pages/claims/ClaimDetail.tsx` | Claim detail with transition buttons, reason and amount dialogs, and history |
+| `pages/claims/ClaimPayments.tsx` | The payment panel on an approved claim: both modes, record, receipt, payout and void dialogs. Has a component test, `ClaimPayments.test.tsx` |
 | `pages/admin/ProductLinesAdmin.tsx` | Product lines (admin and manager) |
-<<<<<<< ours
 | `pages/commission/CommissionPage.tsx` | Commission entries and position, plus transfers of earned commission out of client money and voiding them (managers). Has a component test, `CommissionPage.test.tsx` |
-=======
-| `pages/commission/CommissionPage.tsx` | Commission entries and position, plus transfers of earned commission out of client money and voiding them (managers). Has a component test, `CommissionPage.test.tsx`. **Not yet routed:** `insuranceRoutes.tsx` has no `/insurance/commission` route and `ShellConfigs.tsx` has no nav entry, so the page is unreachable |
->>>>>>> theirs
 
 Wiring:
 
@@ -174,11 +183,7 @@ Commission decisions confirmed 2026-10-11 and built in `20261011090000`:
 
 5. Commission is credited to an unearned-commission liability when the policy is bound, not to income.
 6. It is recognised as income when the insurer's net item for that policy is fully settled, meaning the broker has paid the insurer. Recognition counts payments only; a credit note on an insurer item does not make it "fully settled".
-<<<<<<< ours
 7. Earned commission stays in the client-money bank account until a manager moves it to an operating bank account with a transfer batch (`ins_transfer_earned_commission`, voidable with `ins_void_commission_transfer`). Each side of a transfer is reconciled separately against bank statement lines (`20261012090000`).
-=======
-7. Earned commission stays in the client-money bank account until a manager moves it to an operating bank account with a transfer batch (`ins_transfer_earned_commission`, voidable with `ins_void_commission_transfer`). Each side of a transfer is reconciled separately against bank statement lines (`20261012090000`). Status: auto-match is wired into the reconciliation screen, but the manual-match RPC `match_bank_statement_line_to_commission_transfer` is not called from the UI, and no SQL test exercises transfer reconciliation yet.
->>>>>>> theirs
 8. No VAT or WHT lines on commission.
 9. Corrections to a bound policy stay "reverse and re-issue" for v1. Policies bound before the deferral migration keep the old treatment (commission to income at bind) and are not backfilled.
 
@@ -195,7 +200,6 @@ Status as of 2026-10-12: questions 2, 5 and 6 are decided (section 6, items 5 to
 
 ## 8. Not in this draft
 
-- Claim cash payments, and their ledger posting (claim payable, payment through 1020 or the bank)
 - Endorsements, mid-term changes, and cancellation or refund of bound policies
 - Policy approval workflow (the shared approval engine is an open audit seam, 14 to 17)
 - Cash collection from clients and remittance to insurers, with reconciliation against the open items

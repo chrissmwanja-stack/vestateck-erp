@@ -4,6 +4,9 @@
 export type PolicyStatus = 'draft' | 'active' | 'renewed';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';
 export type CommissionStatus = 'deferred' | 'earned' | 'transferred';
+/** Who pays a claim: the insurer straight to the client, or the insurer to the brokerage which pays the client. */
+export type ClaimPaymentMode = 'insurer_direct' | 'via_broker';
+export type ClaimPaymentKind = 'insurer_direct' | 'insurer_receipt' | 'client_payout';
 
 export interface CommissionEntry {
   id: string;
@@ -68,6 +71,7 @@ export interface Insurer {
   contact_email: string | null;
   contact_phone: string | null;
   default_commission_rate_pct: number;
+  claim_payment_mode: ClaimPaymentMode;
   is_active: boolean;
 }
 
@@ -118,6 +122,7 @@ export interface Claim {
   reserve_amount: number;
   approved_amount: number | null;
   paid_amount: number;
+  payment_mode: ClaimPaymentMode | null;
   settled_at: string | null;
   created_at: string;
   ins_policies?: {
@@ -134,6 +139,33 @@ export interface ClaimEvent {
   to_status: ClaimStatus;
   note: string | null;
   created_at: string;
+}
+
+export interface ClaimPayment {
+  id: string;
+  claim_id: string;
+  kind: ClaimPaymentKind;
+  amount: number;
+  payment_date: string;
+  reference: string | null;
+  notes: string | null;
+  settlement_id: string | null;
+  status: 'posted' | 'void';
+  void_reason: string | null;
+  created_at: string;
+}
+
+export interface ClaimCashPosition {
+  claim_id: string;
+  claim_no: string;
+  payment_mode: ClaimPaymentMode | null;
+  approved_amount: number | null;
+  paid_amount: number;
+  received_from_insurer: number;
+  paid_to_client: number;
+  paid_by_insurer_direct: number;
+  held_for_client: number;
+  due_from_insurer: number | null;
 }
 
 export interface RenewalRow {

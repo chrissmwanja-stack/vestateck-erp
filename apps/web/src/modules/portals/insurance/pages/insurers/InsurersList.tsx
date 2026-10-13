@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
+  IconButton, MenuItem, Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material';
 import { Add, Edit } from '@mui/icons-material';
 import { errorText, rows, table, write } from '../../db';
 import { useInsuranceAccess } from '../../access';
-import type { Insurer } from '../../types';
+import { CLAIM_PAYMENT_MODE_HELP, CLAIM_PAYMENT_MODE_LABEL } from '../../logic';
+import type { ClaimPaymentMode, Insurer } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
-const EMPTY = { code: '', name: '', contact_name: '', contact_email: '', contact_phone: '', default_commission_rate_pct: '0' };
+const EMPTY = { code: '', name: '', contact_name: '', contact_email: '', contact_phone: '', default_commission_rate_pct: '0', claim_payment_mode: 'insurer_direct' as ClaimPaymentMode };
 
 // Insurer masters. Writes are admin/manager only (RLS); members see the list.
 export default function InsurersList() {
@@ -49,6 +50,7 @@ export default function InsurersList() {
       contact_email: i.contact_email ?? '',
       contact_phone: i.contact_phone ?? '',
       default_commission_rate_pct: String(i.default_commission_rate_pct),
+      claim_payment_mode: i.claim_payment_mode ?? 'insurer_direct',
     });
     setEditing(i);
   };
@@ -63,6 +65,7 @@ export default function InsurersList() {
       contact_email: form.contact_email || null,
       contact_phone: form.contact_phone || null,
       default_commission_rate_pct: Number(form.default_commission_rate_pct || 0),
+      claim_payment_mode: form.claim_payment_mode,
     };
     try {
       if (editing === 'new') {
@@ -109,13 +112,14 @@ export default function InsurersList() {
                 <TableCell>Name</TableCell>
                 <TableCell>Contact</TableCell>
                 <TableCell align="right">Default commission</TableCell>
+                <TableCell>Claims paid by</TableCell>
                 <TableCell>Status</TableCell>
                 {canManage && <TableCell align="right">Edit</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {insurers.length === 0 ? (
-                <EmptyRow colSpan={canManage ? 6 : 5} text="No insurers yet." />
+                <EmptyRow colSpan={canManage ? 7 : 6} text="No insurers yet." />
               ) : (
                 insurers.map((i) => (
                   <TableRow key={i.id} hover>
@@ -123,6 +127,7 @@ export default function InsurersList() {
                     <TableCell sx={{ fontWeight: 600 }}>{i.name}</TableCell>
                     <TableCell>{i.contact_name ?? '-'}{i.contact_email ? ` · ${i.contact_email}` : ''}</TableCell>
                     <TableCell align="right">{Number(i.default_commission_rate_pct).toFixed(2)}%</TableCell>
+                    <TableCell>{i.claim_payment_mode === 'via_broker' ? 'Brokerage' : 'Insurer'}</TableCell>
                     <TableCell>
                       {canManage ? (
                         <Switch size="small" checked={i.is_active} onChange={() => toggleActive(i)} inputProps={{ 'aria-label': `Active: ${i.name}` }} />
@@ -160,6 +165,12 @@ export default function InsurersList() {
             <TextField label="Default commission (%)" type="number" value={form.default_commission_rate_pct}
               error={!commissionValid} helperText="Pre-fills new policies. The policy's own rate is what is used." inputProps={{ min: 0, max: 99.99, step: 0.01 }}
               onChange={(e) => setForm({ ...form, default_commission_rate_pct: e.target.value })} />
+            <TextField select label="How claims are paid" value={form.claim_payment_mode}
+              onChange={(e) => setForm({ ...form, claim_payment_mode: e.target.value as ClaimPaymentMode })}
+              helperText={`${CLAIM_PAYMENT_MODE_HELP[form.claim_payment_mode]} Applies to claims approved from now on; claims already approved keep their mode.`}>
+              <MenuItem value="insurer_direct">{CLAIM_PAYMENT_MODE_LABEL.insurer_direct}</MenuItem>
+              <MenuItem value="via_broker">{CLAIM_PAYMENT_MODE_LABEL.via_broker}</MenuItem>
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
