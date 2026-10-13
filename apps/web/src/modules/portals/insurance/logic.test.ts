@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { CommissionEntry, Policy } from './types';
 import {
+  buildCommissionStatement,
   claimRemainingToPay,
   commissionSplit,
   daysBetween,
@@ -12,6 +14,7 @@ import {
   renewalBucket,
   validateClaimMoneyInput,
   validatePolicyInput,
+  validateStatementPeriod,
 } from './logic';
 
 // The claim map here must match ins_transition_claim() in
@@ -166,3 +169,82 @@ describe('claim payment helpers', () => {
     expect(validateClaimMoneyInput({ ...base, kind: 'direct', date: '' })[0]).toMatch(/choose a date/i);
   });
 });
+
+describe('commission statement per insurer', () => {
+  const policy = (over: Partial<Policy>): Policy => ({
+    id: 'p1', policy_no: 'POL-1', status: 'active', client_id: 'c1', insurer_id: 'i1', product_line_id: 'pl1',
+    inception_date: '2026-10-01', expiry_date: '2027-10-01', sum_insured: 0, currency: 'UGX',
+    gross_premium: 1000, commission_rate_pct: 10, commission_amount: 100, net_premium_to_insurer: 900,
+    bound_at: '2026-10-05T08:00:00Z', journal_entry_id: null, renewal_of_id: null, risk_description: null, notes: null,
+    ins_clients: { bd_clients: { name: 'Acme' } },
+    ...over,
+  });
+  const entry = (over: Partial<CommissionEntry>): CommissionEntry => ({
+    id: 'e1', tenant_id: 't', policy_id: 'p1', policy_no: 'POL-1', insurer_id: 'i1', client_id: 'c1', amount: 100,
+    status: 'deferred', earned_on: null, transfer_id: null, transfer_no: null, transfer_date: null,
+    created_at: '', updated_at: '', ...over,
+  });
+  const period = { from: '2026-10-01', to: '2026-10-31' };
+
+  it('includes only bound policies inside the period, inclusive of both end dates', () => {
+    const policies = [
+      policy({ id: 'a', policy_no: 'A', bound_at: '2026-10-01T00:00:00Z' }),
+      policy({ id: 'b', policy_no: 'B', bound_at: '2026-10-31T23:59:00Z' }),
+      policy({ id: 'c', policy_no: 'C', bound_at: '2026-09-30T23:59:00Z' }),
+      policy({ id: 'd', policy_no: 'D', bound_at: '2026-11-01T00:00:00Z' }),
+      policy({ id: 'e', policy_no: 'E', status: 'draft', bound_at: null }),
+    ];
+    expect(buildCommissionStatement(policies, [], period).rows.map((r) => r.policy_no)).toEqual(['A', 'B']);
+  });
+
+  it('takes status and transfer details from the ledger and totals each status separately', () => {
+    const policies = [
+      policy({ id: 'a', policy_no: 'A', commission_amount: 100 }),
+      policy({ id: 'b', policy_no: 'B', commission_amount: 50, gross_premium: 500, net_premium_to_insurer: 450 }),
+      policy({ id: 'c', policy_no: 'C', commission_amount: 20, gross_premium: 200, net_premium_to_insurer: 180 }),
+    ];
+    const ledger = [
+      entry({ id: 'ea', policy_id: 'a', amount: 100, status: 'deferred' }),
+      entry({ id: 'eb', policy_id: 'b', amount: 50, status: 'earned', earned_on: '2026-10-10' }),
+      entry({ id: 'ec', policy_id: 'c', amount: 20, status: 'transferred', earned_on: '2026-10-10', transfer_id: 't1', transfer_no: 'CT-1', transfer_date: '2026-10-12' }),
+    ];
+    const { rows, totals } = buildCommissionStatement(policies, ledger, period);
+    expect(rows.map((r) => r.status)).toEqual(['deferred', 'earned', 'transferred']);
+    expect(rows[2]).toMatchObject({ transfer_no: 'CT-1', transfer_date: '2026-10-12', earned_on: '2026-10-10' });
+    expect(totals).toMatchObject({
+      policies: 3, gross_premium: 1700, net_premium: 1530, commission: 170,
+      deferred: 100, earned: 50, transferred: 20, legacy: 0,
+    });
+  });
+
+  it('shows policies bound before commission deferral as legacy, so every bound policy is accounted for', () => {
+    const { rows, totals } = buildCommissionStatement([policy({ commission_amount: 100 })], [], period);
+    expect(rows[0].status).toBe('legacy');
+    expect(rows[0].commission).toBe(100);
+    expect(totals.legacy).toBe(100);
+    expect(totals.deferred + totals.earned + totals.transferred + totals.legacy).toBe(totals.commission);
+  });
+
+  it('refuses to total more than one currency', () => {
+    const policies = [policy({ id: 'a' }), policy({ id: 'b', policy_no: 'B', currency: 'USD' })];
+    expect(() => buildCommissionStatement(policies, [], period)).toThrow(/more than one currency/);
+  });
+
+  it('keeps totals free of floating point drift', () => {
+    const policies = [0.1, 0.2].map((c, i) => policy({ id: `p${i}`, policy_no: `P${i}`, commission_amount: c }));
+    expect(buildCommissionStatement(policies, [], period).totals.commission).toBe(0.3);
+  });
+
+  it('returns an empty statement when nothing was bound in the period', () => {
+    const { rows, totals } = buildCommissionStatement([], [], period);
+    expect(rows).toEqual([]);
+    expect(totals.commission).toBe(0);
+  });
+
+  it('validates the period', () => {
+    expect(validateStatementPeriod('', '2026-10-31')).toMatch(/both/);
+    expect(validateStatementPeriod('2026-11-01', '2026-10-31')).toMatch(/after/);
+    expect(validateStatementPeriod('2026-10-01', '2026-10-31')).toBeNull();
+  });
+});
+

@@ -182,3 +182,38 @@ export interface RenewalRow {
   currency: string;
   renewal_draft_id: string | null;
 }
+
+/** A policy's commission as shown on an insurer statement. 'legacy' = bound before commission deferral (income taken at bind, no ledger entry). */
+export type StatementCommissionStatus = CommissionStatus | 'legacy';
+
+export interface CommissionStatementRow {
+  policy_id: string;
+  policy_no: string;
+  client_name: string;
+  bound_on: string;
+  currency: string;
+  gross_premium: number;
+  net_premium: number;
+  commission: number;
+  status: StatementCommissionStatus;
+  earned_on: string | null;
+  transfer_no: string | null;
+  transfer_date: string | null;
+}
+
+export interface CommissionStatementTotals {
+  policies: number;
+  gross_premium: number;
+  net_premium: number;
+  commission: number;
+  deferred: number;
+  earned: number;
+  transferred: number;
+  legacy: number;
+}
+
+export interface CommissionStatement {
+  rows: CommissionStatementRow[];
+  totals: CommissionStatementTotals;
+}
+

@@ -503,6 +503,12 @@ export const insuranceNodes: TreeNode[] = [
     to: "/insurance/commission",
   },
   {
+    id: "ins-commission-statements",
+    label: "Commission Statement",
+    icon: <ReceiptLong fontSize="small" />,
+    to: "/insurance/commission/statements",
+  },
+  {
     id: "ins-admin",
     label: "Admin",
     icon: <AdminPanelSettings fontSize="small" />,

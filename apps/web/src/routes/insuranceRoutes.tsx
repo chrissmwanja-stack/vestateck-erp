@@ -22,6 +22,7 @@ const ClaimsList = lazy(() => import('../modules/portals/insurance/pages/claims/
 const NewClaim = lazy(() => import('../modules/portals/insurance/pages/claims/NewClaim'));
 const ClaimDetail = lazy(() => import('../modules/portals/insurance/pages/claims/ClaimDetail'));
 const CommissionPage = lazy(() => import('../modules/portals/insurance/pages/commission/CommissionPage'));
+const CommissionStatements = lazy(() => import('../modules/portals/insurance/pages/commission/CommissionStatements'));
 const ProductLinesAdmin = lazy(() => import('../modules/portals/insurance/pages/admin/ProductLinesAdmin'));
 
 export const insuranceRoutes = (
@@ -42,6 +43,7 @@ export const insuranceRoutes = (
       {/* Any insurance role may read (server: can_access_insurance); the page hides
           transfer/void for non-managers, and the RPCs enforce can_manage_insurance. */}
       <Route path="/insurance/commission" element={<CommissionPage />} />
+      <Route path="/insurance/commission/statements" element={<CommissionStatements />} />
 
       <Route element={<RequireModule module="insurance" roles={INS_ADMIN_ROLES} />}>
         <Route path="/insurance/admin/product-lines" element={<ProductLinesAdmin />} />

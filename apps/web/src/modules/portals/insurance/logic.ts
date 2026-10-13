@@ -1,4 +1,7 @@
-import type { ClaimPaymentKind, ClaimPaymentMode, ClaimStatus, CommissionEntry, CommissionStatus, PolicyStatus } from './types';
+import type {
+  ClaimPaymentKind, ClaimPaymentMode, ClaimStatus, CommissionEntry, CommissionStatement, CommissionStatementRow,
+  CommissionStatus, Policy, PolicyStatus, StatementCommissionStatus,
+} from './types';
 
 // Pure helpers for the insurance screens. Nothing here touches the database.
 // The server (ins_* RPCs and guards) is the source of truth. These mirror it so
@@ -217,3 +220,74 @@ export function formatMoney(amount: number | null | undefined, currency = 'UGX')
 export function friendlyError(message: string): string {
   return message.replace(/^[A-Z][A-Z_]+:\s*/, '');
 }
+
+export const STATEMENT_STATUS_LABEL: Record<StatementCommissionStatus, string> = {
+  ...COMMISSION_STATUS_LABEL,
+  legacy: 'Legacy (income at bind)',
+};
+
+const money = (value: number | null | undefined): number => Math.round(Number(value ?? 0) * 100) / 100;
+
+/**
+ * Builds one insurer's commission statement from its bound policies and the
+ * commission ledger. A policy is on the statement when it was bound within the
+ * period (inclusive, by bound date). Policies bound before commission deferral
+ * have no ledger entry; they appear as 'legacy' so the statement still adds up
+ * to every bound policy. Caller passes only the chosen insurer's policies and
+ * a single currency; mixed currencies are refused so totals are never summed
+ * across currencies.
+ */
+export function buildCommissionStatement(
+  policies: Policy[],
+  ledger: CommissionEntry[],
+  period: { from: string; to: string },
+): CommissionStatement {
+  const byPolicy = new Map(ledger.map((entry) => [entry.policy_id, entry]));
+  const rows: CommissionStatementRow[] = policies
+    .filter((p) => p.status !== 'draft' && p.bound_at)
+    .map((p) => ({ policy: p, boundOn: (p.bound_at as string).slice(0, 10) }))
+    .filter(({ boundOn }) => boundOn >= period.from && boundOn <= period.to)
+    .sort((a, b) => a.boundOn.localeCompare(b.boundOn) || a.policy.policy_no.localeCompare(b.policy.policy_no))
+    .map(({ policy: p, boundOn }) => {
+      const entry = byPolicy.get(p.id);
+      return {
+        policy_id: p.id,
+        policy_no: p.policy_no,
+        client_name: p.ins_clients?.bd_clients?.name ?? '-',
+        bound_on: boundOn,
+        currency: p.currency,
+        gross_premium: money(p.gross_premium),
+        net_premium: money(p.net_premium_to_insurer),
+        commission: money(entry ? entry.amount : p.commission_amount),
+        status: entry ? entry.status : 'legacy',
+        earned_on: entry?.earned_on ?? null,
+        transfer_no: entry?.transfer_no ?? null,
+        transfer_date: entry?.transfer_date ?? null,
+      };
+    });
+
+  if (new Set(rows.map((r) => r.currency)).size > 1) {
+    throw new Error('This insurer has policies in more than one currency in this period. Narrow the period.');
+  }
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.policies += 1;
+      acc.gross_premium += r.gross_premium;
+      acc.net_premium += r.net_premium;
+      acc.commission += r.commission;
+      acc[r.status] += r.commission;
+      return acc;
+    },
+    { policies: 0, gross_premium: 0, net_premium: 0, commission: 0, deferred: 0, earned: 0, transferred: 0, legacy: 0 },
+  );
+  for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] = money(totals[key]);
+  return { rows, totals };
+}
+
+export function validateStatementPeriod(from: string, to: string): string | null {
+  if (!from || !to) return 'Choose both a start and an end date.';
+  if (from > to) return 'The start date is after the end date.';
+  return null;
+}
+

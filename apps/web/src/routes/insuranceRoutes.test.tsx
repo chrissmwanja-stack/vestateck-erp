@@ -17,6 +17,9 @@ vi.mock('../lib/supabaseClient', () => ({
 vi.mock('../modules/portals/insurance/pages/commission/CommissionPage', () => ({
   default: () => <div>Commission page</div>,
 }));
+vi.mock('../modules/portals/insurance/pages/commission/CommissionStatements', () => ({
+  default: () => <div>Commission statement page</div>,
+}));
 
 function renderAt(path: string) {
   return render(
@@ -45,6 +48,17 @@ describe('insurance commission route', () => {
     });
   });
 
+  it('opens /insurance/commission/statements for a user with an insurance role, and denies others', async () => {
+    mockRpc.mockResolvedValue({ data: true, error: null });
+    const first = renderAt('/insurance/commission/statements');
+    await waitFor(() => expect(screen.getByText('Commission statement page')).toBeInTheDocument());
+    first.unmount();
+    mockRpc.mockResolvedValue({ data: false, error: null });
+    renderAt('/insurance/commission/statements');
+    await waitFor(() => expect(screen.getByText('Not available to you')).toBeInTheDocument());
+    expect(screen.queryByText('Commission statement page')).not.toBeInTheDocument();
+  });
+
   it('denies a direct URL visit when the user has no insurance role', async () => {
     mockRpc.mockResolvedValue({ data: false, error: null });
     renderAt('/insurance/commission');
@@ -64,6 +78,12 @@ describe('insurance nav', () => {
   it('has a Commission entry pointing at the routed path', () => {
     const node = insuranceNodes.find((n) => n.id === 'ins-commission');
     expect(node?.to).toBe('/insurance/commission');
+    expect(node?.requiredRoles).toBeUndefined();
+  });
+
+  it('has a Commission Statement entry pointing at the routed path', () => {
+    const node = insuranceNodes.find((n) => n.id === 'ins-commission-statements');
+    expect(node?.to).toBe('/insurance/commission/statements');
     expect(node?.requiredRoles).toBeUndefined();
   });
 });
