@@ -4017,11 +4017,101 @@ export type Database = {
             foreignKeyName: "ins_claim_events_claim_id_fkey"
             columns: ["claim_id"]
             isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_events_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
             referencedRelation: "ins_claims"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ins_claim_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_claim_payments: {
+        Row: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          notes: string | null
+          payment_date: string
+          reference: string | null
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          claim_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          notes?: string | null
+          payment_date: string
+          reference?: string | null
+          settlement_id?: string | null
+          status?: string
+          tenant_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          claim_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          notes?: string | null
+          payment_date?: string
+          reference?: string | null
+          settlement_id?: string | null
+          status?: string
+          tenant_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_payments_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["tenant_id", "claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_payments_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_payments_settlement_fk"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_payments_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4042,6 +4132,7 @@ export type Database = {
           loss_description: string
           notified_date: string
           paid_amount: number
+          payment_mode: string | null
           policy_id: string
           reserve_amount: number
           settled_at: string | null
@@ -4061,6 +4152,7 @@ export type Database = {
           loss_description: string
           notified_date?: string
           paid_amount?: number
+          payment_mode?: string | null
           policy_id: string
           reserve_amount?: number
           settled_at?: string | null
@@ -4080,6 +4172,7 @@ export type Database = {
           loss_description?: string
           notified_date?: string
           paid_amount?: number
+          payment_mode?: string | null
           policy_id?: string
           reserve_amount?: number
           settled_at?: string | null
@@ -4444,6 +4537,7 @@ export type Database = {
       }
       ins_insurers: {
         Row: {
+          claim_payment_mode: string
           code: string
           contact_email: string | null
           contact_name: string | null
@@ -4459,6 +4553,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          claim_payment_mode?: string
           code: string
           contact_email?: string | null
           contact_name?: string | null
@@ -4474,6 +4569,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          claim_payment_mode?: string
           code?: string
           contact_email?: string | null
           contact_name?: string | null
@@ -9690,6 +9786,31 @@ export type Database = {
           },
         ]
       }
+      ins_claim_cash_position: {
+        Row: {
+          approved_amount: number | null
+          claim_id: string | null
+          claim_no: string | null
+          due_from_insurer: number | null
+          held_for_client: number | null
+          paid_amount: number | null
+          paid_by_insurer_direct: number | null
+          paid_to_client: number | null
+          payment_mode: string | null
+          received_from_insurer: number | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claims_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_commission_ledger: {
         Row: {
           amount: number | null
@@ -12247,6 +12368,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_claim_apply_payment_totals: {
+        Args: { p_claim_id: string; p_note: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_claim_ref: string | null
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          reserve_amount: number
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_commission_bank_accounts: {
         Args: never
         Returns: {
@@ -12278,6 +12428,7 @@ export type Database = {
           loss_description: string
           notified_date: string
           paid_amount: number
+          payment_mode: string | null
           policy_id: string
           reserve_amount: number
           settled_at: string | null
@@ -12386,6 +12537,104 @@ export type Database = {
         Args: { p_open_item_id: string }
         Returns: number
       }
+      ins_record_claim_payment: {
+        Args: {
+          p_amount: number
+          p_claim_id: string
+          p_notes?: string
+          p_payment_date: string
+          p_reference: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          notes: string | null
+          payment_date: string
+          reference: string | null
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_record_claim_payout: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_claim_id: string
+          p_notes?: string
+          p_payment_date: string
+          p_reference?: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          notes: string | null
+          payment_date: string
+          reference: string | null
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_record_claim_receipt: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_claim_id: string
+          p_notes?: string
+          p_receipt_date: string
+          p_reference?: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          notes: string | null
+          payment_date: string
+          reference: string | null
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_register_client: {
         Args: {
           p_client_type?: string
@@ -12469,6 +12718,7 @@ export type Database = {
           loss_description: string
           notified_date: string
           paid_amount: number
+          payment_mode: string | null
           policy_id: string
           reserve_amount: number
           settled_at: string | null
@@ -12484,6 +12734,32 @@ export type Database = {
         }
       }
       ins_via_rpc: { Args: never; Returns: boolean }
+      ins_void_claim_payment: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          notes: string | null
+          payment_date: string
+          reference: string | null
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_void_commission_transfer: {
         Args: { p_reason: string; p_transfer_id: string; p_void_date?: string }
         Returns: {
