@@ -7,14 +7,14 @@ import { formatMoney, POLICY_STATUS_LABEL } from '../../logic';
 import type { Policy, PolicyStatus } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 
-const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed'];
+const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed', 'reversed'];
 
 export default function PoliciesList() {
   const navigate = useNavigate();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | 'draft' | 'active' | 'renewed'>('all');
+  const [status, setStatus] = useState<'all' | PolicyStatus>('all');
 
   useEffect(() => {
     let cancelled = false;

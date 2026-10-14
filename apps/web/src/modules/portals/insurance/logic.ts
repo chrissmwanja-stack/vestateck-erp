@@ -100,6 +100,7 @@ export const POLICY_STATUS_LABEL: Record<PolicyStatus, string> = {
   draft: 'Draft',
   active: 'Active',
   renewed: 'Renewed',
+  reversed: 'Reversed',
 };
 
 export const COMMISSION_STATUS_LABEL: Record<CommissionStatus, string> = {
@@ -224,6 +225,7 @@ export function friendlyError(message: string): string {
 export const STATEMENT_STATUS_LABEL: Record<StatementCommissionStatus, string> = {
   ...COMMISSION_STATUS_LABEL,
   legacy: 'Legacy (income at bind)',
+  reversed: 'Reversed (original amounts; no outstanding premium)',
 };
 
 const money = (value: number | null | undefined): number => Math.round(Number(value ?? 0) * 100) / 100;
@@ -259,7 +261,7 @@ export function buildCommissionStatement(
         gross_premium: money(p.gross_premium),
         net_premium: money(p.net_premium_to_insurer),
         commission: money(entry ? entry.amount : p.commission_amount),
-        status: entry ? entry.status : 'legacy',
+        status: p.status === 'reversed' ? 'reversed' as const : entry ? entry.status : 'legacy',
         earned_on: entry?.earned_on ?? null,
         transfer_no: entry?.transfer_no ?? null,
         transfer_date: entry?.transfer_date ?? null,
@@ -273,13 +275,17 @@ export function buildCommissionStatement(
   const totals = rows.reduce(
     (acc, r) => {
       acc.policies += 1;
+      if (r.status === 'reversed') {
+        acc.reversed += r.commission;
+        return acc;
+      }
       acc.gross_premium += r.gross_premium;
       acc.net_premium += r.net_premium;
       acc.commission += r.commission;
       acc[r.status] += r.commission;
       return acc;
     },
-    { policies: 0, gross_premium: 0, net_premium: 0, commission: 0, deferred: 0, earned: 0, transferred: 0, legacy: 0 },
+    { policies: 0, gross_premium: 0, net_premium: 0, commission: 0, deferred: 0, earned: 0, transferred: 0, legacy: 0, reversed: 0 },
   );
   for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] = money(totals[key]);
   return { rows, totals };

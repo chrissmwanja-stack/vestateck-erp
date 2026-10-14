@@ -93,7 +93,7 @@ const CommissionStatements = () => {
     ? [
         ...statement.rows,
         {
-          policy_id: 'total', policy_no: 'TOTAL', client_name: `${statement.totals.policies} policies`, bound_on: '', currency,
+          policy_id: 'total', policy_no: 'TOTAL', client_name: `${statement.totals.policies} policies; totals exclude reversed`, bound_on: '', currency,
           gross_premium: statement.totals.gross_premium, net_premium: statement.totals.net_premium,
           commission: statement.totals.commission, status: 'deferred', earned_on: null, transfer_no: null, transfer_date: null,
         },
@@ -120,6 +120,9 @@ const CommissionStatements = () => {
         }
       />
       <ErrorBanner message={error} />
+      {statement && statement.rows.some((row) => row.status === 'reversed') && <Alert severity="info" sx={{ mb: 2 }}>
+        Reversed policies show original amounts for history only and are excluded from premium and commission totals.
+      </Alert>}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }} alignItems={{ md: 'center' }}>
         <TextField select size="small" label="Insurer" value={insurerId} onChange={(e) => setInsurerId(e.target.value)} sx={{ minWidth: 260 }}>

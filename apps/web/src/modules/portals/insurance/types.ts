@@ -1,7 +1,7 @@
 // Row shapes for the insurance tables and views, as the UI reads them.
 // The generated Database types predate these tables, so they are typed here.
 
-export type PolicyStatus = 'draft' | 'active' | 'renewed';
+export type PolicyStatus = 'draft' | 'active' | 'renewed' | 'reversed';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';
 export type CommissionStatus = 'deferred' | 'earned' | 'transferred';
 /** Who pays a claim: the insurer straight to the client, or the insurer to the brokerage which pays the client. */
@@ -184,7 +184,7 @@ export interface RenewalRow {
 }
 
 /** A policy's commission as shown on an insurer statement. 'legacy' = bound before commission deferral (income taken at bind, no ledger entry). */
-export type StatementCommissionStatus = CommissionStatus | 'legacy';
+export type StatementCommissionStatus = CommissionStatus | 'legacy' | 'reversed';
 
 export interface CommissionStatementRow {
   policy_id: string;
@@ -210,6 +210,7 @@ export interface CommissionStatementTotals {
   earned: number;
   transferred: number;
   legacy: number;
+  reversed: number;
 }
 
 export interface CommissionStatement {
@@ -217,3 +218,15 @@ export interface CommissionStatement {
   totals: CommissionStatementTotals;
 }
 
+
+export interface PolicyReversal {
+  id: string;
+  original_policy_id: string;
+  replacement_policy_id: string | null;
+  reason: string;
+  reversal_date: string;
+  accounting_treatment: 'deferred' | 'legacy' | 'none';
+  premium_credit_note_id: string;
+  insurer_credit_note_id: string;
+}
+export interface ReversalEligibility { eligible: boolean; reason: string | null }

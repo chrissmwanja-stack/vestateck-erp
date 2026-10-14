@@ -8,13 +8,15 @@ import { errorText, rows, rpc, table, write } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import { ClaimStatusChip, EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 import { commissionSplit, daysBetween, formatMoney, policyTermDays } from '../../logic';
-import type { Claim, Policy } from '../../types';
+import PolicyReversalAction from './PolicyReversalAction';
+import type { Claim, Policy, PolicyReversal } from '../../types';
 
 const PolicyDetail = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { canManage } = useInsuranceAccess();
   const [policy, setPolicy] = useState<Policy | null>(null);
+  const [reversal, setReversal] = useState<PolicyReversal | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,9 @@ const PolicyDetail = () => {
           .eq('id', id),
       );
       setPolicy(p ?? null);
+      const audit = await rows<PolicyReversal>(table('ins_policy_reversals').select('*').eq('original_policy_id', id));
+      const linked = audit.length ? audit : await rows<PolicyReversal>(table('ins_policy_reversals').select('*').eq('replacement_policy_id', id));
+      setReversal(linked[0] ?? null);
       setClaims(
         await rows<Claim>(table('ins_claims').select('id, claim_no, status, loss_date, reserve_amount, approved_amount, paid_amount, created_at, loss_description, notified_date, insurer_claim_ref, policy_id, settled_at').eq('policy_id', id).order('created_at', { ascending: false })),
       );
@@ -106,19 +111,31 @@ const PolicyDetail = () => {
             {canManage && policy.status === 'draft' && (
               <Button color="error" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete draft</Button>
             )}
+            {canManage && policy.status === 'active' && (
+              <PolicyReversalAction policyId={id} policyNo={policy.policy_no} onReversed={async (result) => {
+                if (result.replacement_policy_id) navigate(`/insurance/policies/${result.replacement_policy_id}`);
+                else await load();
+              }} />
+            )}
             {policy.status === 'active' && (
               <Button variant="outlined" onClick={renew} disabled={busy}>Start renewal</Button>
             )}
-            {policy.status !== 'draft' && (
+            {(policy.status === 'active' || policy.status === 'renewed') && (
               <Button variant="outlined" onClick={() => navigate(`/insurance/claims/new?policy=${policy.id}`)}>Report claim</Button>
             )}
           </Stack>
         }
       />
       <ErrorBanner message={error} />
+      {reversal && <Alert severity="info" sx={{ mb: 2 }}>
+        {reversal.original_policy_id === id ? 'Reversed' : 'Replacement for a policy reversed'} on {reversal.reversal_date}: {reversal.reason}. Accounting: {reversal.accounting_treatment}.
+        {reversal.original_policy_id !== id && <Button onClick={() => navigate(`/insurance/policies/${reversal.original_policy_id}`)}>Original policy</Button>}
+        Credit notes: {reversal.premium_credit_note_id} / {reversal.insurer_credit_note_id}.
+        {reversal.replacement_policy_id && reversal.replacement_policy_id !== id && <Button onClick={() => navigate(`/insurance/policies/${reversal.replacement_policy_id}`)}>Replacement policy</Button>}
+      </Alert>}
       {policy.status === 'draft' && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          This is a draft. Binding books the premium: the client is billed the gross premium, the insurer is owed the net, and the commission is recognised. Bound policies are locked.
+          This is a draft. Binding books the premium: the client is billed the gross premium, the insurer is owed the net, and commission is deferred until the insurer is fully paid. Bound policies are locked.
         </Alert>
       )}
 
@@ -198,9 +215,9 @@ const PolicyDetail = () => {
             <ul>
               <li>Receivable from the client: <strong>{formatMoney(policy.gross_premium, policy.currency)}</strong></li>
               <li>Payable to the insurer: <strong>{formatMoney(split.net, policy.currency)}</strong></li>
-              <li>Commission income: <strong>{formatMoney(split.commission, policy.currency)}</strong></li>
+              <li>Unearned commission: <strong>{formatMoney(split.commission, policy.currency)}</strong></li>
             </ul>
-            <p>The policy is then locked. Binding cannot be undone from this screen. A bound policy is corrected by a reversing entry (not yet available in this release).</p>
+            <p>The policy is then locked. Eligible active policies can be reversed by a manager using the restricted reversal action. Policies with claims, renewal links or effective financial movement require the future cancellation/refunds workflow.</p>
           </DialogContentText>
         </DialogContent>
         <DialogActions>

@@ -1,6 +1,8 @@
 # Insurance Brokerage: Analysis and Working Draft
 
-Status: **draft, not reviewed by an accountant.** The core is on `main` (schema, RPCs, UI, `test_ins_core.sql`, hardening and currency/KYC migrations). Do not enable it for a real tenant until the section 7 questions are answered.
+Status: **draft, not reviewed by an accountant.**
+
+**Policy reversal update, 14 October 2026:** restricted current-date reversal and optional draft reissue are implemented locally in `20261014170000`; see `POLICY_REVERSAL.md` for exact eligibility, paired-credit accounting and outstanding rollout/acceptance gates. The core is on `main` (schema, RPCs, UI, `test_ins_core.sql`, hardening and currency/KYC migrations). Do not enable it for a real tenant until the section 7 questions are answered.
 
 **Update 2026-10-12:** the commission decisions in section 6 (items 5 to 9) were confirmed on 2026-10-11 and are built (`20261011090000`, `20261011100000`, `20261012090000`), which settles section 7 questions 2, 5 and 6 and part of question 4. Whether an accountant has signed off the full treatment is not recorded in the repo, so the "do not enable" rule above still stands until questions 1 and 3 are answered. The text below was written for the first draft; where a later migration changed it, the section says so.
 

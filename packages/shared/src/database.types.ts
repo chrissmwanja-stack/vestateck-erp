@@ -4615,6 +4615,126 @@ export type Database = {
           },
         ]
       }
+      ins_policy_reversals: {
+        Row: {
+          id: string
+          tenant_id: string
+          original_policy_id: string
+          replacement_policy_id: string | null
+          request_key: string
+          reason: string
+          reissue_requested: boolean
+          accounting_treatment: string
+          original_journal_entry_id: string
+          premium_credit_note_id: string | null
+          insurer_credit_note_id: string | null
+          premium_journal_entry_id: string | null
+          insurer_journal_entry_id: string | null
+          reversed_by: string
+          reversed_at: string
+          reversal_date: string
+          outcome: string
+          operation_txid: number
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          original_policy_id: string
+          replacement_policy_id?: string | null
+          request_key: string
+          reason: string
+          reissue_requested: boolean
+          accounting_treatment: string
+          original_journal_entry_id: string
+          premium_credit_note_id?: string | null
+          insurer_credit_note_id?: string | null
+          premium_journal_entry_id?: string | null
+          insurer_journal_entry_id?: string | null
+          reversed_by?: string
+          reversed_at?: string
+          reversal_date?: string
+          outcome?: string
+          operation_txid?: number
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          original_policy_id?: string
+          replacement_policy_id?: string | null
+          request_key?: string
+          reason?: string
+          reissue_requested?: boolean
+          accounting_treatment?: string
+          original_journal_entry_id?: string
+          premium_credit_note_id?: string | null
+          insurer_credit_note_id?: string | null
+          premium_journal_entry_id?: string | null
+          insurer_journal_entry_id?: string | null
+          reversed_by?: string
+          reversed_at?: string
+          reversal_date?: string
+          outcome?: string
+          operation_txid?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_reversals_insurer_credit_note_id_fkey"
+            columns: ["insurer_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "fin_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_insurer_journal_entry_id_fkey"
+            columns: ["insurer_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_original_journal_entry_id_fkey"
+            columns: ["original_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_premium_credit_note_id_fkey"
+            columns: ["premium_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "fin_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_premium_journal_entry_id_fkey"
+            columns: ["premium_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
+            columns: ["tenant_id", "original_policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
+            columns: ["tenant_id", "replacement_policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
       ins_policies: {
         Row: {
           bound_at: string | null
@@ -10447,6 +10567,30 @@ export type Database = {
       }
     }
     Functions: {
+      ins_policy_reversal_context: {
+        Args: { p_policy_id: string; p_in_progress?: boolean }
+        Returns: Json
+      }
+      platform_fin_raise_policy_credit_note_impl: {
+        Args: { p_tenant_id: string; p_control_role: string; p_party_account_id: string; p_amount: number; p_credit_date: string; p_offset_gl_account_id: string; p_applications: Json; p_reason: string; p_reference: string; p_policy_id: string }
+        Returns: Database['public']['Tables']['fin_credit_notes']['Row']
+      }
+      ins_reversal_complete_guard: { Args: never; Returns: unknown }
+      ins_reversal_immutable_guard: { Args: never; Returns: unknown }
+      ins_policy_child_guard: { Args: never; Returns: unknown }
+      ins_reversed_policy_guard: { Args: never; Returns: unknown }
+      ins_reversal_note_void_guard: { Args: never; Returns: unknown }
+      ins_reversal_journal_void_guard: { Args: never; Returns: unknown }
+
+      ins_policy_reversal_eligibility: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      ins_reverse_policy: {
+        Args: { p_policy_id: string; p_reason: string; p_reissue: boolean; p_request_key: string }
+        Returns: Database['public']['Tables']['ins_policy_reversals']['Row']
+      }
+
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined

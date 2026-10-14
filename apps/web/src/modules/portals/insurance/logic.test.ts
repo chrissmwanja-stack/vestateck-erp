@@ -248,3 +248,15 @@ describe('commission statement per insurer', () => {
   });
 });
 
+
+describe('reversed policy statement history', () => {
+  it('labels reversed policies and excludes their original amounts from active totals', () => {
+    const p = { id: 'reversed', policy_no: 'OLD-1', status: 'reversed', bound_at: '2026-10-10T08:00:00Z',
+      currency: 'UGX', gross_premium: 1000, net_premium_to_insurer: 900, commission_amount: 100 } as Policy;
+    const statement = buildCommissionStatement([p], [], { from: '2026-10-01', to: '2026-10-31' });
+    expect(statement.rows[0].status).toBe('reversed');
+    expect(statement.totals.gross_premium).toBe(0);
+    expect(statement.totals.commission).toBe(0);
+    expect(statement.totals.reversed).toBe(100);
+  });
+});
