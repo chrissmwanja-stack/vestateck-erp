@@ -249,6 +249,52 @@ describe('CompanyCreateWizard', () => {
     expect(onCreated).toHaveBeenCalled();
   });
 
+  it('shows the real reason from the invite-user response body, not the generic non-2xx message', async () => {
+    const body = { error: 'This email already has an account on the platform. Use a different email address for this invite.' };
+    setup({
+      inviteResult: {
+        data: null,
+        error: {
+          message: 'Edge Function returned a non-2xx status code',
+          context: new Response(JSON.stringify(body), { status: 409 }),
+        } as unknown as { message: string },
+      },
+    });
+    const user = userEvent.setup();
+    renderWizard();
+    await fillStepOne(user);
+    await goToStepTwo(user);
+
+    await user.click(screen.getByRole('button', { name: /create & invite/i }));
+
+    await waitFor(() => expect(screen.getByText(/already has an account on the platform/i)).toBeInTheDocument());
+    expect(screen.queryByText(/non-2xx/i)).not.toBeInTheDocument();
+  });
+
+  it('lets the operator retry the admin invite with a different email on the tenant just created', async () => {
+    setup({ inviteResult: { data: null, error: { message: 'mailer unavailable' } } });
+    const user = userEvent.setup();
+    const { onCreated } = renderWizard();
+    await fillStepOne(user, 'Nile Construction Co.', 'taken@nile.com');
+    await goToStepTwo(user);
+    await user.click(screen.getByRole('button', { name: /create & invite/i }));
+    await waitFor(() => expect(screen.getByText(/but inviting admin failed/i)).toBeInTheDocument());
+
+    // Second attempt succeeds.
+    setup({ inviteResult: { data: { invitation_id: 'inv1' }, error: null } });
+    await user.type(screen.getByLabelText('Admin email'), 'fresh@nile.com');
+    await user.click(screen.getByRole('button', { name: /retry invite/i }));
+
+    await waitFor(() => expect(screen.getByText(/an invite has been sent to/i)).toBeInTheDocument());
+    expect(screen.getByText('fresh@nile.com')).toBeInTheDocument();
+    expect(mockInvoke).toHaveBeenLastCalledWith('invite-user', {
+      body: { tenant_id: 'tenant1', role_bundle: 'company_admin', email: 'fresh@nile.com' },
+    });
+    // The tenant is not created a second time (the one call is from the first attempt).
+    expect(mockInvoke.mock.calls.filter(([fn]) => fn === 'create-tenant')).toHaveLength(1);
+    expect(onCreated).toHaveBeenCalledTimes(2);
+  });
+
   it('resets the form when the dialog is closed and reopened', async () => {
     const user = userEvent.setup();
     const { rerender, onClose, onCreated } = renderWizard();

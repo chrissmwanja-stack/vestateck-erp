@@ -286,6 +286,21 @@ serve(async (req) => {
       // Roll back the invitations row so a retry doesn't hit the unique
       // constraint on a dead invite.
       await admin.from('invitations').delete().eq('id', invitation.id);
+      // GoTrue answers 422 `email_exists` when the address already has an
+      // account. One auth user maps to exactly one tenant (app_users.id), so
+      // that is a conflict the caller must resolve with a different email --
+      // not a server fault.
+      const code = (authError as { code?: string }).code;
+      if (code === 'email_exists' || authError.status === 422) {
+        return jsonResponse(corsHeaders,
+          {
+            error:
+              'This email already has an account on the platform. Use a different email address for this invite.',
+            code: 'email_exists',
+          },
+          409
+        );
+      }
       return jsonResponse(corsHeaders, { error: authError.message }, 500);
     }
 

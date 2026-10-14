@@ -117,6 +117,17 @@ serve(async (req) => {
     });
 
     if (authError) {
+      const code = (authError as { code?: string }).code;
+      if (code === 'email_exists' || authError.status === 422) {
+        return jsonResponse(corsHeaders,
+          {
+            error:
+              'This email already has an account on the platform, so the invite cannot be resent. Revoke it and invite a different email.',
+            code: 'email_exists',
+          },
+          409
+        );
+      }
       return jsonResponse(corsHeaders, { error: authError.message }, 500);
     }
 

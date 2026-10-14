@@ -26,6 +26,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useModuleRegistry } from '../../lib/useModuleRegistry';
 import { templateItemNames, type TemplateRow } from './platformConfig';
 import { friendlyPlatformError } from './usePlatformAdminSession';
+import { functionErrorMessage } from '../../lib/functionError';
 
 interface WizardProps {
   open: boolean;
@@ -63,6 +64,11 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [seedWarning, setSeedWarning] = useState<string | null>(null);
+  // Shown when the company was created but the admin invite failed: lets the
+  // operator retry against the tenant that now exists, with another email.
+  const [retryEmail, setRetryEmail] = useState('');
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const entitledKeys = useMemo(() => new Set(entitledModules.map((m) => m.key)), [entitledModules]);
 
@@ -83,6 +89,9 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
     setError(null);
     setSeedWarning(null);
     setSuccessId(null);
+    setRetryEmail('');
+    setRetrying(false);
+    setRetryError(null);
   }, []);
 
   useEffect(() => {
@@ -194,8 +203,11 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
     // edge function also handles modules_and_roles/finance_role; for company_admin
     // it ignores modules. We send minimal body and let it expand to all modules + finance.
     if (inviteErr) {
+      const reason = await functionErrorMessage(inviteErr);
       setSaving(false);
-      setError(`Company created (${name.trim()}) but inviting admin failed: ${inviteErr.message}. You can resend from Companies → Invites.`);
+      // A failed invite is rolled back server-side, so there is nothing to
+      // "resend" -- the operator retries below with a corrected email.
+      setError(`Company created (${name.trim()}) but inviting admin failed: ${reason}`);
       setSuccessId(tenantId);
       onCreated();
       return;
@@ -203,6 +215,28 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
 
     setSaving(false);
     setSuccessId(tenantId);
+    onCreated();
+  };
+
+  const handleRetryInvite = async () => {
+    if (!successId) return;
+    if (!isValidEmail(retryEmail)) {
+      setRetryError('Enter a valid admin email.');
+      return;
+    }
+    setRetrying(true);
+    setRetryError(null);
+    const { error: err } = await supabase.functions.invoke('invite-user', {
+      body: { tenant_id: successId, role_bundle: 'company_admin', email: retryEmail.trim() },
+    });
+    if (err) {
+      setRetrying(false);
+      setRetryError(await functionErrorMessage(err));
+      return;
+    }
+    setRetrying(false);
+    setAdminEmail(retryEmail.trim());
+    setError(null);
     onCreated();
   };
 
@@ -232,7 +266,27 @@ export default function CompanyCreateWizard({ open, onClose, onCreated }: Wizard
                 {seedWarning ? <><br /><em>{seedWarning}</em></> : null}
               </Typography>
             )}
-            {error && <Alert severity="warning">{error}</Alert>}
+            {error && (
+              <>
+                <Alert severity="warning">{error}</Alert>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }} alignItems="flex-start">
+                  <TextField
+                    label="Admin email"
+                    type="email"
+                    size="small"
+                    fullWidth
+                    value={retryEmail}
+                    onChange={(e) => setRetryEmail(e.target.value)}
+                    disabled={retrying}
+                    error={!!retryError}
+                    helperText={retryError ?? 'Try again with a different email.'}
+                  />
+                  <Button variant="contained" onClick={handleRetryInvite} disabled={retrying || !retryEmail.trim()}>
+                    {retrying ? 'Sending…' : 'Retry invite'}
+                  </Button>
+                </Stack>
+              </>
+            )}
             <Alert severity="info">Tip: find them instantly in <b>Companies → {name.trim()}</b> or the Platform Dashboard’s recent list.</Alert>
           </Stack>
         ) : step === 0 ? (
