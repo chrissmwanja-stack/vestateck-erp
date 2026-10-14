@@ -203,10 +203,10 @@ Status as of 2026-10-12: questions 2, 5 and 6 are decided (section 6, items 5 to
 - Endorsements, mid-term changes, and cancellation or refund of bound policies
 - Policy approval workflow (the shared approval engine is an open audit seam, 14 to 17)
 - Cash collection from clients and remittance to insurers, with reconciliation against the open items
-- Commission statements per insurer, and a commission receivable process (the deferral, recognition and transfer mechanics are built; see section 6)
+- A commission receivable process (the deferral, recognition and transfer mechanics are built; see section 6). Per-insurer commission statements are built as a client-side report with Excel and PDF export (13 Oct 2026)
 - Document attachments (policy wordings, claim documents). The generic document store is an open audit seam.
 - Notifications for expiries and claim decisions (the generic notifications seam is open)
-- Regenerating `packages/shared/src/database.types.ts`. The loose client in `db.ts` covers the gap.
+- Typed row shapes in `db.ts`. Types are regenerated and `db.ts` now checks table, view and RPC names against them; row shapes stay `any`.
 - Reports beyond the dashboard
 - Checks on a real Supabase project: as of this draft the migration had not been applied anywhere and the RLS had been tested only on PGlite with stubs. The SQL tests now run in CI against a local Supabase stack; whether the insurance migrations have been applied to a hosted project is not recorded in the repo
 
