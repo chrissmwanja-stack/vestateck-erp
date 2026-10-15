@@ -30,6 +30,8 @@ export function SummaryTab({ state }: { state: CompanyDetailState }) {
     setReason,
     setReadOnlyDialog,
     setStatusDialog,
+    openInviteAdmin,
+    openDelete,
     editing,
     setEditing,
     draft,
@@ -42,6 +44,11 @@ export function SummaryTab({ state }: { state: CompanyDetailState }) {
   const t = profile.tenant;
   const seatsUsed = profile.seats.members + profile.seats.pending_invites;
   const seatsFull = t.seat_limit != null && seatsUsed >= t.seat_limit;
+  // A company can be left without an admin when the first invite fails at
+  // creation. Offer a fresh invite; and, if it is also empty of users and
+  // pending invites, allow deleting it (the server re-checks everything).
+  const noAdmin = profile.activity.company_admins.length === 0;
+  const looksEmpty = profile.seats.members === 0 && profile.seats.pending_invites === 0;
 
   return (
     <Stack spacing={2}>
@@ -68,6 +75,24 @@ export function SummaryTab({ state }: { state: CompanyDetailState }) {
                 </Button>
               </span>
             </Tooltip>
+            {noAdmin && (
+              <Tooltip title={blockedReason ?? ''}>
+                <span>
+                  <Button size="small" variant="contained" disabled={!!blockedReason} onClick={openInviteAdmin}>
+                    Invite admin
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
+            {noAdmin && looksEmpty && (
+              <Tooltip title={blockedReason ?? ''}>
+                <span>
+                  <Button size="small" variant="outlined" color="error" disabled={!!blockedReason} onClick={openDelete}>
+                    Delete
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
             {t.status !== 'pending' && (
               <Tooltip title={blockedReason ?? ''}>
                 <span>

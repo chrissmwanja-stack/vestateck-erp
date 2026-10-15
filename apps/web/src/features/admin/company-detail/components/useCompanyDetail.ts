@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../../../lib/supabaseClient';
+import { functionErrorMessage } from '../../../../lib/functionError';
 import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from '../../usePlatformAdminSession';
 import { buildProfilePatch, draftFrom } from './utils';
 import type { Analytics, Note, Profile, ProfileDraft, WorkflowStage } from './Types';
@@ -38,6 +39,14 @@ export function useCompanyDetail() {
   const [reason, setReason] = useState('');
   const [dialogSaving, setDialogSaving] = useState(false);
   const [impersonateOpen, setImpersonateOpen] = useState(false);
+
+  // Invite admin / delete company (for companies left without an admin)
+  const [inviteAdminOpen, setInviteAdminOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Notes
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -196,6 +205,59 @@ export function useCompanyDetail() {
     await refreshProfile();
   };
 
+  const openInviteAdmin = () => {
+    setInviteEmail('');
+    setInviteError(null);
+    setInviteAdminOpen(true);
+  };
+
+  const confirmInviteAdmin = async () => {
+    if (!tenantId) return;
+    const email = inviteEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInviteError('Enter a valid email address.');
+      return;
+    }
+    setDialogSaving(true);
+    setInviteError(null);
+    const { error: err } = await supabase.functions.invoke('invite-user', {
+      body: { tenant_id: tenantId, role_bundle: 'company_admin', email },
+    });
+    setDialogSaving(false);
+    if (err) {
+      setInviteError(await functionErrorMessage(err));
+      return;
+    }
+    setNotice(`Admin invite sent to ${email}.`);
+    setInviteAdminOpen(false);
+    await refreshProfile();
+  };
+
+  const openDelete = () => {
+    setReason('');
+    setDeleteConfirm('');
+    setDeleteError(null);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!tenantId || !profile) return;
+    setDialogSaving(true);
+    setDeleteError(null);
+    const { error: err } = await supabase.rpc('delete_empty_tenant', {
+      p_tenant_id: tenantId,
+      p_confirm_name: deleteConfirm.trim(),
+      p_reason: reason.trim() || undefined,
+    });
+    setDialogSaving(false);
+    if (err) {
+      setDeleteError(friendlyPlatformError(err.message));
+      return;
+    }
+    setDeleteOpen(false);
+    navigate('/admin/companies');
+  };
+
   const addNote = async () => {
     if (!tenantId || noteDraft.trim().length === 0) return;
     setNoteSaving(true);
@@ -293,6 +355,20 @@ export function useCompanyDetail() {
     confirmReadOnly,
     impersonateOpen,
     setImpersonateOpen,
+    inviteAdminOpen,
+    setInviteAdminOpen,
+    inviteEmail,
+    setInviteEmail,
+    inviteError,
+    openInviteAdmin,
+    confirmInviteAdmin,
+    deleteOpen,
+    setDeleteOpen,
+    deleteConfirm,
+    setDeleteConfirm,
+    deleteError,
+    openDelete,
+    confirmDelete,
     notes,
     noteDraft,
     setNoteDraft,

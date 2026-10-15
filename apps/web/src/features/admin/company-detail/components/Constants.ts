@@ -34,6 +34,7 @@ export const subscriptionColor: Record<string, 'default' | 'success' | 'warning'
 export const ACTION_LABEL: Record<string, string> = {
   'tenant.suspend': 'Suspended',
   'tenant.activate': 'Reactivated',
+  'tenant.delete': 'Company deleted',
   'tenant.read_only.on': 'Read-only enabled',
   'tenant.read_only.off': 'Read-only lifted',
   'tenant.profile.update': 'Profile edited',

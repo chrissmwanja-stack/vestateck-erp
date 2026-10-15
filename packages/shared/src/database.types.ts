@@ -11271,6 +11271,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_empty_tenant: {
+        Args: { p_confirm_name: string; p_reason?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       delete_feature_flag: { Args: { p_key: string }; Returns: undefined }
       delete_industry_template: { Args: { p_key: string }; Returns: undefined }
       delete_platform_announcement: {

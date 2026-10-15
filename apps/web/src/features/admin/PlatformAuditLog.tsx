@@ -82,6 +82,7 @@ const ACTION_FILTERS: { value: string; label: string }[] = [
 const ACTION_COLOR: Record<string, 'default' | 'warning' | 'success' | 'info' | 'error'> = {
   'tenant.suspend': 'error',
   'tenant.activate': 'success',
+  'tenant.delete': 'error',
   'tenant.modules.set': 'info',
   'impersonation.start': 'warning',
   'impersonation.end': 'default',

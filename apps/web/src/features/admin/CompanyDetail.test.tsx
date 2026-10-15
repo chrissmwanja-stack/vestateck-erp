@@ -16,10 +16,12 @@ import CompanyDetail, { buildProfilePatch, daysUntil } from './CompanyDetail';
 
 const mockRpc = vi.fn();
 const mockFrom = vi.fn();
+const mockInvoke = vi.fn();
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
     rpc: (...args: unknown[]) => mockRpc(...args),
     from: (...args: unknown[]) => mockFrom(...args),
+    functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
   },
 }));
 
@@ -119,6 +121,7 @@ function renderDetail(initialPath = '/admin/companies/t1') {
 beforeEach(() => {
   mockRpc.mockReset();
   mockFrom.mockReset();
+  mockInvoke.mockReset();
   adminSession = { isPlatformAdmin: true, hasMfaFactor: false, sessionIsMfa: false, canAct: true };
 });
 
@@ -309,5 +312,138 @@ describe('CompanyDetail summary tab', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText("Editing a company's profile requires MFA")).toBeInTheDocument();
+  });
+});
+
+describe('companies left without an admin', () => {
+  const EMPTY = { ...TENANT, id: 't1', name: 'Nice Insurance company', status: 'pending' as const };
+
+  function setupEmpty(members = 0, pending = 0, admins: { name: string; email: string }[] = []) {
+    mockRpc.mockImplementation((fn: string) => {
+      switch (fn) {
+        case 'get_tenant_profile': {
+          const p = profileFor(EMPTY);
+          p.seats = { limit: 10, members, pending_invites: pending };
+          p.activity.company_admins = admins;
+          return Promise.resolve({ data: p, error: null });
+        }
+        case 'get_company_analytics':
+          return Promise.resolve({ data: ANALYTICS, error: null });
+        case 'get_tenant_workflow_stages':
+          return Promise.resolve({ data: [], error: null });
+        default:
+          return Promise.resolve({ data: null, error: null });
+      }
+    });
+  }
+
+  it('offers Invite admin and Delete only when there is no admin (delete also needs no users/invites)', async () => {
+    setupEmpty();
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+    expect(screen.getByRole('button', { name: 'Invite admin' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('hides Delete when the company has members or pending invites, and both when it has an admin', async () => {
+    setupEmpty(0, 1);
+    const { unmount } = renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+    expect(screen.getByRole('button', { name: 'Invite admin' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    unmount();
+
+    setupEmpty(3, 0, [{ name: 'Jane', email: 'jane@acme.example' }]);
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+    expect(screen.queryByRole('button', { name: 'Invite admin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  it('sends a company_admin invite for this tenant', async () => {
+    setupEmpty();
+    mockInvoke.mockResolvedValue({ data: {}, error: null });
+    const user = userEvent.setup();
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+
+    await user.click(screen.getByRole('button', { name: 'Invite admin' }));
+    await user.type(screen.getByLabelText('Admin email'), 'boss@nice.example');
+    await user.click(screen.getByRole('button', { name: 'Send invite' }));
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith('invite-user', {
+        body: { tenant_id: 't1', role_bundle: 'company_admin', email: 'boss@nice.example' },
+      })
+    );
+    expect(await screen.findByText(/Admin invite sent to boss@nice.example/)).toBeInTheDocument();
+  });
+
+  it('shows the real reason when the invite is refused (email already has an account)', async () => {
+    setupEmpty();
+    const body = { error: 'This email already has an account on the platform. Use a different email address for this invite.' };
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify(body), { status: 409 }) },
+    });
+    const user = userEvent.setup();
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+
+    await user.click(screen.getByRole('button', { name: 'Invite admin' }));
+    await user.type(screen.getByLabelText('Admin email'), 'taken@nice.example');
+    await user.click(screen.getByRole('button', { name: 'Send invite' }));
+
+    expect(await screen.findByText(/already has an account on the platform/)).toBeInTheDocument();
+  });
+
+  it('delete requires typing the company name, then calls delete_empty_tenant and leaves the page', async () => {
+    setupEmpty();
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/admin/companies/t1']}>
+        <Routes>
+          <Route path="/admin/companies/:tenantId" element={<CompanyDetail />} />
+          <Route path="/admin/companies" element={<div>Companies list</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    const confirm = screen.getByRole('button', { name: 'Delete company' });
+    expect(confirm).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Company name'), 'Nice Insurance');
+    expect(confirm).toBeDisabled(); // partial name is not enough
+    await user.type(screen.getByLabelText('Company name'), ' company');
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('delete_empty_tenant', {
+        p_tenant_id: 't1',
+        p_confirm_name: 'Nice Insurance company',
+        p_reason: undefined,
+      })
+    );
+    expect(await screen.findByText('Companies list')).toBeInTheDocument();
+  });
+
+  it('keeps the dialog open and shows the server message when delete is refused', async () => {
+    setupEmpty();
+    const user = userEvent.setup();
+    renderDetail();
+    await screen.findByRole('heading', { name: 'Nice Insurance company' });
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.type(screen.getByLabelText('Company name'), 'Nice Insurance company');
+    mockRpc.mockImplementationOnce(() =>
+      Promise.resolve({ data: null, error: { message: 'This company has users, so it cannot be deleted. Suspend it instead.' } })
+    );
+    await user.click(screen.getByRole('button', { name: 'Delete company' }));
+
+    expect(await screen.findByText(/has users, so it cannot be deleted/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete company' })).toBeInTheDocument();
   });
 });
