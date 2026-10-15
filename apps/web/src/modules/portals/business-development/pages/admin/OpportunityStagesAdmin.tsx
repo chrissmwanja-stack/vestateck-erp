@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -84,6 +84,11 @@ export default function OpportunityStagesAdmin() {
   };
 
   useEffect(() => { fetchStages(); }, []);
+
+  // handleSeedDefaults schedules a delayed refetch; clear it on unmount so it
+  // can't fire into an unmounted component (or, in tests, into the next test).
+  const seedRefetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(seedRefetchTimer.current), []);
 
   const handleOpenNew = () => {
     setEditing(null);
@@ -173,7 +178,7 @@ export default function OpportunityStagesAdmin() {
         tenant_id: tenantResult.tenantId,
       });
     }
-    setTimeout(fetchStages, 1000);
+    seedRefetchTimer.current = setTimeout(fetchStages, 1000);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
