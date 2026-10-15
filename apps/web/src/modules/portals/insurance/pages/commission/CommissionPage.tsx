@@ -282,7 +282,7 @@ const CommissionPage = () => {
                             <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{e.policy_no}</TableCell>
                             <TableCell>{insurers[e.insurer_id] ?? '-'}</TableCell>
                             <TableCell align="right">{formatMoney(e.amount)}</TableCell>
-                            <TableCell><CommissionStatusChip status={e.status} /></TableCell>
+                            <TableCell><CommissionStatusChip status={e.status} />{e.cancellation_id && <Typography variant="caption" display="block">Cancelled policy: use the separate Finance cancellation cash workflow.</Typography>}</TableCell>
                             <TableCell>{e.earned_on ?? '-'}</TableCell>
                             <TableCell>{e.transfer_no ?? '-'}</TableCell>
                           </TableRow>

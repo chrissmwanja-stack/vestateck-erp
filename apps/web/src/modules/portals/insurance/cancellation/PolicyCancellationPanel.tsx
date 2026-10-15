@@ -22,6 +22,7 @@ import {
 import { errorText, rpc } from '../db';
 import { policyCashToday } from '../policyCash';
 import { cents, money } from './calculation';
+import CancellationCashPanel from './CancellationCashPanel';
 import {
   cancellationCaseActions,
   cancellationPayload,
@@ -163,8 +164,10 @@ function Evidence({ row }: { row: CancellationCase }) {
 export default function PolicyCancellationPanel({
   policyId,
   onPosted,
+  cashMode = 'view',
 }: {
   policyId: string;
+  cashMode?: 'view' | 'finance';
   onPosted?: () => void | Promise<void>;
 }) {
   const [context, setContext] = useState<CancellationContext | null>(null);
@@ -420,6 +423,7 @@ export default function PolicyCancellationPanel({
                       paid by approval. Recovery/refund payment controls are a
                       separate workflow and are not enabled by this action.
                     </Alert>
+                    <CancellationCashPanel policyId={policyId} mode={cashMode} />
                     {row.insurer_adjustments.map((a) => (
                       <Typography key={a.insurer_id}>
                         {a.insurer_name}: payable reduced {a.payable_credit};

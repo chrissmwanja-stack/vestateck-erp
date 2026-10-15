@@ -111,7 +111,7 @@ export const COMMISSION_STATUS_LABEL: Record<CommissionStatus, string> = {
 };
 
 export function isTransferable(entry: CommissionEntry): boolean {
-  return entry.status === 'earned';
+  return entry.status === 'earned' && !entry.cancellation_id;
 }
 
 export function sumAmounts(entries: CommissionEntry[]): number {

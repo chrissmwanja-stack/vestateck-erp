@@ -49,7 +49,7 @@ export default function InsurancePremiumCash() {
       <Button disabled={loading || offset === 0} onClick={() => setOffset((v) => Math.max(v - 50, 0))}>Previous</Button>
       <Button disabled={loading || policies.length < 50} onClick={() => setOffset((v) => v + 50)}>Next</Button>
     </Stack>
-    {selected && <PolicyCancellationPanel key={`cancellation-${selected}`} policyId={selected} />}
+    {selected && <PolicyCancellationPanel key={`cancellation-${selected}`} policyId={selected} cashMode="finance" />}
     {selected ? <PolicyCashPanel key={selected} policyId={selected} mode="finance" /> : <Alert severity="info" sx={{ mt: 2 }}>Select a policy to prepare cash or review pending approvals.</Alert>}
   </Box>;
 }

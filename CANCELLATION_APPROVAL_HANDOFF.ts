@@ -1,4 +1,8 @@
 /**
+ * HISTORICAL PHASE-2 HANDOFF. Superseded by CANCELLATION_CASH_HANDOFF.ts
+ * once migration 20261015210000_ins_cancellation_cash.sql is installed.
+ * The cash-disabled statements below describe the earlier increment only.
+ *
  * Cancellation v1 — calculation + approval/accounting increment, 2026-10-15.
  * DEVELOPMENT HANDOFF ONLY. This is NOT the completed cash/refunds release.
  * No push, deployment, production migration, or live payment was performed.

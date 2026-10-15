@@ -9,6 +9,7 @@ export type ClaimPaymentMode = 'insurer_direct' | 'via_broker';
 export type ClaimPaymentKind = 'insurer_direct' | 'insurer_receipt' | 'client_payout';
 
 export interface CommissionEntry {
+  cancellation_id?: string | null;
   id: string;
   tenant_id: string;
   policy_id: string;

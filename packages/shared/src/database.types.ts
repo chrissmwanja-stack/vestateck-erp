@@ -14,6 +14,388 @@ export type Database = {
   }
   public: {
     Tables: {
+      ins_cancellation_cash_events: {
+        Row: {
+          id: string
+          tenant_id: string
+          request_id: string
+          event: string
+          actor_id: string
+          occurred_at: string
+          detail: Json
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          request_id: string
+          event: string
+          actor_id: string
+          occurred_at?: string
+          detail?: Json
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          request_id?: string
+          event?: string
+          actor_id?: string
+          occurred_at?: string
+          detail?: Json
+        }
+        Relationships: [
+          {
+            "columns": [
+              "tenant_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_events_tenant_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "tenants"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "request_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_events_tenant_id_request_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_cash_requests"
+          }
+        ]
+      }
+      ins_cancellation_cash_requests: {
+        Row: {
+          id: string
+          tenant_id: string
+          cancellation_id: string
+          kind: string
+          adjustment_id: string | null
+          bank_account_id: string
+          to_bank_account_id: string | null
+          amount: number
+          cash_date: string
+          reference: string
+          notes: string
+          request_key: string
+          status: string
+          maker_id: string
+          created_at: string
+          checker_id: string | null
+          checked_at: string | null
+          decision_reason: string | null
+          settlement_id: string | null
+          to_settlement_id: string | null
+          operation_txid: number | null
+          voids_request_id: string | null
+          voided_by_request_id: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          cancellation_id: string
+          kind: string
+          adjustment_id?: string | null
+          bank_account_id: string
+          to_bank_account_id?: string | null
+          amount: number
+          cash_date: string
+          reference: string
+          notes: string
+          request_key: string
+          status?: string
+          maker_id: string
+          created_at?: string
+          checker_id?: string | null
+          checked_at?: string | null
+          decision_reason?: string | null
+          settlement_id?: string | null
+          to_settlement_id?: string | null
+          operation_txid?: number | null
+          voids_request_id?: string | null
+          voided_by_request_id?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          cancellation_id?: string
+          kind?: string
+          adjustment_id?: string | null
+          bank_account_id?: string
+          to_bank_account_id?: string | null
+          amount?: number
+          cash_date?: string
+          reference?: string
+          notes?: string
+          request_key?: string
+          status?: string
+          maker_id?: string
+          created_at?: string
+          checker_id?: string | null
+          checked_at?: string | null
+          decision_reason?: string | null
+          settlement_id?: string | null
+          to_settlement_id?: string | null
+          operation_txid?: number | null
+          voids_request_id?: string | null
+          voided_by_request_id?: string | null
+        }
+        Relationships: [
+          {
+            "columns": [
+              "tenant_id",
+              "to_bank_account_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_request_tenant_id_to_bank_account_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "fin_bank_accounts"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "voided_by_request_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_request_tenant_id_voided_by_request__fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_cash_requests"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "adjustment_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_adjustment_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_insurer_adjustments"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "bank_account_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_bank_account_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "fin_bank_accounts"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "cancellation_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_cancellation_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_policy_cancellations"
+          },
+          {
+            "columns": [
+              "tenant_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "tenants"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "settlement_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_settlement_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "fin_settlements"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "to_settlement_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_to_settlement_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "fin_settlements"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "voids_request_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_voids_request_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_cash_requests"
+          }
+        ]
+      }
+      ins_cancellation_cash_journals: {
+        Row: {
+          tenant_id: string
+          request_id: string
+          journal_entry_id: string
+          purpose: string
+        }
+        Insert: {
+          tenant_id: string
+          request_id: string
+          journal_entry_id: string
+          purpose: string
+        }
+        Update: {
+          tenant_id?: string
+          request_id?: string
+          journal_entry_id?: string
+          purpose?: string
+        }
+        Relationships: [
+          {
+            "columns": [
+              "journal_entry_id"
+            ],
+            "isOneToOne": true,
+            "foreignKeyName": "ins_cancellation_cash_journals_journal_entry_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "journal_entries"
+          },
+          {
+            "columns": [
+              "tenant_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_journals_tenant_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "tenants"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "request_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_cash_journals_tenant_id_request_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_cash_requests"
+          }
+        ]
+      }
+      ins_cancellation_commission_events: {
+        Row: {
+          id: string
+          tenant_id: string
+          request_id: string
+          adjustment_id: string
+          amount: number
+          journal_entry_id: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          request_id: string
+          adjustment_id: string
+          amount: number
+          journal_entry_id: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          request_id?: string
+          adjustment_id?: string
+          amount?: number
+          journal_entry_id?: string
+        }
+        Relationships: [
+          {
+            "columns": [
+              "journal_entry_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_commission_events_journal_entry_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "journal_entries"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "adjustment_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_adjustment_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_insurer_adjustments"
+          },
+          {
+            "columns": [
+              "tenant_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_fkey",
+            "referencedColumns": [
+              "id"
+            ],
+            "referencedRelation": "tenants"
+          },
+          {
+            "columns": [
+              "tenant_id",
+              "request_id"
+            ],
+            "isOneToOne": false,
+            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_request_id_fkey",
+            "referencedColumns": [
+              "tenant_id",
+              "id"
+            ],
+            "referencedRelation": "ins_cancellation_cash_requests"
+          }
+        ]
+      }
       ins_cancellation_credit_links: {
         Row: {
           id: string
@@ -10795,6 +11177,7 @@ export type Database = {
       }
       ins_commission_ledger: {
         Row: {
+          cancellation_id: string | null
           insurer_share_id: string | null
           allocated_premium: number | null
           commission_rate_pct: number | null
@@ -11434,6 +11817,22 @@ export type Database = {
       }
     }
     Functions: {
+      ins_cancellation_cash_context: {
+        Args: { p_policy_id: string; p_bank_account_id?: string | null; p_offset?: number }
+        Returns: Json
+      }
+      ins_submit_cancellation_cash: {
+        Args: { p_cancellation_id: string; p_kind: string; p_adjustment_id: string | null; p_bank_account_id: string; p_to_bank_account_id: string | null; p_amount: number; p_cash_date: string; p_reference: string; p_notes: string; p_request_key: string }
+        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
+      }
+      ins_submit_cancellation_cash_void: {
+        Args: { p_request_id: string; p_reason: string; p_request_key: string }
+        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
+      }
+      ins_decide_cancellation_cash: {
+        Args: { p_request_id: string; p_decision: string; p_reason: string }
+        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
+      }
       ins_policy_reversal_context: {
         Args: { p_policy_id: string; p_in_progress?: boolean }
         Returns: Json

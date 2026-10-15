@@ -7,7 +7,7 @@ import { formatMoney, POLICY_STATUS_LABEL } from '../../logic';
 import type { Policy, PolicyStatus } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 
-const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed', 'reversed'];
+const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed', 'reversed', 'cancelled'];
 
 export default function PoliciesList() {
   const navigate = useNavigate();
