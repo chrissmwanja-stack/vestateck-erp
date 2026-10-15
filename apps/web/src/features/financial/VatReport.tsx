@@ -1,3 +1,4 @@
+import { Link as RouterLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   Box,
@@ -106,6 +107,7 @@ export default function VatReport() {
         VAT Report
       </Typography>
 
+      <Button component={RouterLink} to="/financial-management/reports/insurance-fee-vat" sx={{ mb: 2 }}>Insurance broker-fee VAT supplement (tenant-wide)</Button>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField

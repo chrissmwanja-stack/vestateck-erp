@@ -187,6 +187,7 @@ export interface RenewalRow {
 export type StatementCommissionStatus = CommissionStatus | 'legacy' | 'reversed';
 
 export interface CommissionStatementRow {
+  commission_rate_pct?: number;
   policy_id: string;
   policy_no: string;
   client_name: string;

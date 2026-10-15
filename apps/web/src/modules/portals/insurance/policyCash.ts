@@ -15,6 +15,8 @@ export interface PolicyCashRequest {
   decision_reason: string | null;
   bank_account_id: string;
   bank_name: string;
+  insurer_share_id?: string | null;
+  insurer_name?: string | null;
   settlement_id: string | null;
   settlement_no: string | null;
   reconciled: boolean;
@@ -36,6 +38,10 @@ export interface PolicyCashPosition {
   client_outstanding: number;
   insurer_outstanding: number;
   maximum_remittance: number;
+  shares?: { share_id: string; insurer_id: string; insurer_name: string; is_lead: boolean; share_pct: number;
+    premium_amount: number; pass_through_amount: number; commission_amount: number; funded: number; remitted: number;
+    outstanding: number; available_allocated_funds: number; maximum_remittance: number }[];
+  broker_fee_collected?: number; vat_collected?: number;
   requests: PolicyCashRequest[];
 }
 export interface PolicyCashBank { id: string; name: string; currency: string }

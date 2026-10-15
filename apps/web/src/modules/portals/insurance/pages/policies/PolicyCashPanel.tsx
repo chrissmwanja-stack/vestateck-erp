@@ -21,6 +21,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
   const [busy, setBusy] = useState(false);
   const [kind, setKind] = useState<PolicyCashKind | null>(null);
   const [amount, setAmount] = useState('');
+  const [shareId, setShareId] = useState('');
   const [bankId, setBankId] = useState('');
   const [date, setDate] = useState(policyCashToday());
   const [reference, setReference] = useState('');
@@ -53,19 +54,25 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
 
   const canPrepare = mode === 'finance' && Boolean(position?.can_prepare);
   const open = (newKind: PolicyCashKind) => {
-    setKind(newKind); setAmount(''); setBankId(''); setDate(policyCashToday()); setReference(''); setNotes('');
+    setKind(newKind); setShareId(''); setAmount(''); setBankId(''); setDate(policyCashToday()); setReference(''); setNotes('');
     setError(null); requestKey.current = null;
   };
-  const maximum = Number(kind === 'remittance' ? position?.maximum_remittance ?? 0 : position?.client_outstanding ?? 0);
+  const hasShares = Boolean(position?.shares?.length);
+  const selectedShare = position?.shares?.find((s) => s.share_id === shareId);
+  const maximum = Number(kind === 'remittance' ? (hasShares ? selectedShare?.maximum_remittance ?? 0 : position?.maximum_remittance ?? 0) : position?.client_outstanding ?? 0);
   const edit = (update: () => void) => { requestKey.current = null; update(); };
   const submit = async () => {
     if (!kind) return;
+    if (kind === 'remittance' && hasShares && !shareId) { setError('Choose the insurer receiving this remittance.'); return; }
     const invalid = validatePolicyCashInput(amount, date, bankId, maximum, policyCashToday());
     if (invalid) { setError(invalid); return; }
     setBusy(true); setError(null);
     requestKey.current ??= crypto.randomUUID();
     try {
-      await rpc('ins_submit_policy_cash_request', {
+      if (kind === 'remittance' && hasShares) {
+        await rpc('ins_submit_policy_share_cash_request', { p_policy_id: policyId, p_insurer_share_id: shareId, p_bank_account_id: bankId,
+          p_amount: Number(amount), p_cash_date: date, p_request_key: requestKey.current, p_reference: reference || null, p_notes: notes || null });
+      } else await rpc('ins_submit_policy_cash_request', {
         p_policy_id: policyId, p_kind: kind, p_bank_account_id: bankId, p_amount: Number(amount),
         p_cash_date: date, p_request_key: requestKey.current, p_reference: reference || null, p_notes: notes || null,
       });
@@ -120,13 +127,17 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
         </Button>}
         {canPrepare && <Button component={RouterLink} to="/financial-management/bank-reconciliation" sx={{ mt: 1 }}>Bank reconciliation (independent third user)</Button>}
       </CardContent></Card>
+      {hasShares && <Box sx={{ mt: 2, overflowX: 'auto' }}><Typography variant="subtitle1">Per-insurer pro-rata funding</Typography>
+        <Typography variant="body2">Collections are apportioned across premium and charge components; broker fees and VAT are excluded from insurer funding. Partial funding is rounded down to cents until full collection.</Typography>
+        <Table size="small"><TableHead><TableRow><TableCell>Insurer</TableCell><TableCell>Funded</TableCell><TableCell>Remitted</TableCell><TableCell>Outstanding</TableCell><TableCell>Maximum remittance</TableCell></TableRow></TableHead>
+        <TableBody>{position.shares?.map((s) => <TableRow key={s.share_id}><TableCell>{s.insurer_name} {s.is_lead ? '(lead)' : ''} · {s.share_pct}%</TableCell><TableCell>{formatMoney(s.funded, position.currency)}</TableCell><TableCell>{formatMoney(s.remitted, position.currency)}</TableCell><TableCell>{formatMoney(s.outstanding, position.currency)}</TableCell><TableCell>{formatMoney(s.maximum_remittance, position.currency)}</TableCell></TableRow>)}</TableBody></Table></Box>}
       <Box sx={{ overflowX: 'auto', mt: 2 }}><Table size="small" aria-label="Policy cash requests">
         <TableHead><TableRow><TableCell>Request / bank / reference</TableCell><TableCell>Cash date / amount</TableCell>
           <TableCell>Approval evidence</TableCell><TableCell>Posting / reconciliation</TableCell><TableCell>Actions</TableCell>
         </TableRow></TableHead><TableBody>
           {position.requests.length === 0 && <TableRow><TableCell colSpan={5}>No cash requests yet. The totals also include any historical Finance settlements.</TableCell></TableRow>}
           {position.requests.map((q) => <TableRow key={q.id}>
-            <TableCell>{q.kind === 'receipt' ? 'Premium receipt' : 'Insurer remittance'}<Typography variant="caption" display="block">{q.bank_name} · {q.reference || 'No reference'}</Typography>
+            <TableCell>{q.kind === 'receipt' ? 'Premium receipt' : 'Insurer remittance'}<Typography variant="caption" display="block">{q.insurer_name ? `${q.insurer_name} · ` : ''}{q.bank_name} · {q.reference || 'No reference'}</Typography>
               {q.notes && <Typography variant="caption" display="block">{q.notes}</Typography>}</TableCell>
             <TableCell>{q.cash_date}<Typography>{formatMoney(q.amount, position.currency)}</Typography></TableCell>
             <TableCell><Chip size="small" label={q.status} />
@@ -152,6 +163,9 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
         <Alert severity="info" sx={{ mb: 2 }}>Submission does not post cash. Another authorized Finance user must approve it. Current limit: {formatMoney(maximum, position?.currency ?? 'UGX')}.</Alert>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {kind === 'remittance' && hasShares && <TextField select label="Insurer to remit to" value={shareId} onChange={(e) => edit(() => setShareId(e.target.value))} disabled={busy}>
+            {position?.shares?.map((s) => <MenuItem key={s.share_id} value={s.share_id}>{s.insurer_name} — available {formatMoney(s.maximum_remittance, position?.currency ?? 'UGX')}</MenuItem>)}
+          </TextField>}
           <TextField select label="Client-money bank account" value={bankId} onChange={(e) => edit(() => setBankId(e.target.value))} disabled={busy}>
             {banks.map((b) => <MenuItem key={b.id} value={b.id}>{b.name} ({b.currency})</MenuItem>)}
           </TextField>
@@ -169,7 +183,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {decision && <>
           <Typography>{decision.request.kind === 'receipt' ? 'Premium receipt' : 'Insurer remittance'} · {formatMoney(decision.request.amount, position?.currency ?? 'UGX')}</Typography>
-          <Typography>{decision.request.bank_name} · {decision.request.cash_date} · {decision.request.reference || 'No reference'}</Typography>
+          <Typography>{decision.request.insurer_name ? `${decision.request.insurer_name} · ` : ''}{decision.request.bank_name} · {decision.request.cash_date} · {decision.request.reference || 'No reference'}</Typography>
           <Typography sx={{ mb: 2 }}>{decision.request.notes}</Typography>
           {decision.action === 'approve' ? <Alert severity="warning">Approval immediately posts one Finance settlement and its journal. A third Finance user must reconcile it. Balances and policy eligibility are rechecked atomically.</Alert>
             : <TextField label="Decision reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth multiline disabled={busy} />}

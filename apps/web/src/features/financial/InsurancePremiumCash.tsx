@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { errorText, rpc } from '../../modules/portals/insurance/db';
 import type { PolicyCashPolicy } from '../../modules/portals/insurance/policyCash';
 import PolicyCashPanel from '../../modules/portals/insurance/pages/policies/PolicyCashPanel';
@@ -31,6 +31,7 @@ export default function InsurancePremiumCash() {
   return <Box sx={{ p: 3 }}>
     <Typography variant="h5" gutterBottom>Insurance premium cash</Typography>
     <Typography sx={{ mb: 2 }}>Prepare premium receipts and insurer remittances, or review another Finance user's pending requests. Insurance staff can view status from the policy; they cannot post cash through Insurance permissions.</Typography>
+    <Button component={RouterLink} to="/financial-management/reports/insurance-fee-vat">Broker-fee VAT supplement</Button>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Stack direction="row" spacing={1} component="form" onSubmit={(e) => { e.preventDefault(); setOffset(0); setFilter(search); }}>
       <TextField size="small" label="Find policy, client or insurer" value={search} onChange={(e) => setSearch(e.target.value)} />

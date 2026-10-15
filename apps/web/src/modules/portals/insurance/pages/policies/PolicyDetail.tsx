@@ -8,6 +8,8 @@ import { errorText, rows, rpc, table, write } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import { ClaimStatusChip, EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 import { commissionSplit, daysBetween, formatMoney, policyTermDays } from '../../logic';
+import type { FinancialDetails } from '../../financialConfiguration';
+import PolicyFinancialConfiguration from './PolicyFinancialConfiguration';
 import PolicyCashPanel from './PolicyCashPanel';
 import PolicyReversalAction from './PolicyReversalAction';
 import type { Claim, Policy, PolicyReversal } from '../../types';
@@ -22,11 +24,15 @@ const PolicyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [financial, setFinancial] = useState<FinancialDetails | null>(null);
+  const [financialDirty, setFinancialDirty] = useState(false);
   const [confirmBind, setConfirmBind] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFinancial(null);
+    setFinancialDirty(false);
     try {
       const [p] = await rows<Policy>(
         table('ins_policies')
@@ -94,6 +100,8 @@ const PolicyDetail = () => {
   if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
   if (!policy) return <Box sx={{ p: 3 }}><Alert severity="warning">Policy not found, or you do not have access to it.</Alert></Box>;
 
+  const extended = Boolean(financial && (financial.shares.length > 1 || financial.charges.length));
+  const reviewPending = Boolean(financial && (financial.shares.some((s) => !s.reviewed) || financial.charges.some((c) => !c.reviewed || c.amount === null)));
   const split = commissionSplit(policy.gross_premium, policy.commission_rate_pct);
   const term = policyTermDays(policy.inception_date, policy.expiry_date);
   const daysLeft = daysBetween(new Date().toISOString().slice(0, 10), policy.expiry_date);
@@ -107,7 +115,7 @@ const PolicyDetail = () => {
           <Stack direction="row" spacing={1} alignItems="center">
             <PolicyStatusChip status={policy.status} />
             {canManage && policy.status === 'draft' && (
-              <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={busy}>Bind policy</Button>
+              <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={busy || financialDirty || reviewPending || !financial}>Bind policy</Button>
             )}
             {canManage && policy.status === 'draft' && (
               <Button color="error" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete draft</Button>
@@ -136,7 +144,7 @@ const PolicyDetail = () => {
       </Alert>}
       {policy.status === 'draft' && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          This is a draft. Binding books the premium: the client is billed the gross premium, the insurer is owed the net, and commission is deferred until the insurer is fully paid. Bound policies are locked.
+          {extended ? 'This draft uses saved insurer shares and charges. Binding creates the full premium/charge receivable, a payable for each insurer, and separately deferred commission per insurer. Review all configuration before binding.' : 'This is a draft. Binding books the premium: the client is billed the gross premium, the insurer is owed the net, and commission is deferred until the insurer is fully paid. Bound policies are locked.'}
         </Alert>
       )}
 
@@ -157,15 +165,15 @@ const PolicyDetail = () => {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>Premium</Typography>
-              <Row label="Gross premium (billed to client)" value={formatMoney(policy.gross_premium, policy.currency)} />
+              <Row label={extended ? "Base premium (charges are separate)" : "Gross premium (billed to client)"} value={formatMoney(policy.gross_premium, policy.currency)} />
               <Row label="Commission rate" value={`${Number(policy.commission_rate_pct).toFixed(2)}%`} />
               <Row
                 label="Commission (brokerage)"
-                value={policy.status === 'draft' ? `${formatMoney(split.commission, policy.currency)} (preview)` : formatMoney(policy.commission_amount, policy.currency)}
+                value={policy.status === 'draft' ? extended ? 'Calculated independently from saved insurer shares at bind' : `${formatMoney(split.commission, policy.currency)} (preview)` : formatMoney(policy.commission_amount, policy.currency)}
               />
               <Row
-                label="Net to insurer"
-                value={policy.status === 'draft' ? `${formatMoney(split.net, policy.currency)} (preview)` : formatMoney(policy.net_premium_to_insurer, policy.currency)}
+                label={extended ? "Net premium to insurers (excluding charges)" : "Net to insurer"}
+                value={policy.status === 'draft' ? extended ? 'Per-insurer premium less commission; pass-through charges added separately' : `${formatMoney(split.net, policy.currency)} (preview)` : formatMoney(policy.net_premium_to_insurer, policy.currency)}
               />
               {policy.bound_at && <Row label="Bound" value={new Date(policy.bound_at).toLocaleString()} />}
               {policy.journal_entry_id && <Row label="Journal entry" value={<Chip size="small" variant="outlined" label={policy.journal_entry_id.slice(0, 8)} />} />}
@@ -174,6 +182,7 @@ const PolicyDetail = () => {
         </Grid>
       </Grid>
 
+      <PolicyFinancialConfiguration policyId={id} onChanged={load} onDirtyChange={setFinancialDirty} onDetails={setFinancial} />
       {policy.status !== 'draft' && <PolicyCashPanel policyId={id} />}
 
       <Box sx={{ mt: 3 }}>
@@ -214,18 +223,20 @@ const PolicyDetail = () => {
         <DialogTitle>Bind {policy.policy_no}?</DialogTitle>
         <DialogContent>
           <DialogContentText component="div">
+            {extended ? <Alert severity="info">This binds the saved insurer shares and charge lines, including any explicitly enabled broker-fee VAT. The client receivable includes premium, charges and VAT; each insurer gets its own payable and commission calculation. Check the saved configuration below before confirming.</Alert> : <>
             <p>This books the premium in the ledger on the inception date:</p>
             <ul>
               <li>Receivable from the client: <strong>{formatMoney(policy.gross_premium, policy.currency)}</strong></li>
               <li>Payable to the insurer: <strong>{formatMoney(split.net, policy.currency)}</strong></li>
               <li>Unearned commission: <strong>{formatMoney(split.commission, policy.currency)}</strong></li>
             </ul>
+            </>}
             <p>The policy is then locked. Eligible active policies can be reversed by a manager using the restricted reversal action. Policies with claims, renewal links or effective financial movement require the future cancellation/refunds workflow.</p>
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmBind(false)} disabled={busy}>Cancel</Button>
-          <Button variant="contained" onClick={bind} disabled={busy}>{busy ? 'Binding…' : 'Bind policy'}</Button>
+          <Button variant="contained" onClick={bind} disabled={busy || financialDirty || reviewPending || !financial}>{busy ? 'Binding…' : 'Bind policy'}</Button>
         </DialogActions>
       </Dialog>
 

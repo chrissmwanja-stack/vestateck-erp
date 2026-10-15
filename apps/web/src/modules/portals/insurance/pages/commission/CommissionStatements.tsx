@@ -9,6 +9,7 @@ import {
   buildCommissionStatement, formatMoney, STATEMENT_STATUS_LABEL, validateStatementPeriod,
 } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
+import type { InsurerShare } from '../../financialConfiguration';
 import type { CommissionEntry, CommissionStatement, CommissionStatementRow, Policy } from '../../types';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -60,11 +61,32 @@ const CommissionStatements = () => {
     setError(null);
     setStatement(null);
     try {
-      const [policies, ledger] = await Promise.all([
-        rows<Policy>(table('ins_policies').select('*, ins_clients(bd_clients(name))').eq('insurer_id', insurerId).neq('status', 'draft')),
-        rows<CommissionEntry>(table('ins_commission_ledger').select('*').eq('insurer_id', insurerId)),
+      // Page through the full authorized tenant set: a non-lead insurer must
+      // not disappear merely because the policy header names the lead insurer.
+      const allRows = async <T,>(makeQuery: () => ReturnType<typeof table>): Promise<T[]> => {
+        const all: T[] = [];
+        for (let offset = 0; ; offset += 500) {
+          const query = makeQuery();
+          const page = await rows<T>(query.range?.(offset, offset + 499) ?? query);
+          all.push(...page);
+          if (page.length < 500) return all;
+          if (!query.range) throw new Error('The report source cannot paginate; narrow the report rather than returning incomplete totals.');
+        }
+      };
+      const [allPolicies, ledger] = await Promise.all([
+        allRows<Policy & { ins_policy_insurer_shares?: InsurerShare[] }>(() => table('ins_policies')
+          .select('*, ins_clients(bd_clients(name)), ins_policy_insurer_shares(*)').neq('status', 'draft').order('id')),
+        allRows<CommissionEntry>(() => table('ins_commission_ledger').select('*').eq('insurer_id', insurerId).order('id')),
       ]);
-      setStatement(buildCommissionStatement(policies, ledger, { from, to }));
+      const policies: Policy[] = allPolicies.flatMap((p) => {
+        const share = p.ins_policy_insurer_shares?.find((s) => s.insurer_id === insurerId);
+        if (share && share.premium_amount != null) return [{ ...p, insurer_id: insurerId, gross_premium: share.premium_amount,
+          commission_rate_pct: share.commission_rate_pct, commission_amount: share.commission_amount ?? 0,
+          net_premium_to_insurer: share.payable_amount ?? 0 }];
+        return p.insurer_id === insurerId && !p.ins_policy_insurer_shares?.some((s) => s.premium_amount != null) ? [p] : [];
+      });
+      const result = buildCommissionStatement(policies, ledger, { from, to });
+      setStatement({ ...result, rows: result.rows.map((r) => ({ ...r, commission_rate_pct: policies.find((p) => p.id === r.policy_id)?.commission_rate_pct ?? 0 })) });
       setGenerated({ insurer: insurerName, from, to });
     } catch (e) {
       setError(errorText(e));
@@ -76,12 +98,22 @@ const CommissionStatements = () => {
   const currency = statement?.rows[0]?.currency ?? 'UGX';
   const money = (n: number) => formatMoney(n, currency);
 
+  const earnedFor = (r: CommissionStatementRow): number => r.policy_id === 'total'
+    ? (statement ? statement.totals.earned + statement.totals.transferred + statement.totals.legacy : 0)
+    : ['earned', 'transferred', 'legacy'].includes(r.status) ? r.commission : 0;
+  const untransferredFor = (r: CommissionStatementRow): number | string => r.policy_id === 'total'
+    ? (statement ? statement.totals.deferred + statement.totals.earned : 0)
+    : r.status === 'legacy' ? 'Not tracked (legacy)' : ['transferred', 'reversed'].includes(r.status) ? 0 : r.commission;
+
   const columns: ReportExportColumn<CommissionStatementRow>[] = [
     { header: 'Policy', accessor: (r) => r.policy_no },
     { header: 'Client', accessor: (r) => r.client_name },
     { header: 'Bound', accessor: (r) => r.bound_on },
-    { header: 'Gross premium', accessor: (r) => r.gross_premium, align: 'right' },
+    { header: 'Allocated premium', accessor: (r) => r.gross_premium, align: 'right' },
     { header: 'Net to insurer', accessor: (r) => r.net_premium, align: 'right' },
+    { header: 'Rate %', accessor: (r) => r.commission_rate_pct ?? '', align: 'right' },
+    { header: 'Recognized / earned commission', accessor: earnedFor, align: 'right' },
+    { header: 'Outstanding (not transferred; tracked only)', accessor: untransferredFor, align: 'right' },
     { header: 'Commission', accessor: (r) => r.commission, align: 'right' },
     { header: 'Status', accessor: (r) => STATEMENT_STATUS_LABEL[r.status] },
     { header: 'Earned on', accessor: (r) => r.earned_on ?? '' },
@@ -157,9 +189,9 @@ const CommissionStatements = () => {
                 <TableCell>Policy</TableCell>
                 <TableCell>Client</TableCell>
                 <TableCell>Bound</TableCell>
-                <TableCell align="right">Gross premium</TableCell>
+                <TableCell align="right">Allocated premium</TableCell>
                 <TableCell align="right">Net to insurer</TableCell>
-                <TableCell align="right">Commission</TableCell>
+                <TableCell align="right">Rate %</TableCell><TableCell align="right">Earned</TableCell><TableCell align="right">Not transferred</TableCell><TableCell align="right">Commission</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Earned on</TableCell>
                 <TableCell>Transfer</TableCell>
@@ -167,7 +199,7 @@ const CommissionStatements = () => {
             </TableHead>
             <TableBody>
               {statement.rows.length === 0 ? (
-                <EmptyRow colSpan={9} text="No policies were bound with this insurer in this period." />
+                <EmptyRow colSpan={12} text="No policies were bound with this insurer in this period." />
               ) : (
                 statement.rows.map((r) => (
                   <TableRow key={r.policy_id}>
@@ -176,7 +208,7 @@ const CommissionStatements = () => {
                     <TableCell>{r.bound_on}</TableCell>
                     <TableCell align="right">{money(r.gross_premium)}</TableCell>
                     <TableCell align="right">{money(r.net_premium)}</TableCell>
-                    <TableCell align="right">{money(r.commission)}</TableCell>
+                    <TableCell align="right">{r.commission_rate_pct}%</TableCell><TableCell align="right">{money(earnedFor(r))}</TableCell><TableCell align="right">{typeof untransferredFor(r) === 'number' ? money(untransferredFor(r) as number) : untransferredFor(r)}</TableCell><TableCell align="right">{money(r.commission)}</TableCell>
                     <TableCell>{STATEMENT_STATUS_LABEL[r.status]}</TableCell>
                     <TableCell>{r.earned_on ?? '-'}</TableCell>
                     <TableCell>{r.transfer_no ? `${r.transfer_no} (${r.transfer_date ?? '-'})` : '-'}</TableCell>

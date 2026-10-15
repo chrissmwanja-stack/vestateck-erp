@@ -4301,6 +4301,7 @@ export type Database = {
       }
       ins_commission_entries: {
         Row: {
+          insurer_share_id: string | null
           amount: number
           created_at: string
           earned_on: string | null
@@ -4312,6 +4313,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          insurer_share_id?: string | null
           amount: number
           created_at?: string
           earned_on?: string | null
@@ -4323,6 +4325,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          insurer_share_id?: string | null
           amount?: number
           created_at?: string
           earned_on?: string | null
@@ -4334,17 +4337,18 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          { foreignKeyName: "ins_commission_entries_share_fk"; columns: ["tenant_id", "insurer_share_id"]; isOneToOne: false; referencedRelation: "ins_policy_insurer_shares"; referencedColumns: ["tenant_id", "id"] },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "ins_renewal_pipeline"
             referencedColumns: ["policy_id"]
           },
@@ -4670,8 +4674,217 @@ export type Database = {
           },
         ]
       }
+      ins_policy_insurer_shares: {
+        Row: {
+          id: string
+          tenant_id: string
+          policy_id: string
+          insurer_id: string
+          is_lead: boolean
+          share_pct: number
+          commission_rate_pct: number
+          insurer_policy_no: string | null
+          premium_amount: number | null
+          pass_through_amount: number | null
+          commission_amount: number | null
+          payable_amount: number | null
+          reviewed: boolean
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          policy_id: string
+          insurer_id: string
+          is_lead?: boolean
+          share_pct: number
+          commission_rate_pct: number
+          insurer_policy_no?: string | null
+          premium_amount?: number | null
+          pass_through_amount?: number | null
+          commission_amount?: number | null
+          payable_amount?: number | null
+          reviewed?: boolean
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          policy_id?: string
+          insurer_id?: string
+          is_lead?: boolean
+          share_pct?: number
+          commission_rate_pct?: number
+          insurer_policy_no?: string | null
+          premium_amount?: number | null
+          pass_through_amount?: number | null
+          commission_amount?: number | null
+          payable_amount?: number | null
+          reviewed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_insurer_id_fkey"
+            columns: ["tenant_id", "insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_charges: {
+        Row: {
+          id: string
+          tenant_id: string
+          policy_id: string
+          kind: string
+          description: string
+          amount: number | null
+          recipient_mode: string
+          recipient_insurer_id: string | null
+          vat_mode: string
+          vat_rate_pct: number | null
+          vat_amount: number | null
+          income_gl_account_id: string | null
+          reviewed: boolean
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          policy_id: string
+          kind: string
+          description: string
+          amount?: number | null
+          recipient_mode: string
+          recipient_insurer_id?: string | null
+          vat_mode?: string
+          vat_rate_pct?: number | null
+          vat_amount?: number | null
+          income_gl_account_id?: string | null
+          reviewed?: boolean
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          policy_id?: string
+          kind?: string
+          description?: string
+          amount?: number | null
+          recipient_mode?: string
+          recipient_insurer_id?: string | null
+          vat_mode?: string
+          vat_rate_pct?: number | null
+          vat_amount?: number | null
+          income_gl_account_id?: string | null
+          reviewed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_income_gl_account_id_fkey"
+            columns: ["tenant_id", "income_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_recipient_insurer_id_fkey"
+            columns: ["tenant_id", "recipient_insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_financial_snapshots: {
+        Row: {
+          policy_id: string
+          tenant_id: string
+          extended: boolean
+          invoice_total: number
+          broker_fee_total: number
+          vat_total: number
+          snapshot: Json
+          journal_entry_id: string
+          bound_by: string
+          bound_at: string
+        }
+        Insert: {
+          policy_id: string
+          tenant_id: string
+          extended: boolean
+          invoice_total: number
+          broker_fee_total: number
+          vat_total: number
+          snapshot: Json
+          journal_entry_id: string
+          bound_by: string
+          bound_at?: string
+        }
+        Update: {
+          policy_id?: string
+          tenant_id?: string
+          extended?: boolean
+          invoice_total?: number
+          broker_fee_total?: number
+          vat_total?: number
+          snapshot?: Json
+          journal_entry_id?: string
+          bound_by?: string
+          bound_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
       ins_policy_cash_requests: {
         Row: {
+          insurer_share_id: string | null
           id: string
           tenant_id: string
           policy_id: string
@@ -4692,6 +4905,7 @@ export type Database = {
           operation_txid: number | null
         }
         Insert: {
+          insurer_share_id?: string | null
           id?: string
           tenant_id: string
           policy_id: string
@@ -4712,6 +4926,7 @@ export type Database = {
           operation_txid?: number | null
         }
         Update: {
+          insurer_share_id?: string | null
           id?: string
           tenant_id?: string
           policy_id?: string
@@ -4732,6 +4947,7 @@ export type Database = {
           operation_txid?: number | null
         }
         Relationships: [
+          { foreignKeyName: "ins_policy_cash_requests_share_fk"; columns: ["tenant_id", "insurer_share_id"]; isOneToOne: false; referencedRelation: "ins_policy_insurer_shares"; referencedColumns: ["tenant_id", "id"] },
           {
             foreignKeyName: "ins_policy_cash_requests_tenant_id_bank_account_id_fkey"
             columns: ["tenant_id", "bank_account_id"]
@@ -10078,8 +10294,21 @@ export type Database = {
           },
         ]
       }
+      ins_policy_cash_items: {
+        Row: { id: string | null; tenant_id: string | null; party_account_id: string | null; side: string | null; control_role: string | null; source_type: string | null; source_id: string | null; insurer_share_id: string | null }
+        Relationships: []
+      }
+      ins_broker_fee_tax_report: {
+        Row: { charge_id: string | null; tenant_id: string | null; policy_id: string | null; policy_no: string | null; currency: string | null; invoice_date: string | null; description: string | null; fee_amount: number | null; vat_mode: string | null; vat_rate_pct: number | null; vat_amount: number | null; invoice_line_total: number | null; journal_entry_id: string | null }
+        Relationships: []
+      }
       ins_commission_ledger: {
         Row: {
+          insurer_share_id: string | null
+          allocated_premium: number | null
+          commission_rate_pct: number | null
+          earned_commission: number | null
+          untransferred_commission: number | null
           amount: number | null
           client_id: string | null
           created_at: string | null
@@ -10099,14 +10328,14 @@ export type Database = {
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "ins_renewal_pipeline"
             referencedColumns: ["policy_id"]
           },
@@ -10729,6 +10958,23 @@ export type Database = {
       ins_reversal_note_void_guard: { Args: never; Returns: unknown }
       ins_reversal_journal_void_guard: { Args: never; Returns: unknown }
 
+      ins_set_policy_financial_configuration: { Args: { p_policy_id: string; p_shares: Json; p_charges: Json }; Returns: undefined }
+      ins_policy_financial_details: { Args: { p_policy_id: string }; Returns: Json }
+      ins_insurer_commission_statement_data: { Args: { p_insurer_id: string }; Returns: Json }
+      ins_policy_charge_income_accounts: { Args: never; Returns: { id: string; account_code: string; name: string }[] }
+      ins_submit_policy_share_cash_request: {
+        Args: { p_policy_id: string; p_insurer_share_id: string; p_bank_account_id: string; p_amount: number; p_cash_date: string; p_request_key: string; p_reference?: string; p_notes?: string }
+        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
+      }
+      ins_broker_fee_tax_rows: { Args: { p_date_from?: string; p_date_to?: string }; Returns: { charge_id: string; tenant_id: string; policy_id: string; policy_no: string; currency: string; invoice_date: string; description: string; fee_amount: number; vat_mode: string; vat_rate_pct: number | null; vat_amount: number; invoice_line_total: number; journal_entry_id: string }[] }
+      ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
+      ins_financial_configuration_guard: { Args: never; Returns: unknown }
+      ins_complex_policy_credit_guard: { Args: never; Returns: unknown }
+      platform_ins_bind_policy_legacy_impl: { Args: { p_policy_id: string }; Returns: Database['public']['Tables']['ins_policies']['Row'] }
+      platform_ins_create_renewal_legacy_impl: { Args: { p_policy_id: string }; Returns: Database['public']['Tables']['ins_policies']['Row'] }
+      platform_ins_policy_reversal_legacy_context: { Args: { p_policy_id: string; p_in_progress?: boolean }; Returns: Json }
+      platform_ins_policy_cash_legacy_totals: { Args: { p_policy_id: string }; Returns: Json }
+      platform_ins_policy_cash_legacy_validate: { Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string }; Returns: Database['public']['Tables']['fin_open_items']['Row'] }
       ins_policy_cash_position: { Args: { p_policy_id: string }; Returns: Json }
       ins_policy_cash_bank_accounts: { Args: never; Returns: Database['public']['Tables']['fin_bank_accounts']['Row'][] }
       ins_policy_cash_policies: {
@@ -10746,7 +10992,7 @@ export type Database = {
       ins_policy_cash_require_finance: { Args: never; Returns: undefined }
       ins_policy_cash_totals: { Args: { p_policy_id: string }; Returns: Json }
       ins_policy_cash_validate: {
-        Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string }
+        Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string; p_share_id?: string }
         Returns: Database['public']['Tables']['fin_open_items']['Row']
       }
       ins_policy_cash_allocation_guard: { Args: never; Returns: unknown }
