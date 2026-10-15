@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { useBranding } from "../../lib/brandingContext";
 import { useMyModuleAccess } from "./useMyModuleAccess";
 import { filterNodesByAccess } from "./filterNodesByAccess";
+import { visiblePortalsFor } from "./visiblePortals";
 import { TreeItem } from "./TreeItem";
 import { portals } from "./moduleTreeData";
 import { warnOnUnknownNavModules } from "./validateNavModules";
@@ -26,26 +27,9 @@ export default function ModuleTree() {
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  // Portals gated at the whole-portal level (hr/legal/bd/it/pmo/
-  // machine_operation/sustainability) disappear entirely from the
-  // switcher if the user has no access. Mixed portals (purchasing-
-  // logistics) and the finance portal always show for their tier, with
-  // node-level filtering applied below. The platform-admin portal is
-  // only ever offered to platform admins (route guards still enforce).
-  const visiblePortals = useMemo(() => {
-    if (!access) return portals;
-    if (access.isPlatformAdmin && !access.isImpersonating) {
-      return portals.filter((p) => p.id === "platform-admin");
-    }
-    return portals.filter((p) => {
-      if (access.isPlatformAdmin) return true;
-      if (p.requiredModule && !access.modules.has(p.requiredModule)) return false;
-      if (p.requiredAccess === "finance" && !access.canAccessFinance) return false;
-      if (p.requiredAccess === "company-admin" && !access.isCompanyAdmin) return false;
-      if (p.requiredAccess === "platform") return false;
-      return true;
-    });
-  }, [access]);
+  // Which portals this user is offered -- shared with the Company Admin
+  // rail (see visiblePortals.ts) so the two never disagree.
+  const visiblePortals = useMemo(() => visiblePortalsFor(access, portals), [access]);
 
   const activePortal = useMemo(
     () => visiblePortals.find((p) => p.id === activePortalId) ?? visiblePortals[0] ?? portals[0],

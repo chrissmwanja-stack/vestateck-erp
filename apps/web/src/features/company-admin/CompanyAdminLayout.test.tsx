@@ -1,12 +1,42 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ModuleAccessState } from '../navigation/types';
 import CompanyAdminLayout, { isCompanyAdminRoute, resolveCompanyAdminRoute } from './CompanyAdminLayout';
 
 // The Company Admin shell: one persistent rail covering every
 // /company-admin/* route, grouped into Organization / Users & access /
 // Workflows / Setup. Route table shared with App.tsx so "hide
 // ModuleTree here" can't drift from "wrap in CompanyAdminLayout here".
+
+// The rail also lists the modules the admin can open (the module tree is
+// hidden on /company-admin/*). Access comes from useMyModuleAccess, which
+// returns null while loading.
+let mockAccess: ModuleAccessState | null = null;
+vi.mock('../navigation/useMyModuleAccess', () => ({ useMyModuleAccess: () => mockAccess }));
+
+function accessFor(modules: string[], overrides: Partial<ModuleAccessState> = {}): ModuleAccessState {
+  return {
+    isPlatformAdmin: false,
+    modules: new Set(modules),
+    entitledModules: new Set(modules),
+    rolesByModule: new Map(modules.map((m) => [m, new Set(['admin'])])),
+    isImpersonating: false,
+    canAccessFinance: true,
+    hasPoAccess: false,
+    isCompanyAdmin: true,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  mockAccess = null;
+  try {
+    localStorage.clear();
+  } catch {
+    /* ignore */
+  }
+});
 
 function renderAt(path: string) {
   return render(
@@ -80,5 +110,44 @@ describe('CompanyAdminLayout', () => {
     expect(nav).not.toHaveTextContent('Companies');
     expect(nav).not.toHaveTextContent('Audit log');
     expect(nav).not.toHaveTextContent('Chart of Accounts');
+  });
+
+  it('lists no modules while access is still loading, and the admin sections still render', () => {
+    mockAccess = null;
+    renderAt('/company-admin/setup');
+    const nav = screen.getByRole('navigation', { name: /company administration/i });
+    expect(nav).not.toHaveTextContent('Your modules');
+    expect(nav).toHaveTextContent('Setup checklist');
+  });
+
+  it('offers the modules the company admin can open, so a new admin is not stuck in administration', () => {
+    mockAccess = accessFor(['hr', 'insurance']);
+    renderAt('/company-admin/setup');
+    const nav = screen.getByRole('navigation', { name: /company administration/i });
+    expect(nav).toHaveTextContent('Your modules');
+    const hr = screen.getByRole('link', { name: /Human Resources/ });
+    const insurance = screen.getByRole('link', { name: /Insurance Brokerage/ });
+    // They lead into the module, not back into company administration.
+    for (const a of [hr, insurance]) {
+      const href = a.getAttribute('href') ?? '';
+      expect(href).not.toBe('');
+      expect(href.startsWith('/company-admin')).toBe(false);
+    }
+  });
+
+  it('does not list modules the company has not opened, nor the admin or platform portals', () => {
+    mockAccess = accessFor(['hr']);
+    renderAt('/company-admin');
+    expect(screen.queryByRole('link', { name: /Law and Compliance/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Insurance Brokerage/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Company Administration/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Platform Administration/ })).not.toBeInTheDocument();
+  });
+
+  it('remembers the chosen module so the module tree opens on it', () => {
+    mockAccess = accessFor(['hr']);
+    renderAt('/company-admin');
+    fireEvent.click(screen.getByRole('link', { name: /Human Resources/ }));
+    expect(localStorage.getItem('activePortalId')).toBe('human-resources');
   });
 });
