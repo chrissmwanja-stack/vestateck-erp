@@ -26,6 +26,7 @@ export interface PolicyCashRequest {
 export interface PolicyCashPosition {
   policy_id: string;
   policy_status: string;
+  cash_notice?: string;
   currency: string;
   actor_id: string;
   can_prepare: boolean;

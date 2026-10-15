@@ -57,7 +57,7 @@ export default function InsuranceFeeTaxReport() {
   };
   const columns: ReportExportColumn<Row>[] = [
     { header: 'Policy', accessor: (r) => r.policy_no },
-    { header: 'Bind / invoice date', accessor: (r) => r.invoice_date },
+    { header: 'Invoice / credit posting date', accessor: (r) => r.invoice_date },
     { header: 'Description', accessor: (r) => r.description },
     {
       header: 'Fee base',
@@ -88,7 +88,7 @@ export default function InsuranceFeeTaxReport() {
     <Box sx={{ p: 3 }}>
       <Typography variant="h5">Insurance broker-fee VAT supplement</Typography>
       <Alert severity="info" sx={{ my: 2 }}>
-        Tenant-wide, accrual-based on bind date. Insurance policies do not carry
+        Tenant-wide, accrual-based on bind date; negative cancellation credit rows use their posting date. Insurance policies do not carry
         an organization allocation. These rows are separate from the standard
         supplier/receivable-invoice VAT report; do not count them twice in a
         manual return. This is not a determination of Ugandan VAT treatment or
@@ -154,7 +154,7 @@ export default function InsuranceFeeTaxReport() {
           </TableHead>
           <TableBody>
             {data.map((r) => (
-              <TableRow key={r.charge_id}>
+              <TableRow key={`${r.charge_id}-${r.journal_entry_id}`}>
                 {columns.map((c) => (
                   <TableCell key={c.header}>{c.accessor(r)}</TableCell>
                 ))}

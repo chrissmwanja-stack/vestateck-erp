@@ -106,22 +106,22 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
         <Stack direction="row" useFlexGap flexWrap="wrap" spacing={3}>
           {([
             ['Client money collected', position.collected], ['Remitted to insurer', position.remitted],
-            ['Available allocated funds', position.available_allocated_funds], ['Client still owes', position.client_outstanding],
+            [position.policy_status === 'cancelled' ? 'Cash before cancellation obligations (not free funds)' : 'Available allocated funds', position.available_allocated_funds], ['Client still owes', position.client_outstanding],
             ['Outstanding insurer liability', position.insurer_outstanding], ['Maximum remittance now', position.maximum_remittance],
           ] as const).map(([label, value]) => <Box key={label}><Typography variant="caption">{label}</Typography>
             <Typography>{formatMoney(value, position.currency)}</Typography></Box>)}
         </Stack>
         <Typography variant="body2" sx={{ mt: 2 }}>
-          Commission: {formatMoney(position.commission_amount, position.currency)} · {position.commission_status ?? 'not applicable'}.
+          {position.policy_status === 'cancelled' ? 'Original bound commission' : 'Commission'}: {formatMoney(position.commission_amount, position.currency)} · {position.commission_status ?? 'not applicable'}.
           {' '}Transferred: {formatMoney(position.commission_transferred, position.currency)}. Collections are not commission income.
-          {' '}Available funds = allocated collections less effective remittances and commission already withdrawn.
-          {' '}Maximum remittance = min(available allocated funds, outstanding insurer liability).
+          {position.policy_status === 'cancelled' ? ' These are historical cash totals, not funds available for a refund. Consult the cancellation liabilities and recovery trail.' : ' Available funds = allocated collections less effective remittances and commission already withdrawn. Maximum remittance = min(available allocated funds, outstanding insurer liability).'}
         </Typography>
         {canPrepare && ['active', 'renewed'].includes(position.policy_status) && <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           <Button variant="outlined" disabled={busy || Number(position.client_outstanding) <= 0} onClick={() => open('receipt')}>Prepare premium receipt</Button>
           <Button variant="outlined" disabled={busy || Number(position.maximum_remittance) <= 0} onClick={() => open('remittance')}>Prepare insurer remittance</Button>
         </Stack>}
-        {mode === 'finance' && !position.can_prepare && <Alert severity="warning">Authorized Finance membership is required. This view cannot prepare or approve cash.</Alert>}
+        {position.cash_notice && <Alert severity="info">{position.cash_notice}</Alert>}
+        {mode === 'finance' && !position.can_prepare && !position.cash_notice && <Alert severity="warning">Authorized Finance membership is required. This view cannot prepare or approve cash.</Alert>}
         {mode === 'view' && position.can_prepare && <Button component={RouterLink} to={`/financial-management/insurance-premium-cash?policy=${encodeURIComponent(policyId)}`}>
           Open Finance cash workflow
         </Button>}

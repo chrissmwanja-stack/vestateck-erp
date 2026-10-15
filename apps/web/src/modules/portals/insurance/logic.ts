@@ -101,6 +101,7 @@ export const POLICY_STATUS_LABEL: Record<PolicyStatus, string> = {
   active: 'Active',
   renewed: 'Renewed',
   reversed: 'Reversed',
+  cancelled: 'Cancelled',
 };
 
 export const COMMISSION_STATUS_LABEL: Record<CommissionStatus, string> = {

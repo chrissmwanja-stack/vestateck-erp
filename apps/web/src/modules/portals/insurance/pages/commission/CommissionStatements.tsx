@@ -9,7 +9,7 @@ import {
   buildCommissionStatement, formatMoney, STATEMENT_STATUS_LABEL, validateStatementPeriod,
 } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
-import type { InsurerShare } from '../../financialConfiguration';
+import { projectInsurerStatementPolicy } from '../../cancellation/statementProjection';
 import type { CommissionEntry, CommissionStatement, CommissionStatementRow, Policy } from '../../types';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -74,17 +74,11 @@ const CommissionStatements = () => {
         }
       };
       const [allPolicies, ledger] = await Promise.all([
-        allRows<Policy & { ins_policy_insurer_shares?: InsurerShare[] }>(() => table('ins_policies')
-          .select('*, ins_clients(bd_clients(name)), ins_policy_insurer_shares(*)').neq('status', 'draft').order('id')),
+        allRows<Parameters<typeof projectInsurerStatementPolicy>[0]>(() => table('ins_policies')
+          .select('*, ins_clients(bd_clients(name)), ins_policy_insurer_shares(*), ins_policy_cancellations(status, calculation)').neq('status', 'draft').order('id')),
         allRows<CommissionEntry>(() => table('ins_commission_ledger').select('*').eq('insurer_id', insurerId).order('id')),
       ]);
-      const policies: Policy[] = allPolicies.flatMap((p) => {
-        const share = p.ins_policy_insurer_shares?.find((s) => s.insurer_id === insurerId);
-        if (share && share.premium_amount != null) return [{ ...p, insurer_id: insurerId, gross_premium: share.premium_amount,
-          commission_rate_pct: share.commission_rate_pct, commission_amount: share.commission_amount ?? 0,
-          net_premium_to_insurer: share.payable_amount ?? 0 }];
-        return p.insurer_id === insurerId && !p.ins_policy_insurer_shares?.some((s) => s.premium_amount != null) ? [p] : [];
-      });
+      const policies: Policy[] = allPolicies.flatMap((p) => projectInsurerStatementPolicy(p, insurerId));
       const result = buildCommissionStatement(policies, ledger, { from, to });
       setStatement({ ...result, rows: result.rows.map((r) => ({ ...r, commission_rate_pct: policies.find((p) => p.id === r.policy_id)?.commission_rate_pct ?? 0 })) });
       setGenerated({ insurer: insurerName, from, to });

@@ -12,6 +12,7 @@ import type { FinancialDetails } from '../../financialConfiguration';
 import PolicyFinancialConfiguration from './PolicyFinancialConfiguration';
 import PolicyCashPanel from './PolicyCashPanel';
 import PolicyReversalAction from './PolicyReversalAction';
+import PolicyCancellationPanel from '../../cancellation/PolicyCancellationPanel';
 import type { Claim, Policy, PolicyReversal } from '../../types';
 
 const PolicyDetail = () => {
@@ -136,6 +137,7 @@ const PolicyDetail = () => {
         }
       />
       <ErrorBanner message={error} />
+      {policy.status !== 'draft' && <PolicyCancellationPanel policyId={id} onPosted={load} />}
       {reversal && <Alert severity="info" sx={{ mb: 2 }}>
         {reversal.original_policy_id === id ? 'Reversed' : 'Replacement for a policy reversed'} on {reversal.reversal_date}: {reversal.reason}. Accounting: {reversal.accounting_treatment}.
         {reversal.original_policy_id !== id && <Button onClick={() => navigate(`/insurance/policies/${reversal.original_policy_id}`)}>Original policy</Button>}

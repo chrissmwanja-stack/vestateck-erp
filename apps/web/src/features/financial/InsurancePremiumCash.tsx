@@ -4,6 +4,7 @@ import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { errorText, rpc } from '../../modules/portals/insurance/db';
 import type { PolicyCashPolicy } from '../../modules/portals/insurance/policyCash';
 import PolicyCashPanel from '../../modules/portals/insurance/pages/policies/PolicyCashPanel';
+import PolicyCancellationPanel from '../../modules/portals/insurance/cancellation/PolicyCancellationPanel';
 
 /** Finance route: does not require an Insurance staff role. RPCs are Finance-only. */
 export default function InsurancePremiumCash() {
@@ -48,6 +49,7 @@ export default function InsurancePremiumCash() {
       <Button disabled={loading || offset === 0} onClick={() => setOffset((v) => Math.max(v - 50, 0))}>Previous</Button>
       <Button disabled={loading || policies.length < 50} onClick={() => setOffset((v) => v + 50)}>Next</Button>
     </Stack>
+    {selected && <PolicyCancellationPanel key={`cancellation-${selected}`} policyId={selected} />}
     {selected ? <PolicyCashPanel key={selected} policyId={selected} mode="finance" /> : <Alert severity="info" sx={{ mt: 2 }}>Select a policy to prepare cash or review pending approvals.</Alert>}
   </Box>;
 }

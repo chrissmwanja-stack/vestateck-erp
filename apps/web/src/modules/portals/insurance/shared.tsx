@@ -26,6 +26,7 @@ const POLICY_COLOR: Record<PolicyStatus, 'default' | 'primary' | 'success'> = {
   active: 'success',
   renewed: 'primary',
   reversed: 'default',
+  cancelled: 'default',
 };
 
 const CLAIM_COLOR: Record<ClaimStatus, 'default' | 'primary' | 'warning' | 'success' | 'error'> = {

@@ -1,7 +1,7 @@
 // Row shapes for the insurance tables and views, as the UI reads them.
 // The generated Database types predate these tables, so they are typed here.
 
-export type PolicyStatus = 'draft' | 'active' | 'renewed' | 'reversed';
+export type PolicyStatus = 'draft' | 'active' | 'renewed' | 'reversed' | 'cancelled';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';
 export type CommissionStatus = 'deferred' | 'earned' | 'transferred';
 /** Who pays a claim: the insurer straight to the client, or the insurer to the brokerage which pays the client. */
