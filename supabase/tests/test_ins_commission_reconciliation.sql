@@ -101,10 +101,44 @@ returns public.ins_policies language sql as $$
   select * from public.ins_create_policy(p_client, p_insurer, p_line, current_date, current_date + 365,
                                          50000000, 'UGX', p_gross, p_rate, null, null)
 $$;
+-- Test-only fixture adapter: exercise the real maker/checker RPCs. The second
+-- Finance identity is created inside this rolled-back test, never in a migration.
+create function pg_temp.policy_cash_settle(p_bank uuid,p_dir text,p_party uuid,p_item uuid,p_amount numeric)
+returns public.fin_settlements language plpgsql security definer set search_path=public,pg_temp as $$
+declare i fin_open_items%rowtype; checker uuid; claims text := current_setting('request.jwt.claims',true);
+  q ins_policy_cash_requests%rowtype; s fin_settlements%rowtype;
+begin
+  select * into i from fin_open_items where id=p_item;
+  if i.source_type not in ('ins_policy_premium','ins_policy_insurer') then
+    return fin_record_settlement(p_bank,p_dir,p_party,p_amount,current_date,
+      jsonb_build_array(jsonb_build_object('open_item_id',p_item,'amount',p_amount)));
+  end if;
+  if p_party<>i.party_account_id then raise exception 'test fixture party mismatch'; end if;
+  select id into checker from app_users where tenant_id=i.tenant_id
+    and email='policy-cash-checker-'||i.tenant_id||'@test.local';
+  if checker is null then
+    checker := gen_random_uuid();
+    insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,aud,role,created_at,updated_at)
+      values(checker,'policy-cash-checker-'||i.tenant_id||'@test.local','{}','{}','authenticated','authenticated',now(),now());
+    insert into app_users(id,tenant_id,name,email) values(checker,i.tenant_id,'Cash checker fixture','policy-cash-checker-'||i.tenant_id||'@test.local')
+      on conflict(id) do update set tenant_id=excluded.tenant_id,email=excluded.email;
+    insert into finance_team_members(tenant_id,user_id,role) values(i.tenant_id,checker,'finance');
+  end if;
+  q := ins_submit_policy_cash_request(i.source_id,case p_dir when 'in' then 'receipt' else 'remittance' end,
+    p_bank,p_amount,current_date,gen_random_uuid());
+  perform pg_temp.jwt(checker);
+  q := ins_decide_policy_cash_request(q.id,'approve');
+  select * into s from fin_settlements where id=q.settlement_id;
+  perform set_config('request.jwt.claims',claims,true);
+  return s;
+exception when others then
+  perform set_config('request.jwt.claims',claims,true);
+  raise;
+end $$;
+
 create function pg_temp.pay(p_bank uuid, p_dir text, p_party uuid, p_item uuid, p_amount numeric)
 returns public.fin_settlements language sql as $$
-  select * from public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, current_date,
-    jsonb_build_array(jsonb_build_object('open_item_id', p_item, 'amount', p_amount)))
+  select * from pg_temp.policy_cash_settle(p_bank,p_dir,p_party,p_item,p_amount)
 $$;
 
 do $$

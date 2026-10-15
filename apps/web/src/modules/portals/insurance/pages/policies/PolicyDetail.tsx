@@ -8,6 +8,7 @@ import { errorText, rows, rpc, table, write } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import { ClaimStatusChip, EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 import { commissionSplit, daysBetween, formatMoney, policyTermDays } from '../../logic';
+import PolicyCashPanel from './PolicyCashPanel';
 import PolicyReversalAction from './PolicyReversalAction';
 import type { Claim, Policy, PolicyReversal } from '../../types';
 
@@ -172,6 +173,8 @@ const PolicyDetail = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {policy.status !== 'draft' && <PolicyCashPanel policyId={id} />}
 
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>Claims on this policy</Typography>

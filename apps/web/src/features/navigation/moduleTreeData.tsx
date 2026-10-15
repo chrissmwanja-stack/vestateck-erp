@@ -258,6 +258,7 @@ export const portals: Portal[] = [
         icon: <Folder fontSize="small" />,
         children: [
           { id: "cash-and-bank-payments", label: "Cash and Bank Payments", icon: <AccountBalance fontSize="small" />, to: "/financial-management/cash-bank-operations" },
+          { id: "insurance-premium-cash", label: "Insurance Premium Cash", icon: <AccountBalance fontSize="small" />, to: "/financial-management/insurance-premium-cash" },
           { id: "bank-reconciliation", label: "Bank Reconciliation", icon: <AccountBalance fontSize="small" />, to: "/financial-management/bank-reconciliation" },
         ],
       },

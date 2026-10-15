@@ -117,10 +117,44 @@ returns public.ins_policies language sql as $$
   select * from public.ins_create_policy(p_client, p_insurer, p_line, current_date, current_date + 365,
                                          50000000, 'UGX', p_gross, p_rate, null, null)
 $$;
+-- Test-only fixture adapter: exercise the real maker/checker RPCs. The second
+-- Finance identity is created inside this rolled-back test, never in a migration.
+create function pg_temp.policy_cash_settle(p_bank uuid,p_dir text,p_party uuid,p_item uuid,p_amount numeric)
+returns public.fin_settlements language plpgsql security definer set search_path=public,pg_temp as $$
+declare i fin_open_items%rowtype; checker uuid; claims text := current_setting('request.jwt.claims',true);
+  q ins_policy_cash_requests%rowtype; s fin_settlements%rowtype;
+begin
+  select * into i from fin_open_items where id=p_item;
+  if i.source_type not in ('ins_policy_premium','ins_policy_insurer') then
+    return fin_record_settlement(p_bank,p_dir,p_party,p_amount,current_date,
+      jsonb_build_array(jsonb_build_object('open_item_id',p_item,'amount',p_amount)));
+  end if;
+  if p_party<>i.party_account_id then raise exception 'test fixture party mismatch'; end if;
+  select id into checker from app_users where tenant_id=i.tenant_id
+    and email='policy-cash-checker-'||i.tenant_id||'@test.local';
+  if checker is null then
+    checker := gen_random_uuid();
+    insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,aud,role,created_at,updated_at)
+      values(checker,'policy-cash-checker-'||i.tenant_id||'@test.local','{}','{}','authenticated','authenticated',now(),now());
+    insert into app_users(id,tenant_id,name,email) values(checker,i.tenant_id,'Cash checker fixture','policy-cash-checker-'||i.tenant_id||'@test.local')
+      on conflict(id) do update set tenant_id=excluded.tenant_id,email=excluded.email;
+    insert into finance_team_members(tenant_id,user_id,role) values(i.tenant_id,checker,'finance');
+  end if;
+  q := ins_submit_policy_cash_request(i.source_id,case p_dir when 'in' then 'receipt' else 'remittance' end,
+    p_bank,p_amount,current_date,gen_random_uuid());
+  perform pg_temp.jwt(checker);
+  q := ins_decide_policy_cash_request(q.id,'approve');
+  select * into s from fin_settlements where id=q.settlement_id;
+  perform set_config('request.jwt.claims',claims,true);
+  return s;
+exception when others then
+  perform set_config('request.jwt.claims',claims,true);
+  raise;
+end $$;
+
 create function pg_temp.pay(p_bank uuid, p_dir text, p_party uuid, p_item uuid, p_amount numeric)
 returns public.fin_settlements language sql as $$
-  select * from public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, current_date,
-    jsonb_build_array(jsonb_build_object('open_item_id', p_item, 'amount', p_amount)))
+  select * from pg_temp.policy_cash_settle(p_bank,p_dir,p_party,p_item,p_amount)
 $$;
 
 do $$
@@ -343,8 +377,8 @@ begin
                          and (select status from ins_commission_entries where id = e1) = 'earned',
                          'refused transfers change nothing');
 
-  -- Make a second earned entry whose cash is not in client money yet: the
-  -- insurer is paid out of client money before the client has paid.
+  -- Collect only the net liability, then remit it. Commission is earned,
+  -- but this policy has not yet collected the commission portion of premium.
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
   p2 := ins_bind_policy(p2.id);
@@ -352,16 +386,17 @@ begin
   select id into e2 from ins_commission_entries where policy_id = p2.id;
   perform pg_temp.jwt(u_fin);
   set local role authenticated;
+  s_in2 := pg_temp.pay(v_trust_bank, 'in', v_pcli, pg_temp.item(p2.id, 'ins_policy_premium'), 900000);
   s_out2 := pg_temp.pay(v_trust_bank, 'out', v_pins, pg_temp.item(p2.id, 'ins_policy_insurer'), 900000);
   reset role;
   perform pg_temp.assert((select status from ins_commission_entries where id = e2) = 'earned'
-                         and pg_temp.bal(v_ta, g_trust) = -800000,
-                         'second policy earned while client money is overdrawn in the ledger');
+                         and pg_temp.bal(v_ta, g_trust) = 100000,
+                         'second policy earned but only the first policy has funded commission');
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
   perform pg_temp.expect_error(format('select ins_transfer_earned_commission(%L, %L, current_date, array[%L]::uuid[])',
                                       v_trust_bank, v_oper_bank, e2),
-                               'INS_TRANSFER_TRUST_SHORT', 'transfer larger than the client-money ledger balance');
+                               'INS_CASH_COMMISSION_UNFUNDED', 'cannot withdraw another policy commission collections');
   reset role;
   raise notice 'PASS: transfer validation (direction, dates, entries, client-money shortfall)';
 
@@ -370,7 +405,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_fin);
   set local role authenticated;
-  s_in2 := pg_temp.pay(v_trust_bank, 'in', v_pcli, pg_temp.item(p2.id, 'ins_policy_premium'), 1000000);
+  s_in2 := pg_temp.pay(v_trust_bank, 'in', v_pcli, pg_temp.item(p2.id, 'ins_policy_premium'), 100000);
   reset role;
   perform pg_temp.assert(pg_temp.bal(v_ta, g_trust) = 200000, 'after the client pays policy 2 client money holds both commissions');
 

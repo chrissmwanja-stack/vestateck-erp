@@ -12,6 +12,7 @@ const AccountCategoriesAdmin = lazy(() => import('../features/admin/AccountCateg
 const AccountingPeriodsAdmin = lazy(() => import('../features/admin/AccountingPeriodsAdmin'));
 const AccountsAdmin = lazy(() => import('../features/admin/AccountsAdmin'));
 const AdvancePayments = lazy(() => import('../features/financial/AdvancePayments'));
+const InsurancePremiumCash = lazy(() => import('../features/financial/InsurancePremiumCash'));
 const BankReconciliation = lazy(() => import('../features/financial/BankReconciliation'));
 const CashBankOperations = lazy(() => import('../features/financial/CashBankOperations'));
 const ChartOfAccountsAdmin = lazy(() => import('../features/admin/ChartOfAccountsAdmin'));
@@ -69,6 +70,7 @@ export const financeRoutes = (
       <Route path="/financial-management/dashboard" element={<FinancialDashboard />} />
       <Route path="/financial-management/invoices/supplier-invoice-non-po" element={<SupplierInvoiceNonPO />} />
       <Route path="/financial-management/cash-bank-operations" element={<CashBankOperations />} />
+      <Route path="/financial-management/insurance-premium-cash" element={<InsurancePremiumCash />} />
       <Route path="/financial-management/bank-reconciliation" element={<BankReconciliation />} />
       <Route path="/financial-management/invoices/receivable-invoice" element={<ReceivableInvoice />} />
       <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />

@@ -3,6 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PolicyDetail from './PolicyDetail';
 
+vi.mock('./PolicyCashPanel', () => ({ default: () => <div>Policy cash status</div> }));
+
 let canManage = false;
 let status = 'active';
 vi.mock('../../access', () => ({ useInsuranceAccess: () => ({ canManage, loading: false }) }));

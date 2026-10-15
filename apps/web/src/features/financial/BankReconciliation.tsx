@@ -544,6 +544,10 @@ export default function BankReconciliation() {
       <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <AccountBalanceIcon /> Bank Reconciliation
       </Typography>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Insurance premium receipts and insurer remittances must be matched or unmatched by a third Finance user,
+        different from their maker and checker/poster. Auto-match skips movements you are not independent of.
+      </Alert>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Import a bank statement, then match each line against a posted settlement, a commission transfer or a recorded cash/bank transaction —
         automatically where the amount and date line up, manually otherwise.

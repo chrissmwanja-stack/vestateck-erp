@@ -4615,6 +4615,153 @@ export type Database = {
           },
         ]
       }
+      ins_policy_cash_reconciliation_events: {
+        Row: {
+          id: string
+          tenant_id: string
+          policy_id: string
+          settlement_id: string
+          event: string
+          actor_id: string
+          occurred_at: string
+          reconciliation_snapshot: Json
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          policy_id: string
+          settlement_id: string
+          event: string
+          actor_id: string
+          occurred_at?: string
+          reconciliation_snapshot: Json
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          policy_id?: string
+          settlement_id?: string
+          event?: string
+          actor_id?: string
+          occurred_at?: string
+          reconciliation_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_eve_tenant_id_settlement_id_fkey"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_cash_requests: {
+        Row: {
+          id: string
+          tenant_id: string
+          policy_id: string
+          kind: string
+          bank_account_id: string
+          amount: number
+          cash_date: string
+          reference: string | null
+          notes: string | null
+          request_key: string
+          status: string
+          maker_id: string
+          created_at: string
+          checker_id: string | null
+          checked_at: string | null
+          decision_reason: string | null
+          settlement_id: string | null
+          operation_txid: number | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          policy_id: string
+          kind: string
+          bank_account_id: string
+          amount: number
+          cash_date: string
+          reference?: string | null
+          notes?: string | null
+          request_key: string
+          status?: string
+          maker_id: string
+          created_at?: string
+          checker_id?: string | null
+          checked_at?: string | null
+          decision_reason?: string | null
+          settlement_id?: string | null
+          operation_txid?: number | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          policy_id?: string
+          kind?: string
+          bank_account_id?: string
+          amount?: number
+          cash_date?: string
+          reference?: string | null
+          notes?: string | null
+          request_key?: string
+          status?: string
+          maker_id?: string
+          created_at?: string
+          checker_id?: string | null
+          checked_at?: string | null
+          decision_reason?: string | null
+          settlement_id?: string | null
+          operation_txid?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_bank_account_id_fkey"
+            columns: ["tenant_id", "bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_settlement_id_fkey"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
       ins_policy_reversals: {
         Row: {
           id: string
@@ -10581,6 +10728,32 @@ export type Database = {
       ins_reversed_policy_guard: { Args: never; Returns: unknown }
       ins_reversal_note_void_guard: { Args: never; Returns: unknown }
       ins_reversal_journal_void_guard: { Args: never; Returns: unknown }
+
+      ins_policy_cash_position: { Args: { p_policy_id: string }; Returns: Json }
+      ins_policy_cash_bank_accounts: { Args: never; Returns: Database['public']['Tables']['fin_bank_accounts']['Row'][] }
+      ins_policy_cash_policies: {
+        Args: { p_search?: string; p_offset?: number }
+        Returns: { id: string; policy_no: string; status: string; currency: string; client_name: string; insurer_name: string }[]
+      }
+      ins_submit_policy_cash_request: {
+        Args: { p_policy_id: string; p_kind: string; p_bank_account_id: string; p_amount: number; p_cash_date: string; p_request_key: string; p_reference?: string; p_notes?: string }
+        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
+      }
+      ins_decide_policy_cash_request: {
+        Args: { p_request_id: string; p_decision: string; p_reason?: string }
+        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
+      }
+      ins_policy_cash_require_finance: { Args: never; Returns: undefined }
+      ins_policy_cash_totals: { Args: { p_policy_id: string }; Returns: Json }
+      ins_policy_cash_validate: {
+        Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string }
+        Returns: Database['public']['Tables']['fin_open_items']['Row']
+      }
+      ins_policy_cash_allocation_guard: { Args: never; Returns: unknown }
+      ins_policy_cash_void_guard: { Args: never; Returns: unknown }
+      ins_policy_cash_commission_guard: { Args: never; Returns: unknown }
+      ins_policy_cash_reconciliation_guard: { Args: never; Returns: unknown }
+      ins_policy_cash_reconciliation_audit: { Args: never; Returns: unknown }
 
       ins_policy_reversal_eligibility: {
         Args: { p_policy_id: string }
