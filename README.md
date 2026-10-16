@@ -150,7 +150,7 @@ PostgREST's root, which only proves the edge is up, not the database.
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
 `npm run test --workspace=apps/web` (Vitest) are the web checks — 70 test files
 as of 2026-10-12 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 44 SQL test files in `supabase/tests/`. Coverage
+current passing count), plus 56 SQL test files in `supabase/tests/` (as of 2026-10-16). Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
 Platform/Admin and Insurance Brokerage's database layer have the deepest SQL
@@ -176,10 +176,18 @@ against a fresh **local** stack, never a linked project.
 - A test failing with "function does not exist" right after you pulled new
   migrations usually means your local database is behind: run
   `supabase db reset` before debugging.
+- The insurance security tests (`test_ins_security_hardening.sql`, `test_ins_authz_catalog.sql`)
+  check the grants on every insurance function and real cross-tenant denials; run them
+  after any change to an `ins_` or `platform_ins_` function.
 - Some tests print `GAP:` notices. A gap notice never fails the run; it records
   something the schema currently allows but probably should not
   (`security_authorization.sql` and `test_ins_core.sql` use this convention).
   When a gap is fixed, its probe prints PASS instead.
+
+Migrations follow `supabase/MIGRATION_POLICY.md`. In particular, a migration that
+has already been applied to a shared or live database is never edited; a fix goes
+in a new migration with a later timestamp. The generated types file is checked for
+drift against the migrations, and that check blocks the build.
 
 Two GitHub Actions workflows run on every push/PR to `main`:
 `foundation-checks.yml` (migration policy diff, build+typecheck, unit tests,
@@ -191,13 +199,21 @@ in `apps/web/e2e/`: procurement happy path and threshold branch, finance
 invoice payment, payroll approve/reject and disbursement, BD proposal
 approvals, and company-admin member/invitation and organization setup).
 
+### Local UAT tenant
+
+`supabase/seed.sql` section 6 creates Pearl Risk Brokers Ltd (UAT), a fictional insurance
+brokerage with a full chart of accounts, users, bank accounts, insurers, clients, bound and
+draft policies, and a claim. It is built with the app's own RPCs and is local only; the
+logins use the public `Tester123` password. Sign in as `ins.manager@test.local` to walk
+through the insurance flows.
+
 ## Known issues
 
 - **Insurance — commission sign-off and legacy policies.** Commission is now
   deferred at bind and recognised when the insurer's net item is fully paid, and
   a manager moves earned commission out of client money with a transfer batch
   (see the module table). The remaining caveats: the accountant has not signed
-  off the treatment (open questions in `docs/insurance-brokerage/ANALYSIS.md`);
+  off the treatment (open questions in `docs/insurance-brokerage/ANALYSIS.md`; the draft sign-off pack is `docs/insurance-brokerage/ACCOUNTANT_PACK.md`);
   policies bound before `20261011090000` keep the old treatment and are not
   backfilled; recognition counts payments only, so a credit note on an insurer
   item does not make it "fully settled"; and bound-policy corrections remain
