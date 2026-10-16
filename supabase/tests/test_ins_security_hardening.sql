@@ -1,7 +1,8 @@
--- Regression test for 20261016090000_ins_security_hardening.sql.
+-- Regression test for 20261016090000_ins_security_.hardening.sql (applied live)
+-- and its follow-up 20261016100000_ins_security_hardening_followup.sql.
 --
---   1. The five trigger-only functions cannot be executed by PUBLIC, anon or
---      authenticated (catalog check AND a real denied call).
+--   1. The five trigger-only functions cannot be executed by PUBLIC, anon,
+--      authenticated or service_role (catalog check AND a real denied call).
 --   2. No trigger function named ins_% / platform_ins_% is executable by a
 --      client role (guards against the next older-style guard slipping through).
 --   3. fin_ledger_currency, ins_via_rpc, ins_touch_updated_at and
@@ -74,6 +75,8 @@ begin
       fn || ' must not be executable by anon (or PUBLIC)');
     perform pg_temp.assert(not has_function_privilege('authenticated', fn::regprocedure, 'EXECUTE'),
       fn || ' must not be executable by authenticated');
+    perform pg_temp.assert(not has_function_privilege('service_role', fn::regprocedure, 'EXECUTE'),
+      fn || ' must not be executable by service_role');
   end loop;
 
   for r in
@@ -99,8 +102,8 @@ begin
     perform pg_temp.assert(exists (
       select 1 from pg_proc p
       where p.oid = fn::regprocedure
-        and 'search_path=public, pg_temp' = any (coalesce(p.proconfig, '{}'))),
-      fn || ' must have search_path=public, pg_temp');
+        and 'search_path=pg_catalog, public, pg_temp' = any (coalesce(p.proconfig, '{}'))),
+      fn || ' must have search_path=pg_catalog, public, pg_temp');
   end loop;
 
   -- ins_via_rpc and fin_ledger_currency stay callable: policies and guards use them.

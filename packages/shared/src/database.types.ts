@@ -7,886 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   public: {
     Tables: {
-      ins_cancellation_cash_events: {
-        Row: {
-          id: string
-          tenant_id: string
-          request_id: string
-          event: string
-          actor_id: string
-          occurred_at: string
-          detail: Json
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          request_id: string
-          event: string
-          actor_id: string
-          occurred_at?: string
-          detail?: Json
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          request_id?: string
-          event?: string
-          actor_id?: string
-          occurred_at?: string
-          detail?: Json
-        }
-        Relationships: [
-          {
-            "columns": [
-              "tenant_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_events_tenant_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "tenants"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "request_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_events_tenant_id_request_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_cash_requests"
-          }
-        ]
-      }
-      ins_cancellation_cash_requests: {
-        Row: {
-          id: string
-          tenant_id: string
-          cancellation_id: string
-          kind: string
-          adjustment_id: string | null
-          bank_account_id: string
-          to_bank_account_id: string | null
-          amount: number
-          cash_date: string
-          reference: string
-          notes: string
-          request_key: string
-          status: string
-          maker_id: string
-          created_at: string
-          checker_id: string | null
-          checked_at: string | null
-          decision_reason: string | null
-          settlement_id: string | null
-          to_settlement_id: string | null
-          operation_txid: number | null
-          voids_request_id: string | null
-          voided_by_request_id: string | null
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          cancellation_id: string
-          kind: string
-          adjustment_id?: string | null
-          bank_account_id: string
-          to_bank_account_id?: string | null
-          amount: number
-          cash_date: string
-          reference: string
-          notes: string
-          request_key: string
-          status?: string
-          maker_id: string
-          created_at?: string
-          checker_id?: string | null
-          checked_at?: string | null
-          decision_reason?: string | null
-          settlement_id?: string | null
-          to_settlement_id?: string | null
-          operation_txid?: number | null
-          voids_request_id?: string | null
-          voided_by_request_id?: string | null
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          cancellation_id?: string
-          kind?: string
-          adjustment_id?: string | null
-          bank_account_id?: string
-          to_bank_account_id?: string | null
-          amount?: number
-          cash_date?: string
-          reference?: string
-          notes?: string
-          request_key?: string
-          status?: string
-          maker_id?: string
-          created_at?: string
-          checker_id?: string | null
-          checked_at?: string | null
-          decision_reason?: string | null
-          settlement_id?: string | null
-          to_settlement_id?: string | null
-          operation_txid?: number | null
-          voids_request_id?: string | null
-          voided_by_request_id?: string | null
-        }
-        Relationships: [
-          {
-            "columns": [
-              "tenant_id",
-              "to_bank_account_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_request_tenant_id_to_bank_account_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "fin_bank_accounts"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "voided_by_request_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_request_tenant_id_voided_by_request__fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_cash_requests"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "adjustment_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_adjustment_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_insurer_adjustments"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "bank_account_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_bank_account_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "fin_bank_accounts"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "cancellation_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_cancellation_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_policy_cancellations"
-          },
-          {
-            "columns": [
-              "tenant_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "tenants"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "settlement_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_settlement_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "fin_settlements"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "to_settlement_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_to_settlement_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "fin_settlements"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "voids_request_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_requests_tenant_id_voids_request_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_cash_requests"
-          }
-        ]
-      }
-      ins_cancellation_cash_journals: {
-        Row: {
-          tenant_id: string
-          request_id: string
-          journal_entry_id: string
-          purpose: string
-        }
-        Insert: {
-          tenant_id: string
-          request_id: string
-          journal_entry_id: string
-          purpose: string
-        }
-        Update: {
-          tenant_id?: string
-          request_id?: string
-          journal_entry_id?: string
-          purpose?: string
-        }
-        Relationships: [
-          {
-            "columns": [
-              "journal_entry_id"
-            ],
-            "isOneToOne": true,
-            "foreignKeyName": "ins_cancellation_cash_journals_journal_entry_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "journal_entries"
-          },
-          {
-            "columns": [
-              "tenant_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_journals_tenant_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "tenants"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "request_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_cash_journals_tenant_id_request_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_cash_requests"
-          }
-        ]
-      }
-      ins_cancellation_commission_events: {
-        Row: {
-          id: string
-          tenant_id: string
-          request_id: string
-          adjustment_id: string
-          amount: number
-          journal_entry_id: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          request_id: string
-          adjustment_id: string
-          amount: number
-          journal_entry_id: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          request_id?: string
-          adjustment_id?: string
-          amount?: number
-          journal_entry_id?: string
-        }
-        Relationships: [
-          {
-            "columns": [
-              "journal_entry_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_commission_events_journal_entry_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "journal_entries"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "adjustment_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_adjustment_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_insurer_adjustments"
-          },
-          {
-            "columns": [
-              "tenant_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_fkey",
-            "referencedColumns": [
-              "id"
-            ],
-            "referencedRelation": "tenants"
-          },
-          {
-            "columns": [
-              "tenant_id",
-              "request_id"
-            ],
-            "isOneToOne": false,
-            "foreignKeyName": "ins_cancellation_commission_events_tenant_id_request_id_fkey",
-            "referencedColumns": [
-              "tenant_id",
-              "id"
-            ],
-            "referencedRelation": "ins_cancellation_cash_requests"
-          }
-        ]
-      }
-      ins_cancellation_credit_links: {
-        Row: {
-          id: string
-          tenant_id: string
-          cancellation_id: string
-          credit_note_id: string
-          open_item_id: string
-          amount: number
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          cancellation_id: string
-          credit_note_id: string
-          open_item_id: string
-          amount: number
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          cancellation_id?: string
-          credit_note_id?: string
-          open_item_id?: string
-          amount?: number
-        }
-        Relationships: [
-  {
-    "columns": [
-      "tenant_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_credit_links_tenant_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "tenants"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "cancellation_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_credit_links_tenant_id_cancellation_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policy_cancellations"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "open_item_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_credit_links_tenant_id_open_item_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "fin_open_items"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "credit_note_id"
-    ],
-    "isOneToOne": true,
-    "foreignKeyName": "ins_cancellation_credit_links_tenant_id_credit_note_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "fin_credit_notes"
-  }
-]
-      }
-      ins_cancellation_events: {
-        Row: {
-          id: string
-          tenant_id: string
-          cancellation_id: string
-          event: string
-          actor_id: string
-          created_at: string
-          detail: Json
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          cancellation_id: string
-          event: string
-          actor_id: string
-          created_at?: string
-          detail?: Json
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          cancellation_id?: string
-          event?: string
-          actor_id?: string
-          created_at?: string
-          detail?: Json
-        }
-        Relationships: [
-  {
-    "columns": [
-      "tenant_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_events_tenant_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "tenants"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "cancellation_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_events_tenant_id_cancellation_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policy_cancellations"
-  }
-]
-      }
-      ins_cancellation_insurer_adjustments: {
-        Row: {
-          id: string
-          tenant_id: string
-          cancellation_id: string
-          insurer_id: string
-          insurer_share_id: string | null
-          original_item_id: string
-          original_commission_entry_id: string | null
-          original_commission_state: Json | null
-          return_premium: number
-          commission_clawback: number
-          pass_through_refund: number
-          total_insurer_credit: number
-          payable_credit: number
-          recovery_due: number
-          recovery_item_id: string | null
-          retained_commission: number
-          retained_commission_status: string
-          transferred_clawback_due: number
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          cancellation_id: string
-          insurer_id: string
-          insurer_share_id?: string | null
-          original_item_id: string
-          original_commission_entry_id?: string | null
-          original_commission_state?: Json | null
-          return_premium: number
-          commission_clawback: number
-          pass_through_refund: number
-          total_insurer_credit: number
-          payable_credit: number
-          recovery_due: number
-          recovery_item_id?: string | null
-          retained_commission: number
-          retained_commission_status: string
-          transferred_clawback_due: number
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          cancellation_id?: string
-          insurer_id?: string
-          insurer_share_id?: string | null
-          original_item_id?: string
-          original_commission_entry_id?: string | null
-          original_commission_state?: Json | null
-          return_premium?: number
-          commission_clawback?: number
-          pass_through_refund?: number
-          total_insurer_credit?: number
-          payable_credit?: number
-          recovery_due?: number
-          recovery_item_id?: string | null
-          retained_commission?: number
-          retained_commission_status?: string
-          transferred_clawback_due?: number
-        }
-        Relationships: [
-  {
-    "columns": [
-      "tenant_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjustments_tenant_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "tenants"
-  },
-  {
-    "columns": [
-      "original_commission_entry_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adju_original_commission_entry_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "ins_commission_entries"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "cancellation_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjustm_tenant_id_cancellation_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policy_cancellations"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "insurer_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjustments_tenant_id_insurer_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_insurers"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "insurer_share_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjust_tenant_id_insurer_share_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policy_insurer_shares"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "original_item_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "fin_open_items"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "recovery_item_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "fin_open_items"
-  }
-]
-      }
-      ins_cancellation_journals: {
-        Row: {
-          tenant_id: string
-          cancellation_id: string
-          journal_entry_id: string
-          purpose: string
-        }
-        Insert: {
-          tenant_id: string
-          cancellation_id: string
-          journal_entry_id: string
-          purpose: string
-        }
-        Update: {
-          tenant_id?: string
-          cancellation_id?: string
-          journal_entry_id?: string
-          purpose?: string
-        }
-        Relationships: [
-  {
-    "columns": [
-      "tenant_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_journals_tenant_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "tenants"
-  },
-  {
-    "columns": [
-      "journal_entry_id"
-    ],
-    "isOneToOne": true,
-    "foreignKeyName": "ins_cancellation_journals_journal_entry_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "journal_entries"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "cancellation_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_cancellation_journals_tenant_id_cancellation_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policy_cancellations"
-  }
-]
-      }
-      ins_policy_cancellations: {
-        Row: {
-          id: string
-          tenant_id: string
-          policy_id: string
-          request_key: string
-          reason: string
-          effective_date: string
-          insurer_terms: Json
-          charge_refunds: Json
-          proposed_by: string
-          proposed_at: string
-          status: string
-          prepared_by: string | null
-          prepared_at: string | null
-          clearing_gl_account_id: string | null
-          calculation: Json
-          checked_by: string | null
-          checked_at: string | null
-          review_note: string | null
-          manual_exception_accepted: boolean
-          cancellation_no: string | null
-          posting_date: string | null
-          journal_entry_id: string | null
-          refund_item_id: string | null
-          cash_at_posting: Json | null
-          accounting_mappings: Json | null
-          operation_txid: number | null
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          policy_id: string
-          request_key: string
-          reason: string
-          effective_date: string
-          insurer_terms: Json
-          charge_refunds: Json
-          proposed_by: string
-          proposed_at?: string
-          status?: string
-          prepared_by?: string | null
-          prepared_at?: string | null
-          clearing_gl_account_id?: string | null
-          calculation: Json
-          checked_by?: string | null
-          checked_at?: string | null
-          review_note?: string | null
-          manual_exception_accepted?: boolean
-          cancellation_no?: string | null
-          posting_date?: string | null
-          journal_entry_id?: string | null
-          refund_item_id?: string | null
-          cash_at_posting?: Json | null
-          accounting_mappings?: Json | null
-          operation_txid?: number | null
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          policy_id?: string
-          request_key?: string
-          reason?: string
-          effective_date?: string
-          insurer_terms?: Json
-          charge_refunds?: Json
-          proposed_by?: string
-          proposed_at?: string
-          status?: string
-          prepared_by?: string | null
-          prepared_at?: string | null
-          clearing_gl_account_id?: string | null
-          calculation?: Json
-          checked_by?: string | null
-          checked_at?: string | null
-          review_note?: string | null
-          manual_exception_accepted?: boolean
-          cancellation_no?: string | null
-          posting_date?: string | null
-          journal_entry_id?: string | null
-          refund_item_id?: string | null
-          cash_at_posting?: Json | null
-          accounting_mappings?: Json | null
-          operation_txid?: number | null
-        }
-        Relationships: [
-  {
-    "columns": [
-      "tenant_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_policy_cancellations_tenant_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "tenants"
-  },
-  {
-    "columns": [
-      "journal_entry_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_policy_cancellations_journal_entry_id_fkey",
-    "referencedColumns": [
-      "id"
-    ],
-    "referencedRelation": "journal_entries"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "policy_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_policy_cancellations_tenant_id_policy_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "ins_policies"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "clearing_gl_account_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_policy_cancellations_tenant_id_clearing_gl_account_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "gl_accounts"
-  },
-  {
-    "columns": [
-      "tenant_id",
-      "refund_item_id"
-    ],
-    "isOneToOne": false,
-    "foreignKeyName": "ins_policy_cancellations_tenant_id_refund_item_id_fkey",
-    "referencedColumns": [
-      "tenant_id",
-      "id"
-    ],
-    "referencedRelation": "fin_open_items"
-  }
-]
-      }
-
       access_requests: {
         Row: {
           access_level: string | null
@@ -3152,6 +2274,13 @@ export type Database = {
             referencedColumns: ["tenant_id", "id"]
           },
           {
+            foreignKeyName: "fin_allocations_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
             foreignKeyName: "fin_allocations_settlement_fk"
             columns: ["tenant_id", "settlement_id"]
             isOneToOne: false
@@ -3275,6 +2404,13 @@ export type Database = {
             columns: ["tenant_id", "open_item_id"]
             isOneToOne: false
             referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "fin_credit_applications_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
             referencedColumns: ["tenant_id", "id"]
           },
           {
@@ -4854,6 +3990,598 @@ export type Database = {
         }
         Relationships: []
       }
+      ins_cancellation_cash_events: {
+        Row: {
+          actor_id: string
+          detail: Json
+          event: string
+          id: string
+          occurred_at: string
+          request_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          detail?: Json
+          event: string
+          id?: string
+          occurred_at?: string
+          request_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          detail?: Json
+          event?: string
+          id?: string
+          occurred_at?: string
+          request_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_cash_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_events_tenant_id_request_id_fkey"
+            columns: ["tenant_id", "request_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_cash_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_cash_journals: {
+        Row: {
+          journal_entry_id: string
+          purpose: string
+          request_id: string
+          tenant_id: string
+        }
+        Insert: {
+          journal_entry_id: string
+          purpose: string
+          request_id: string
+          tenant_id: string
+        }
+        Update: {
+          journal_entry_id?: string
+          purpose?: string
+          request_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_cash_journals_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_journals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_journals_tenant_id_request_id_fkey"
+            columns: ["tenant_id", "request_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_cash_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_cash_requests: {
+        Row: {
+          adjustment_id: string | null
+          amount: number
+          bank_account_id: string
+          cancellation_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          kind: string
+          maker_id: string
+          notes: string
+          operation_txid: number | null
+          reference: string
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          to_bank_account_id: string | null
+          to_settlement_id: string | null
+          voided_by_request_id: string | null
+          voids_request_id: string | null
+        }
+        Insert: {
+          adjustment_id?: string | null
+          amount: number
+          bank_account_id: string
+          cancellation_id: string
+          cash_date: string
+          checked_at?: string | null
+          checker_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          id?: string
+          kind: string
+          maker_id: string
+          notes: string
+          operation_txid?: number | null
+          reference: string
+          request_key: string
+          settlement_id?: string | null
+          status?: string
+          tenant_id: string
+          to_bank_account_id?: string | null
+          to_settlement_id?: string | null
+          voided_by_request_id?: string | null
+          voids_request_id?: string | null
+        }
+        Update: {
+          adjustment_id?: string | null
+          amount?: number
+          bank_account_id?: string
+          cancellation_id?: string
+          cash_date?: string
+          checked_at?: string | null
+          checker_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          id?: string
+          kind?: string
+          maker_id?: string
+          notes?: string
+          operation_txid?: number | null
+          reference?: string
+          request_key?: string
+          settlement_id?: string | null
+          status?: string
+          tenant_id?: string
+          to_bank_account_id?: string | null
+          to_settlement_id?: string | null
+          voided_by_request_id?: string | null
+          voids_request_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_cash_request_tenant_id_to_bank_account_id_fkey"
+            columns: ["tenant_id", "to_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_request_tenant_id_voided_by_request__fkey"
+            columns: ["tenant_id", "voided_by_request_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_cash_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_adjustment_id_fkey"
+            columns: ["tenant_id", "adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_insurer_adjustments"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_bank_account_id_fkey"
+            columns: ["tenant_id", "bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_cancellation_id_fkey"
+            columns: ["tenant_id", "cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_settlement_id_fkey"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_to_settlement_id_fkey"
+            columns: ["tenant_id", "to_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_cash_requests_tenant_id_voids_request_id_fkey"
+            columns: ["tenant_id", "voids_request_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_cash_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_commission_events: {
+        Row: {
+          adjustment_id: string
+          amount: number
+          id: string
+          journal_entry_id: string
+          request_id: string
+          tenant_id: string
+        }
+        Insert: {
+          adjustment_id: string
+          amount: number
+          id?: string
+          journal_entry_id: string
+          request_id: string
+          tenant_id: string
+        }
+        Update: {
+          adjustment_id?: string
+          amount?: number
+          id?: string
+          journal_entry_id?: string
+          request_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_commission_events_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_commission_events_tenant_id_adjustment_id_fkey"
+            columns: ["tenant_id", "adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_insurer_adjustments"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_commission_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_commission_events_tenant_id_request_id_fkey"
+            columns: ["tenant_id", "request_id"]
+            isOneToOne: false
+            referencedRelation: "ins_cancellation_cash_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_credit_links: {
+        Row: {
+          amount: number
+          cancellation_id: string
+          credit_note_id: string
+          id: string
+          open_item_id: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          cancellation_id: string
+          credit_note_id: string
+          id?: string
+          open_item_id: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          cancellation_id?: string
+          credit_note_id?: string
+          id?: string
+          open_item_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_cancellation_id_fkey"
+            columns: ["tenant_id", "cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_credit_note_id_fkey"
+            columns: ["tenant_id", "credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "fin_credit_notes"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_open_item_id_fkey"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_open_item_id_fkey"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_open_item_id_fkey"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_events: {
+        Row: {
+          actor_id: string
+          cancellation_id: string
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          cancellation_id: string
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          cancellation_id?: string
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_events_tenant_id_cancellation_id_fkey"
+            columns: ["tenant_id", "cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_cancellation_insurer_adjustments: {
+        Row: {
+          cancellation_id: string
+          commission_clawback: number
+          id: string
+          insurer_id: string
+          insurer_share_id: string | null
+          original_commission_entry_id: string | null
+          original_commission_state: Json | null
+          original_item_id: string
+          pass_through_refund: number
+          payable_credit: number
+          recovery_due: number
+          recovery_item_id: string | null
+          retained_commission: number
+          retained_commission_status: string
+          return_premium: number
+          tenant_id: string
+          total_insurer_credit: number
+          transferred_clawback_due: number
+        }
+        Insert: {
+          cancellation_id: string
+          commission_clawback: number
+          id?: string
+          insurer_id: string
+          insurer_share_id?: string | null
+          original_commission_entry_id?: string | null
+          original_commission_state?: Json | null
+          original_item_id: string
+          pass_through_refund: number
+          payable_credit: number
+          recovery_due: number
+          recovery_item_id?: string | null
+          retained_commission: number
+          retained_commission_status: string
+          return_premium: number
+          tenant_id: string
+          total_insurer_credit: number
+          transferred_clawback_due: number
+        }
+        Update: {
+          cancellation_id?: string
+          commission_clawback?: number
+          id?: string
+          insurer_id?: string
+          insurer_share_id?: string | null
+          original_commission_entry_id?: string | null
+          original_commission_state?: Json | null
+          original_item_id?: string
+          pass_through_refund?: number
+          payable_credit?: number
+          recovery_due?: number
+          recovery_item_id?: string | null
+          retained_commission?: number
+          retained_commission_status?: string
+          return_premium?: number
+          tenant_id?: string
+          total_insurer_credit?: number
+          transferred_clawback_due?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_insurer_adju_original_commission_entry_id_fkey"
+            columns: ["original_commission_entry_id"]
+            isOneToOne: false
+            referencedRelation: "ins_commission_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adju_original_commission_entry_id_fkey"
+            columns: ["original_commission_entry_id"]
+            isOneToOne: false
+            referencedRelation: "ins_commission_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_insurer_share_id_fkey"
+            columns: ["tenant_id", "insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_insurer_shares"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey"
+            columns: ["tenant_id", "original_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey"
+            columns: ["tenant_id", "original_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey"
+            columns: ["tenant_id", "original_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey"
+            columns: ["tenant_id", "recovery_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey"
+            columns: ["tenant_id", "recovery_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey"
+            columns: ["tenant_id", "recovery_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjustm_tenant_id_cancellation_id_fkey"
+            columns: ["tenant_id", "cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjustments_tenant_id_insurer_id_fkey"
+            columns: ["tenant_id", "insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_journals: {
+        Row: {
+          cancellation_id: string
+          journal_entry_id: string
+          purpose: string
+          tenant_id: string
+        }
+        Insert: {
+          cancellation_id: string
+          journal_entry_id: string
+          purpose: string
+          tenant_id: string
+        }
+        Update: {
+          cancellation_id?: string
+          journal_entry_id?: string
+          purpose?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_journals_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: true
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_journals_tenant_id_cancellation_id_fkey"
+            columns: ["tenant_id", "cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_journals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_events: {
         Row: {
           actor_id: string | null
@@ -5174,11 +4902,11 @@ export type Database = {
       }
       ins_commission_entries: {
         Row: {
-          insurer_share_id: string | null
           amount: number
           created_at: string
           earned_on: string | null
           id: string
+          insurer_share_id: string | null
           policy_id: string
           status: string
           tenant_id: string
@@ -5186,11 +4914,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          insurer_share_id?: string | null
           amount: number
           created_at?: string
           earned_on?: string | null
           id?: string
+          insurer_share_id?: string | null
           policy_id: string
           status?: string
           tenant_id: string
@@ -5198,11 +4926,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          insurer_share_id?: string | null
           amount?: number
           created_at?: string
           earned_on?: string | null
           id?: string
+          insurer_share_id?: string | null
           policy_id?: string
           status?: string
           tenant_id?: string
@@ -5210,7 +4938,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          { foreignKeyName: "ins_commission_entries_share_fk"; columns: ["tenant_id", "insurer_share_id"]; isOneToOne: false; referencedRelation: "ins_policy_insurer_shares"; referencedColumns: ["tenant_id", "id"] },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
@@ -5224,6 +4951,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_renewal_pipeline"
             referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_share_fk"
+            columns: ["tenant_id", "insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_insurer_shares"
+            referencedColumns: ["tenant_id", "id"]
           },
           {
             foreignKeyName: "ins_commission_entries_tenant_id_fkey"
@@ -5492,485 +5226,6 @@ export type Database = {
           },
         ]
       }
-      ins_policy_cash_reconciliation_events: {
-        Row: {
-          id: string
-          tenant_id: string
-          policy_id: string
-          settlement_id: string
-          event: string
-          actor_id: string
-          occurred_at: string
-          reconciliation_snapshot: Json
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          policy_id: string
-          settlement_id: string
-          event: string
-          actor_id: string
-          occurred_at?: string
-          reconciliation_snapshot: Json
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          policy_id?: string
-          settlement_id?: string
-          event?: string
-          actor_id?: string
-          occurred_at?: string
-          reconciliation_snapshot?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ins_policy_cash_reconciliation_eve_tenant_id_settlement_id_fkey"
-            columns: ["tenant_id", "settlement_id"]
-            isOneToOne: false
-            referencedRelation: "fin_settlements"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
-            columns: ["tenant_id", "policy_id"]
-            isOneToOne: false
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
-      ins_policy_insurer_shares: {
-        Row: {
-          id: string
-          tenant_id: string
-          policy_id: string
-          insurer_id: string
-          is_lead: boolean
-          share_pct: number
-          commission_rate_pct: number
-          insurer_policy_no: string | null
-          premium_amount: number | null
-          pass_through_amount: number | null
-          commission_amount: number | null
-          payable_amount: number | null
-          reviewed: boolean
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          policy_id: string
-          insurer_id: string
-          is_lead?: boolean
-          share_pct: number
-          commission_rate_pct: number
-          insurer_policy_no?: string | null
-          premium_amount?: number | null
-          pass_through_amount?: number | null
-          commission_amount?: number | null
-          payable_amount?: number | null
-          reviewed?: boolean
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          policy_id?: string
-          insurer_id?: string
-          is_lead?: boolean
-          share_pct?: number
-          commission_rate_pct?: number
-          insurer_policy_no?: string | null
-          premium_amount?: number | null
-          pass_through_amount?: number | null
-          commission_amount?: number | null
-          payable_amount?: number | null
-          reviewed?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ins_policy_insurer_shares_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_insurer_shares_tenant_id_insurer_id_fkey"
-            columns: ["tenant_id", "insurer_id"]
-            isOneToOne: false
-            referencedRelation: "ins_insurers"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
-            columns: ["tenant_id", "policy_id"]
-            isOneToOne: false
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
-      ins_policy_charges: {
-        Row: {
-          id: string
-          tenant_id: string
-          policy_id: string
-          kind: string
-          description: string
-          amount: number | null
-          recipient_mode: string
-          recipient_insurer_id: string | null
-          vat_mode: string
-          vat_rate_pct: number | null
-          vat_amount: number | null
-          income_gl_account_id: string | null
-          reviewed: boolean
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          policy_id: string
-          kind: string
-          description: string
-          amount?: number | null
-          recipient_mode: string
-          recipient_insurer_id?: string | null
-          vat_mode?: string
-          vat_rate_pct?: number | null
-          vat_amount?: number | null
-          income_gl_account_id?: string | null
-          reviewed?: boolean
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          policy_id?: string
-          kind?: string
-          description?: string
-          amount?: number | null
-          recipient_mode?: string
-          recipient_insurer_id?: string | null
-          vat_mode?: string
-          vat_rate_pct?: number | null
-          vat_amount?: number | null
-          income_gl_account_id?: string | null
-          reviewed?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ins_policy_charges_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_charges_tenant_id_income_gl_account_id_fkey"
-            columns: ["tenant_id", "income_gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
-            columns: ["tenant_id", "policy_id"]
-            isOneToOne: false
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_charges_tenant_id_recipient_insurer_id_fkey"
-            columns: ["tenant_id", "recipient_insurer_id"]
-            isOneToOne: false
-            referencedRelation: "ins_insurers"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
-      ins_policy_financial_snapshots: {
-        Row: {
-          policy_id: string
-          tenant_id: string
-          extended: boolean
-          invoice_total: number
-          broker_fee_total: number
-          vat_total: number
-          snapshot: Json
-          journal_entry_id: string
-          bound_by: string
-          bound_at: string
-        }
-        Insert: {
-          policy_id: string
-          tenant_id: string
-          extended: boolean
-          invoice_total: number
-          broker_fee_total: number
-          vat_total: number
-          snapshot: Json
-          journal_entry_id: string
-          bound_by: string
-          bound_at?: string
-        }
-        Update: {
-          policy_id?: string
-          tenant_id?: string
-          extended?: boolean
-          invoice_total?: number
-          broker_fee_total?: number
-          vat_total?: number
-          snapshot?: Json
-          journal_entry_id?: string
-          bound_by?: string
-          bound_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ins_policy_financial_snapshots_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
-            columns: ["tenant_id", "policy_id"]
-            isOneToOne: false
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
-      ins_policy_cash_requests: {
-        Row: {
-          insurer_share_id: string | null
-          id: string
-          tenant_id: string
-          policy_id: string
-          kind: string
-          bank_account_id: string
-          amount: number
-          cash_date: string
-          reference: string | null
-          notes: string | null
-          request_key: string
-          status: string
-          maker_id: string
-          created_at: string
-          checker_id: string | null
-          checked_at: string | null
-          decision_reason: string | null
-          settlement_id: string | null
-          operation_txid: number | null
-        }
-        Insert: {
-          insurer_share_id?: string | null
-          id?: string
-          tenant_id: string
-          policy_id: string
-          kind: string
-          bank_account_id: string
-          amount: number
-          cash_date: string
-          reference?: string | null
-          notes?: string | null
-          request_key: string
-          status?: string
-          maker_id: string
-          created_at?: string
-          checker_id?: string | null
-          checked_at?: string | null
-          decision_reason?: string | null
-          settlement_id?: string | null
-          operation_txid?: number | null
-        }
-        Update: {
-          insurer_share_id?: string | null
-          id?: string
-          tenant_id?: string
-          policy_id?: string
-          kind?: string
-          bank_account_id?: string
-          amount?: number
-          cash_date?: string
-          reference?: string | null
-          notes?: string | null
-          request_key?: string
-          status?: string
-          maker_id?: string
-          created_at?: string
-          checker_id?: string | null
-          checked_at?: string | null
-          decision_reason?: string | null
-          settlement_id?: string | null
-          operation_txid?: number | null
-        }
-        Relationships: [
-          { foreignKeyName: "ins_policy_cash_requests_share_fk"; columns: ["tenant_id", "insurer_share_id"]; isOneToOne: false; referencedRelation: "ins_policy_insurer_shares"; referencedColumns: ["tenant_id", "id"] },
-          {
-            foreignKeyName: "ins_policy_cash_requests_tenant_id_bank_account_id_fkey"
-            columns: ["tenant_id", "bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "fin_bank_accounts"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_cash_requests_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
-            columns: ["tenant_id", "policy_id"]
-            isOneToOne: false
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_cash_requests_tenant_id_settlement_id_fkey"
-            columns: ["tenant_id", "settlement_id"]
-            isOneToOne: false
-            referencedRelation: "fin_settlements"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
-      ins_policy_reversals: {
-        Row: {
-          id: string
-          tenant_id: string
-          original_policy_id: string
-          replacement_policy_id: string | null
-          request_key: string
-          reason: string
-          reissue_requested: boolean
-          accounting_treatment: string
-          original_journal_entry_id: string
-          premium_credit_note_id: string | null
-          insurer_credit_note_id: string | null
-          premium_journal_entry_id: string | null
-          insurer_journal_entry_id: string | null
-          reversed_by: string
-          reversed_at: string
-          reversal_date: string
-          outcome: string
-          operation_txid: number
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          original_policy_id: string
-          replacement_policy_id?: string | null
-          request_key: string
-          reason: string
-          reissue_requested: boolean
-          accounting_treatment: string
-          original_journal_entry_id: string
-          premium_credit_note_id?: string | null
-          insurer_credit_note_id?: string | null
-          premium_journal_entry_id?: string | null
-          insurer_journal_entry_id?: string | null
-          reversed_by?: string
-          reversed_at?: string
-          reversal_date?: string
-          outcome?: string
-          operation_txid?: number
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          original_policy_id?: string
-          replacement_policy_id?: string | null
-          request_key?: string
-          reason?: string
-          reissue_requested?: boolean
-          accounting_treatment?: string
-          original_journal_entry_id?: string
-          premium_credit_note_id?: string | null
-          insurer_credit_note_id?: string | null
-          premium_journal_entry_id?: string | null
-          insurer_journal_entry_id?: string | null
-          reversed_by?: string
-          reversed_at?: string
-          reversal_date?: string
-          outcome?: string
-          operation_txid?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ins_policy_reversals_insurer_credit_note_id_fkey"
-            columns: ["insurer_credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "fin_credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_insurer_journal_entry_id_fkey"
-            columns: ["insurer_journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_original_journal_entry_id_fkey"
-            columns: ["original_journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_premium_credit_note_id_fkey"
-            columns: ["premium_credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "fin_credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_premium_journal_entry_id_fkey"
-            columns: ["premium_journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
-            columns: ["tenant_id", "original_policy_id"]
-            isOneToOne: true
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
-            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
-            columns: ["tenant_id", "replacement_policy_id"]
-            isOneToOne: true
-            referencedRelation: "ins_policies"
-            referencedColumns: ["tenant_id", "id"]
-          },
-        ]
-      }
       ins_policies: {
         Row: {
           bound_at: string | null
@@ -6099,6 +5354,698 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_policy_cancellations: {
+        Row: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_no: string | null
+          cash_at_posting: Json | null
+          charge_refunds: Json
+          checked_at: string | null
+          checked_by: string | null
+          clearing_gl_account_id: string | null
+          effective_date: string
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          refund_item_id: string | null
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          accounting_mappings?: Json | null
+          calculation: Json
+          cancellation_no?: string | null
+          cash_at_posting?: Json | null
+          charge_refunds: Json
+          checked_at?: string | null
+          checked_by?: string | null
+          clearing_gl_account_id?: string | null
+          effective_date: string
+          id?: string
+          insurer_terms: Json
+          journal_entry_id?: string | null
+          manual_exception_accepted?: boolean
+          operation_txid?: number | null
+          policy_id: string
+          posting_date?: string | null
+          prepared_at?: string | null
+          prepared_by?: string | null
+          proposed_at?: string
+          proposed_by: string
+          reason: string
+          refund_item_id?: string | null
+          request_key: string
+          review_note?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          accounting_mappings?: Json | null
+          calculation?: Json
+          cancellation_no?: string | null
+          cash_at_posting?: Json | null
+          charge_refunds?: Json
+          checked_at?: string | null
+          checked_by?: string | null
+          clearing_gl_account_id?: string | null
+          effective_date?: string
+          id?: string
+          insurer_terms?: Json
+          journal_entry_id?: string | null
+          manual_exception_accepted?: boolean
+          operation_txid?: number | null
+          policy_id?: string
+          posting_date?: string | null
+          prepared_at?: string | null
+          prepared_by?: string | null
+          proposed_at?: string
+          proposed_by?: string
+          reason?: string
+          refund_item_id?: string | null
+          request_key?: string
+          review_note?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_cancellations_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_clearing_gl_account_id_fkey"
+            columns: ["tenant_id", "clearing_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_clearing_gl_account_id_fkey"
+            columns: ["tenant_id", "clearing_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["tenant_id", "account_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_refund_item_id_fkey"
+            columns: ["tenant_id", "refund_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_refund_item_id_fkey"
+            columns: ["tenant_id", "refund_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_refund_item_id_fkey"
+            columns: ["tenant_id", "refund_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_cash_reconciliation_events: {
+        Row: {
+          actor_id: string
+          event: string
+          id: string
+          occurred_at: string
+          policy_id: string
+          reconciliation_snapshot: Json
+          settlement_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          event: string
+          id?: string
+          occurred_at?: string
+          policy_id: string
+          reconciliation_snapshot: Json
+          settlement_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          event?: string
+          id?: string
+          occurred_at?: string
+          policy_id?: string
+          reconciliation_snapshot?: Json
+          settlement_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_eve_tenant_id_settlement_id_fkey"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+        ]
+      }
+      ins_policy_cash_requests: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          insurer_share_id: string | null
+          kind: string
+          maker_id: string
+          notes: string | null
+          operation_txid: number | null
+          policy_id: string
+          reference: string | null
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id: string
+          cash_date: string
+          checked_at?: string | null
+          checker_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          id?: string
+          insurer_share_id?: string | null
+          kind: string
+          maker_id: string
+          notes?: string | null
+          operation_txid?: number | null
+          policy_id: string
+          reference?: string | null
+          request_key: string
+          settlement_id?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          cash_date?: string
+          checked_at?: string | null
+          checker_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          id?: string
+          insurer_share_id?: string | null
+          kind?: string
+          maker_id?: string
+          notes?: string | null
+          operation_txid?: number | null
+          policy_id?: string
+          reference?: string | null
+          request_key?: string
+          settlement_id?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_cash_requests_share_fk"
+            columns: ["tenant_id", "insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_insurer_shares"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_bank_account_id_fkey"
+            columns: ["tenant_id", "bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_settlement_id_fkey"
+            columns: ["tenant_id", "settlement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_settlements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_charges: {
+        Row: {
+          amount: number | null
+          description: string
+          id: string
+          income_gl_account_id: string | null
+          kind: string
+          policy_id: string
+          recipient_insurer_id: string | null
+          recipient_mode: string
+          reviewed: boolean
+          tenant_id: string
+          vat_amount: number | null
+          vat_mode: string
+          vat_rate_pct: number | null
+        }
+        Insert: {
+          amount?: number | null
+          description: string
+          id?: string
+          income_gl_account_id?: string | null
+          kind: string
+          policy_id: string
+          recipient_insurer_id?: string | null
+          recipient_mode: string
+          reviewed?: boolean
+          tenant_id: string
+          vat_amount?: number | null
+          vat_mode?: string
+          vat_rate_pct?: number | null
+        }
+        Update: {
+          amount?: number | null
+          description?: string
+          id?: string
+          income_gl_account_id?: string | null
+          kind?: string
+          policy_id?: string
+          recipient_insurer_id?: string | null
+          recipient_mode?: string
+          reviewed?: boolean
+          tenant_id?: string
+          vat_amount?: number | null
+          vat_mode?: string
+          vat_rate_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_income_gl_account_id_fkey"
+            columns: ["tenant_id", "income_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_income_gl_account_id_fkey"
+            columns: ["tenant_id", "income_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["tenant_id", "account_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_recipient_insurer_id_fkey"
+            columns: ["tenant_id", "recipient_insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_financial_snapshots: {
+        Row: {
+          bound_at: string
+          bound_by: string
+          broker_fee_total: number
+          extended: boolean
+          invoice_total: number
+          journal_entry_id: string
+          policy_id: string
+          snapshot: Json
+          tenant_id: string
+          vat_total: number
+        }
+        Insert: {
+          bound_at?: string
+          bound_by: string
+          broker_fee_total: number
+          extended: boolean
+          invoice_total: number
+          journal_entry_id: string
+          policy_id: string
+          snapshot: Json
+          tenant_id: string
+          vat_total: number
+        }
+        Update: {
+          bound_at?: string
+          bound_by?: string
+          broker_fee_total?: number
+          extended?: boolean
+          invoice_total?: number
+          journal_entry_id?: string
+          policy_id?: string
+          snapshot?: Json
+          tenant_id?: string
+          vat_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+        ]
+      }
+      ins_policy_insurer_shares: {
+        Row: {
+          commission_amount: number | null
+          commission_rate_pct: number
+          id: string
+          insurer_id: string
+          insurer_policy_no: string | null
+          is_lead: boolean
+          pass_through_amount: number | null
+          payable_amount: number | null
+          policy_id: string
+          premium_amount: number | null
+          reviewed: boolean
+          share_pct: number
+          tenant_id: string
+        }
+        Insert: {
+          commission_amount?: number | null
+          commission_rate_pct: number
+          id?: string
+          insurer_id: string
+          insurer_policy_no?: string | null
+          is_lead?: boolean
+          pass_through_amount?: number | null
+          payable_amount?: number | null
+          policy_id: string
+          premium_amount?: number | null
+          reviewed?: boolean
+          share_pct: number
+          tenant_id: string
+        }
+        Update: {
+          commission_amount?: number | null
+          commission_rate_pct?: number
+          id?: string
+          insurer_id?: string
+          insurer_policy_no?: string | null
+          is_lead?: boolean
+          pass_through_amount?: number | null
+          payable_amount?: number | null
+          policy_id?: string
+          premium_amount?: number | null
+          reviewed?: boolean
+          share_pct?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_insurer_id_fkey"
+            columns: ["tenant_id", "insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+        ]
+      }
+      ins_policy_reversals: {
+        Row: {
+          accounting_treatment: string
+          id: string
+          insurer_credit_note_id: string | null
+          insurer_journal_entry_id: string | null
+          operation_txid: number
+          original_journal_entry_id: string
+          original_policy_id: string
+          outcome: string
+          premium_credit_note_id: string | null
+          premium_journal_entry_id: string | null
+          reason: string
+          reissue_requested: boolean
+          replacement_policy_id: string | null
+          request_key: string
+          reversal_date: string
+          reversed_at: string
+          reversed_by: string
+          tenant_id: string
+        }
+        Insert: {
+          accounting_treatment: string
+          id?: string
+          insurer_credit_note_id?: string | null
+          insurer_journal_entry_id?: string | null
+          operation_txid?: number
+          original_journal_entry_id: string
+          original_policy_id: string
+          outcome?: string
+          premium_credit_note_id?: string | null
+          premium_journal_entry_id?: string | null
+          reason: string
+          reissue_requested: boolean
+          replacement_policy_id?: string | null
+          request_key: string
+          reversal_date?: string
+          reversed_at?: string
+          reversed_by?: string
+          tenant_id: string
+        }
+        Update: {
+          accounting_treatment?: string
+          id?: string
+          insurer_credit_note_id?: string | null
+          insurer_journal_entry_id?: string | null
+          operation_txid?: number
+          original_journal_entry_id?: string
+          original_policy_id?: string
+          outcome?: string
+          premium_credit_note_id?: string | null
+          premium_journal_entry_id?: string | null
+          reason?: string
+          reissue_requested?: boolean
+          replacement_policy_id?: string | null
+          request_key?: string
+          reversal_date?: string
+          reversed_at?: string
+          reversed_by?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_reversals_insurer_credit_note_id_fkey"
+            columns: ["insurer_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "fin_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_insurer_journal_entry_id_fkey"
+            columns: ["insurer_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_original_journal_entry_id_fkey"
+            columns: ["original_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_premium_credit_note_id_fkey"
+            columns: ["premium_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "fin_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_premium_journal_entry_id_fkey"
+            columns: ["premium_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
+            columns: ["tenant_id", "original_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
+            columns: ["tenant_id", "original_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
+            columns: ["tenant_id", "replacement_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
+            columns: ["tenant_id", "replacement_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
         ]
       }
@@ -11142,6 +11089,24 @@ export type Database = {
           },
         ]
       }
+      ins_broker_fee_tax_report: {
+        Row: {
+          charge_id: string | null
+          currency: string | null
+          description: string | null
+          fee_amount: number | null
+          invoice_date: string | null
+          invoice_line_total: number | null
+          journal_entry_id: string | null
+          policy_id: string | null
+          policy_no: string | null
+          tenant_id: string | null
+          vat_amount: number | null
+          vat_mode: string | null
+          vat_rate_pct: number | null
+        }
+        Relationships: []
+      }
       ins_claim_cash_position: {
         Row: {
           approved_amount: number | null
@@ -11167,28 +11132,19 @@ export type Database = {
           },
         ]
       }
-      ins_policy_cash_items: {
-        Row: { id: string | null; tenant_id: string | null; party_account_id: string | null; side: string | null; control_role: string | null; source_type: string | null; source_id: string | null; insurer_share_id: string | null }
-        Relationships: []
-      }
-      ins_broker_fee_tax_report: {
-        Row: { charge_id: string | null; tenant_id: string | null; policy_id: string | null; policy_no: string | null; currency: string | null; invoice_date: string | null; description: string | null; fee_amount: number | null; vat_mode: string | null; vat_rate_pct: number | null; vat_amount: number | null; invoice_line_total: number | null; journal_entry_id: string | null }
-        Relationships: []
-      }
       ins_commission_ledger: {
         Row: {
-          cancellation_id: string | null
-          insurer_share_id: string | null
           allocated_premium: number | null
-          commission_rate_pct: number | null
-          earned_commission: number | null
-          untransferred_commission: number | null
           amount: number | null
+          cancellation_id: string | null
           client_id: string | null
+          commission_rate_pct: number | null
           created_at: string | null
+          earned_commission: number | null
           earned_on: string | null
           id: string | null
           insurer_id: string | null
+          insurer_share_id: string | null
           policy_id: string | null
           policy_no: string | null
           status: string | null
@@ -11196,6 +11152,7 @@ export type Database = {
           transfer_date: string | null
           transfer_id: string | null
           transfer_no: string | null
+          untransferred_commission: number | null
           updated_at: string | null
         }
         Relationships: [
@@ -11212,6 +11169,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_renewal_pipeline"
             referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_share_fk"
+            columns: ["tenant_id", "insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_insurer_shares"
+            referencedColumns: ["tenant_id", "id"]
           },
           {
             foreignKeyName: "ins_commission_entries_tenant_id_fkey"
@@ -11234,13 +11198,6 @@ export type Database = {
             referencedRelation: "ins_clients"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ins_policies_insurer_id_fkey"
-            columns: ["insurer_id"]
-            isOneToOne: false
-            referencedRelation: "ins_insurers"
-            referencedColumns: ["id"]
-          },
         ]
       }
       ins_commission_position: {
@@ -11253,6 +11210,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ins_commission_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_policy_cash_items: {
+        Row: {
+          control_role: string | null
+          id: string | null
+          insurer_share_id: string | null
+          party_account_id: string | null
+          side: string | null
+          source_id: string | null
+          source_type: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_open_items_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_open_items_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "fin_open_items_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "fin_open_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -11817,106 +11816,6 @@ export type Database = {
       }
     }
     Functions: {
-      ins_cancellation_cash_context: {
-        Args: { p_policy_id: string; p_bank_account_id?: string | null; p_offset?: number }
-        Returns: Json
-      }
-      ins_submit_cancellation_cash: {
-        Args: { p_cancellation_id: string; p_kind: string; p_adjustment_id: string | null; p_bank_account_id: string; p_to_bank_account_id: string | null; p_amount: number; p_cash_date: string; p_reference: string; p_notes: string; p_request_key: string }
-        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
-      }
-      ins_submit_cancellation_cash_void: {
-        Args: { p_request_id: string; p_reason: string; p_request_key: string }
-        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
-      }
-      ins_decide_cancellation_cash: {
-        Args: { p_request_id: string; p_decision: string; p_reason: string }
-        Returns: Database["public"]["Tables"]["ins_cancellation_cash_requests"]["Row"]
-      }
-      ins_policy_reversal_context: {
-        Args: { p_policy_id: string; p_in_progress?: boolean }
-        Returns: Json
-      }
-      platform_fin_raise_policy_credit_note_impl: {
-        Args: { p_tenant_id: string; p_control_role: string; p_party_account_id: string; p_amount: number; p_credit_date: string; p_offset_gl_account_id: string; p_applications: Json; p_reason: string; p_reference: string; p_policy_id: string }
-        Returns: Database['public']['Tables']['fin_credit_notes']['Row']
-      }
-      ins_reversal_complete_guard: { Args: never; Returns: unknown }
-      ins_reversal_immutable_guard: { Args: never; Returns: unknown }
-      ins_policy_child_guard: { Args: never; Returns: unknown }
-      ins_reversed_policy_guard: { Args: never; Returns: unknown }
-      ins_reversal_note_void_guard: { Args: never; Returns: unknown }
-      ins_reversal_journal_void_guard: { Args: never; Returns: unknown }
-
-      ins_set_policy_financial_configuration: { Args: { p_policy_id: string; p_shares: Json; p_charges: Json }; Returns: undefined }
-      ins_policy_financial_details: { Args: { p_policy_id: string }; Returns: Json }
-      ins_submit_policy_cancellation: { Args: { p_policy_id: string; p_effective_date: string; p_insurer_terms: Json; p_charge_refunds: Json; p_reason: string; p_request_key: string }; Returns: Database['public']['Tables']['ins_policy_cancellations']['Row'] }
-      ins_prepare_policy_cancellation: { Args: { p_cancellation_id: string; p_clearing_gl_account_id: string }; Returns: Database['public']['Tables']['ins_policy_cancellations']['Row'] }
-      ins_decide_policy_cancellation: { Args: { p_cancellation_id: string; p_decision: string; p_review_note: string; p_accept_manual_exception?: boolean }; Returns: Database['public']['Tables']['ins_policy_cancellations']['Row'] }
-      ins_withdraw_policy_cancellation: { Args: { p_cancellation_id: string; p_reason: string }; Returns: undefined }
-      ins_policy_cancellation_context: { Args: { p_policy_id: string; p_offset?: number }; Returns: Json }
-      ins_preview_policy_cancellation: {
-        Args: { p_policy_id: string; p_effective_date: string; p_insurer_terms: Json; p_charge_refunds: Json }
-        Returns: Json
-      }
-      platform_ins_cancellation_round_ratio: { Args: { p_numerator: number; p_denominator: number }; Returns: number }
-      platform_ins_cancellation_money: { Args: { p_value: string }; Returns: number }
-      platform_ins_cancellation_percentage: { Args: { p_value: string; p_allow_100?: boolean }; Returns: number }
-      platform_ins_calculate_insurer_cancellation: {
-        Args: { p_allocation: Json; p_terms: Json; p_inception: string; p_expiry: string; p_effective: string }
-        Returns: Json
-      }
-      platform_ins_allocate_cancellation_refund: { Args: { p_original: Json; p_refund: string }; Returns: Json }
-      ins_insurer_commission_statement_data: { Args: { p_insurer_id: string }; Returns: Json }
-      ins_policy_charge_income_accounts: { Args: never; Returns: { id: string; account_code: string; name: string }[] }
-      ins_submit_policy_share_cash_request: {
-        Args: { p_policy_id: string; p_insurer_share_id: string; p_bank_account_id: string; p_amount: number; p_cash_date: string; p_request_key: string; p_reference?: string; p_notes?: string }
-        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
-      }
-      ins_broker_fee_tax_rows: { Args: { p_date_from?: string; p_date_to?: string }; Returns: { charge_id: string; tenant_id: string; policy_id: string; policy_no: string; currency: string; invoice_date: string; description: string; fee_amount: number; vat_mode: string; vat_rate_pct: number | null; vat_amount: number; invoice_line_total: number; journal_entry_id: string }[] }
-      ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
-      ins_financial_configuration_guard: { Args: never; Returns: unknown }
-      ins_complex_policy_credit_guard: { Args: never; Returns: unknown }
-      platform_ins_bind_policy_legacy_impl: { Args: { p_policy_id: string }; Returns: Database['public']['Tables']['ins_policies']['Row'] }
-      platform_ins_create_renewal_legacy_impl: { Args: { p_policy_id: string }; Returns: Database['public']['Tables']['ins_policies']['Row'] }
-      platform_ins_policy_reversal_legacy_context: { Args: { p_policy_id: string; p_in_progress?: boolean }; Returns: Json }
-      platform_ins_policy_cash_legacy_totals: { Args: { p_policy_id: string }; Returns: Json }
-      platform_ins_policy_cash_legacy_validate: { Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string }; Returns: Database['public']['Tables']['fin_open_items']['Row'] }
-      ins_policy_cash_position: { Args: { p_policy_id: string }; Returns: Json }
-      ins_policy_cash_bank_accounts: { Args: never; Returns: Database['public']['Tables']['fin_bank_accounts']['Row'][] }
-      ins_policy_cash_policies: {
-        Args: { p_search?: string; p_offset?: number }
-        Returns: { id: string; policy_no: string; status: string; currency: string; client_name: string; insurer_name: string }[]
-      }
-      ins_submit_policy_cash_request: {
-        Args: { p_policy_id: string; p_kind: string; p_bank_account_id: string; p_amount: number; p_cash_date: string; p_request_key: string; p_reference?: string; p_notes?: string }
-        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
-      }
-      ins_decide_policy_cash_request: {
-        Args: { p_request_id: string; p_decision: string; p_reason?: string }
-        Returns: Database['public']['Tables']['ins_policy_cash_requests']['Row']
-      }
-      ins_policy_cash_require_finance: { Args: never; Returns: undefined }
-      ins_policy_cash_totals: { Args: { p_policy_id: string }; Returns: Json }
-      ins_policy_cash_validate: {
-        Args: { p_policy_id: string; p_kind: string; p_bank_id: string; p_amount: number; p_date: string; p_share_id?: string }
-        Returns: Database['public']['Tables']['fin_open_items']['Row']
-      }
-      ins_policy_cash_allocation_guard: { Args: never; Returns: unknown }
-      ins_policy_cash_void_guard: { Args: never; Returns: unknown }
-      ins_policy_cash_commission_guard: { Args: never; Returns: unknown }
-      ins_policy_cash_reconciliation_guard: { Args: never; Returns: unknown }
-      ins_policy_cash_reconciliation_audit: { Args: never; Returns: unknown }
-
-      ins_policy_reversal_eligibility: {
-        Args: { p_policy_id: string }
-        Returns: Json
-      }
-      ins_reverse_policy: {
-        Args: { p_policy_id: string; p_reason: string; p_reissue: boolean; p_request_key: string }
-        Returns: Database['public']['Tables']['ins_policy_reversals']['Row']
-      }
-
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
@@ -13842,6 +13741,38 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_broker_fee_tax_rows: {
+        Args: { p_date_from?: string; p_date_to?: string }
+        Returns: {
+          charge_id: string | null
+          currency: string | null
+          description: string | null
+          fee_amount: number | null
+          invoice_date: string | null
+          invoice_line_total: number | null
+          journal_entry_id: string | null
+          policy_id: string | null
+          policy_no: string | null
+          tenant_id: string | null
+          vat_amount: number | null
+          vat_mode: string | null
+          vat_rate_pct: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ins_broker_fee_tax_report"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      ins_cancellation_cash_context: {
+        Args: {
+          p_bank_account_id?: string
+          p_offset?: number
+          p_policy_id: string
+        }
+        Returns: Json
+      }
       ins_claim_apply_payment_totals: {
         Args: { p_claim_id: string; p_note: string }
         Returns: {
@@ -13999,6 +13930,112 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_decide_cancellation_cash: {
+        Args: { p_decision: string; p_reason: string; p_request_id: string }
+        Returns: {
+          adjustment_id: string | null
+          amount: number
+          bank_account_id: string
+          cancellation_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          kind: string
+          maker_id: string
+          notes: string
+          operation_txid: number | null
+          reference: string
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          to_bank_account_id: string | null
+          to_settlement_id: string | null
+          voided_by_request_id: string | null
+          voids_request_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_cancellation_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_decide_policy_cancellation: {
+        Args: {
+          p_accept_manual_exception?: boolean
+          p_cancellation_id: string
+          p_decision: string
+          p_review_note: string
+        }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_no: string | null
+          cash_at_posting: Json | null
+          charge_refunds: Json
+          checked_at: string | null
+          checked_by: string | null
+          clearing_gl_account_id: string | null
+          effective_date: string
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          refund_item_id: string | null
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cancellations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_decide_policy_cash_request: {
+        Args: { p_decision: string; p_reason?: string; p_request_id: string }
+        Returns: {
+          amount: number
+          bank_account_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          insurer_share_id: string | null
+          kind: string
+          maker_id: string
+          notes: string | null
+          operation_txid: number | null
+          policy_id: string
+          reference: string | null
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_ensure_client_account: {
         Args: { p_ins_client_id: string }
         Returns: string
@@ -14007,9 +14044,153 @@ export type Database = {
         Args: { p_insurer_id: string }
         Returns: string
       }
+      ins_insurer_commission_statement_data: {
+        Args: { p_insurer_id: string }
+        Returns: Json
+      }
       ins_item_paid_amount: {
         Args: { p_open_item_id: string }
         Returns: number
+      }
+      ins_policy_cancellation_context: {
+        Args: { p_offset?: number; p_policy_id: string }
+        Returns: Json
+      }
+      ins_policy_cash_bank_accounts: {
+        Args: never
+        Returns: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          gl_account_id: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          tenant_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fin_bank_accounts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      ins_policy_cash_policies: {
+        Args: { p_offset?: number; p_search?: string }
+        Returns: {
+          client_name: string
+          currency: string
+          id: string
+          insurer_name: string
+          policy_no: string
+          status: string
+        }[]
+      }
+      ins_policy_cash_position: { Args: { p_policy_id: string }; Returns: Json }
+      ins_policy_cash_require_finance: { Args: never; Returns: undefined }
+      ins_policy_cash_totals: { Args: { p_policy_id: string }; Returns: Json }
+      ins_policy_cash_validate: {
+        Args: {
+          p_amount: number
+          p_bank_id: string
+          p_date: string
+          p_kind: string
+          p_policy_id: string
+          p_share_id?: string
+        }
+        Returns: {
+          amount: number
+          control_role: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          document_date: string
+          document_no: string
+          due_date: string | null
+          id: string
+          party_account_id: string
+          side: string
+          source_id: string | null
+          source_type: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_open_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_policy_charge_income_accounts: {
+        Args: never
+        Returns: {
+          account_code: string
+          id: string
+          name: string
+        }[]
+      }
+      ins_policy_financial_details: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      ins_policy_reversal_context: {
+        Args: { p_in_progress?: boolean; p_policy_id: string }
+        Returns: Json
+      }
+      ins_policy_reversal_eligibility: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      ins_prepare_policy_cancellation: {
+        Args: { p_cancellation_id: string; p_clearing_gl_account_id: string }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_no: string | null
+          cash_at_posting: Json | null
+          charge_refunds: Json
+          checked_at: string | null
+          checked_by: string | null
+          clearing_gl_account_id: string | null
+          effective_date: string
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          refund_item_id: string | null
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cancellations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_preview_policy_cancellation: {
+        Args: {
+          p_charge_refunds: Json
+          p_effective_date: string
+          p_insurer_terms: Json
+          p_policy_id: string
+        }
+        Returns: Json
       }
       ins_record_claim_payment: {
         Args: {
@@ -14139,6 +14320,246 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_reverse_policy: {
+        Args: {
+          p_policy_id: string
+          p_reason: string
+          p_reissue: boolean
+          p_request_key: string
+        }
+        Returns: {
+          accounting_treatment: string
+          id: string
+          insurer_credit_note_id: string | null
+          insurer_journal_entry_id: string | null
+          operation_txid: number
+          original_journal_entry_id: string
+          original_policy_id: string
+          outcome: string
+          premium_credit_note_id: string | null
+          premium_journal_entry_id: string | null
+          reason: string
+          reissue_requested: boolean
+          replacement_policy_id: string | null
+          request_key: string
+          reversal_date: string
+          reversed_at: string
+          reversed_by: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_reversals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_policy_financial_configuration: {
+        Args: { p_charges: Json; p_policy_id: string; p_shares: Json }
+        Returns: undefined
+      }
+      ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
+      ins_submit_cancellation_cash: {
+        Args: {
+          p_adjustment_id: string
+          p_amount: number
+          p_bank_account_id: string
+          p_cancellation_id: string
+          p_cash_date: string
+          p_kind: string
+          p_notes: string
+          p_reference: string
+          p_request_key: string
+          p_to_bank_account_id: string
+        }
+        Returns: {
+          adjustment_id: string | null
+          amount: number
+          bank_account_id: string
+          cancellation_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          kind: string
+          maker_id: string
+          notes: string
+          operation_txid: number | null
+          reference: string
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          to_bank_account_id: string | null
+          to_settlement_id: string | null
+          voided_by_request_id: string | null
+          voids_request_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_cancellation_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_submit_cancellation_cash_void: {
+        Args: { p_reason: string; p_request_id: string; p_request_key: string }
+        Returns: {
+          adjustment_id: string | null
+          amount: number
+          bank_account_id: string
+          cancellation_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          kind: string
+          maker_id: string
+          notes: string
+          operation_txid: number | null
+          reference: string
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+          to_bank_account_id: string | null
+          to_settlement_id: string | null
+          voided_by_request_id: string | null
+          voids_request_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_cancellation_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_submit_policy_cancellation: {
+        Args: {
+          p_charge_refunds: Json
+          p_effective_date: string
+          p_insurer_terms: Json
+          p_policy_id: string
+          p_reason: string
+          p_request_key: string
+        }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_no: string | null
+          cash_at_posting: Json | null
+          charge_refunds: Json
+          checked_at: string | null
+          checked_by: string | null
+          clearing_gl_account_id: string | null
+          effective_date: string
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          refund_item_id: string | null
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cancellations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_submit_policy_cash_request: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_cash_date: string
+          p_kind: string
+          p_notes?: string
+          p_policy_id: string
+          p_reference?: string
+          p_request_key: string
+        }
+        Returns: {
+          amount: number
+          bank_account_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          insurer_share_id: string | null
+          kind: string
+          maker_id: string
+          notes: string | null
+          operation_txid: number | null
+          policy_id: string
+          reference: string | null
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_submit_policy_share_cash_request: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_cash_date: string
+          p_insurer_share_id: string
+          p_notes?: string
+          p_policy_id: string
+          p_reference?: string
+          p_request_key: string
+        }
+        Returns: {
+          amount: number
+          bank_account_id: string
+          cash_date: string
+          checked_at: string | null
+          checker_id: string | null
+          created_at: string
+          decision_reason: string | null
+          id: string
+          insurer_share_id: string | null
+          kind: string
+          maker_id: string
+          notes: string | null
+          operation_txid: number | null
+          policy_id: string
+          reference: string | null
+          request_key: string
+          settlement_id: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_transfer_earned_commission: {
         Args: {
           p_entry_ids?: string[]
@@ -14261,6 +14682,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_withdraw_policy_cancellation: {
+        Args: { p_cancellation_id: string; p_reason: string }
+        Returns: undefined
       }
       is_business_dev: { Args: never; Returns: boolean }
       is_business_dev_admin: { Args: never; Returns: boolean }
@@ -14592,6 +15017,48 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      platform_fin_raise_policy_credit_note_impl: {
+        Args: {
+          p_amount: number
+          p_applications: Json
+          p_control_role: string
+          p_credit_date: string
+          p_offset_gl_account_id: string
+          p_party_account_id: string
+          p_policy_id: string
+          p_reason: string
+          p_reference: string
+          p_tenant_id: string
+        }
+        Returns: {
+          amount: number
+          control_role: string
+          created_at: string
+          created_by: string | null
+          credit_date: string
+          credit_note_no: string
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          offset_gl_account_id: string
+          party_account_id: string
+          reason: string
+          reference: string | null
+          side: string
+          status: string
+          tenant_id: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_credit_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       platform_fin_record_settlement_impl: {
         Args: {
           p_allocations: Json
@@ -14705,6 +15172,326 @@ export type Database = {
       }
       platform_gl_posting_roles: { Args: never; Returns: string[] }
       platform_has_admin: { Args: never; Returns: boolean }
+      platform_ins_allocate_cancellation_refund: {
+        Args: { p_original: Json; p_refund: string }
+        Returns: Json
+      }
+      platform_ins_bind_policy_legacy_impl: {
+        Args: { p_policy_id: string }
+        Returns: {
+          bound_at: string | null
+          bound_by: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_calculate_insurer_cancellation: {
+        Args: {
+          p_allocation: Json
+          p_effective: string
+          p_expiry: string
+          p_inception: string
+          p_terms: Json
+        }
+        Returns: Json
+      }
+      platform_ins_cancellation_cash_authorized: {
+        Args: { p_amount: number; p_item: string; p_settlement: string }
+        Returns: boolean
+      }
+      platform_ins_cancellation_cash_bank: {
+        Args: { p_id: string; p_kind: string; p_tenant: string }
+        Returns: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          gl_account_id: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_bank_accounts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_cancellation_cash_banks_sound: {
+        Args: { p_case: string }
+        Returns: boolean
+      }
+      platform_ins_cancellation_cash_emit: {
+        Args: { p_item: string; p_request: string; p_second?: boolean }
+        Returns: string
+      }
+      platform_ins_cancellation_cash_movements: {
+        Args: { p_case: string }
+        Returns: {
+          amount: number
+          bank_id: string
+          proven_amount: number
+        }[]
+      }
+      platform_ins_cancellation_cash_position: {
+        Args: { p_bank?: string; p_case: string }
+        Returns: Json
+      }
+      platform_ins_cancellation_cash_proven: {
+        Args: { p_settlement_id: string }
+        Returns: boolean
+      }
+      platform_ins_cancellation_cash_recognize: {
+        Args: { p_adjustment: string; p_request: string }
+        Returns: undefined
+      }
+      platform_ins_cancellation_cash_validate: {
+        Args: {
+          p_adjustment: string
+          p_amount: number
+          p_bank: string
+          p_case: string
+          p_date: string
+          p_kind: string
+          p_to_bank: string
+        }
+        Returns: string
+      }
+      platform_ins_cancellation_cash_void_authorized: {
+        Args: { p_settlement: string }
+        Returns: boolean
+      }
+      platform_ins_cancellation_context: {
+        Args: { p_id: string }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_no: string | null
+          cash_at_posting: Json | null
+          charge_refunds: Json
+          checked_at: string | null
+          checked_by: string | null
+          clearing_gl_account_id: string | null
+          effective_date: string
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          refund_item_id: string | null
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_cancellations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_cancellation_credit: {
+        Args: { p_amount: number; p_cancellation_id: string; p_item_id: string }
+        Returns: string
+      }
+      platform_ins_cancellation_mappings: {
+        Args: { p_clearing: string; p_policy_id: string }
+        Returns: Json
+      }
+      platform_ins_cancellation_money: {
+        Args: { p_value: string }
+        Returns: number
+      }
+      platform_ins_cancellation_percentage: {
+        Args: { p_allow_100?: boolean; p_value: string }
+        Returns: number
+      }
+      platform_ins_cancellation_review_position: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      platform_ins_cancellation_round_ratio: {
+        Args: { p_denominator: number; p_numerator: number }
+        Returns: number
+      }
+      platform_ins_cash_position_before_cancellation: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      platform_ins_create_renewal_legacy_impl: {
+        Args: { p_policy_id: string }
+        Returns: {
+          bound_at: string | null
+          bound_by: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_cxl_before_match_settlement: {
+        Args: { p_settlement_id: string; p_statement_line_id: string }
+        Returns: {
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string | null
+          commission_transfer_id: string | null
+          id: string
+          match_type: string
+          matched_at: string
+          matched_by: string | null
+          settlement_id: string | null
+          tenant_id: string
+          transfer_side: string | null
+          variance: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_cxl_before_unmatch: {
+        Args: { p_reconciliation_id: string }
+        Returns: undefined
+      }
+      platform_ins_policy_cash_legacy_totals: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
+      platform_ins_policy_cash_legacy_validate: {
+        Args: {
+          p_amount: number
+          p_bank_id: string
+          p_date: string
+          p_kind: string
+          p_policy_id: string
+        }
+        Returns: {
+          amount: number
+          control_role: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          document_date: string
+          document_no: string
+          due_date: string | null
+          id: string
+          party_account_id: string
+          side: string
+          source_id: string | null
+          source_type: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_open_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_policy_reversal_legacy_context: {
+        Args: { p_in_progress?: boolean; p_policy_id: string }
+        Returns: Json
+      }
+      platform_ins_transfer_before_cancellation_impl: {
+        Args: {
+          p_entry_ids?: string[]
+          p_from_bank_account_id: string
+          p_notes?: string
+          p_to_bank_account_id: string
+          p_transfer_date: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          from_bank_account_id: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          status: string
+          tenant_id: string
+          to_bank_account_id: string
+          transfer_date: string
+          transfer_no: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_commission_transfers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       platform_job_runs_prune: { Args: never; Returns: number }
       platform_module_activity: {
         Args: { p_days?: number }
@@ -16127,12 +16914,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16156,11 +16943,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16181,11 +16968,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16206,11 +16993,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16223,11 +17010,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16241,3 +17028,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

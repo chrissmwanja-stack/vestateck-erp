@@ -165,13 +165,10 @@ jobs:
       # packages/shared/src/database.types.ts, so a stale file silently rejects
       # new objects (or accepts removed ones). Regenerates from this job's local
       # stack and compares ignoring line endings and the PostgREST version stamp.
-      # Report-only for now (continue-on-error): the committed file was generated
-      # from the live project, which has had migration drift before, so the first
-      # runs may show noise. Once it is clean on main, delete the
-      # continue-on-error line to make it block.
+      # Blocking since 16 Oct 2026: the committed file was regenerated from a clean
+      # local replay of supabase/migrations with the same CLI version this job pins.
       # Fix a failure with scripts/gen-types.ps1 (UTF-8; a plain PowerShell `>` writes UTF-16).
       - name: Check generated types match the migrations
-        continue-on-error: true
         run: |
           supabase gen types typescript --local --schema public > /tmp/types.local.ts
           norm() { sed -e 's/\r$//' -e '/__InternalSupabase/,/^  }$/d' "$1"; }
