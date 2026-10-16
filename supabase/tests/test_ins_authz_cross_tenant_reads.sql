@@ -8,10 +8,11 @@
 --   ins_policy_cash_policies()            policy lookup for premium cash
 --   ins_policy_charge_income_accounts()   revenue accounts for charge lines
 --   ins_insurer_commission_statement_data statement for one insurer (errors: not found)
---   ins_broker_fee_tax_rows()             broker-fee tax report
---                                         WEAK: rows need a posted financial snapshot,
---                                         which this fixture does not create, so this
---                                         check only shows that no tenant A rows appear.
+--   ins_broker_fee_tax_rows()             broker-fee tax report. This file checks only
+--                                         that no tenant A rows appear, because its fixture
+--                                         has no financial snapshot. The strong check, with a
+--                                         real bound snapshot, is in
+--                                         test_ins_authz_cross_tenant_views.sql.
 --
 -- Run only on a disposable local/test database; every fixture rolls back.
 

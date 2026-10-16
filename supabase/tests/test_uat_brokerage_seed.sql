@@ -32,7 +32,16 @@ begin
   if n <> 21 then raise exception 'FAIL: UAT tenant GL accounts: expected 21, got %', n; end if;
 
   select count(*) into n from app_users where tenant_id = v_t;
-  if n <> 5 then raise exception 'FAIL: UAT tenant users: expected 5, got %', n; end if;
+  if n <> 6 then raise exception 'FAIL: UAT tenant users: expected 6, got %', n; end if;
+
+  -- Three distinct Finance users are needed for the third-person rule
+  -- (INS_CASH_THIRD_PERSON / INS_CXL_CASH_THIRD_PERSON): maker, checker, reconciler.
+  select count(distinct user_id) into n from finance_team_members
+  where tenant_id = v_t and role = 'finance'
+    and user_id in ('00000000-0000-0000-0000-00000000b104',
+                    '00000000-0000-0000-0000-00000000b105',
+                    '00000000-0000-0000-0000-00000000b106');
+  if n <> 3 then raise exception 'FAIL: UAT Finance maker/checker/reconciler: expected 3 distinct, got %', n; end if;
 
   select count(*) into n from ins_policies where tenant_id = v_t and status = 'active';
   if n <> 3 then raise exception 'FAIL: UAT tenant active policies: expected 3, got %', n; end if;

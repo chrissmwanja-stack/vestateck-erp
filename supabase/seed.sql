@@ -740,6 +740,7 @@ declare
   v_u_member uuid := '00000000-0000-0000-0000-00000000b103';  -- ins.member
   v_u_maker  uuid := '00000000-0000-0000-0000-00000000b104';  -- fin.maker
   v_u_check  uuid := '00000000-0000-0000-0000-00000000b105';  -- fin.checker
+  v_u_recon  uuid := '00000000-0000-0000-0000-00000000b106';  -- fin.reconciler (third person)
   v_gl_bank  uuid; v_gl_trust uuid;
   v_ins_a uuid; v_ins_b uuid; v_ins_c uuid;
   v_line_motor uuid; v_line_prop uuid; v_line_med uuid;
@@ -781,7 +782,8 @@ begin
     (v_u_mgr,    'ins.manager@test.local'),
     (v_u_member, 'ins.member@test.local'),
     (v_u_maker,  'fin.maker@test.local'),
-    (v_u_check,  'fin.checker@test.local')
+    (v_u_check,  'fin.checker@test.local'),
+    (v_u_recon,  'fin.reconciler@test.local')
   ) as u(id, email)
   where not exists (select 1 from auth.users x where x.id = u.id);
 
@@ -793,7 +795,8 @@ begin
     (v_u_mgr,    'Pearl Account Manager',   'ins.manager@test.local', 'Placement Manager',       'Placement & Insurer Relations'),
     (v_u_member, 'Pearl Account Executive', 'ins.member@test.local',  'Account Executive',      'Client Service & Account Management'),
     (v_u_maker,  'Pearl Finance Maker',     'fin.maker@test.local',   'Accountant',             'Finance & Financial Reporting'),
-    (v_u_check,  'Pearl Finance Checker',   'fin.checker@test.local', 'Financial Controller',   'Finance & Financial Reporting')
+    (v_u_check,  'Pearl Finance Checker',   'fin.checker@test.local', 'Financial Controller',   'Finance & Financial Reporting'),
+    (v_u_recon,  'Pearl Bank Reconciler',   'fin.reconciler@test.local', 'Financial Accountant', 'Finance & Financial Reporting')
   ) as v(id, name, email, role_title, dept);
 
   insert into staff_roles (tenant_id, user_id, module, role) values
@@ -802,7 +805,8 @@ begin
     (v_t, v_u_member, 'insurance', 'member');
   insert into finance_team_members (tenant_id, user_id, role) values
     (v_t, v_u_maker, 'finance'),
-    (v_t, v_u_check, 'finance');
+    (v_t, v_u_check, 'finance'),
+    (v_t, v_u_recon, 'finance');
 
   -- 3. Bank accounts, mapped to the template's GL accounts.
   select id into v_gl_bank  from gl_accounts where tenant_id = v_t and account_code = '1000';
