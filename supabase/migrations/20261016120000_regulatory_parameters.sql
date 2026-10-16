@@ -308,32 +308,32 @@ drop policy if exists regulatory_parameters_select on public.regulatory_paramete
 create policy regulatory_parameters_select on public.regulatory_parameters
   for select using (
     tenant_id = get_my_tenant_id()
-    and (is_company_admin() or is_finance_team_member(null::text) or can_access_insurance())
+    and (is_tenant_admin() or is_finance_team_member(null::text) or can_access_insurance())
   );
 
 drop policy if exists regulatory_parameters_insert on public.regulatory_parameters;
 create policy regulatory_parameters_insert on public.regulatory_parameters
   for insert with check (
     tenant_id = get_my_tenant_id()
-    and (is_company_admin() or is_finance_team_member('finance'::text))
+    and (is_tenant_admin() or is_finance_team_member('finance'::text))
   );
 
 drop policy if exists regulatory_parameters_update on public.regulatory_parameters;
 create policy regulatory_parameters_update on public.regulatory_parameters
   for update using (
     tenant_id = get_my_tenant_id()
-    and (is_company_admin() or is_finance_team_member('finance'::text))
+    and (is_tenant_admin() or is_finance_team_member('finance'::text))
   )
   with check (
     tenant_id = get_my_tenant_id()
-    and (is_company_admin() or is_finance_team_member('finance'::text))
+    and (is_tenant_admin() or is_finance_team_member('finance'::text))
   );
 
 drop policy if exists regulatory_parameter_events_select on public.regulatory_parameter_events;
 create policy regulatory_parameter_events_select on public.regulatory_parameter_events
   for select using (
     tenant_id = get_my_tenant_id()
-    and (is_company_admin() or is_finance_team_member(null::text) or can_access_insurance())
+    and (is_tenant_admin() or is_finance_team_member(null::text) or can_access_insurance())
   );
 
 revoke all on public.regulatory_parameters, public.regulatory_parameter_events from public, anon, authenticated;
@@ -424,7 +424,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  if not (is_company_admin() or is_finance_team_member(null::text) or can_access_insurance()) then
+  if not (is_tenant_admin() or is_finance_team_member(null::text) or can_access_insurance()) then
     raise exception 'REG_FORBIDDEN: regulatory parameters are visible to company admins, finance and insurance users' using errcode = '42501';
   end if;
   return platform_reg_resolve(get_my_tenant_id(), p_key, p_on, p_class);
@@ -453,7 +453,7 @@ begin
   if not found then
     raise exception 'REG_NOT_FOUND: parameter not found';
   end if;
-  if not is_company_admin() then
+  if not is_tenant_admin() then
     raise exception 'REG_FORBIDDEN: only a company admin can approve a regulatory parameter' using errcode = '42501';
   end if;
   if v_row.status <> 'draft' then
@@ -492,7 +492,7 @@ begin
   if not found then
     raise exception 'REG_NOT_FOUND: parameter not found';
   end if;
-  if not is_company_admin() then
+  if not is_tenant_admin() then
     raise exception 'REG_FORBIDDEN: only a company admin can end-date a regulatory parameter' using errcode = '42501';
   end if;
   if v_row.status <> 'approved' then
@@ -538,11 +538,11 @@ begin
   if v_row.status = 'retired' then
     raise exception 'REG_RETIRED_IMMUTABLE: already retired';
   end if;
-  if v_row.status = 'approved' and not is_company_admin() then
+  if v_row.status = 'approved' and not is_tenant_admin() then
     raise exception 'REG_FORBIDDEN: only a company admin can retire an approved value' using errcode = '42501';
   end if;
   if v_row.status = 'draft'
-     and not (is_company_admin() or v_row.created_by is not distinct from v_uid) then
+     and not (is_tenant_admin() or v_row.created_by is not distinct from v_uid) then
     raise exception 'REG_FORBIDDEN: only the proposer or a company admin can withdraw a draft' using errcode = '42501';
   end if;
 
