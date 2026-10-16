@@ -1,33 +1,117 @@
 # Migration policy
 
-This file is the rulebook for `supabase/migrations/`. `scripts/check-migration-policy.sh` enforces the rules marked **(enforced)** against every migration file added since `origin/main`, and CI runs it on every push and pull request (`foundation-checks.yml`). Reviewers apply the rest.
+Rules for every file added to `supabase/migrations/` from this commit
+forward. Established by Foundation Playbook Phase 0. See
+`FOUNDATION_PLAYBOOK.md` at the repo root for why (that file is a
+reconstruction, not the original — see its own header note).
 
-The policy is referenced by `scripts/check-migration-policy.sh`, by `supabase/seed.sql`, and by the README. Rule numbers match the script's messages. Rules 3 and 7 are not written down anywhere in the repository, so they are not listed here; if you know their text, add it under its number.
+## The rules
 
-## Enforced rules
+1. **No `INSERT INTO auth.users` in a migration.** Demo/test accounts go
+   in `supabase/seed.sql`, which `supabase db reset` runs automatically
+   after migrations. A migration is permanent, replayed on every
+   environment including production; `seed.sql` is not.
 
-**Rule 1 (enforced): no demo or test accounts in migrations.** A migration must not `insert into auth.users`. Demo and test accounts belong in `supabase/seed.sql`, which runs only locally.
+2. **No plaintext or near-plaintext passwords committed anywhere**,
+   including inside `extensions.crypt('literal', ...)` calls. If a
+   migration or seed file needs a demo login, the convention in this
+   repo is `Tester123` for every account, documented once in
+   `seed.sql`'s header comment -- do not repeat the literal string in
+   new files; reference the existing convention instead. That
+   convention only stays safe if `seed.sql` never runs against the
+   linked/remote project -- see the warning at the top of that file
+   before running `supabase db reset` with `--linked`, or hand-running
+   it via psql/Studio.
 
-**Rule 2 (enforced): no committed passwords.** A migration must not contain `crypt('<literal>', ...)`. Hashing a literal password commits that password to the repository.
+3. **No dashboard-only SQL.** If you run something in the Supabase
+   Studio SQL editor, Table Editor, or Auth panel that changes schema
+   or seeds data, commit the equivalent migration (or `seed.sql` entry)
+   the same day. `gm@test.local` and `pm@test.local` existed on the live
+   project for two weeks with zero migration trace before this policy
+   existed -- that gap is exactly what this rule prevents.
 
-**Rule 4 (enforced): no `FOR ALL` policies.** Row-level security policies must be written per command: `SELECT`, `INSERT`, `UPDATE` and `DELETE` each get their own policy.
+4. **No `FOR ALL` RLS policies on new tables.** Split into separate
+   `FOR SELECT` / `FOR INSERT` / `FOR UPDATE` / `FOR DELETE` policies,
+   even when the `USING` / `WITH CHECK` clause is identical across all
+   of them. A single collapsed policy is harder to reason about and
+   harder to tighten one verb at a time later.
 
-**Rule 5 (enforced): tenant columns reference tenants.** A migration that adds a `tenant_id uuid not null` column must also contain a `references tenants(id)` foreign key in the same file.
+5. **Every new tenant-scoped table gets a real foreign key**:
+   `tenant_id uuid not null references tenants(id) on delete cascade`.
+   Not just the column -- the constraint. `hr_*`, `pmo_*`, `machines`, and
+   `sustainability_*` were missing this and were backfilled in Phase 3
+   (confirmed clean against production 2026-08-18); this rule and the
+   `scripts/audit_tenant_fk.sql` CI check exist so it doesn't regress, not
+   because the gap is still open.
 
-**Rule 6 (enforced): no generated dumps.** Files named `*remote_schema.sql` (output of `supabase db dump` or Studio) are rejected. Write the actual change as a hand-authored migration. The three existing dump files are grandfathered.
+6. **No `supabase db dump`/Studio-generated `remote_schema.sql` files
+   in `supabase/migrations/`.** These dump the entire remote catalog
+   (thousands of lines of `DROP TRIGGER`/`DROP POLICY` followed by a
+   full recreate) instead of the actual one- or two-statement change
+   that was made. That makes shadow replay depend on dump-ordering
+   luck, can silently undo a migration that landed between the dump
+   and the apply, and buries the real change inside noise a reviewer
+   won't read. If you made a change in Studio, write the equivalent
+   hand-authored migration the same day (rule 3) -- don't dump the
+   catalog as a shortcut. `20260824064800_remote_schema.sql`,
+   `20260824110748_remote_schema.sql`, and
+   `20260901135345_remote_schema.sql` were grandfathered as pre-dating
+   this rule.
 
-**Rule 8 (enforced): no `DROP COLUMN`.** Deprecate first: rename the column to `<name>_deprecated`, stop reading it, and drop it in a separate migration in a later release.
+   **That grandfather list has since grown to seven files, not three:**
+   `20260903112116_remote_schema.sql`, `20260904082722_remote_schema.sql`,
+   `20260910113534_remote_schema.sql`, and `20260910133254_remote_schema.sql`
+   all landed on `main` *after* this rule and its CI check existed. This
+   isn't a checker bug -- `check-migration-policy.sh` does match on
+   filename and does fire on new `remote_schema.sql` files (confirmed: the
+   commit that added `20260910113534_remote_schema.sql` shows
+   `migration-policy` as a **failing** check on GitHub). The actual gap is
+   that `main` has no branch protection requiring that check to pass, so a
+   red `migration-policy` run doesn't block the push. Until that's turned
+   on (Settings -> Branches -> require status checks to pass, for
+   `migration-policy` at minimum), this rule is advisory, not enforced,
+   and the grandfather list will keep growing. Treat all seven as
+   grandfathered for now -- rewriting them is Phase 1.5 (squash), not a
+   one-off fix -- but do not add an eighth, and turning on branch
+   protection is the real fix, not a longer list here.
 
-**Destructive table drops (enforced).** A `DROP TABLE` on an existing `public` table is rejected unless the same file also creates a table. If a table is really being retired, the reviewer must confirm that with the owner, because the script cannot tell an existing table from one created earlier in the same file.
+7. **Run `scripts/check-migration-policy.sh` before you push.** CI runs
+   it too (`.github/workflows/foundation-checks.yml`), but catching it
+   locally is faster than waiting on a failed check.
 
-## Rules that apply by practice
+8. **No `DROP COLUMN` or `DROP TABLE` on an existing table in a new
+   migration.** `db-shadow-replay` applies migrations to an empty
+   database, so a drop-then-recreate sequence looks harmless there --
+   it's invisible on a database with no rows to lose. On a database
+   *with* data (production), the same sequence silently destroys
+   whatever was stored in that column or table before recreating it
+   empty. This is exactly what happened in
+   `20260904082722_remote_schema.sql` /
+   `20260904090500_payroll_paye_nssf_workstream_f.sql`, which dropped
+   and recreated `hr_payroll_items.{paye_amount,nssf_employee,
+   nssf_employer}` back to back. Deprecate instead: rename the column
+   to `<name>_deprecated`, stop reading/writing it in application code,
+   and drop it in a separate, human-reviewed migration one release
+   later, once you've confirmed nothing still depends on it.
 
-**Applied migrations are never edited (fix forward).** Once a migration has run on a shared or live database, its file must not change. Supabase tracks migrations by their version (the timestamp prefix), so an edited file runs nowhere, and the database and the repository silently disagree. To change behaviour, add a new migration with a later timestamp that makes the change, and make it idempotent. Example: `20261016090000_ins_security_.hardening.sql` was applied live, so its follow-up is `20261016100000_ins_security_hardening_followup.sql`. *Proposed 16 October 2026 from that incident; confirm with the team.*
+9. **Applied migrations are never edited (fix forward).** Once a
+   migration has run on a shared or live database, its file must not
+   change. Supabase tracks migrations by version (the timestamp prefix),
+   so an edited file runs nowhere, and the database and the repo silently
+   disagree. To change behaviour, add a new migration with a later
+   timestamp that makes the change, and make it idempotent. Example:
+   `20261016090000_ins_security_.hardening.sql` was applied live, so its
+   follow-up is `20261016100000_ins_security_hardening_followup.sql`.
+   *Proposed 16 October 2026 from that incident; confirm with the team.*
 
-**Verify against a clean replay.** A new migration is checked by replaying every migration in order into an empty database and running the SQL tests (`supabase db reset`, then the `supabase/tests/*.sql` files with `psql -v ON_ERROR_STOP=1`). A migration that only works on a database that already has data does not count.
+## What this does not cover
 
-**Test every guard you add.** A new guard, grant or policy needs a test in `supabase/tests/` that checks it denies what it should. The security hardening test for `20261016090000` is the model: it checks the catalogue and makes real calls that must fail.
-
-**Types follow the schema.** After a schema change, regenerate `packages/shared/src/database.types.ts` from a clean stack with the same Supabase CLI version as CI (currently 2.114.0). The drift check in `foundation-checks.yml` fails the build when the committed file differs from the migrations. On Windows, use `scripts/gen-types.ps1 -Local`.
-
-**Seed data goes in `supabase/seed.sql`.** Demo tenants, users and sample records belong there, not in migrations. The seed is local only. Never apply it to a linked or production project.
+This policy is about what goes **into** new migrations. It does not
+retroactively fix `0001_init_core_schema.sql` or the other three
+migrations that already seed `@test.local` accounts directly --
+rewriting those breaks shadow replay for anything that FKs to those
+user ids (see Foundation Playbook, "Why this order"). That cleanup is
+Phase 1.5 (squash), done once, deliberately, not as an ongoing rule.
+It also does not retroactively fix the seven grandfathered
+`remote_schema.sql` dumps (rule 6) -- replacing them is part of the
+same squash cleanup, not something to hand-patch in isolation.
