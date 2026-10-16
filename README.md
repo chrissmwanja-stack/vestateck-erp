@@ -150,7 +150,7 @@ PostgREST's root, which only proves the edge is up, not the database.
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
 `npm run test --workspace=apps/web` (Vitest) are the web checks — 70 test files
 as of 2026-10-12 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 57 SQL test files in `supabase/tests/` (as of 2026-10-16). Coverage
+current passing count), plus 58 SQL test files in `supabase/tests/` (as of 2026-10-16). Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
 Platform/Admin and Insurance Brokerage's database layer have the deepest SQL
