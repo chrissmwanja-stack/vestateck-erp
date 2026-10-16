@@ -110,6 +110,9 @@ Beyond IBS: medical and group scheme member schedules, premium instalments, insu
 
 ### Phase A: foundations
 
+**Status (16 Oct 2026, after this change):** A1 built, with seeded UNVERIFIED drafts for the UAT company (no approved values). A2 built. A3 slice 1 (functional currency setting, approved rate table) built. A3 slice 2 built: rate and base amounts on journal lines, base-balance check, no guard removed. A3 slice 3 (open items, settlements, bank accounts) and the rest of A3 not started.
+
+
 **A1. Rules table (`regulatory_parameters`)**
 - Tenant-scoped, effective-dated key and value rows: key, value, unit, class, effective from and to, source reference, status (`draft`, `approved`), approver, approved at.
 - Read through one function that resolves the value for a tenant and date. A missing value fails loudly.

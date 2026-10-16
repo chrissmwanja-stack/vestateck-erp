@@ -855,4 +855,24 @@ begin
     'Rear-end collision on Entebbe Road, two vehicles', 'SAV-CLM-0001', 3500000);
 
   reset role;
+
+  -- 7. Regulatory parameter DRAFTS for this company (A1). Values come from the
+  --    roadmap of 16 Oct 2026 and are marked UNVERIFIED. A draft is never used for
+  --    posting. A company admin who is not the proposer approves each one with
+  --    reg_approve_parameter. Keys not listed here have no value, so a lookup raises.
+  insert into regulatory_parameters (tenant_id, parameter_key, value_num, currency,
+                                     effective_from, source_ref, status, created_by)
+  values
+    (v_t, 'stamp_duty.policy', 35000, 'UGX', date '2017-01-01',
+     'UNVERIFIED: URA stamp duty schedule, UGX 35,000 per policy; group policies pay once. Effective date to be confirmed.',
+     'draft', v_u_admin),
+    (v_t, 'tax.wht_agent_commission_percent', 10, null, date '2020-07-01',
+     'UNVERIFIED: 10% final withholding on commission paid to agents, from 1 July 2020 (roadmap section 2). Accountant to confirm.',
+     'draft', v_u_admin),
+    (v_t, 'remittance.deadline_working_days', 1, null, date '2017-01-01',
+     'UNVERIFIED: Insurance Act 2017 s.90(3), remit premium by the next working day. Later amendments not checked.',
+     'draft', v_u_admin),
+    (v_t, 'retention.policy_years', 10, null, date '2017-01-01',
+     'UNVERIFIED: Insurance Act s.106, ten-year record retention. Not verified.',
+     'draft', v_u_admin);
 end $$;

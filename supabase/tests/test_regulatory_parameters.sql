@@ -89,9 +89,11 @@ begin
                and column_name in ('value_num', 'value_text', 'tenant_id')) then
     raise exception 'FAIL: the catalogue must carry no values and no tenant';
   end if;
-  select count(*) into v_n from regulatory_parameters;
+  -- Migrations seed no approved value. Local seed data may add DRAFT rows (see
+  -- seed.sql section 6), which resolution never uses, so only non-draft rows count.
+  select count(*) into v_n from regulatory_parameters where status <> 'draft';
   if v_n <> 0 then
-    raise exception 'FAIL: migration must not seed any parameter value (found %)', v_n;
+    raise exception 'FAIL: migration must not seed any approved parameter value (found %)', v_n;
   end if;
 
   perform pg_temp.as_user(v_admin1);

@@ -66,6 +66,13 @@ begin
   reset role;
   if n <> 4 then raise exception 'FAIL: UAT account manager sees % policies, expected 4', n; end if;
 
+  -- Regulatory values are drafts only: marked UNVERIFIED, never approved by the seed.
+  select count(*) into n from regulatory_parameters where tenant_id = v_t and status = 'draft';
+  if n <> 4 then raise exception 'FAIL: UAT regulatory drafts: expected 4, got %', n; end if;
+  select count(*) into n from regulatory_parameters
+   where tenant_id = v_t and (status <> 'draft' or source_ref not like 'UNVERIFIED:%');
+  if n <> 0 then raise exception 'FAIL: UAT regulatory seed rows must be unverified drafts (found %)', n; end if;
+
   raise notice 'PASS: UAT brokerage seed is complete';
 end $$;
 
