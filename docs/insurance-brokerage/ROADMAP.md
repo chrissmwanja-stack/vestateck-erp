@@ -180,6 +180,15 @@ Beyond IBS: medical and group scheme member schedules, premium instalments, insu
 5. Compliance adviser: the current IRA broker circular, returns, client-money reporting and the retention rule.
 6. Owner: whether any target clients need currencies other than USD at launch.
 
+## 9a. Accountant answers re-read (16 Oct 2026)
+
+Source: `Accountant.pdf` (16 pages, provisional, not signed). Recorded decisions and conflicts:
+
+- **Remittance deadline conflict.** Answer 7 cites the Insurance Act: remit no later than the next working day. The UAT draft `remittance.deadline_working_days` is 3 working days (unverified). Decision: keep 3 for now; the compliance adviser decides. The alert built in Phase B slice 1 uses the approved value, so it will show the 3-day deadline until that value changes.
+- **Claims (answers 20 to 22).** Approval alone does not create a receivable or payable. Deductibles are a claim adjustment, not brokerage income. Withdrawal or recovery is a linked adjustment, never an overwrite. Next Phase B slice.
+- **Not yet built:** period-close states (answer 24), second-approver thresholds (25), premium age in the unremitted report (26), excess (21), closing-rate revaluation (23), commission receivable (3).
+- **Still unverified:** the ten-year retention rule (answer 27 cites s.106), and the IRA circular dated 10 July 2026 (answer 28). Both need the compliance adviser.
+
 ## 10. Working rules
 
 - Writes go through RPCs with `ins_via_rpc` guards. No direct client writes.

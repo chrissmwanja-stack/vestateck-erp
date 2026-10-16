@@ -152,6 +152,62 @@ export type Database = {
           },
         ]
       }
+      accounting_policies: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          effective_from: string
+          id: string
+          name: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          effective_from: string
+          id?: string
+          name: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          version: number
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          effective_from?: string
+          id?: string
+          name?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          version?: number
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           account_code: string
@@ -2431,6 +2487,7 @@ export type Database = {
       }
       fin_credit_notes: {
         Row: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -2453,6 +2510,7 @@ export type Database = {
           voided_by: string | null
         }
         Insert: {
+          accounting_policy_version?: number
           amount: number
           control_role: string
           created_at?: string
@@ -2475,6 +2533,7 @@ export type Database = {
           voided_by?: string | null
         }
         Update: {
+          accounting_policy_version?: number
           amount?: number
           control_role?: string
           created_at?: string
@@ -2557,6 +2616,7 @@ export type Database = {
       }
       fin_open_items: {
         Row: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -2574,6 +2634,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          accounting_policy_version?: number
           amount: number
           control_role: string
           created_at?: string
@@ -2591,6 +2652,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          accounting_policy_version?: number
           amount?: number
           control_role?: string
           created_at?: string
@@ -2640,6 +2702,7 @@ export type Database = {
       }
       fin_settlements: {
         Row: {
+          accounting_policy_version: number
           amount: number
           bank_account_id: string
           created_at: string
@@ -2661,6 +2724,7 @@ export type Database = {
           voided_by: string | null
         }
         Insert: {
+          accounting_policy_version?: number
           amount: number
           bank_account_id: string
           created_at?: string
@@ -2682,6 +2746,7 @@ export type Database = {
           voided_by?: string | null
         }
         Update: {
+          accounting_policy_version?: number
           amount?: number
           bank_account_id?: string
           created_at?: string
@@ -2834,6 +2899,62 @@ export type Database = {
           },
           {
             foreignKeyName: "fuel_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fx_rates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          entered_by: string | null
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency: string
+          entered_by?: string | null
+          id?: string
+          rate: number
+          rate_date: string
+          source: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: string
+          entered_by?: string | null
+          id?: string
+          rate?: number
+          rate_date?: string
+          source?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fx_rates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4639,6 +4760,7 @@ export type Database = {
       }
       ins_claim_payments: {
         Row: {
+          accounting_policy_version: number
           amount: number
           claim_id: string
           created_at: string
@@ -4656,6 +4778,7 @@ export type Database = {
           voided_by: string | null
         }
         Insert: {
+          accounting_policy_version?: number
           amount: number
           claim_id: string
           created_at?: string
@@ -4673,6 +4796,7 @@ export type Database = {
           voided_by?: string | null
         }
         Update: {
+          accounting_policy_version?: number
           amount?: number
           claim_id?: string
           created_at?: string
@@ -4735,6 +4859,8 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -4755,6 +4881,8 @@ export type Database = {
           paid_amount?: number
           payment_mode?: string | null
           policy_id: string
+          recognised_at?: string | null
+          recognised_by?: string | null
           reserve_amount?: number
           settled_at?: string | null
           status?: string
@@ -4775,6 +4903,8 @@ export type Database = {
           paid_amount?: number
           payment_mode?: string | null
           policy_id?: string
+          recognised_at?: string | null
+          recognised_by?: string | null
           reserve_amount?: number
           settled_at?: string | null
           status?: string
@@ -5052,6 +5182,7 @@ export type Database = {
       }
       ins_commission_transfers: {
         Row: {
+          accounting_policy_version: number
           amount: number
           created_at: string
           created_by: string | null
@@ -5071,6 +5202,7 @@ export type Database = {
           voided_by: string | null
         }
         Insert: {
+          accounting_policy_version?: number
           amount: number
           created_at?: string
           created_by?: string | null
@@ -5090,6 +5222,7 @@ export type Database = {
           voided_by?: string | null
         }
         Update: {
+          accounting_policy_version?: number
           amount?: number
           created_at?: string
           created_by?: string | null
@@ -5772,6 +5905,7 @@ export type Database = {
       }
       ins_policy_financial_snapshots: {
         Row: {
+          accounting_policy_version: number
           bound_at: string
           bound_by: string
           broker_fee_total: number
@@ -5784,6 +5918,7 @@ export type Database = {
           vat_total: number
         }
         Insert: {
+          accounting_policy_version?: number
           bound_at?: string
           bound_by: string
           broker_fee_total: number
@@ -5796,6 +5931,7 @@ export type Database = {
           vat_total: number
         }
         Update: {
+          accounting_policy_version?: number
           bound_at?: string
           bound_by?: string
           broker_fee_total?: number
@@ -5917,6 +6053,7 @@ export type Database = {
       }
       ins_policy_reversals: {
         Row: {
+          accounting_policy_version: number
           accounting_treatment: string
           id: string
           insurer_credit_note_id: string | null
@@ -5937,6 +6074,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          accounting_policy_version?: number
           accounting_treatment: string
           id?: string
           insurer_credit_note_id?: string | null
@@ -5957,6 +6095,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          accounting_policy_version?: number
           accounting_treatment?: string
           id?: string
           insurer_credit_note_id?: string | null
@@ -6332,6 +6471,7 @@ export type Database = {
       }
       journal_entries: {
         Row: {
+          accounting_policy_version: number
           created_at: string
           description: string | null
           entry_date: string
@@ -6343,6 +6483,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          accounting_policy_version?: number
           created_at?: string
           description?: string | null
           entry_date: string
@@ -6354,6 +6495,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          accounting_policy_version?: number
           created_at?: string
           description?: string | null
           entry_date?: string
@@ -6376,30 +6518,39 @@ export type Database = {
       }
       journal_entry_lines: {
         Row: {
+          base_credit: number | null
+          base_debit: number | null
           credit: number
           currency: string
           debit: number
           description: string | null
+          fx_rate: number
           gl_account_id: string
           id: string
           journal_entry_id: string
           tenant_id: string
         }
         Insert: {
+          base_credit?: number | null
+          base_debit?: number | null
           credit?: number
           currency?: string
           debit?: number
           description?: string | null
+          fx_rate?: number
           gl_account_id: string
           id?: string
           journal_entry_id: string
           tenant_id: string
         }
         Update: {
+          base_credit?: number | null
+          base_debit?: number | null
           credit?: number
           currency?: string
           debit?: number
           description?: string | null
+          fx_rate?: number
           gl_account_id?: string
           id?: string
           journal_entry_id?: string
@@ -9482,6 +9633,216 @@ export type Database = {
           },
         ]
       }
+      regulatory_approval_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          responsibility: string
+          scope: string
+          scope_value: string
+          tenant_id: string
+          user_id: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          responsibility: string
+          scope: string
+          scope_value: string
+          tenant_id: string
+          user_id: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          responsibility?: string
+          scope?: string
+          scope_value?: string
+          tenant_id?: string
+          user_id?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reg_approval_assignment_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_approval_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_parameter_definitions: {
+        Row: {
+          category: string
+          class_scoped: boolean
+          created_at: string
+          description: string
+          key: string
+          value_type: string
+        }
+        Insert: {
+          category: string
+          class_scoped?: boolean
+          created_at?: string
+          description: string
+          key: string
+          value_type: string
+        }
+        Update: {
+          category?: string
+          class_scoped?: boolean
+          created_at?: string
+          description?: string
+          key?: string
+          value_type?: string
+        }
+        Relationships: []
+      }
+      regulatory_parameter_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          detail: string | null
+          event: string
+          id: string
+          parameter_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: string
+          parameter_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: string
+          parameter_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_parameter_events_parameter_id_fkey"
+            columns: ["parameter_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_parameters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "regulatory_parameter_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_parameters: {
+        Row: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        Insert: {
+          applies_to?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          parameter_key: string
+          retired_reason?: string | null
+          source_ref: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          applies_to?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          parameter_key?: string
+          retired_reason?: string | null
+          source_ref?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          value_num?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_parameters_parameter_key_fkey"
+            columns: ["parameter_key"]
+            isOneToOne: false
+            referencedRelation: "regulatory_parameter_definitions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "regulatory_parameters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       request_line_items: {
         Row: {
           cost_code: string | null
@@ -10600,6 +10961,32 @@ export type Database = {
             foreignKeyName: "tenant_feature_flags_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_ledger_settings: {
+        Row: {
+          functional_currency: string
+          set_at: string
+          tenant_id: string
+        }
+        Insert: {
+          functional_currency: string
+          set_at?: string
+          tenant_id: string
+        }
+        Update: {
+          functional_currency?: string
+          set_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_ledger_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -11816,6 +12203,55 @@ export type Database = {
       }
     }
     Functions: {
+      acct_get_policy_version: { Args: { p_on?: string }; Returns: number }
+      acct_policy_approve: {
+        Args: { p_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          effective_from: string
+          id: string
+          name: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      acct_policy_withdraw: {
+        Args: { p_id: string; p_reason: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          effective_from: string
+          id: string
+          name: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
@@ -12568,6 +13004,7 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -12608,6 +13045,7 @@ export type Database = {
           p_reference?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -12648,6 +13086,7 @@ export type Database = {
           p_settlement_date: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           bank_account_id: string
           created_at: string
@@ -12682,6 +13121,7 @@ export type Database = {
           p_void_date?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -12717,6 +13157,7 @@ export type Database = {
           p_void_date?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           bank_account_id: string
           created_at: string
@@ -12765,6 +13206,78 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "asset_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fx_get_rate: {
+        Args: { p_currency: string; p_on?: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          entered_by: string | null
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_rates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fx_rate_approve: {
+        Args: { p_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          entered_by: string | null
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_rates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fx_rate_withdraw: {
+        Args: { p_id: string; p_reason: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          entered_by: string | null
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_rates"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -13789,6 +14302,8 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -13835,6 +14350,8 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -14103,6 +14620,7 @@ export type Database = {
           p_share_id?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -14192,6 +14710,37 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_recognise_claim_receivable: {
+        Args: { p_claim_id: string; p_insurer_confirmation: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_claim_ref: string | null
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          reserve_amount: number
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_record_claim_payment: {
         Args: {
           p_amount: number
@@ -14201,6 +14750,7 @@ export type Database = {
           p_reference: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           claim_id: string
           created_at: string
@@ -14234,6 +14784,7 @@ export type Database = {
           p_reference?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           claim_id: string
           created_at: string
@@ -14267,6 +14818,7 @@ export type Database = {
           p_reference?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           claim_id: string
           created_at: string
@@ -14320,6 +14872,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_remittance_due_date: { Args: { p_receipt_date: string; p_tenant_id: string }; Returns: string }
       ins_reverse_policy: {
         Args: {
           p_policy_id: string
@@ -14328,6 +14881,7 @@ export type Database = {
           p_request_key: string
         }
         Returns: {
+          accounting_policy_version: number
           accounting_treatment: string
           id: string
           insurer_credit_note_id: string | null
@@ -14569,6 +15123,7 @@ export type Database = {
           p_transfer_date: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           created_at: string
           created_by: string | null
@@ -14615,6 +15170,8 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -14628,10 +15185,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_unremitted_premium_report: {
+        Args: { p_as_of?: string }
+        Returns: {
+          deadline_date: string
+          insurer_id: string
+          policy_id: string
+          policy_no: string
+          receipt_date: string
+          status: string
+          unremitted_amount: number
+        }[]
+      }
       ins_via_rpc: { Args: never; Returns: boolean }
       ins_void_claim_payment: {
         Args: { p_payment_id: string; p_reason: string }
         Returns: {
+          accounting_policy_version: number
           amount: number
           claim_id: string
           created_at: string
@@ -14658,6 +15228,7 @@ export type Database = {
       ins_void_commission_transfer: {
         Args: { p_reason: string; p_transfer_id: string; p_void_date?: string }
         Returns: {
+          accounting_policy_version: number
           amount: number
           created_at: string
           created_by: string | null
@@ -14959,6 +15530,7 @@ export type Database = {
       next_mr_number: { Args: { p_tenant_id: string }; Returns: string }
       next_problem_number: { Args: { p_tenant_id: string }; Returns: string }
       next_ticket_number: { Args: { p_tenant_id: string }; Returns: string }
+      platform_accounting_policy_version: { Args: { p_on: string; p_tenant_id: string }; Returns: number }
       platform_admin_bypass: { Args: never; Returns: boolean }
       platform_admin_has_mfa_factor: { Args: never; Returns: boolean }
       platform_admin_mfa_gate: { Args: { p_action: string }; Returns: boolean }
@@ -14989,6 +15561,7 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -15031,6 +15604,7 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -15072,6 +15646,7 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           bank_account_id: string
           created_at: string
@@ -15107,6 +15682,7 @@ export type Database = {
           p_void_date?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -15143,6 +15719,7 @@ export type Database = {
           p_void_date?: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           bank_account_id: string
           created_at: string
@@ -15166,6 +15743,30 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "fin_settlements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_fx_rate: {
+        Args: { p_currency: string; p_on: string; p_tenant_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          entered_by: string | null
+          id: string
+          rate: number
+          rate_date: string
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_rates"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -15431,6 +16032,7 @@ export type Database = {
           p_policy_id: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           control_role: string
           created_at: string
@@ -15467,6 +16069,7 @@ export type Database = {
           p_transfer_date: string
         }
         Returns: {
+          accounting_policy_version: number
           amount: number
           created_at: string
           created_by: string | null
@@ -15569,6 +16172,48 @@ export type Database = {
         }
         Returns: undefined
       }
+      platform_reg_number: {
+        Args: {
+          p_class?: string
+          p_key: string
+          p_on: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
+      platform_reg_resolve: {
+        Args: {
+          p_class?: string
+          p_key: string
+          p_on: string
+          p_tenant_id: string
+        }
+        Returns: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_parameters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       platform_request_role: { Args: never; Returns: string }
       platform_run_operator_digest: {
         Args: { p_trigger?: string }
@@ -15622,6 +16267,7 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          accounting_policy_version: number
           created_at: string
           description: string | null
           entry_date: string
@@ -15807,6 +16453,173 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "it_tickets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_approve_parameter: {
+        Args: { p_id: string }
+        Returns: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_parameters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_assign_approver: {
+        Args: {
+          p_effective_from?: string
+          p_effective_to?: string
+          p_responsibility: string
+          p_scope: string
+          p_scope_value: string
+          p_user_id: string
+        }
+        Returns: {
+          assigned_at: string
+          assigned_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          responsibility: string
+          scope: string
+          scope_value: string
+          tenant_id: string
+          user_id: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_approval_assignments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_end_parameter: {
+        Args: { p_effective_to: string; p_id: string }
+        Returns: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_parameters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_get_parameter: {
+        Args: { p_class?: string; p_key: string; p_on?: string }
+        Returns: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_parameters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_retire_parameter: {
+        Args: { p_id: string; p_reason: string }
+        Returns: {
+          applies_to: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          parameter_key: string
+          retired_reason: string | null
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value_num: number | null
+          value_text: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_parameters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reg_withdraw_approver: {
+        Args: { p_assignment_id: string; p_reason: string }
+        Returns: {
+          assigned_at: string
+          assigned_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          responsibility: string
+          scope: string
+          scope_value: string
+          tenant_id: string
+          user_id: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "regulatory_approval_assignments"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -16879,6 +17692,7 @@ export type Database = {
       void_journal_entry: {
         Args: { p_entry_id: string; p_reason: string }
         Returns: {
+          accounting_policy_version: number
           created_at: string
           description: string | null
           entry_date: string
