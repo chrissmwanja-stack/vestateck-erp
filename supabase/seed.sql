@@ -717,3 +717,138 @@ begin
   values (v_cadmin_id, v_tenant_id, 'Test Company Admin', 'company.admin@test.local', 'Company Administrator', true)
   on conflict (id) do update set is_company_admin = true;
 end $$;
+
+-- ============================================================================
+-- 6. UAT tenant: Pearl Risk Brokers Ltd (fictional insurance brokerage).
+--
+--    A complete, fictional brokerage for end-to-end UAT. It is set up the way
+--    a real company is: the Insurance Brokerage industry template is applied
+--    (modules, 8 departments, 21 GL accounts and posting rules), then users,
+--    bank accounts, insurers, clients and policies are created through the
+--    same RPCs the app uses, so the data passes the real guards and posting.
+--
+--    LOCAL ONLY, like the rest of this file. Logins use the Tester123 password.
+--    Idempotent: skipped when the tenant already exists. Skipped with a notice
+--    when no platform admin is set (apply_template needs one).
+-- ============================================================================
+do $$
+declare
+  v_t        uuid := '00000000-0000-0000-0000-00000000b001';
+  v_admin_pa uuid := 'c50dcbbf-78af-4582-b215-499f83ea47f0';  -- it@test.local (platform admin)
+  v_u_admin  uuid := '00000000-0000-0000-0000-00000000b101';  -- ins.admin
+  v_u_mgr    uuid := '00000000-0000-0000-0000-00000000b102';  -- ins.manager
+  v_u_member uuid := '00000000-0000-0000-0000-00000000b103';  -- ins.member
+  v_u_maker  uuid := '00000000-0000-0000-0000-00000000b104';  -- fin.maker
+  v_u_check  uuid := '00000000-0000-0000-0000-00000000b105';  -- fin.checker
+  v_gl_bank  uuid; v_gl_trust uuid;
+  v_ins_a uuid; v_ins_b uuid; v_ins_c uuid;
+  v_line_motor uuid; v_line_prop uuid; v_line_med uuid;
+  v_cl_a uuid; v_cl_b uuid; v_cl_c uuid; v_cl_d uuid;
+  v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid;
+begin
+  if exists (select 1 from tenants where id = v_t) then
+    return;  -- already built
+  end if;
+  if not exists (select 1 from app_users where id = v_admin_pa and is_platform_admin) then
+    raise notice 'UAT tenant skipped: no platform admin (it@test.local) in this database';
+    return;
+  end if;
+
+  insert into tenants (id, name, industry_template)
+  values (v_t, 'Pearl Risk Brokers Ltd (UAT)', 'insurance');
+
+  -- 1. Industry template: modules, departments, GL chart and posting rules.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin_pa, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform apply_template(v_t, 'insurance', 'fill', 'UAT seed: fictional insurance brokerage');
+  reset role;
+
+  -- 2. Users. Same auth shape as the roster above; Tester123 for all.
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at, confirmation_token, recovery_token,
+    email_change, email_change_token_new, email_change_token_current,
+    phone_change, phone_change_token, reauthentication_token
+  )
+  select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
+         u.email, extensions.crypt('Tester123', extensions.gen_salt('bf')),
+         '2026-10-16 00:00:00+00', '{"provider":"email","providers":["email"]}', '{}',
+         '2026-10-16 00:00:00+00', '2026-10-16 00:00:00+00', '', '', '', '', '', '', '', ''
+  from (values
+    (v_u_admin,  'ins.admin@test.local'),
+    (v_u_mgr,    'ins.manager@test.local'),
+    (v_u_member, 'ins.member@test.local'),
+    (v_u_maker,  'fin.maker@test.local'),
+    (v_u_check,  'fin.checker@test.local')
+  ) as u(id, email)
+  where not exists (select 1 from auth.users x where x.id = u.id);
+
+  insert into app_users (id, tenant_id, name, email, role_title, department_id)
+  select v.id, v_t, v.name, v.email, v.role_title,
+         (select d.id from departments d where d.tenant_id = v_t and d.name = v.dept)
+  from (values
+    (v_u_admin,  'Pearl Insurance Admin',   'ins.admin@test.local',   'Insurance Administrator', 'Compliance & Risk'),
+    (v_u_mgr,    'Pearl Account Manager',   'ins.manager@test.local', 'Placement Manager',       'Placement & Insurer Relations'),
+    (v_u_member, 'Pearl Account Executive', 'ins.member@test.local',  'Account Executive',      'Client Service & Account Management'),
+    (v_u_maker,  'Pearl Finance Maker',     'fin.maker@test.local',   'Accountant',             'Finance & Financial Reporting'),
+    (v_u_check,  'Pearl Finance Checker',   'fin.checker@test.local', 'Financial Controller',   'Finance & Financial Reporting')
+  ) as v(id, name, email, role_title, dept);
+
+  insert into staff_roles (tenant_id, user_id, module, role) values
+    (v_t, v_u_admin,  'insurance', 'admin'),
+    (v_t, v_u_mgr,    'insurance', 'manager'),
+    (v_t, v_u_member, 'insurance', 'member');
+  insert into finance_team_members (tenant_id, user_id, role) values
+    (v_t, v_u_maker, 'finance'),
+    (v_t, v_u_check, 'finance');
+
+  -- 3. Bank accounts, mapped to the template's GL accounts.
+  select id into v_gl_bank  from gl_accounts where tenant_id = v_t and account_code = '1000';
+  select id into v_gl_trust from gl_accounts where tenant_id = v_t and account_code = '1020';
+  insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id) values
+    (v_t, 'PEARL-OPERATING', 'operating',     'UGX', v_gl_bank),
+    (v_t, 'PEARL-TRUST',     'client_money',  'UGX', v_gl_trust);
+
+  -- 4. Insurers and product lines.
+  insert into ins_insurers (tenant_id, code, name) values
+    (v_t, 'SAV', 'Savanna General Insurance'),
+    (v_t, 'NIL', 'Nile Mutual Assurance'),
+    (v_t, 'EQT', 'Equator Re Insurers');
+  select id into v_ins_a from ins_insurers where tenant_id = v_t and code = 'SAV';
+  select id into v_ins_b from ins_insurers where tenant_id = v_t and code = 'NIL';
+  select id into v_ins_c from ins_insurers where tenant_id = v_t and code = 'EQT';
+
+  insert into ins_product_lines (tenant_id, code, name) values
+    (v_t, 'MOTOR', 'Motor Fleet'),
+    (v_t, 'PROP',  'Commercial Property'),
+    (v_t, 'MED',   'Group Medical');
+  select id into v_line_motor from ins_product_lines where tenant_id = v_t and code = 'MOTOR';
+  select id into v_line_prop  from ins_product_lines where tenant_id = v_t and code = 'PROP';
+  select id into v_line_med   from ins_product_lines where tenant_id = v_t and code = 'MED';
+
+  -- 5. Clients, policies and a claim, through the app RPCs as the account manager.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_u_mgr, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+
+  v_cl_a := (ins_register_client('Kampala Transport Ltd', 'corporate', null, 'fleet@kampalatransport.test', '+256700000101', 'low')).id;
+  v_cl_b := (ins_register_client('Lake Victoria Hotels Ltd', 'corporate', null, 'risk@lakevichotels.test', '+256700000102', 'medium')).id;
+  v_cl_c := (ins_register_client('Mukasa Family Clinic', 'corporate', null, 'admin@mukasaclinic.test', '+256700000103', 'medium')).id;
+  v_cl_d := (ins_register_client('Ruth Namukasa', 'individual', null, 'ruth.namukasa@example.test', '+256700000104', 'low')).id;
+
+  v_p1 := (ins_create_policy(v_cl_a, v_ins_a, v_line_motor, current_date - 60, current_date + 305, 450000000, 'UGX', 12500000, 12.5, 'Fleet of 24 light and heavy vehicles', null)).id;
+  v_p2 := (ins_create_policy(v_cl_b, v_ins_b, v_line_prop,  current_date - 30, current_date + 335, 2200000000, 'UGX', 18750000, 10, 'Hotel buildings, contents and business interruption', null)).id;
+  v_p3 := (ins_create_policy(v_cl_c, v_ins_c, v_line_med,   current_date - 15, current_date + 350, 300000000, 'UGX', 9600000, 15, 'Group medical for 40 staff', null)).id;
+  v_p4 := (ins_create_policy(v_cl_d, v_ins_a, v_line_med,   current_date, current_date + 365, 60000000, 'UGX', 1450000, 10, 'Individual medical, quote only', null)).id;
+
+  perform ins_bind_policy(v_p1);
+  perform ins_bind_policy(v_p2);
+  perform ins_bind_policy(v_p3);
+
+  perform ins_create_claim(v_p1, current_date - 20, current_date - 18,
+    'Rear-end collision on Entebbe Road, two vehicles', 'SAV-CLM-0001', 3500000);
+
+  reset role;
+end $$;

@@ -295,7 +295,7 @@ begin
     and jsonb_array_length(v -> 'feature_flags') = 1 and jsonb_array_length(v -> 'gl_accounts') = 3
     and jsonb_array_length(v -> 'posting_rules') = 3 and jsonb_array_length(v -> 'conflicts') = 0,
     format('preview on an empty tenant should list everything, got %s', v));
-  perform pg_temp.assert(not exists (select 1 from platform_audit_events where action = 'tenant.template.apply'),
+  perform pg_temp.assert(not exists (select 1 from platform_audit_events where action = 'tenant.template.apply' and tenant_id = pg_temp.tid('t_a')),
     'preview wrote an audit event');
 end $$;
 
