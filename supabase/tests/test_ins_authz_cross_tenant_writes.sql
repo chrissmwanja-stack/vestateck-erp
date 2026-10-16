@@ -50,6 +50,7 @@ declare
   pay_id uuid := gen_random_uuid();
   cx_id uuid := gen_random_uuid();
   req_id uuid := gen_random_uuid();
+  share_id uuid;
   n integer;
   st text;
 begin
@@ -80,6 +81,8 @@ begin
 
   -- Direct rows as superuser (guards bypassed with the same flag the RPCs use).
   perform set_config('ins.via_rpc', 'on', true);
+  insert into ins_policy_insurer_shares(tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, insurer_policy_no, reviewed)
+  values (ta, p.id, insurer, true, 100, 10, 'XW-POL-1', true) returning id into share_id;
   -- Claims need an active policy. Binding needs posting roles this test does not
   -- set up, and bind is covered by test_ins_core.sql, so the fixture marks it active.
   update ins_policies
@@ -130,6 +133,9 @@ begin
     'INS_NOT_FOUND', 'decision on another tenant''s cancellation cash request');
   perform pg_temp.expect_error(format('select ins_submit_cancellation_cash_void(%L, %L, %L)', req_id, 'Cross-tenant void', gen_random_uuid()),
     'INS_NOT_FOUND', 'void of another tenant''s cancellation cash request');
+  perform pg_temp.expect_error(format('select ins_submit_policy_share_cash_request(%L, %L, %L, 1, current_date, %L, %L, %L)',
+      p.id, share_id, bank_b, gen_random_uuid(), 'XW', 'XW'),
+    'INS_NOT_FOUND', 'share cash request against another tenant''s policy');
   perform pg_temp.expect_error(format('select ins_submit_cancellation_cash(%L, %L, null, %L, null, 1, current_date, %L, %L, %L)',
       cx_id, 'refund', bank_b, 'XW', 'XW', gen_random_uuid()),
     'INS_NOT_FOUND', 'cancellation cash against another tenant''s cancellation');
