@@ -36,6 +36,7 @@ declare
   ta uuid := gen_random_uuid();
   tb uuid := gen_random_uuid();
   approver uuid := gen_random_uuid();
+  fin_a uuid := gen_random_uuid(); fin_b uuid := gen_random_uuid();
   bank_a uuid; rev_a uuid; bank_b uuid; reg_id uuid;
   je uuid; n integer; r record; v_ok boolean;
 begin
@@ -134,6 +135,40 @@ begin
   select has_function_privilege('anon', 'public.journal_lines_fx_guard()', 'execute') into v_ok;
   perform pg_temp.assert(not v_ok, 'anon can execute journal_lines_fx_guard');
   raise notice 'PASS: rate trigger is internal';
+
+  -- 9. The ledger view exposes base amounts and applies the caller's row-level security.
+  select coalesce(c.reloptions @> array['security_invoker=true'], false) into v_ok
+    from pg_class c where c.relname = 'v_account_ledger' and c.relnamespace = 'public'::regnamespace;
+  perform pg_temp.assert(v_ok, 'v_account_ledger does not use security_invoker');
+  select count(*) into n from v_account_ledger
+   where tenant_id = ta and currency = 'USD' and (base_debit = 3700123.40 or base_credit = 3700123.40) and fx_rate = 3700.1234;
+  perform pg_temp.assert(n = 2, format('ledger view: expected 2 USD lines with base 3700123.40, found %s', n));
+
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token)
+  select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
+         'ledger-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')), now(),
+         '{}', '{}', now(), now(), '', ''
+    from (values (fin_a), (fin_b)) as u(id);
+  insert into app_users (id, tenant_id, name, email) values
+    (fin_a, ta, 'Ledger finance A', 'ledger-' || fin_a || '@test.local'),
+    (fin_b, tb, 'Ledger finance B', 'ledger-' || fin_b || '@test.local');
+  insert into finance_team_members (tenant_id, user_id, role) values (ta, fin_a, 'finance'), (tb, fin_b, 'finance');
+
+  -- Company B's finance user sees none of company A's ledger rows through the view.
+  perform set_config('request.jwt.claims', json_build_object('sub', fin_b, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from v_account_ledger where tenant_id = ta;
+  reset role;
+  perform pg_temp.assert(n = 0, format('company B finance user read %s of company A ledger rows', n));
+
+  -- Company A's finance user does see them (positive control, so the zero above means something).
+  perform set_config('request.jwt.claims', json_build_object('sub', fin_a, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into n from v_account_ledger where tenant_id = ta;
+  reset role;
+  perform pg_temp.assert(n > 0, 'company A finance user cannot read company A ledger rows');
+  raise notice 'PASS: ledger view exposes base amounts and respects company isolation';
 end $$;
 
 rollback;

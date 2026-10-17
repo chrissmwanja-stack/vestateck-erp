@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import { hasForeignLines, ledgerTotals } from './ledgerBase';
 
 interface GlAccountOption {
   id: string;
@@ -32,6 +33,9 @@ interface LedgerRow {
   debit: number;
   credit: number;
   currency: string;
+  base_debit: number;
+  base_credit: number;
+  fx_rate: number;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -61,7 +65,7 @@ export default function GeneralLedger() {
     setError(null);
     let query = supabase
       .from('v_account_ledger')
-      .select('account_id, source_type, source_id, reference_no, transaction_date, debit, credit, currency')
+      .select('account_id, source_type, source_id, reference_no, transaction_date, debit, credit, currency, base_debit, base_credit, fx_rate')
       .order('transaction_date', { ascending: false });
 
     if (accountId) query = query.eq('account_id', accountId);
@@ -90,8 +94,9 @@ export default function GeneralLedger() {
     [accounts]
   );
 
-  const totalDebit = rows.reduce((sum, r) => sum + Number(r.debit ?? 0), 0);
-  const totalCredit = rows.reduce((sum, r) => sum + Number(r.credit ?? 0), 0);
+  const totals = useMemo(() => ledgerTotals(rows), [rows]);
+  const showBase = useMemo(() => hasForeignLines(rows), [rows]);
+  const columns = showBase ? 9 : 7;
 
   return (
     <Box>
@@ -161,6 +166,8 @@ export default function GeneralLedger() {
                   <TableCell align="right">Debit</TableCell>
                   <TableCell align="right">Credit</TableCell>
                   <TableCell>Currency</TableCell>
+                  {showBase && <TableCell align="right">Base debit</TableCell>}
+                  {showBase && <TableCell align="right">Base credit</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -173,11 +180,13 @@ export default function GeneralLedger() {
                     <TableCell align="right">{Number(r.debit ?? 0).toLocaleString()}</TableCell>
                     <TableCell align="right">{Number(r.credit ?? 0).toLocaleString()}</TableCell>
                     <TableCell>{r.currency}</TableCell>
+                    {showBase && <TableCell align="right">{Number(r.base_debit ?? r.debit ?? 0).toLocaleString()}</TableCell>}
+                    {showBase && <TableCell align="right">{Number(r.base_credit ?? r.credit ?? 0).toLocaleString()}</TableCell>}
                   </TableRow>
                 ))}
                 {rows.length === 0 && !loading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    <TableCell colSpan={columns} align="center" sx={{ color: 'text.secondary', py: 3 }}>
                       No journal activity for this filter.
                     </TableCell>
                   </TableRow>
@@ -190,12 +199,22 @@ export default function GeneralLedger() {
                       <strong>Total</strong>
                     </TableCell>
                     <TableCell align="right">
-                      <strong>{totalDebit.toLocaleString()}</strong>
+                      <strong>{totals.debit.toLocaleString()}</strong>
                     </TableCell>
                     <TableCell align="right">
-                      <strong>{totalCredit.toLocaleString()}</strong>
+                      <strong>{totals.credit.toLocaleString()}</strong>
                     </TableCell>
                     <TableCell />
+                    {showBase && (
+                      <TableCell align="right">
+                        <strong>{totals.baseDebit.toLocaleString()}</strong>
+                      </TableCell>
+                    )}
+                    {showBase && (
+                      <TableCell align="right">
+                        <strong>{totals.baseCredit.toLocaleString()}</strong>
+                      </TableCell>
+                    )}
                   </TableRow>
                 </TableBody>
               )}
