@@ -2,6 +2,26 @@
 -- Run only on a disposable local/test database; every fixture rolls back.
 \set ON_ERROR_STOP on
 begin;
+
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -84,9 +104,9 @@ begin
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
   p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  p:=ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p:=ins_bind_policy(p.id);
   p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  p2:=ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2:=ins_bind_policy(p2.id);
   draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';

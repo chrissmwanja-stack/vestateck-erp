@@ -24,6 +24,26 @@
 
 begin;
 
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------
@@ -459,13 +479,14 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mem);
   set local role authenticated;
+  perform pg_temp.motor_cert(p1.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p1.id), 'INS_FORBIDDEN', 'member binding a policy');
   reset role;
 
   v_j0 := pg_temp.n_bind_journals(v_ta);
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p1 := ins_bind_policy(p1.id);
+  perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
   reset role;
 
   perform pg_temp.assert(p1.status = 'active' and p1.commission_amount = 100000 and p1.net_premium_to_insurer = 900000
@@ -507,6 +528,7 @@ begin
 
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
+  perform pg_temp.motor_cert(p1.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p1.id), 'INS_NOT_DRAFT', 'binding twice');
   reset role;
   raise notice 'PASS: bind posts Dr AR / Cr insurer payable / Cr commission and creates two open items';
@@ -520,7 +542,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p_r := ins_bind_policy(p_r.id);
+  perform pg_temp.motor_cert(p_r.id); p_r := ins_bind_policy(p_r.id);
   reset role;
   perform pg_temp.assert(p_r.commission_amount = 12500.13 and p_r.net_premium_to_insurer = 87500.87
                          and p_r.commission_amount + p_r.net_premium_to_insurer = p_r.gross_premium,
@@ -545,7 +567,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p_z := ins_bind_policy(p_z.id);
+  perform pg_temp.motor_cert(p_z.id); p_z := ins_bind_policy(p_z.id);
   reset role;
   perform pg_temp.assert(p_z.commission_amount = 0 and p_z.net_premium_to_insurer = 500000, 'zero commission binds with net = gross');
   perform pg_temp.assert(pg_temp.je_lines(p_z.journal_entry_id) = 2 and pg_temp.je_bal(p_z.journal_entry_id) = 0
@@ -566,6 +588,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
+  perform pg_temp.motor_cert(p_x.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'INS_PREMIUM_REQUIRED', 'binding a zero-premium policy');
   reset role;
 
@@ -575,6 +598,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
+  perform pg_temp.motor_cert(p_x.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'INS_COMMISSION_TOO_HIGH', 'commission leaving nothing for the insurer');
   reset role;
 
@@ -585,6 +609,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
+  perform pg_temp.motor_cert(p_x.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'closed accounting period', 'binding into a closed period');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id = p_x.id) = 'draft'
@@ -593,6 +618,7 @@ begin
   -- Tenant B has no insurer_payable rule.
   perform pg_temp.jwt(u_mgr_b);
   set local role authenticated;
+  perform pg_temp.motor_cert(pb.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', pb.id), 'INS_POSTING_RULE_MISSING', 'binding without an insurer_payable rule');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id = pb.id) = 'draft'
@@ -608,6 +634,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
+  perform pg_temp.motor_cert(p_x.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'INS_CURRENCY_UNSUPPORTED', 'binding a USD policy');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id = p_x.id) = 'draft'
@@ -667,7 +694,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p_near := ins_bind_policy(p_near.id);
+  perform pg_temp.motor_cert(p_near.id); p_near := ins_bind_policy(p_near.id);
   reset role;
 
   perform pg_temp.jwt(u_mem);
@@ -696,7 +723,7 @@ begin
 
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p_ren := ins_bind_policy(p_ren.id);
+  perform pg_temp.motor_cert(p_ren.id); p_ren := ins_bind_policy(p_ren.id);
   reset role;
   perform pg_temp.assert(p_ren.status = 'active' and (select status from ins_policies where id = p_near.id) = 'renewed',
                          'binding the renewal marks the predecessor renewed');
@@ -966,6 +993,7 @@ begin
                          and (select count(*) from ins_renewal_pipeline where tenant_id = v_ta) = 0,
                          'tenant B reads nothing of tenant A');
   perform pg_temp.assert((select count(*) from ins_policies) = 1, 'tenant B sees only its own policy');
+  perform pg_temp.motor_cert(p_d.id);
   perform pg_temp.expect_state(format('select ins_bind_policy(%L)', p_d.id), '42501', 'tenant B binding tenant A''s policy');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)', p1.id), 'INS_NOT_FOUND', 'tenant B renewing tenant A''s policy');
   perform pg_temp.expect_error(format('select pg_temp.newclaim(%L, current_date - 5, current_date, ''Loss'', 0)', p1.id), 'INS_NOT_FOUND: policy', 'tenant B claiming on tenant A''s policy');
@@ -985,6 +1013,7 @@ begin
                          and (select count(*) from ins_clients) = 0 and (select count(*) from ins_renewal_pipeline) = 0
                          and (select count(*) from ins_claim_events) = 0,
                          'a user with no insurance role reads nothing');
+  perform pg_temp.motor_cert(p_d.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_d.id), 'INS_FORBIDDEN', 'outsider binding');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)', p1.id), 'INS_FORBIDDEN', 'outsider renewing');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'')', cl_ren.id), 'INS_FORBIDDEN', 'outsider moving a claim');

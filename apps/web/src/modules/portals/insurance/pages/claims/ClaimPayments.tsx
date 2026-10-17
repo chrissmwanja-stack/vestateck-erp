@@ -39,6 +39,7 @@ export default function ClaimPayments({ claim, currency, canManage, onChanged }:
   const [bankId, setBankId] = useState('');
   const [voiding, setVoiding] = useState<ClaimPayment | null>(null);
   const [reason, setReason] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -69,6 +70,8 @@ export default function ClaimPayments({ claim, currency, canManage, onChanged }:
   const held = Number(position?.held_for_client ?? 0);
   const dueFromInsurer = Number(position?.due_from_insurer ?? 0);
   const isOpenForPayment = claim.status === 'approved' && canManage;
+  // Brokerage-managed money moves only after the insurer's receivable is recognised.
+  const needsRecognition = mode === 'via_broker' && claim.status === 'approved' && !claim.recognised_at;
 
   const maxFor = (kind: ClaimMoneyKind) => (kind === 'direct' ? unpaid : kind === 'receipt' ? dueFromInsurer : held);
 
@@ -133,6 +136,21 @@ export default function ClaimPayments({ claim, currency, canManage, onChanged }:
     }
   };
 
+  const recognise = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      // Not yet in the generated database types; regenerate them, then drop this cast.
+      await rpc('ins_recognise_claim_receivable', { p_claim_id: claim.id, p_insurer_confirmation: confirmation.trim() });
+      setConfirmation('');
+      onChanged();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // Nothing to show until the claim has been approved (that is when the mode is fixed).
   if (!mode || approved == null) return null;
 
@@ -170,7 +188,28 @@ export default function ClaimPayments({ claim, currency, canManage, onChanged }:
             </>
           )}
 
-          {isOpenForPayment && (
+          {needsRecognition && canManage && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Approved, pending settlement. The insurer owes this amount, but nothing is recognised until the insurer confirms in writing that it will pay the brokerage.
+              </Alert>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
+                <TextField
+                  size="small"
+                  label="Insurer's written confirmation reference"
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  helperText="Required. Stored on the claim history."
+                  sx={{ minWidth: 320 }}
+                />
+                <Button variant="contained" onClick={recognise} disabled={busy || confirmation.trim() === ''}>
+                  {busy ? 'Recognising…' : 'Recognise receivable'}
+                </Button>
+              </Stack>
+            </Box>
+          )}
+
+          {isOpenForPayment && (mode === 'insurer_direct' || !needsRecognition) && (
             <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
               {mode === 'insurer_direct' ? (
                 <Button variant="contained" onClick={() => openAction('direct')} disabled={unpaid <= 0}>Record insurer payment</Button>

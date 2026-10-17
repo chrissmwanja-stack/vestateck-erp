@@ -2,6 +2,26 @@
 -- Run only on a disposable local/test database; every fixture rolls back.
 \set ON_ERROR_STOP on
 begin;
+
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -88,9 +108,9 @@ begin
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
   p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  p:=ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p:=ins_bind_policy(p.id);
   p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  p2:=ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2:=ins_bind_policy(p2.id);
   draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';
@@ -119,7 +139,7 @@ begin
     jsonb_set(charge_config,'{1,recipient_insurer_id}',to_jsonb(gen_random_uuid()::text))),'INS_CHARGE_RECIPIENT','charge recipient must participate');
   perform ins_set_policy_financial_configuration(draft.id,config,charge_config);
   perform pg_temp.expect_state(format('update ins_policy_insurer_shares set share_pct=1 where policy_id=%L',draft.id),'42501','no direct configuration DML');
-  draft:=ins_bind_policy(draft.id);
+  perform pg_temp.motor_cert(draft.id); draft:=ins_bind_policy(draft.id);
   reset role;
   select id into a from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=insurer;
   select id into b from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=beta;
@@ -217,6 +237,7 @@ begin
 
   perform pg_temp.jwt(manager); set local role authenticated;
   renewed:=ins_create_renewal_draft(draft.id);
+  perform pg_temp.motor_cert(renewed.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)',renewed.id),'INS_CONFIG_REVIEW','renewal cannot bind without fresh review');
   reset role;
   perform pg_temp.assert((select count(*) from ins_policy_insurer_shares where policy_id=renewed.id and not reviewed)=2,'renewal copies shares but not review approval');
@@ -227,7 +248,7 @@ begin
   zero_policy:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   perform ins_set_policy_financial_configuration(zero_policy.id,jsonb_build_array(config->0||jsonb_build_object('share_pct',100)),
     jsonb_build_array(jsonb_build_object('kind','insurer_pass_through','description','Zero-valued charge','amount',0,'recipient_mode','all_insurers','reviewed',true)));
-  zero_policy:=ins_bind_policy(zero_policy.id);
+  perform pg_temp.motor_cert(zero_policy.id); zero_policy:=ins_bind_policy(zero_policy.id);
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''zero charge reversal'',false,%L)',zero_policy.id,gen_random_uuid()),'INS_REVERSAL_COMPLEX','zero-valued charges never bypass reversal restriction');
   reset role;
   raise notice 'PASS: renewal review/reset and zero-valued charge reversal restriction';
@@ -242,7 +263,7 @@ begin
   zero_policy:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',.03,0,null,null);
   perform ins_set_policy_financial_configuration(zero_policy.id,jsonb_set(jsonb_set(config,'{0,commission_rate_pct}','0'),'{1,commission_rate_pct}','0'),
     jsonb_build_array(jsonb_build_object('kind','insurer_pass_through','description','Rounding test','amount',.01,'recipient_mode','all_insurers','reviewed',true)));
-  zero_policy:=ins_bind_policy(zero_policy.id);
+  perform pg_temp.motor_cert(zero_policy.id); zero_policy:=ins_bind_policy(zero_policy.id);
   reset role;
   perform pg_temp.assert((select premium_amount=.02 and pass_through_amount=.01 from ins_policy_insurer_shares where policy_id=zero_policy.id and insurer_id=insurer),'largest fractional premium/charge receives the remainder cent');
   perform pg_temp.assert((select sum(premium_amount)=.03 and sum(pass_through_amount)=.01 from ins_policy_insurer_shares where policy_id=zero_policy.id),'rounding preserves exact allocation totals');
@@ -255,6 +276,7 @@ begin
   select count(*) into jbefore from journal_entries where tenant_id=ta;
   delete from gl_posting_rules where tenant_id=ta and account_role='vat_output';
   perform pg_temp.jwt(manager); set local role authenticated;
+  perform pg_temp.motor_cert(rollback_policy.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)',rollback_policy.id),'INS_POSTING_RULE_MISSING','VAT option requires liability account');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id=rollback_policy.id)='draft'
@@ -268,6 +290,7 @@ begin
     begin if new.source_type='ins_policy_share_insurer' then raise exception 'INS_TEST_LATE_BIND_FAILURE'; end if; return new; end $fn$ $ddl$;
   execute 'create trigger zzz_test_share_item_failure before insert on public.fin_open_items for each row execute function pg_temp.force_share_item_failure()';
   perform pg_temp.jwt(manager); set local role authenticated;
+  perform pg_temp.motor_cert(rollback_policy.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)',rollback_policy.id),'INS_TEST_LATE_BIND_FAILURE','late failure rolls back an already posted bind journal and open items');
   reset role;
   execute 'drop trigger zzz_test_share_item_failure on public.fin_open_items';
@@ -280,7 +303,7 @@ begin
   zero_policy:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   perform ins_set_policy_financial_configuration(zero_policy.id,jsonb_build_array(config->0||jsonb_build_object('share_pct',100)),
     jsonb_build_array(jsonb_build_object('kind','broker_fee','description','VAT deliberately not calculated','amount',50,'recipient_mode','broker','income_gl_account_id',fee_gl,'vat_mode','not_calculated','reviewed',true)));
-  zero_policy:=ins_bind_policy(zero_policy.id);
+  perform pg_temp.motor_cert(zero_policy.id); zero_policy:=ins_bind_policy(zero_policy.id);
   reset role;
   perform pg_temp.assert((select vat_total=0 and invoice_total=1050 from ins_policy_financial_snapshots where policy_id=zero_policy.id),'VAT not calculated is allowed without a VAT liability mapping and is not labelled exempt');
   perform pg_temp.jwt(maker); set local role authenticated;

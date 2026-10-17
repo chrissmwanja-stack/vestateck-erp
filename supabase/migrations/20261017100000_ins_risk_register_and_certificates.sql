@@ -80,6 +80,10 @@ create table if not exists public.ins_certificate_stock (
     references public.ins_policies(tenant_id, id) on delete restrict
 );
 
+-- Attach the tenant read-only guard to the new tables (idempotent; same as the
+-- other insurance tables in 20261010110000).
+select public.apply_tenant_read_only_guard();
+
 create index if not exists ins_risks_client_idx on public.ins_risks (tenant_id, client_id);
 create index if not exists ins_certificate_stock_policy_idx on public.ins_certificate_stock (tenant_id, policy_id);
 
@@ -97,6 +101,7 @@ alter table public.ins_certificate_stock enable row level security;
 revoke insert, update, delete on public.ins_risks, public.ins_policy_risks, public.ins_certificate_stock
   from public, anon, authenticated;
 grant select on public.ins_risks, public.ins_policy_risks, public.ins_certificate_stock to authenticated;
+revoke all on public.ins_risks, public.ins_policy_risks, public.ins_certificate_stock from public, anon;
 
 drop policy if exists ins_risks_select on public.ins_risks;
 create policy ins_risks_select on public.ins_risks

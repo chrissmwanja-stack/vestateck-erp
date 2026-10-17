@@ -746,6 +746,7 @@ declare
   v_line_motor uuid; v_line_prop uuid; v_line_med uuid;
   v_cl_a uuid; v_cl_b uuid; v_cl_c uuid; v_cl_d uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid;
+  v_risk_fleet uuid;
 begin
   if exists (select 1 from tenants where id = v_t) then
     return;  -- already built
@@ -846,6 +847,14 @@ begin
   v_p2 := (ins_create_policy(v_cl_b, v_ins_b, v_line_prop,  current_date - 30, current_date + 335, 2200000000, 'UGX', 18750000, 10, 'Hotel buildings, contents and business interruption', null)).id;
   v_p3 := (ins_create_policy(v_cl_c, v_ins_c, v_line_med,   current_date - 15, current_date + 350, 300000000, 'UGX', 9600000, 15, 'Group medical for 40 staff', null)).id;
   v_p4 := (ins_create_policy(v_cl_d, v_ins_a, v_line_med,   current_date, current_date + 365, 60000000, 'UGX', 1450000, 10, 'Individual medical, quote only', null)).id;
+
+  -- Motor binding needs an issued certificate attached to the policy (ins_bind_policy).
+  v_risk_fleet := ins_register_risk(v_cl_a, v_line_motor, 'vehicle', 'Fleet truck, Hino 500',
+    'UAX 201K', 'SEED-CHASSIS-0001', 'SEED-ENGINE-0001', 'Hino', '500', 2020, 120000000);
+  perform ins_load_certificate_range('MC-SEED-', 1, 1, 4);
+  perform ins_issue_certificate('MC-SEED-0001', v_risk_fleet, 'Kampala branch');
+  perform ins_link_policy_risk(v_p1, v_risk_fleet);
+  perform ins_attach_certificate(v_p1, 'MC-SEED-0001');
 
   perform ins_bind_policy(v_p1);
   perform ins_bind_policy(v_p2);

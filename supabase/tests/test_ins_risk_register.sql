@@ -51,6 +51,7 @@ declare
   ar_gl uuid; pay_gl uuid; unearned_gl uuid; income_gl uuid;
   line_motor uuid; line_prop uuid; insurer uuid; c ins_clients%rowtype;
   r_vehicle uuid; r_other uuid; r_prop uuid; p ins_policies%rowtype; p_no_cert ins_policies%rowtype; p_prop ins_policies%rowtype;
+  c2 ins_clients%rowtype; r_foreign uuid;
   n integer; st text;
 begin
   insert into tenants(id,name) values(ta,'Risk register test A'),(tb,'Risk register test B');
@@ -112,7 +113,9 @@ begin
     'INS_CERTIFICATE_RISK', 'attach before the risk is linked');
   perform ins_link_policy_risk(p.id, r_vehicle);
   perform ins_link_policy_risk(p.id, r_vehicle);
-  perform pg_temp.expect_error(format('select ins_link_policy_risk(%L,%L)', p.id, r_prop),
+  c2 := ins_register_client('Other risk client','corporate',null,null,null,'low');
+  r_foreign := ins_register_risk(c2.id, line_prop, 'property', 'Other client warehouse', null, null, null, null, null, null, 1000000);
+  perform pg_temp.expect_error(format('select ins_link_policy_risk(%L,%L)', p.id, r_foreign),
     'INS_RISK_CLIENT', 'linking a risk must use the policy client');
   perform ins_link_policy_risk(p_prop.id, r_prop);
   perform ins_attach_certificate(p.id, 'MC-0001');

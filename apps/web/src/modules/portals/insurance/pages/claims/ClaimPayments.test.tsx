@@ -21,7 +21,7 @@ vi.mock('../../../../../lib/supabaseClient', () => ({
 
 const claim = (over: Partial<Claim>): Claim => ({
   id: 'cl1', claim_no: 'CLM-2026-00001', policy_id: 'p1', status: 'approved', loss_date: '2026-10-01',
-  notified_date: '2026-10-01', approved_amount: 1000000, paid_amount: 0, payment_mode: 'insurer_direct',
+  notified_date: '2026-10-01', approved_amount: 1000000, paid_amount: 0, payment_mode: 'insurer_direct', recognised_at: '2026-10-02T09:00:00Z',
   settled_at: null, ...over,
 } as unknown as Claim);
 
@@ -103,6 +103,22 @@ describe('ClaimPayments', () => {
     await user.type(amount, '700000');
     expect(await within(dialog).findByText(/Only .*600,000.* is still unpaid/)).toBeTruthy();
     expect((within(dialog).getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('brokerage-managed: an approved claim is pending settlement until the receivable is recognised', async () => {
+    const user = userEvent.setup();
+    renderPanel(claim({ payment_mode: 'via_broker', recognised_at: null }));
+    expect(await screen.findByText(/Approved, pending settlement/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record receipt from insurer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pay client' })).toBeNull();
+    const recognise = screen.getByRole('button', { name: 'Recognise receivable' }) as HTMLButtonElement;
+    expect(recognise.disabled).toBe(true); // the insurer's confirmation reference is required
+    await user.type(screen.getByLabelText(/Insurer's written confirmation reference/), 'ALPHA-CONF-77');
+    expect(recognise.disabled).toBe(false);
+    await user.click(recognise);
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_recognise_claim_receivable', {
+      p_claim_id: 'cl1', p_insurer_confirmation: 'ALPHA-CONF-77',
+    }));
   });
 
   it('brokerage-managed: payout stays disabled until the insurer money is received', async () => {

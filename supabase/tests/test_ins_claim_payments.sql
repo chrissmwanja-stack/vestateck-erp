@@ -20,6 +20,26 @@
 
 begin;
 
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------
@@ -213,7 +233,7 @@ begin
     values (v_tb, 'BETAB', 'Beta B', 10, 'via_broker') returning id into v_insr_b;
   cb := ins_register_client('Beta Client', 'corporate', null, null, null, 'medium');
   pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, 100000, 10);
-  pb := ins_bind_policy(pb.id);
+  perform pg_temp.motor_cert(pb.id); pb := ins_bind_policy(pb.id);
   reset role;
 
   perform pg_temp.jwt(u_mgr);
@@ -222,8 +242,8 @@ begin
   insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha', 10) returning id into v_alpha;
   insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct, claim_payment_mode) values (v_ta, 'BETA', 'Beta', 10, 'via_broker') returning id into v_beta;
   c1 := ins_register_client('Acme Holdings', 'corporate', null, null, null, 'low');
-  pa  := ins_bind_policy((pg_temp.newpol(c1.id, v_alpha, v_pl, 1000000, 10)).id);
-  pbk := ins_bind_policy((pg_temp.newpol(c1.id, v_beta,  v_pl, 1000000, 10)).id);
+  pa := pg_temp.newpol(c1.id, v_alpha, v_pl, 1000000, 10); perform pg_temp.motor_cert(pa.id); pa := ins_bind_policy(pa.id);
+  pbk := pg_temp.newpol(c1.id, v_beta,  v_pl, 1000000, 10); perform pg_temp.motor_cert(pbk.id); pbk := ins_bind_policy(pbk.id);
   reset role;
   select party_account_id into v_pcli from ins_clients where id = c1.id;
   select party_account_id into v_pins from ins_insurers where id = v_beta;
@@ -349,6 +369,22 @@ begin
   cl_b := pg_temp.approved(cl_b.id, 1000000);
   reset role;
   perform pg_temp.assert(cl_b.payment_mode = 'via_broker', 'approving a claim for a brokerage-managed insurer copies the mode');
+  perform pg_temp.assert(not exists (select 1 from journal_entries where tenant_id = v_ta and source_type = 'ins_claim_accrual' and source_id = cl_b.id)
+                         and not exists (select 1 from fin_open_items where source_id = cl_b.id),
+                         'approval posts nothing: the claim is approved, pending settlement');
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, null)', cl_b.id), 'INS_NOTE_REQUIRED',
+                               'recognition needs the insurer confirmation');
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, current_date)', cl_b.id, v_trust_bank),
+                               'INS_CLAIM_NOT_RECOGNISED', 'no receipt before the receivable is recognised');
+  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, current_date)', cl_b.id, v_trust_bank),
+                               'INS_CLAIM_NOT_RECOGNISED', 'no payout before the payable is recognised');
+  cl_b := ins_recognise_claim_receivable(cl_b.id, 'ALPHA-CONF-1');
+  perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, %L)', cl_b.id, 'ALPHA-CONF-2'), 'INS_CLAIM_RECOGNISED',
+                               'a claim is recognised once');
+  reset role;
+  perform pg_temp.assert(cl_b.recognised_at is not null and cl_b.status = 'approved', 'recognition is recorded on the claim');
   select id into v_je from journal_entries where tenant_id = v_ta and source_type = 'ins_claim_accrual' and source_id = cl_b.id;
   perform pg_temp.assert(v_je is not null and pg_temp.je_lines(v_je) = 2 and pg_temp.je_bal(v_je) = 0
                          and pg_temp.je_net(v_je, g_crec) = 1000000 and pg_temp.je_net(v_je, g_cpay) = -1000000,
@@ -367,7 +403,7 @@ begin
                          'one receivable item against the insurer and one payable item to the client');
   perform pg_temp.assert(pg_temp.scalar(format('select due_from_insurer from ins_claim_cash_position where claim_id = %L', cl_b.id)) = 1000000,
                          'cash position: the insurer owes the full amount');
-  raise notice 'PASS: approving a brokerage-managed claim posts the accrual and opens both items';
+  raise notice 'PASS: approval posts nothing; recognition posts the accrual and opens both items';
 
   -------------------------------------------------------------------
   -- 7. The mode is a snapshot, and cannot be edited on the claim
@@ -504,15 +540,17 @@ begin
   set local role authenticated;
   cl_t := pg_temp.newclaim(pb.id, 50000);
   perform ins_transition_claim(cl_t.id, 'assessing');
-  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''approved'', null, 50000)', cl_t.id),
-                               'INS_POSTING_RULE_MISSING', 'approving without the claim posting roles');
+  perform ins_transition_claim(cl_t.id, 'approved', null, 50000);
+  perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, %L)', cl_t.id, 'BETA-CONF-1'),
+                               'INS_POSTING_RULE_MISSING', 'recognition without the claim posting roles');
   reset role;
-  perform pg_temp.assert((select status from ins_claims where id = cl_t.id) = 'assessing'
-                         and (select payment_mode from ins_claims where id = cl_t.id) is null
+  perform pg_temp.assert((select status from ins_claims where id = cl_t.id) = 'approved'
+                         and (select payment_mode from ins_claims where id = cl_t.id) = 'via_broker'
+                         and (select recognised_at from ins_claims where id = cl_t.id) is null
                          and (select count(*) from fin_open_items where source_id = cl_t.id) = 0
                          and pg_temp.scalar(format('select count(*) from journal_entries where tenant_id = %L and source_type = ''ins_claim_accrual''', v_tb)) = 0,
-                         'a refused approval leaves the claim, the items and the ledger untouched');
-  raise notice 'PASS: approval stops cleanly when the chart of accounts lacks the claim roles';
+                         'approval is allowed without the posting roles; a refused recognition leaves the items and the ledger untouched');
+  raise notice 'PASS: approval needs no claim posting roles; recognition stops cleanly when they are missing';
 
   -------------------------------------------------------------------
   -- 13. Lockout, isolation, anon, roles and template

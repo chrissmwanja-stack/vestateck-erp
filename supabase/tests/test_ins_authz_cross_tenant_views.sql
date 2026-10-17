@@ -31,6 +31,26 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -164,7 +184,7 @@ begin
     'amount', 50, 'recipient_mode', 'broker', 'income_gl_account_id', fee_gl,
     'vat_mode', 'exclusive', 'vat_rate_pct', 18, 'reviewed', true));
   perform ins_set_policy_financial_configuration(p.id, config, charge_config);
-  p := ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p := ins_bind_policy(p.id);
 
   -- A claim on the bound policy, so the claim cash position has a row.
   cl := ins_create_claim(p.id, current_date, current_date, 'Views test loss', 'CLM-VIEW-1', 5000);

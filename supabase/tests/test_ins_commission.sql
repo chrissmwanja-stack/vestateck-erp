@@ -19,6 +19,26 @@
 
 begin;
 
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------
@@ -249,8 +269,8 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p1 := ins_bind_policy(p1.id);
-  p0 := ins_bind_policy(p0.id);
+  perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
+  perform pg_temp.motor_cert(p0.id); p0 := ins_bind_policy(p0.id);
   reset role;
   perform pg_temp.assert(pg_temp.je_lines(p1.journal_entry_id) = 3 and pg_temp.je_bal(p1.journal_entry_id) = 0
                          and pg_temp.je_net(p1.journal_entry_id, g_ar) = 1000000
@@ -277,6 +297,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr_b);
   set local role authenticated;
+  perform pg_temp.motor_cert(pb.id);
   perform pg_temp.expect_error(format('select ins_bind_policy(%L)', pb.id), 'INS_POSTING_RULE_MISSING',
                                'binding without a commission_income rule');
   reset role;
@@ -381,7 +402,7 @@ begin
   -- but this policy has not yet collected the commission portion of premium.
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  p2 := ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2 := ins_bind_policy(p2.id);
   reset role;
   select id into e2 from ins_commission_entries where policy_id = p2.id;
   perform pg_temp.jwt(u_fin);

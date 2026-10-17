@@ -160,7 +160,7 @@ Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17
 - Statutory charge catalogue driven from the rules table.
 - Unremitted-premium alert and report, deadline from the rules table.
 - Agent commission trigger setting.
-- Update `ACCOUNTANT_PACK.md` with the four missing write-ups: premium cash, cancellations, co-insurance and VAT, claim payments.
+- Update `ACCOUNTANT_PACK.md` with the four missing write-ups: premium cash, cancellations, co-insurance and VAT, claim payments. **Drafted** as sections 5.6 to 5.9 (not signed off). Section 5.4 corrected: approval posts nothing; recognition does.
 
 ### Phase C: features
 

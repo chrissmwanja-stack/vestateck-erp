@@ -21,6 +21,26 @@
 
 begin;
 
+-- Test fixture: a motor policy needs an issued certificate before it binds.
+-- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
+-- and no certificate is attached yet.
+create function pg_temp.motor_cert(p_policy uuid) returns void
+language plpgsql as $$
+declare pol ins_policies%rowtype; line_code text; r uuid; s text := replace(p_policy::text, '-', '');
+begin
+  if not can_manage_insurance() then return; end if;
+  select * into pol from ins_policies where id = p_policy;
+  if not found or pol.status <> 'draft' then return; end if;
+  select code into line_code from ins_product_lines where id = pol.product_line_id;
+  if line_code is distinct from 'MOTOR' then return; end if;
+  if exists (select 1 from ins_certificate_stock where policy_id = p_policy and status = 'issued') then return; end if;
+  r := ins_register_risk(pol.client_id, pol.product_line_id, 'vehicle', 'Test vehicle', null, 'CH' || s, null, null, null, null, 0);
+  perform ins_load_certificate_range('C' || s || '-', 1, 1, 4);
+  perform ins_issue_certificate('C' || s || '-0001', r, null);
+  perform ins_link_policy_risk(p_policy, r);
+  perform ins_attach_certificate(p_policy, 'C' || s || '-0001');
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------
@@ -215,9 +235,9 @@ begin
   p1 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
   p2 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
   p3 := pg_temp.newpol(c1.id, v_insr, v_pl, 500000, 10);
-  p1 := ins_bind_policy(p1.id);
-  p2 := ins_bind_policy(p2.id);
-  p3 := ins_bind_policy(p3.id);
+  perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
+  perform pg_temp.motor_cert(p2.id); p2 := ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p3.id); p3 := ins_bind_policy(p3.id);
   reset role;
   select id into e1 from ins_commission_entries where policy_id = p1.id;
   select id into e2 from ins_commission_entries where policy_id = p2.id;

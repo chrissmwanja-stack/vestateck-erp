@@ -4848,6 +4848,8 @@ export type Database = {
         Row: {
           approved_amount: number | null
           assigned_to: string | null
+          recognised_at: string | null
+          recognised_by: string | null
           claim_no: string
           created_at: string
           created_by: string | null
@@ -4868,6 +4870,8 @@ export type Database = {
         Insert: {
           approved_amount?: number | null
           assigned_to?: string | null
+          recognised_at?: string | null
+          recognised_by?: string | null
           claim_no: string
           created_at?: string
           created_by?: string | null
@@ -4888,6 +4892,8 @@ export type Database = {
         Update: {
           approved_amount?: number | null
           assigned_to?: string | null
+          recognised_at?: string | null
+          recognised_by?: string | null
           claim_no?: string
           created_at?: string
           created_by?: string | null
@@ -14943,6 +14949,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_recognise_claim_receivable: {
+        Args: {
+          p_claim_id: string
+          p_insurer_confirmation: string
+        }
+        Returns: Database["public"]["Tables"]["ins_claims"]["Row"]
       }
       ins_record_claim_receipt: {
         Args: {
