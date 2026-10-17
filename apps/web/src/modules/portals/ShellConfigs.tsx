@@ -470,6 +470,7 @@ export const insuranceNodes: TreeNode[] = [
     children: [
       { id: "ins-clients", label: "Clients", icon: <Groups fontSize="small" />, to: "/insurance/clients" },
       { id: "ins-insurers", label: "Insurers", icon: <Business fontSize="small" />, to: "/insurance/insurers" },
+      { id: "ins-risks", label: "Insured risks", icon: <Groups fontSize="small" />, to: "/insurance/risks" },
     ],
   },
   {
@@ -479,6 +480,7 @@ export const insuranceNodes: TreeNode[] = [
     children: [
       { id: "ins-policy-list", label: "All Policies", icon: <Policy fontSize="small" />, to: "/insurance/policies" },
       { id: "ins-policy-new", label: "New Policy", icon: <Description fontSize="small" />, to: "/insurance/policies/new" },
+      { id: "ins-certificates", label: "Motor certificates", icon: <Description fontSize="small" />, to: "/insurance/certificates" },
     ],
   },
   {

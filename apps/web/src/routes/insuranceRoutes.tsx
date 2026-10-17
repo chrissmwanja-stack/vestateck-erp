@@ -25,6 +25,8 @@ const CommissionPage = lazy(() => import('../modules/portals/insurance/pages/com
 const CommissionStatements = lazy(() => import('../modules/portals/insurance/pages/commission/CommissionStatements'));
 const ProductLinesAdmin = lazy(() => import('../modules/portals/insurance/pages/admin/ProductLinesAdmin'));
 const ExchangeRates = lazy(() => import('../modules/portals/insurance/pages/currency/ExchangeRates'));
+const RisksList = lazy(() => import('../modules/portals/insurance/pages/risks/RisksList'));
+const CertificateStock = lazy(() => import('../modules/portals/insurance/pages/risks/CertificateStock'));
 
 export const insuranceRoutes = (
   <>
@@ -47,6 +49,8 @@ export const insuranceRoutes = (
       <Route path="/insurance/commission/statements" element={<CommissionStatements />} />
       {/* Entry and approval are limited by the server (fx_rates policies and RPCs); the page only shows what each person may do. */}
       <Route path="/insurance/currency" element={<ExchangeRates />} />
+      <Route path="/insurance/risks" element={<RisksList />} />
+      <Route path="/insurance/certificates" element={<CertificateStock />} />
 
       <Route element={<RequireModule module="insurance" roles={INS_ADMIN_ROLES} />}>
         <Route path="/insurance/admin/product-lines" element={<ProductLinesAdmin />} />

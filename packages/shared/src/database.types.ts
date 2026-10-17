@@ -6182,6 +6182,180 @@ export type Database = {
           },
         ]
       }
+      ins_risks: {
+        Row: {
+          id: string
+          tenant_id: string
+          client_id: string
+          product_line_id: string
+          risk_type: string
+          description: string
+          reg_no: string | null
+          chassis_no: string | null
+          engine_no: string | null
+          make: string | null
+          model: string | null
+          year_made: number | null
+          sum_insured: number
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          client_id: string
+          product_line_id: string
+          risk_type: string
+          description: string
+          reg_no?: string | null
+          chassis_no?: string | null
+          engine_no?: string | null
+          make?: string | null
+          model?: string | null
+          year_made?: number | null
+          sum_insured?: number
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          client_id?: string
+          product_line_id?: string
+          risk_type?: string
+          description?: string
+          reg_no?: string | null
+          chassis_no?: string | null
+          engine_no?: string | null
+          make?: string | null
+          model?: string | null
+          year_made?: number | null
+          sum_insured?: number
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_risks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_risks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "ins_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_risks_product_line_id_fkey"
+            columns: ["product_line_id"]
+            isOneToOne: false
+            referencedRelation: "ins_product_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_certificate_stock: {
+        Row: {
+          id: string
+          tenant_id: string
+          serial_no: string
+          status: string
+          issued_to: string | null
+          risk_id: string | null
+          policy_id: string | null
+          issued_at: string | null
+          closed_at: string | null
+          close_reason: string | null
+          loaded_by: string | null
+          loaded_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          serial_no: string
+          status?: string
+          issued_to?: string | null
+          risk_id?: string | null
+          policy_id?: string | null
+          issued_at?: string | null
+          closed_at?: string | null
+          close_reason?: string | null
+          loaded_by?: string | null
+          loaded_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          serial_no?: string
+          status?: string
+          issued_to?: string | null
+          risk_id?: string | null
+          policy_id?: string | null
+          issued_at?: string | null
+          closed_at?: string | null
+          close_reason?: string | null
+          loaded_by?: string | null
+          loaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_certificate_stock_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_policy_risks: {
+        Row: {
+          tenant_id: string
+          policy_id: string
+          risk_id: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          tenant_id: string
+          policy_id: string
+          risk_id: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          tenant_id?: string
+          policy_id?: string
+          risk_id?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_risks_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_risks_risk_fk"
+            columns: ["tenant_id", "risk_id"]
+            isOneToOne: false
+            referencedRelation: "ins_risks"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
       ins_product_lines: {
         Row: {
           class: string
@@ -14803,6 +14977,75 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_register_risk: {
+        Args: {
+          p_client_id: string
+          p_product_line_id: string
+          p_risk_type: string
+          p_description: string
+          p_reg_no?: string | null
+          p_chassis_no?: string | null
+          p_engine_no?: string | null
+          p_make?: string | null
+          p_model?: string | null
+          p_year_made?: number | null
+          p_sum_insured?: number
+        }
+        Returns: string
+      }
+      ins_set_risk_status: {
+        Args: {
+          p_risk_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      ins_load_certificate_range: {
+        Args: {
+          p_prefix: string | null
+          p_from: number
+          p_to: number
+          p_width?: number
+        }
+        Returns: number
+      }
+      ins_issue_certificate: {
+        Args: {
+          p_serial_no: string
+          p_risk_id: string
+          p_issued_to: string | null
+        }
+        Returns: string
+      }
+      ins_void_certificate: {
+        Args: {
+          p_serial_no: string
+          p_status: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      ins_link_policy_risk: {
+        Args: {
+          p_policy_id: string
+          p_risk_id: string
+        }
+        Returns: undefined
+      }
+      ins_unlink_policy_risk: {
+        Args: {
+          p_policy_id: string
+          p_risk_id: string
+        }
+        Returns: undefined
+      }
+      ins_attach_certificate: {
+        Args: {
+          p_policy_id: string
+          p_serial_no: string
+        }
+        Returns: undefined
       }
       ins_register_client: {
         Args: {

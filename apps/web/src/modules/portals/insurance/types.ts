@@ -233,3 +233,33 @@ export interface PolicyReversal {
   insurer_credit_note_id: string;
 }
 export interface ReversalEligibility { eligible: boolean; reason: string | null }
+
+export interface InsRisk {
+  id: string;
+  client_id: string;
+  product_line_id: string;
+  risk_type: 'vehicle' | 'property' | 'other';
+  description: string;
+  reg_no: string | null;
+  chassis_no: string | null;
+  engine_no: string | null;
+  make: string | null;
+  model: string | null;
+  year_made: number | null;
+  sum_insured: number;
+  status: 'active' | 'inactive';
+  ins_clients: { client_id: string; bd_clients: { name: string } | null } | null;
+  ins_product_lines: { code: string; name: string } | null;
+}
+
+export interface InsCertificate {
+  id: string;
+  serial_no: string;
+  status: 'in_stock' | 'issued' | 'used' | 'spoiled' | 'voided';
+  issued_to: string | null;
+  risk_id: string | null;
+  policy_id: string | null;
+  issued_at: string | null;
+  close_reason: string | null;
+  ins_risks: { reg_no: string | null; chassis_no: string | null; description: string } | null;
+}
