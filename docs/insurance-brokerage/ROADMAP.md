@@ -1,6 +1,6 @@
 # Insurance Brokerage: Roadmap and Decisions
 
-Status: working document, 16 October 2026. Suggested repo path: `docs/insurance-brokerage/ROADMAP.md`.
+Status: working document, first written 16 October 2026, status updated 17 October 2026. Suggested repo path: `docs/insurance-brokerage/ROADMAP.md`.
 
 Sources: the IBS User Manual (Adelphi, Release 1.0, 2010), a clone of `vestateck-erp` at `ad159c7`, the accountant guidance in `Accountant.pdf`, and the existing docs `ANALYSIS.md`, `ACCOUNTANT_PACK.md` and `POLICY_REVERSAL.md`.
 
@@ -110,7 +110,21 @@ Beyond IBS: medical and group scheme member schedules, premium instalments, insu
 
 ### Phase A: foundations
 
-**Status (16 Oct 2026, after this change):** A1 built, with seeded UNVERIFIED drafts for the UAT company (no approved values). A2 built. A3 slice 1 (functional currency setting, approved rate table) built. A3 slice 2 built: rate and base amounts on journal lines, base-balance check, no guard removed. A3 slice 3 (open items, settlements, bank accounts) and the rest of A3 not started.
+**Status (17 Oct 2026):**
+
+| Item | State |
+|---|---|
+| A1 rules table | Built, with seeded UNVERIFIED drafts for the UAT company (no approved values). Follow-up built (`20261016160000`): approval is by assignment, not by role. An approver must hold an assignment in force that covers the key or category; the Insurance Admin prepares drafts but approves nothing by role; company admins assign and withdraw approvers. |
+| A2 accounting-policy version | Built. |
+| A3 slice 1 | Built: functional currency setting, approved rate table. |
+| A3 slice 2 | Built: rate and base amounts on journal lines, base-balance check. |
+| A3 slice 2b | Built (`20261016180000`): base-currency rounding on foreign journals. New posting role `fx_rounding` (default account 5900, for the accountant to confirm); `journal_entry_lines.is_rounding` marks the system-added line; a foreign journal that needs rounding is refused if the company has no `fx_rounding` role. Differences beyond what per-line rounding can produce still raise `JOURNAL_BASE_UNBALANCED`. No guard removed. |
+| A3 slice 3 | Not started: open items, settlements, bank accounts, and the four currency guards. |
+| A3 rest | Not started: realised gain and loss at settlement, period-end revaluation, foreign-currency bank reconciliation. |
+| Phase B slice 1 | Built (`20261016170000`): unremitted-premium report and alert, read-only, deadline from `remittance.deadline_working_days`. No default: with no approved value the report says `deadline_not_set`. Monday to Friday only, no public holidays. Receipt date is the earliest posted receipt (cash is not traced receipt by receipt), so the deadline errs early. |
+| Phase B, rest | Not started: commission recognition at placement and commission receivable, per-insurer settlement mode, claims receivable and payable rules, statutory charge catalogue, agent commission trigger, `ACCOUNTANT_PACK.md` write-ups. |
+
+Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17 Oct 2026 against the live project, whose migration history matches the repo through `20261016180000`. This added `journal_entry_lines.is_rounding` and removed `recognised_at`, `recognised_by` and `ins_recognise_claim_receivable`, which appeared in the committed file but in no migration and not in the live database. Nothing in `apps/` referenced them.
 
 
 **A1. Rules table (`regulatory_parameters`)**

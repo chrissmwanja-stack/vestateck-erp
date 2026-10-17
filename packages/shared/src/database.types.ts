@@ -4859,8 +4859,6 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -4881,8 +4879,6 @@ export type Database = {
           paid_amount?: number
           payment_mode?: string | null
           policy_id: string
-          recognised_at?: string | null
-          recognised_by?: string | null
           reserve_amount?: number
           settled_at?: string | null
           status?: string
@@ -4903,8 +4899,6 @@ export type Database = {
           paid_amount?: number
           payment_mode?: string | null
           policy_id?: string
-          recognised_at?: string | null
-          recognised_by?: string | null
           reserve_amount?: number
           settled_at?: string | null
           status?: string
@@ -6527,6 +6521,7 @@ export type Database = {
           fx_rate: number
           gl_account_id: string
           id: string
+          is_rounding: boolean
           journal_entry_id: string
           tenant_id: string
         }
@@ -6540,6 +6535,7 @@ export type Database = {
           fx_rate?: number
           gl_account_id: string
           id?: string
+          is_rounding?: boolean
           journal_entry_id: string
           tenant_id: string
         }
@@ -6553,6 +6549,7 @@ export type Database = {
           fx_rate?: number
           gl_account_id?: string
           id?: string
+          is_rounding?: boolean
           journal_entry_id?: string
           tenant_id?: string
         }
@@ -14302,8 +14299,6 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -14350,8 +14345,6 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
@@ -14709,37 +14702,6 @@ export type Database = {
           p_policy_id: string
         }
         Returns: Json
-      }
-      ins_recognise_claim_receivable: {
-        Args: { p_claim_id: string; p_insurer_confirmation: string }
-        Returns: {
-          approved_amount: number | null
-          assigned_to: string | null
-          claim_no: string
-          created_at: string
-          created_by: string | null
-          id: string
-          insurer_claim_ref: string | null
-          loss_date: string
-          loss_description: string
-          notified_date: string
-          paid_amount: number
-          payment_mode: string | null
-          policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
-          reserve_amount: number
-          settled_at: string | null
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "ins_claims"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       ins_record_claim_payment: {
         Args: {
@@ -15170,8 +15132,6 @@ export type Database = {
           paid_amount: number
           payment_mode: string | null
           policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
           reserve_amount: number
           settled_at: string | null
           status: string
