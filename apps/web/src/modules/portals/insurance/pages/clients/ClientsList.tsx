@@ -4,7 +4,7 @@ import {
   MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField, Stack,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { errorText, rows, rpc, table } from '../../db';
+import { allRows, errorText, rpc, table } from '../../db';
 import type { InsClient } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
@@ -22,9 +22,9 @@ export default function ClientsList() {
     setLoading(true);
     try {
       setClients(
-        await rows<InsClient>(
+        await allRows<InsClient>(
           // bd_clients is the client master (shared with BD). Insurance adds the profile on top.
-          table('ins_clients').select('id, client_id, client_type, tax_id, risk_rating, kyc_status, bd_clients(name, email, phone)').order('created_at', { ascending: false }),
+          () => table('ins_clients').select('id, client_id, client_type, tax_id, risk_rating, kyc_status, bd_clients(name, email, phone)').order('created_at', { ascending: false }).order('id'),
         ),
       );
       setError(null);

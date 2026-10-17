@@ -1,12 +1,17 @@
 // Pure rules for the insurance dashboard. Each alert appears only when its count is
 // above zero, and links to the page where the work is done.
 
+/** Where premium cash requests are approved. Finance users only. */
+export const FINANCE_CASH_PATH = '/financial-management/insurance-premium-cash';
+
 export interface DashboardFacts {
   overdueRenewals: number;
   pendingCashRequests: number;
   claimsToAssess: number;
   approvedClaimsUnsettled: number;
   commissionEarnedNotTransferred: number;
+  /** True when the person can open the Finance cash workbench, where requests are approved. */
+  canOpenFinanceCash?: boolean;
 }
 
 export interface DashboardAlert {
@@ -30,7 +35,7 @@ export function dashboardAlerts(f: DashboardFacts): DashboardAlert[] {
     alerts.push({
       id: 'cash-pending',
       text: `${f.pendingCashRequests} premium ${plural(f.pendingCashRequests, 'request is', 'requests are')} waiting for approval.`,
-      to: '/insurance/policies',
+      to: f.canOpenFinanceCash ? FINANCE_CASH_PATH : '/insurance/policies',
     });
   }
   if (f.claimsToAssess > 0) {

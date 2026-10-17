@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { errorText, rows, table } from '../../db';
+import { allRows, errorText, table } from '../../db';
 import { formatMoney, POLICY_STATUS_LABEL } from '../../logic';
 import type { Policy, PolicyStatus } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
@@ -21,11 +21,14 @@ export default function PoliciesList() {
     (async () => {
       setLoading(true);
       try {
-        let q = table('ins_policies')
-          .select('id, policy_no, status, inception_date, expiry_date, gross_premium, commission_amount, currency, ins_clients(bd_clients(name)), ins_insurers(name), ins_product_lines(name)')
-          .order('created_at', { ascending: false });
-        if (status !== 'all') q = q.eq('status', status);
-        const data = await rows<Policy>(q);
+        const data = await allRows<Policy>(() => {
+          let q = table('ins_policies')
+            .select('id, policy_no, status, inception_date, expiry_date, gross_premium, commission_amount, currency, ins_clients(bd_clients(name)), ins_insurers(name), ins_product_lines(name)')
+            .order('created_at', { ascending: false })
+            .order('id');
+          if (status !== 'all') q = q.eq('status', status);
+          return q;
+        });
         if (!cancelled) {
           setPolicies(data);
           setError(null);

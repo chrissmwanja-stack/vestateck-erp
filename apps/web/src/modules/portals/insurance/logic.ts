@@ -146,6 +146,15 @@ export function isValidVoidReason(reason: string): boolean {
   return reason.trim().length >= 5;
 }
 
+/**
+ * A policy is in force while it is active and its expiry date has not passed.
+ * There is no "expired" status: an active policy past its expiry date keeps the
+ * status 'active' until it is renewed, so status alone overstates what is in force.
+ */
+export function isInForce(policy: { status: PolicyStatus; expiry_date: string }, todayIso: string): boolean {
+  return policy.status === 'active' && policy.expiry_date.slice(0, 10) >= todayIso;
+}
+
 /** Open claims are those still being worked on (not settled, repudiated or closed). */
 export function isClaimOpen(status: ClaimStatus): boolean {
   return status === 'notified' || status === 'assessing' || status === 'approved';

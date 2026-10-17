@@ -33,6 +33,28 @@ export async function rows<T>(builder: PromiseLike<QueryResult>): Promise<T[]> {
   return (data ?? []) as T[];
 }
 
+/** Rows fetched per request by allRows(). Kept at or below the API's per-response row cap. */
+export const PAGE_SIZE = 500;
+
+/**
+ * Returns every row of a query, a page at a time. Without this a plain select stops
+ * silently at the API's row cap, so lists and KPIs would be wrong past that size.
+ *
+ * `makeQuery` is called once per page and must order by a unique key (add
+ * `.order('id')` after any other ordering) or rows can repeat or go missing between
+ * pages. A builder without `.range` (a test double) is awaited once.
+ */
+export async function allRows<T>(makeQuery: () => any, pageSize: number = PAGE_SIZE): Promise<T[]> {
+  const all: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const query = makeQuery();
+    if (typeof query.range !== 'function') return rows<T>(query);
+    const page = await rows<T>(query.range(offset, offset + pageSize - 1));
+    all.push(...page);
+    if (page.length < pageSize) return all;
+  }
+}
+
 /** Awaits a write and returns nothing, or throws the friendly message. */
 export async function write(builder: PromiseLike<QueryResult>): Promise<void> {
   const { error } = await builder;

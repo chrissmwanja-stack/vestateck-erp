@@ -1,5 +1,6 @@
 // Row shapes for the insurance tables and views, as the UI reads them.
-// The generated Database types predate these tables, so they are typed here.
+// db.ts checks table, view and RPC names against the generated Database types.
+// Query results stay loose there, so the row shapes are typed here.
 
 export type PolicyStatus = 'draft' | 'active' | 'renewed' | 'reversed' | 'cancelled';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';

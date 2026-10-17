@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { errorText, rows, table } from '../../db';
+import { allRows, errorText, table } from '../../db';
 import { CLAIM_STATUS_LABEL, formatMoney, isClaimOpen } from '../../logic';
 import type { Claim, ClaimStatus } from '../../types';
 import { ClaimStatusChip, EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -19,11 +19,14 @@ export default function ClaimsList() {
     (async () => {
       setLoading(true);
       try {
-        let q = table('ins_claims')
-          .select('id, claim_no, status, loss_date, notified_date, loss_description, reserve_amount, approved_amount, paid_amount, policy_id, created_at, ins_policies(policy_no, sum_insured, currency, ins_clients(bd_clients(name)))')
-          .order('created_at', { ascending: false });
-        if (filter !== 'all' && filter !== 'open') q = q.eq('status', filter);
-        const data = await rows<Claim>(q);
+        const data = await allRows<Claim>(() => {
+          let q = table('ins_claims')
+            .select('id, claim_no, status, loss_date, notified_date, loss_description, reserve_amount, approved_amount, paid_amount, policy_id, created_at, ins_policies(policy_no, sum_insured, currency, ins_clients(bd_clients(name)))')
+            .order('created_at', { ascending: false })
+            .order('id');
+          if (filter !== 'all' && filter !== 'open') q = q.eq('status', filter);
+          return q;
+        });
         if (!cancelled) {
           setClaims(filter === 'open' ? data.filter((c) => isClaimOpen(c.status)) : data);
           setError(null);
@@ -98,7 +101,6 @@ export default function ClaimsList() {
           </CardContent>
         </Card>
       )}
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>Claim cash payments and their ledger posting are out of scope for this release.</Typography>
     </Box>
   );
 }

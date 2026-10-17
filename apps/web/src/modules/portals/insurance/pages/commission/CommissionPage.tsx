@@ -3,7 +3,7 @@ import {
   Alert, Box, Button, Card, CardContent, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Grid, MenuItem, Stack, Tab, Tabs, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
-import { errorText, rows, rpc, table } from '../../db';
+import { allRows, errorText, rows, rpc, table } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import {
   COMMISSION_STATUS_LABEL, formatMoney, isTransferable, isValidVoidReason, sumAmounts, validateTransferInput,
@@ -56,9 +56,9 @@ const CommissionPage = () => {
     setLoading(true);
     try {
       const [ledger, pos, trs, ins] = await Promise.all([
-        rows<CommissionEntry>(table('ins_commission_ledger').select('*').order('created_at', { ascending: false })),
+        allRows<CommissionEntry>(() => table('ins_commission_ledger').select('*').order('created_at', { ascending: false }).order('id')),
         rows<CommissionPosition>(table('ins_commission_position').select('*')),
-        rows<CommissionTransfer>(table('ins_commission_transfers').select('*').order('created_at', { ascending: false })),
+        allRows<CommissionTransfer>(() => table('ins_commission_transfers').select('*').order('created_at', { ascending: false }).order('id')),
         rows<{ id: string; name: string }>(table('ins_insurers').select('id, name')),
       ]);
       setEntries(ledger);
