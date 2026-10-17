@@ -4,19 +4,24 @@ import { useNavigate } from 'react-router-dom';
 import { useMyModuleAccess } from '../../../../features/navigation/useMyModuleAccess';
 import { allRows, table } from '../db';
 import { localIsoDate } from '../fx';
-import { formatMoney, isClaimOpen, isInForce, renewalBucket } from '../logic';
+import { formatMoney, formatMoneyByCurrency, isClaimOpen, isInForce, renewalBucket, sumByCurrency } from '../logic';
 import { dashboardAlerts, FINANCE_CASH_PATH, type DashboardAlert } from '../dashboardAlerts';
 import type { Claim, Policy, RenewalRow } from '../types';
+
+type ClaimRow = Pick<Claim, 'status' | 'reserve_amount'> & { ins_policies: { currency: string } | null };
 import { PageHeader, ErrorBanner } from '../shared';
 
 interface Kpi {
   label: string;
+  /** One line per currency for money figures; counts are a single line. */
   value: string;
   hint?: string;
   to?: string;
 }
 
 // KPIs and alerts are computed from the RLS-scoped rows the user can already read.
+// Money is totalled per currency and shown one currency per line: amounts in different
+// currencies are never added together.
 // There is no separate summary RPC yet; that is a roadmap item once volumes justify it.
 export default function InsuranceDashboard() {
   const navigate = useNavigate();
@@ -31,26 +36,29 @@ export default function InsuranceDashboard() {
       try {
         // allRows pages through every row: a plain select stops at the API row cap and would
         // understate every figure below once a company grows past it.
-        const [policies, claims, renewals, pendingCash, commission] = await Promise.all([
+        const [policies, claims, renewals, pendingCash, commission, settings] = await Promise.all([
           allRows<Pick<Policy, 'status' | 'gross_premium' | 'commission_amount' | 'currency' | 'expiry_date'>>(
             () => table('ins_policies').select('status, gross_premium, commission_amount, currency, expiry_date').in('status', ['active', 'renewed']).order('id'),
           ),
-          allRows<Pick<Claim, 'status' | 'reserve_amount'>>(() => table('ins_claims').select('status, reserve_amount').order('id')),
+          // A claim is in its policy's currency.
+          allRows<ClaimRow>(() => table('ins_claims').select('status, reserve_amount, ins_policies(currency)').order('id')),
           allRows<RenewalRow>(() => table('ins_renewal_pipeline').select('*').order('expiry_date', { ascending: true }).order('policy_id')),
           allRows<{ id: string }>(() => table('ins_policy_cash_requests').select('id').eq('status', 'pending').order('id')),
           allRows<{ earned_in_client_money: number | string | null }>(
             () => table('ins_commission_position').select('earned_in_client_money').order('tenant_id'),
           ),
+          allRows<{ functional_currency: string }>(() => table('tenant_ledger_settings').select('functional_currency').order('tenant_id')),
         ]);
+        const functional = settings[0]?.functional_currency ?? 'UGX';
 
         const today = localIsoDate();
         // Active policies past their expiry date stay 'active' until renewed, so they are
         // counted under renewals (overdue) and not as cover in force.
         const inForce = policies.filter((p) => isInForce(p, today));
-        const premium = inForce.reduce((s, p) => s + Number(p.gross_premium), 0);
-        const commissionInForce = inForce.reduce((s, p) => s + Number(p.commission_amount ?? 0), 0);
+        const premium = sumByCurrency(inForce, (p) => p.currency, (p) => p.gross_premium, functional);
+        const commissionInForce = sumByCurrency(inForce, (p) => p.currency, (p) => p.commission_amount, functional);
         const openClaims = claims.filter((c) => isClaimOpen(c.status));
-        const reserves = openClaims.reduce((s, c) => s + Number(c.reserve_amount), 0);
+        const reserves = sumByCurrency(openClaims, (c) => c.ins_policies?.currency, (c) => c.reserve_amount, functional);
         const toAssess = claims.filter((c) => c.status === 'notified' || c.status === 'assessing').length;
         const approvedUnsettled = claims.filter((c) => c.status === 'approved').length;
         const due30 = renewals.filter((r) => renewalBucket(r.days_to_expiry) === 'overdue' || renewalBucket(r.days_to_expiry) === 'd0_30').length;
@@ -59,13 +67,15 @@ export default function InsuranceDashboard() {
 
         setKpis([
           { label: 'Policies in force', value: String(inForce.length), to: '/insurance/policies' },
-          { label: 'Gross premium in force', value: formatMoney(premium), hint: 'Active policies, billed to clients' },
-          { label: 'Commission in force', value: formatMoney(commissionInForce), hint: 'Earned on bind, from insurers' },
+          { label: 'Gross premium in force', value: formatMoneyByCurrency(premium, functional), hint: 'Active policies, billed to clients' },
+          { label: 'Commission in force', value: formatMoneyByCurrency(commissionInForce, functional), hint: 'Earned on bind, from insurers' },
           { label: 'Renewals due (120 days)', value: String(renewals.length), hint: `${due30} within 30 days or overdue`, to: '/insurance/renewals' },
           { label: 'Open claims', value: String(openClaims.length), to: '/insurance/claims' },
-          { label: 'Open claim reserves', value: formatMoney(reserves) },
+          { label: 'Open claim reserves', value: formatMoneyByCurrency(reserves, functional) },
           { label: 'Premium cash awaiting approval', value: String(pendingCash.length), to: canOpenFinanceCash ? FINANCE_CASH_PATH : '/insurance/policies' },
-          { label: 'Commission earned, not transferred', value: formatMoney(earnedNotTransferred), hint: 'In client money, awaiting transfer', to: '/insurance/commission' },
+          // The commission position is one figure per company, in its own currency: only
+          // policies in that currency can be bound today.
+          { label: 'Commission earned, not transferred', value: formatMoney(earnedNotTransferred, functional), hint: 'In client money, awaiting transfer', to: '/insurance/commission' },
           { label: 'Claims to assess', value: String(toAssess), hint: `${approvedUnsettled} approved, not yet settled`, to: '/insurance/claims' },
         ]);
         setAlerts(
@@ -86,7 +96,7 @@ export default function InsuranceDashboard() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
-      <PageHeader title="Insurance Brokerage" subtitle="Premiums and commission are in UGX unless a policy says otherwise." />
+      <PageHeader title="Insurance Brokerage" subtitle="Money is shown per currency. Amounts in different currencies are never added together." />
       <ErrorBanner message={error} />
       {!kpis && !error && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -129,7 +139,7 @@ export default function InsuranceDashboard() {
                     <Typography variant="body2" color="text.secondary">
                       {k.label}
                     </Typography>
-                    <Typography variant="h5" fontWeight={700}>
+                    <Typography variant="h5" fontWeight={700} sx={{ whiteSpace: 'pre-line' }}>
                       {k.value}
                     </Typography>
                     {k.hint && (

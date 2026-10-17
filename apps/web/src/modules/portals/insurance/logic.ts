@@ -227,6 +227,37 @@ export function formatMoney(amount: number | null | undefined, currency = 'UGX')
   return new Intl.NumberFormat('en-UG', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 }
 
+/**
+ * Adds amounts up per currency. Currencies are never added together: 5,000 USD and
+ * 1,000,000 UGX are two totals, not one. A missing currency counts as `fallback`.
+ */
+export function sumByCurrency<T>(
+  items: T[],
+  currencyOf: (item: T) => string | null | undefined,
+  amountOf: (item: T) => number | string | null | undefined,
+  fallback = 'UGX',
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const item of items) {
+    const currency = currencyOf(item) || fallback;
+    const amount = Number(amountOf(item) ?? 0);
+    totals[currency] = Math.round(((totals[currency] ?? 0) + (Number.isFinite(amount) ? amount : 0)) * 100) / 100;
+  }
+  return totals;
+}
+
+/**
+ * One line per currency, the company's own currency first and the rest A to Z.
+ * With no amounts at all it shows zero in the company's currency.
+ */
+export function formatMoneyByCurrency(totals: Record<string, number>, functionalCurrency = 'UGX'): string {
+  const currencies = Object.keys(totals).sort((a, b) =>
+    a === functionalCurrency ? -1 : b === functionalCurrency ? 1 : a.localeCompare(b),
+  );
+  if (currencies.length === 0) return formatMoney(0, functionalCurrency);
+  return currencies.map((c) => formatMoney(totals[c], c)).join('\n');
+}
+
 /** Strips the server's error code prefix (e.g. "INS_NOT_DRAFT: ...") for display. */
 export function friendlyError(message: string): string {
   return message.replace(/^[A-Z][A-Z_]+:\s*/, '');

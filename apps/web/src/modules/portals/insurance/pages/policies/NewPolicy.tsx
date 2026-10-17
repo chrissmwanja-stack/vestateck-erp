@@ -20,6 +20,9 @@ export default function NewPolicy() {
   const [clients, setClients] = useState<InsClient[]>([]);
   const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [products, setProducts] = useState<ProductLine[]>([]);
+  // The company's own currency, and the other currencies that have an approved exchange rate.
+  const [functional, setFunctional] = useState('UGX');
+  const [otherCurrencies, setOtherCurrencies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +43,18 @@ export default function NewPolicy() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, i, p] = await Promise.all([
+        const [c, i, p, settings, rates] = await Promise.all([
           rows<InsClient>(table('ins_clients').select('id, client_id, bd_clients(name)').order('created_at', { ascending: false })),
           rows<Insurer>(table('ins_insurers').select('*').eq('is_active', true).order('name', { ascending: true })),
           rows<ProductLine>(table('ins_product_lines').select('*').eq('is_active', true).order('name', { ascending: true })),
+          rows<{ functional_currency: string }>(table('tenant_ledger_settings').select('functional_currency')),
+          // Reading rates is a convenience. If it fails the form still works in the company's currency.
+          rows<{ currency: string }>(table('fx_rates').select('currency').eq('status', 'approved')).catch(() => [] as { currency: string }[]),
         ]);
+        const own = settings[0]?.functional_currency ?? 'UGX';
+        setFunctional(own);
+        setOtherCurrencies([...new Set(rates.map((r) => r.currency))].filter((cur) => cur !== own).sort());
+        setForm((f) => ({ ...f, currency: own }));
         setClients(c);
         setInsurers(i);
         setProducts(p);
@@ -69,6 +79,9 @@ export default function NewPolicy() {
     grossPremium: gross,
     commissionRatePct: rate,
   });
+
+  const currencies = [functional, ...otherCurrencies];
+  const foreign = form.currency !== functional;
 
   const pickInsurer = (id: string) => {
     const ins = insurers.find((i) => i.id === id);
@@ -147,13 +160,21 @@ export default function NewPolicy() {
             <Grid item xs={6} md={3}>
               <TextField fullWidth type="date" label="Expiry" InputLabelProps={{ shrink: true }} value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={6} md={3}>
+              <TextField select fullWidth label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                helperText={otherCurrencies.length === 0 ? 'Other currencies appear here once an exchange rate is approved.' : undefined}>
+                {currencies.map((cur) => (
+                  <MenuItem key={cur} value={cur}>{cur === functional ? `${cur} (company currency)` : cur}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={6} md={3}>
               <TextField fullWidth type="number" label="Sum insured" value={form.sumInsured} onChange={(e) => setForm({ ...form, sumInsured: e.target.value })} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
-            <Grid item xs={6} md={4}>
+            <Grid item xs={6} md={3}>
               <TextField fullWidth type="number" label="Gross premium" value={form.grossPremium} onChange={(e) => setForm({ ...form, grossPremium: e.target.value })} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
-            <Grid item xs={6} md={4}>
+            <Grid item xs={6} md={3}>
               <TextField fullWidth type="number" label="Commission (%)" value={form.commissionRatePct} onChange={(e) => setForm({ ...form, commissionRatePct: e.target.value })} inputProps={{ min: 0, max: 99.99, step: '0.01' }} />
             </Grid>
             <Grid item xs={12}>
@@ -173,6 +194,12 @@ export default function NewPolicy() {
               </Box>
             </Grid>
           </Grid>
+          {foreign && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {form.currency} is not the company currency ({functional}). The draft can be saved, but it cannot be bound until
+              foreign-currency posting is finished. Binding is refused with a message until then.
+            </Alert>
+          )}
           {problems.length > 0 && (
             <Alert severity="warning" sx={{ mt: 2 }}>
               {problems.map((p) => <div key={p}>{p}</div>)}
