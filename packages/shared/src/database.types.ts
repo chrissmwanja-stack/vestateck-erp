@@ -11941,9 +11941,12 @@ export type Database = {
       v_account_ledger: {
         Row: {
           account_id: string | null
+          base_credit: number | null
+          base_debit: number | null
           credit: number | null
           currency: string | null
           debit: number | null
+          fx_rate: number | null
           reference_no: string | null
           source_id: string | null
           source_type: string | null
