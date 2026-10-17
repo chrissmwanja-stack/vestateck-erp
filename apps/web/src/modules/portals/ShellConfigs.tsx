@@ -471,6 +471,7 @@ export const insuranceNodes: TreeNode[] = [
       { id: "ins-clients", label: "Clients", icon: <Groups fontSize="small" />, to: "/insurance/clients" },
       { id: "ins-insurers", label: "Insurers", icon: <Business fontSize="small" />, to: "/insurance/insurers" },
       { id: "ins-risks", label: "Insured risks", icon: <Groups fontSize="small" />, to: "/insurance/risks" },
+      { id: "ins-intermediaries", label: "Intermediaries", icon: <Groups fontSize="small" />, to: "/insurance/intermediaries" },
     ],
   },
   {

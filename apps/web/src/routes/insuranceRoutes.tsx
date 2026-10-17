@@ -14,7 +14,6 @@ import { INS_ADMIN_ROLES } from '../modules/portals/insurance/access';
 const InsuranceDashboard = lazy(() => import('../modules/portals/insurance/pages/InsuranceDashboard'));
 const ClientsList = lazy(() => import('../modules/portals/insurance/pages/clients/ClientsList'));
 const InsurersList = lazy(() => import('../modules/portals/insurance/pages/insurers/InsurersList'));
-const IntermediariesList = lazy(() => import('../modules/portals/insurance/pages/intermediaries/IntermediariesList'));
 const PoliciesList = lazy(() => import('../modules/portals/insurance/pages/policies/PoliciesList'));
 const NewPolicy = lazy(() => import('../modules/portals/insurance/pages/policies/NewPolicy'));
 const PolicyDetail = lazy(() => import('../modules/portals/insurance/pages/policies/PolicyDetail'));
@@ -27,6 +26,7 @@ const CommissionStatements = lazy(() => import('../modules/portals/insurance/pag
 const ProductLinesAdmin = lazy(() => import('../modules/portals/insurance/pages/admin/ProductLinesAdmin'));
 const ExchangeRates = lazy(() => import('../modules/portals/insurance/pages/currency/ExchangeRates'));
 const RisksList = lazy(() => import('../modules/portals/insurance/pages/risks/RisksList'));
+const IntermediariesList = lazy(() => import('../modules/portals/insurance/pages/intermediaries/IntermediariesList'));
 const CertificateStock = lazy(() => import('../modules/portals/insurance/pages/risks/CertificateStock'));
 const RegulatoryRules = lazy(() => import('../modules/portals/insurance/pages/admin/RegulatoryRules'));
 const UnremittedPremium = lazy(() => import('../modules/portals/insurance/pages/reports/UnremittedPremium'));
@@ -38,7 +38,6 @@ export const insuranceRoutes = (
       <Route path="/insurance" element={<InsuranceDashboard />} />
       <Route path="/insurance/clients" element={<ClientsList />} />
       <Route path="/insurance/insurers" element={<InsurersList />} />
-      <Route path="/insurance/intermediaries" element={<IntermediariesList />} />
       {/* "new" must be declared before ":id" so it is not read as an id. */}
       <Route path="/insurance/policies" element={<PoliciesList />} />
       <Route path="/insurance/policies/new" element={<NewPolicy />} />
@@ -54,6 +53,9 @@ export const insuranceRoutes = (
       {/* Entry and approval are limited by the server (fx_rates policies and RPCs); the page only shows what each person may do. */}
       <Route path="/insurance/currency" element={<ExchangeRates />} />
       <Route path="/insurance/risks" element={<RisksList />} />
+      {/* Open to every insurance role: the page hides verify and status changes for non-managers,
+          and the ins_*_intermediary RPCs enforce the real check. */}
+      <Route path="/insurance/intermediaries" element={<IntermediariesList />} />
       <Route path="/insurance/certificates" element={<CertificateStock />} />
       {/* Open to every insurance role on purpose: an approver is chosen by assignment, not by role,
           so an assigned approver with a plain member role must be able to reach it. The server
