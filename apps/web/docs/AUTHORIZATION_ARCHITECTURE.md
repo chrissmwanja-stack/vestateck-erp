@@ -259,7 +259,7 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 | Numbering uniqueness (same number allowed across tenants, not within one) | `supabase/tests/test_per_tenant_document_numbers.sql` |
 | View-as actor attribution | `supabase/tests/test_impersonation_attribution.sql` |
 | Read-only mode | `supabase/tests/test_tenant_read_only_guard.sql` |
-| Production still matches the rules, including per-tenant numbering (check 13) | `supabase/tests/check_live_security_drift.sql` (read-only, safe on prod) |
+| Production still matches the rules, including per-tenant numbering (check 13) and a pinned `search_path` on every definer function (check 15, rule 3 of section 6) | `supabase/tests/check_live_security_drift.sql` (read-only, safe on prod) |
 | Heuristic exposure scan of client-callable definer functions | `supabase/scripts/audit_security_definer.sql` (CI fails on `CRITICAL`) |
 | Company Admin screens, real HTTP path | `apps/web/e2e/company-admin-org-setup.spec.ts` |
 

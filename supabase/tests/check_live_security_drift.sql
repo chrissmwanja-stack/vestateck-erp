@@ -30,6 +30,12 @@
 -- function bodies, the staff_roles write policies and the payroll
 -- attribution columns, so a database that recorded those migrations
 -- without running them fails here.
+--
+-- Section 15 (added with the search_path catalog check) asserts that EVERY
+-- SECURITY DEFINER function in public has a pinned search_path in
+-- pg_proc.proconfig. It scans the catalog rather than a list, so a function
+-- added by a new migration (or one whose pin was lost to drift) fails here
+-- without anyone having to remember to extend this script.
 
 do $$
 declare
@@ -505,6 +511,35 @@ begin
       end if;
     end loop;
   end if;
+
+  ---------------------------------------------------------------------
+  -- 15. SECURITY DEFINER functions must pin search_path
+  --     A definer function runs with its owner's privileges, so an unpinned
+  --     search_path lets a caller who can create objects in a schema that
+  --     resolves earlier shadow the tables/functions it calls. This scans
+  --     the live catalog (pg_proc.proconfig), so it also catches drift where
+  --     a migration was recorded but its ALTER/CREATE never ran.
+  --     Extension-owned functions are skipped (same filter as 9b).
+  --     Fix: alter function <sig> set search_path = public, pg_temp;
+  ---------------------------------------------------------------------
+  for r in
+    select format('public.%I(%s)', p.proname, pg_get_function_identity_arguments(p.oid)) as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind in ('f', 'p')
+      and p.prosecdef
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      and not exists (
+        select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) as c
+        where c ~* '^search_path='
+      )
+    order by 1
+  loop
+    v_fail := v_fail || format(
+      '%s is SECURITY DEFINER without a pinned search_path (fix: alter function %s set search_path = public, pg_temp)',
+      r.sig, r.sig);
+  end loop;
 
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
