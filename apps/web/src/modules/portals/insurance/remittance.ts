@@ -1,0 +1,55 @@
+import { daysBetween } from './logic';
+
+// The unremitted-premium report (ins_unremitted_premium_report). The deadline comes from
+// the approved rule remittance.deadline_working_days. With no approved rule there is no
+// deadline and the status is deadline_not_set: no default is ever assumed.
+
+export type RemittanceStatus = 'overdue' | 'due_today' | 'within_deadline' | 'deadline_not_set' | 'receipt_date_missing';
+
+export interface RemittanceRow {
+  policy_id: string;
+  policy_no: string;
+  insurer_id: string;
+  unremitted_amount: number | string;
+  receipt_date: string | null;
+  deadline_date: string | null;
+  status: RemittanceStatus;
+}
+
+export const REMITTANCE_STATUS_LABEL: Record<RemittanceStatus, string> = {
+  overdue: 'Overdue',
+  due_today: 'Due today',
+  within_deadline: 'Within deadline',
+  deadline_not_set: 'No deadline set',
+  receipt_date_missing: 'Receipt date missing',
+};
+
+/** Most urgent first. */
+export const REMITTANCE_STATUS_ORDER: RemittanceStatus[] = ['overdue', 'due_today', 'receipt_date_missing', 'deadline_not_set', 'within_deadline'];
+
+export interface RemittanceFacts {
+  overdue: number;
+  dueToday: number;
+  deadlineNotSet: number;
+  receiptMissing: number;
+}
+
+export function remittanceFacts(rows: Pick<RemittanceRow, 'status'>[]): RemittanceFacts {
+  const count = (s: RemittanceStatus) => rows.filter((r) => r.status === s).length;
+  return { overdue: count('overdue'), dueToday: count('due_today'), deadlineNotSet: count('deadline_not_set'), receiptMissing: count('receipt_date_missing') };
+}
+
+/** Whole days past the deadline as of the report date, or 0 when it is not late. */
+export function daysPastDeadline(deadline: string | null, asOf: string): number {
+  if (!deadline) return 0;
+  return Math.max(0, daysBetween(deadline, asOf));
+}
+
+export function sortRemittanceRows<T extends Pick<RemittanceRow, 'status' | 'deadline_date' | 'policy_no'>>(rows: T[]): T[] {
+  return [...rows].sort(
+    (a, b) =>
+      REMITTANCE_STATUS_ORDER.indexOf(a.status) - REMITTANCE_STATUS_ORDER.indexOf(b.status) ||
+      (a.deadline_date ?? '9999-12-31').localeCompare(b.deadline_date ?? '9999-12-31') ||
+      a.policy_no.localeCompare(b.policy_no),
+  );
+}

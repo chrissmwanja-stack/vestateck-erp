@@ -27,6 +27,8 @@ const ProductLinesAdmin = lazy(() => import('../modules/portals/insurance/pages/
 const ExchangeRates = lazy(() => import('../modules/portals/insurance/pages/currency/ExchangeRates'));
 const RisksList = lazy(() => import('../modules/portals/insurance/pages/risks/RisksList'));
 const CertificateStock = lazy(() => import('../modules/portals/insurance/pages/risks/CertificateStock'));
+const RegulatoryRules = lazy(() => import('../modules/portals/insurance/pages/admin/RegulatoryRules'));
+const UnremittedPremium = lazy(() => import('../modules/portals/insurance/pages/reports/UnremittedPremium'));
 
 export const insuranceRoutes = (
   <>
@@ -51,6 +53,11 @@ export const insuranceRoutes = (
       <Route path="/insurance/currency" element={<ExchangeRates />} />
       <Route path="/insurance/risks" element={<RisksList />} />
       <Route path="/insurance/certificates" element={<CertificateStock />} />
+      {/* Open to every insurance role on purpose: an approver is chosen by assignment, not by role,
+          so an assigned approver with a plain member role must be able to reach it. The server
+          (RLS and the reg_* RPCs) decides who may draft, approve, end-date and assign. */}
+      <Route path="/insurance/regulatory" element={<RegulatoryRules />} />
+      <Route path="/insurance/reports/unremitted-premium" element={<UnremittedPremium />} />
 
       <Route element={<RequireModule module="insurance" roles={INS_ADMIN_ROLES} />}>
         <Route path="/insurance/admin/product-lines" element={<ProductLinesAdmin />} />

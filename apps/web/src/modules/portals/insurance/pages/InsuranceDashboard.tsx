@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Card, CardContent, CircularProgress, Grid, Stack, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useMyModuleAccess } from '../../../../features/navigation/useMyModuleAccess';
-import { allRows, table } from '../db';
+import { allRows, rpc, table } from '../db';
+import { remittanceFacts, type RemittanceRow } from '../remittance';
 import { localIsoDate } from '../fx';
 import { formatMoney, formatMoneyByCurrency, isClaimOpen, isInForce, renewalBucket, sumByCurrency } from '../logic';
-import { dashboardAlerts, FINANCE_CASH_PATH, type DashboardAlert } from '../dashboardAlerts';
+import { dashboardAlerts, FINANCE_CASH_PATH, REGULATORY_RULES_PATH, REMITTANCE_REPORT_PATH, type DashboardAlert } from '../dashboardAlerts';
 import type { Claim, Policy, RenewalRow } from '../types';
 
 type ClaimRow = Pick<Claim, 'status' | 'reserve_amount'> & { ins_policies: { currency: string } | null };
@@ -36,7 +37,8 @@ export default function InsuranceDashboard() {
       try {
         // allRows pages through every row: a plain select stops at the API row cap and would
         // understate every figure below once a company grows past it.
-        const [policies, claims, renewals, pendingCash, commission, settings] = await Promise.all([
+        const today = localIsoDate();
+        const [policies, claims, renewals, pendingCash, commission, settings, remittance] = await Promise.all([
           allRows<Pick<Policy, 'status' | 'gross_premium' | 'commission_amount' | 'currency' | 'expiry_date'>>(
             () => table('ins_policies').select('status, gross_premium, commission_amount, currency, expiry_date').in('status', ['active', 'renewed']).order('id'),
           ),
@@ -48,10 +50,11 @@ export default function InsuranceDashboard() {
             () => table('ins_commission_position').select('earned_in_client_money').order('tenant_id'),
           ),
           allRows<{ functional_currency: string }>(() => table('tenant_ledger_settings').select('functional_currency').order('tenant_id')),
+          // Held premium against the remittance deadline. A failure here must not hide the rest of the dashboard.
+          rpc<RemittanceRow[]>('ins_unremitted_premium_report', { p_as_of: today }).catch(() => null),
         ]);
         const functional = settings[0]?.functional_currency ?? 'UGX';
 
-        const today = localIsoDate();
         // Active policies past their expiry date stay 'active' until renewed, so they are
         // counted under renewals (overdue) and not as cover in force.
         const inForce = policies.filter((p) => isInForce(p, today));
@@ -65,6 +68,8 @@ export default function InsuranceDashboard() {
         const overdue = renewals.filter((r) => renewalBucket(r.days_to_expiry) === 'overdue').length;
         const earnedNotTransferred = commission.reduce((s, c) => s + Number(c.earned_in_client_money ?? 0), 0);
 
+        const held = remittance ? remittanceFacts(remittance) : null;
+
         setKpis([
           { label: 'Policies in force', value: String(inForce.length), to: '/insurance/policies' },
           { label: 'Gross premium in force', value: formatMoneyByCurrency(premium, functional), hint: 'Active policies, billed to clients' },
@@ -76,6 +81,14 @@ export default function InsuranceDashboard() {
           // The commission position is one figure per company, in its own currency: only
           // policies in that currency can be bound today.
           { label: 'Commission earned, not transferred', value: formatMoney(earnedNotTransferred, functional), hint: 'In client money, awaiting transfer', to: '/insurance/commission' },
+          ...(held
+            ? [{
+                label: 'Premium past remittance deadline',
+                value: String(held.overdue),
+                hint: held.deadlineNotSet > 0 ? 'No remittance deadline is approved yet' : `${held.dueToday} due today`,
+                to: held.deadlineNotSet > 0 && held.overdue === 0 ? REGULATORY_RULES_PATH : REMITTANCE_REPORT_PATH,
+              }]
+            : []),
           { label: 'Claims to assess', value: String(toAssess), hint: `${approvedUnsettled} approved, not yet settled`, to: '/insurance/claims' },
         ]);
         setAlerts(
@@ -86,6 +99,9 @@ export default function InsuranceDashboard() {
             approvedClaimsUnsettled: approvedUnsettled,
             commissionEarnedNotTransferred: earnedNotTransferred,
             canOpenFinanceCash,
+            remittanceOverdue: held?.overdue,
+            remittanceDueToday: held?.dueToday,
+            remittanceDeadlineNotSet: held?.deadlineNotSet,
           }),
         );
       } catch (e) {

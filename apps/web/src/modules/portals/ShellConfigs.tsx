@@ -517,6 +517,20 @@ export const insuranceNodes: TreeNode[] = [
     to: "/insurance/currency",
   },
   {
+    id: "ins-reports",
+    label: "Reports",
+    icon: <BarChart fontSize="small" />,
+    children: [
+      { id: "ins-unremitted-premium", label: "Unremitted Premium", icon: <BarChart fontSize="small" />, to: "/insurance/reports/unremitted-premium" },
+    ],
+  },
+  {
+    id: "ins-regulatory",
+    label: "Regulatory Rules",
+    icon: <AdminPanelSettings fontSize="small" />,
+    to: "/insurance/regulatory",
+  },
+  {
     id: "ins-admin",
     label: "Admin",
     icon: <AdminPanelSettings fontSize="small" />,

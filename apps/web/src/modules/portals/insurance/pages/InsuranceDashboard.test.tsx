@@ -8,9 +8,10 @@ import { formatMoney } from '../logic';
 // lines on a card, never one added-up figure.
 
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('../../../../lib/supabaseClient', () => ({
-  supabase: { from: (...args: unknown[]) => mockFrom(...args), rpc: vi.fn() },
+  supabase: { from: (...args: unknown[]) => mockFrom(...args), rpc: (...args: unknown[]) => mockRpc(...args) },
 }));
 vi.mock('../../../../features/navigation/useMyModuleAccess', () => ({
   useMyModuleAccess: () => ({ canAccessFinance: false }),
@@ -50,6 +51,8 @@ function card(label: string): HTMLElement {
 
 beforeEach(() => {
   mockFrom.mockReset();
+  mockRpc.mockReset();
+  mockRpc.mockResolvedValue({ data: [], error: null });
   policies = [];
   claims = [];
 });
@@ -88,5 +91,40 @@ describe('InsuranceDashboard money per currency', () => {
     setup();
     await screen.findByText('Policies in force');
     expect(card('Gross premium in force').textContent).toContain(formatMoney(0, 'UGX'));
+  });
+});
+
+describe('InsuranceDashboard held premium', () => {
+  it('raises an alert and a card when premium is held past the remittance deadline', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        { policy_id: 'a', policy_no: 'P1', insurer_id: 'i', unremitted_amount: 10, receipt_date: '2026-10-01', deadline_date: '2026-10-02', status: 'overdue' },
+        { policy_id: 'b', policy_no: 'P2', insurer_id: 'i', unremitted_amount: 10, receipt_date: '2026-10-01', deadline_date: '2026-10-02', status: 'overdue' },
+        { policy_id: 'c', policy_no: 'P3', insurer_id: 'i', unremitted_amount: 10, receipt_date: '2026-10-17', deadline_date: '2026-10-17', status: 'due_today' },
+      ],
+      error: null,
+    });
+    setup();
+    expect(await screen.findByText('Premium on 2 policies are held past the remittance deadline.')).toBeInTheDocument();
+    expect(screen.getByText('Premium on 1 policy must be remitted today.')).toBeInTheDocument();
+    expect(card('Premium past remittance deadline').textContent).toContain('2');
+    expect(mockRpc).toHaveBeenCalledWith('ins_unremitted_premium_report', { p_as_of: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+  });
+
+  it('points to the rules screen when premium is held but no deadline is approved', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ policy_id: 'a', policy_no: 'P1', insurer_id: 'i', unremitted_amount: 10, receipt_date: '2026-10-01', deadline_date: null, status: 'deadline_not_set' }],
+      error: null,
+    });
+    setup();
+    expect(await screen.findByText(/no remittance deadline is approved, so deadlines cannot be checked/i)).toBeInTheDocument();
+    expect(card('Premium past remittance deadline').textContent).toContain('No remittance deadline is approved yet');
+  });
+
+  it('still shows the rest of the dashboard when the held-premium report fails', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'INS_FORBIDDEN: insurance access is required' } });
+    setup();
+    await screen.findByText('Policies in force');
+    expect(screen.queryByText('Premium past remittance deadline')).not.toBeInTheDocument();
   });
 });
