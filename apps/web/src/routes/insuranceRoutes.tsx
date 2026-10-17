@@ -14,6 +14,7 @@ import { INS_ADMIN_ROLES } from '../modules/portals/insurance/access';
 const InsuranceDashboard = lazy(() => import('../modules/portals/insurance/pages/InsuranceDashboard'));
 const ClientsList = lazy(() => import('../modules/portals/insurance/pages/clients/ClientsList'));
 const InsurersList = lazy(() => import('../modules/portals/insurance/pages/insurers/InsurersList'));
+const IntermediariesList = lazy(() => import('../modules/portals/insurance/pages/intermediaries/IntermediariesList'));
 const PoliciesList = lazy(() => import('../modules/portals/insurance/pages/policies/PoliciesList'));
 const NewPolicy = lazy(() => import('../modules/portals/insurance/pages/policies/NewPolicy'));
 const PolicyDetail = lazy(() => import('../modules/portals/insurance/pages/policies/PolicyDetail'));
@@ -37,6 +38,7 @@ export const insuranceRoutes = (
       <Route path="/insurance" element={<InsuranceDashboard />} />
       <Route path="/insurance/clients" element={<ClientsList />} />
       <Route path="/insurance/insurers" element={<InsurersList />} />
+      <Route path="/insurance/intermediaries" element={<IntermediariesList />} />
       {/* "new" must be declared before ":id" so it is not read as an id. */}
       <Route path="/insurance/policies" element={<PoliciesList />} />
       <Route path="/insurance/policies/new" element={<NewPolicy />} />

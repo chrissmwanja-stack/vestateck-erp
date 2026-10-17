@@ -5433,6 +5433,153 @@ export type Database = {
           },
         ]
       }
+      ins_intermediaries: {
+        Row: {
+          appointment_ref: string | null
+          authorisation_basis: string | null
+          authorisation_reference: string | null
+          category: string
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          last_changed_at: string
+          last_changed_by: string | null
+          licence_authority: string | null
+          licence_ref: string | null
+          licence_valid_from: string | null
+          licence_valid_to: string | null
+          name: string
+          parent_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          appointment_ref?: string | null
+          authorisation_basis?: string | null
+          authorisation_reference?: string | null
+          category: string
+          code: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          licence_authority?: string | null
+          licence_ref?: string | null
+          licence_valid_from?: string | null
+          licence_valid_to?: string | null
+          name: string
+          parent_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          appointment_ref?: string | null
+          authorisation_basis?: string | null
+          authorisation_reference?: string | null
+          category?: string
+          code?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          licence_authority?: string | null
+          licence_ref?: string | null
+          licence_valid_from?: string | null
+          licence_valid_to?: string | null
+          name?: string
+          parent_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_intermediaries_parent_fk"
+            columns: ["tenant_id", "parent_id"]
+            isOneToOne: false
+            referencedRelation: "ins_intermediaries"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_intermediaries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_intermediary_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          intermediary_id: string
+          note: string | null
+          tenant_id: string
+          to_status: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          intermediary_id: string
+          note?: string | null
+          tenant_id: string
+          to_status?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          intermediary_id?: string
+          note?: string | null
+          tenant_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_intermediary_events_fk"
+            columns: ["tenant_id", "intermediary_id"]
+            isOneToOne: false
+            referencedRelation: "ins_intermediaries"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_intermediary_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_policies: {
         Row: {
           bound_at: string | null
@@ -14777,6 +14924,10 @@ export type Database = {
         Args: { p_insurer_id: string }
         Returns: Json
       }
+      ins_intermediary_chain_has: {
+        Args: { p_start: string; p_target: string; p_tenant: string }
+        Returns: boolean
+      }
       ins_issue_certificate: {
         Args: { p_issued_to: string; p_risk_id: string; p_serial_no: string }
         Returns: string
@@ -15156,6 +15307,92 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_save_intermediary: {
+        Args: {
+          p_appointment_ref?: string
+          p_authorisation_basis?: string
+          p_authorisation_reference?: string
+          p_category?: string
+          p_code?: string
+          p_contact_email?: string
+          p_contact_phone?: string
+          p_id?: string
+          p_kind?: string
+          p_licence_authority?: string
+          p_licence_ref?: string
+          p_licence_valid_from?: string
+          p_licence_valid_to?: string
+          p_name?: string
+          p_parent_id?: string
+        }
+        Returns: {
+          appointment_ref: string | null
+          authorisation_basis: string | null
+          authorisation_reference: string | null
+          category: string
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          last_changed_at: string
+          last_changed_by: string | null
+          licence_authority: string | null
+          licence_ref: string | null
+          licence_valid_from: string | null
+          licence_valid_to: string | null
+          name: string
+          parent_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_intermediaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_intermediary_status: {
+        Args: { p_id: string; p_note?: string; p_to: string }
+        Returns: {
+          appointment_ref: string | null
+          authorisation_basis: string | null
+          authorisation_reference: string | null
+          category: string
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          last_changed_at: string
+          last_changed_by: string | null
+          licence_authority: string | null
+          licence_ref: string | null
+          licence_valid_from: string | null
+          licence_valid_to: string | null
+          name: string
+          parent_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_intermediaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_set_policy_financial_configuration: {
         Args: { p_charges: Json; p_policy_id: string; p_shares: Json }
         Returns: undefined
@@ -15452,6 +15689,41 @@ export type Database = {
           status: string
           unremitted_amount: number
         }[]
+      }
+      ins_verify_intermediary: {
+        Args: { p_id: string; p_note?: string }
+        Returns: {
+          appointment_ref: string | null
+          authorisation_basis: string | null
+          authorisation_reference: string | null
+          category: string
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          last_changed_at: string
+          last_changed_by: string | null
+          licence_authority: string | null
+          licence_ref: string | null
+          licence_valid_from: string | null
+          licence_valid_to: string | null
+          name: string
+          parent_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_intermediaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_via_rpc: { Args: never; Returns: boolean }
       ins_void_certificate: {
