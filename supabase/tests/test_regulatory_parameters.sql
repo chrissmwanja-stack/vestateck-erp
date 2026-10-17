@@ -129,12 +129,23 @@ begin
   perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_SELF_APPROVAL', 'proposer approves own draft');
   reset role;
 
+  -- Approval follows an assignment (20261016160000), not a role: finance and an
+  -- unassigned company admin are both refused.
   perform pg_temp.as_user(v_fin);
-  perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_FORBIDDEN', 'non-admin approves');
+  perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_NOT_APPROVER', 'non-admin approves');
+  reset role;
+  perform pg_temp.as_user(v_admin2);
+  perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_NOT_APPROVER', 'unassigned company admin approves');
   reset role;
 
   perform pg_temp.as_user(v_admin_b);
   perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_NOT_FOUND', 'other tenant admin approves');
+  reset role;
+
+  -- A company admin assigns admin2 as approver for the keys this test approves.
+  perform pg_temp.as_user(v_admin1);
+  perform reg_assign_approver(v_admin2, 'key', 'tax.wht_agent_commission_percent', 'regulatory test: WHT remittance');
+  perform reg_assign_approver(v_admin2, 'key', 'stamp_duty.policy', 'regulatory test: stamp duty');
   reset role;
 
   perform pg_temp.as_user(v_admin2);
@@ -146,7 +157,7 @@ begin
   perform pg_temp.as_user(v_admin2);
   perform pg_temp.expect_error(format('select reg_approve_parameter(%L)', v_wht), 'REG_NOT_DRAFT', 'approve twice');
   reset role;
-  raise notice 'PASS: self-approval, non-admin and other-tenant approval refused; a second admin approves once';
+  raise notice 'PASS: self-approval, unassigned and other-tenant approval refused; an assigned approver approves once';
 
   -------------------------------------------------------------------
   -- 4. Resolution: effective window is [from, to)

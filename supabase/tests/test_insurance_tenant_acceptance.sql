@@ -11,7 +11,7 @@
 --   1. Seeding gives the tenant exactly the template: modules hr, insurance, it,
 --      legal (and nothing else); the 8 template departments and no others (so no
 --      construction departments); no workflow stages; no feature-flag overrides;
---      21 GL accounts and 21 posting rules that match the template, with client
+--      22 GL accounts and 22 posting rules that match the template, with client
 --      money on the balance sheet (1020 asset, 2010 liability).
 --   2. tenants.industry_template is 'insurance'.
 --   3. Seeding twice adds nothing (seed_tenant_defaults is retry-safe).
@@ -192,8 +192,8 @@ begin
     'v0 ships no feature-flag overrides');
 
   -- 1d. Chart of accounts and posting rules match the template item for item.
-  perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 21, 'expected 21 gl_accounts');
-  perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 21, 'expected 21 gl_posting_rules');
+  perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 22, 'expected 22 gl_accounts');
+  perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 22, 'expected 22 gl_posting_rules');
 
   select string_agg(i.name, ', ') into v_bad from industry_template_items i
    where i.template_key = 'insurance' and i.kind = 'gl_account'
@@ -362,8 +362,8 @@ do $$
 begin
   perform pg_temp.assert(is_finance_team_member(), 'finance user should be a finance team member');
   perform pg_temp.assert(not has_po_access(), 'finance user in an insurance tenant must not need or hold PO access');
-  perform pg_temp.assert((select count(*) from gl_accounts) = 21, 'finance user should read the 21-account chart');
-  perform pg_temp.assert((select count(*) from gl_posting_rules) = 21, 'finance user should read the 21 posting rules');
+  perform pg_temp.assert((select count(*) from gl_accounts) = 22, 'finance user should read the 22-account chart');
+  perform pg_temp.assert((select count(*) from gl_posting_rules) = 22, 'finance user should read the 22 posting rules');
   perform pg_temp.assert(not can_access_client_master(), 'finance-only user must not reach the client master');
 end $$;
 reset role;
