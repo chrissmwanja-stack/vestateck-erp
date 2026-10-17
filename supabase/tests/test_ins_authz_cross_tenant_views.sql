@@ -112,7 +112,7 @@ declare
   v text;
   dml text;
   ta uuid := gen_random_uuid(); tb uuid := gen_random_uuid();
-  mgr_a uuid := gen_random_uuid(); mgr_b uuid := gen_random_uuid();
+  mgr_a uuid := gen_random_uuid(); mgr_b uuid := gen_random_uuid(); appr_a uuid := gen_random_uuid();
   bank_gl uuid; trust_gl uuid; ar_gl uuid; pay_gl uuid; unearned_gl uuid; income_gl uuid;
   fee_gl uuid; tax_gl uuid;
   line_id uuid; insurer uuid; c ins_clients%rowtype; p ins_policies%rowtype; cl ins_claims%rowtype;
@@ -138,13 +138,14 @@ begin
   insert into tenants(id, name) values (ta, 'Views cross-tenant A'), (tb, 'Views cross-tenant B');
   insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
     select u, 'vw-'||u||'@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now()
-    from unnest(array[mgr_a, mgr_b]) u;
+    from unnest(array[mgr_a, mgr_b, appr_a]) u;
   insert into app_users(id, tenant_id, name, email) values
     (mgr_a, ta, 'Views manager A', 'vw-'||mgr_a||'@test.local'),
+    (appr_a, ta, 'Views approver A', 'vw-'||appr_a||'@test.local'),
     (mgr_b, tb, 'Views manager B', 'vw-'||mgr_b||'@test.local');
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance'), (tb, 'insurance');
   insert into staff_roles(tenant_id, user_id, module, role) values
-    (ta, mgr_a, 'insurance', 'manager'), (tb, mgr_b, 'insurance', 'manager');
+    (ta, mgr_a, 'insurance', 'manager'), (ta, appr_a, 'insurance', 'manager'), (tb, mgr_b, 'insurance', 'manager');
   insert into finance_team_members(tenant_id, user_id, role) values
     (ta, mgr_a, 'finance'), (tb, mgr_b, 'finance');
 
@@ -190,6 +191,8 @@ begin
   cl := ins_create_claim(p.id, current_date, current_date, 'Views test loss', 'CLM-VIEW-1', 5000);
   -- The claim cash view only lists approved claims, so approve it (amount within the reserve).
   perform ins_transition_claim(cl.id, 'assessing', null, null);
+  -- Registered by mgr_a, so approved by a different manager (segregation of duties).
+  perform pg_temp.jwt(appr_a);
   perform ins_transition_claim(cl.id, 'approved', 'Views test approval', 4000);
   reset role;
 

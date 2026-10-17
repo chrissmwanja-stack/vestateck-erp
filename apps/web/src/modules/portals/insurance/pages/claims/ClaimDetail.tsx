@@ -4,9 +4,12 @@ import {
   DialogTitle, Grid, Stack, TextField, Typography,
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
+import { supabase } from '../../../../../lib/supabaseClient';
 import { errorText, rows, rpc, table } from '../../db';
 import { useInsuranceAccess } from '../../access';
-import { CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, nextClaimStatuses } from '../../logic';
+import {
+  canUnapproveClaim, CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, nextClaimStatuses,
+} from '../../logic';
 import type { Claim, ClaimEvent, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
 import ClaimPayments from './ClaimPayments';
@@ -17,6 +20,7 @@ type Step = { to: ClaimStatus; label: string; needsAmount?: boolean; needsNote?:
 const STEPS: Record<string, Step> = {
   notified_assessing: { to: 'assessing', label: 'Start assessment', note: 'Moves the claim into assessment. No amounts change.' },
   notified_repudiated: { to: 'repudiated', label: 'Repudiate', needsNote: true, note: 'The insurer or broker declines the claim. A reason is required.' },
+  approved_assessing: { to: 'assessing', label: 'Un-approve', needsNote: true, note: 'Withdraws the approval. Only possible before the receivable is recognised and before any payment. Nothing is reversed, because nothing was posted. A reason is required.' },
   assessing_approved: { to: 'approved', label: 'Approve', needsAmount: true, note: "Records the approved amount, which cannot exceed the sum insured. How the claim is then paid follows the insurer's setting: the insurer pays the client directly, or the brokerage pays the client through client money. That is fixed when you approve." },
   assessing_repudiated: { to: 'repudiated', label: 'Repudiate', needsNote: true, note: 'The claim is declined. A reason is required.' },
   settled_closed: { to: 'closed', label: 'Close', note: 'Closes the file.' },
@@ -26,6 +30,7 @@ const STEPS: Record<string, Step> = {
 export default function ClaimDetail() {
   const { id = '' } = useParams();
   const { canManage } = useInsuranceAccess();
+  const [userId, setUserId] = useState<string | null>(null);
   const [claim, setClaim] = useState<Claim | null>(null);
   const [events, setEvents] = useState<ClaimEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +61,10 @@ export default function ClaimDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
 
   const openStep = (to: ClaimStatus) => {
     if (!claim) return;
@@ -90,9 +99,12 @@ export default function ClaimDetail() {
   if (!claim) return <Box sx={{ p: 3 }}><Alert severity="warning">Claim not found, or you do not have access to it.</Alert></Box>;
 
   const currency = claim.ins_policies?.currency ?? 'UGX';
+  const approvalBlocked = isClaimApprovalBlockedFor(claim, userId);
   const available = nextClaimStatuses(claim.status).filter((to) => {
     const s = STEPS[`${claim.status}_${to}`];
     if (!s) return false;
+    if (to === 'approved' && approvalBlocked) return false;
+    if (to === 'assessing') return canUnapproveClaim(claim, canManage);
     // Decisions are manager/admin only on the server; hide them for members.
     return !CLAIM_DECISION_STATUSES.includes(to) || canManage;
   });
@@ -121,6 +133,9 @@ export default function ClaimDetail() {
         }
       />
       <ErrorBanner message={error} />
+      {approvalBlocked && claim.status === 'assessing' && (
+        <Alert severity="info" sx={{ mb: 2 }}>You registered this claim, so another manager must approve it.</Alert>
+      )}
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <Card variant="outlined">

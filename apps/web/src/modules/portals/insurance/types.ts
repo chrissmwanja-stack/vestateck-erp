@@ -117,6 +117,8 @@ export interface Claim {
   claim_no: string;
   policy_id: string;
   status: ClaimStatus;
+  /** The person who registered the claim. They cannot approve it. */
+  created_by?: string | null;
   /** Brokerage-managed claims only: when the insurer's receivable was recognised. */
   recognised_at?: string | null;
   loss_date: string;

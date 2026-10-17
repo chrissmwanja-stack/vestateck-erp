@@ -150,12 +150,18 @@ returns public.ins_claims language sql as $$
   select * from public.ins_create_claim(p_policy, current_date, current_date, 'Collision damage', null, p_reserve)
 $$;
 
+-- Registers-then-approves must be two people (segregation of duties). The caller
+-- registers the claim; the approver named by test.approver approves it; the caller is restored.
 create function pg_temp.approved(p_claim uuid, p_amount numeric)
 returns public.ins_claims language plpgsql as $$
 declare c public.ins_claims;
+  v_prev text := current_setting('request.jwt.claims', true);
 begin
   perform public.ins_transition_claim(p_claim, 'assessing', null);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', current_setting('test.approver'), 'role', 'authenticated')::text, true);
   c := public.ins_transition_claim(p_claim, 'approved', 'ok', p_amount);
+  perform set_config('request.jwt.claims', coalesce(v_prev, ''), true);
   return c;
 end $$;
 
@@ -167,13 +173,15 @@ declare
   u_mem   uuid := gen_random_uuid();
   u_fin   uuid := gen_random_uuid();
   u_mgr_b uuid := gen_random_uuid();
+  u_appr  uuid := gen_random_uuid();
+  u_appr_b uuid := gen_random_uuid();
 
   g_bank uuid; g_trust uuid; g_ar uuid; g_pay uuid; g_unear uuid; g_inc uuid; g_crec uuid; g_cpay uuid;
   gb_ar uuid; gb_pay uuid; gb_unear uuid; gb_inc uuid;
   v_pl uuid; v_alpha uuid; v_beta uuid; v_pl_b uuid; v_insr_b uuid;
   c1 ins_clients%rowtype; cb ins_clients%rowtype;
   pa ins_policies%rowtype; pbk ins_policies%rowtype; pb ins_policies%rowtype;
-  cl_d ins_claims%rowtype; cl_x ins_claims%rowtype; cl_b ins_claims%rowtype; cl_b2 ins_claims%rowtype; cl_t ins_claims%rowtype;
+  cl_d ins_claims%rowtype; cl_x ins_claims%rowtype; cl_u ins_claims%rowtype; cl_r ins_claims%rowtype; cl_b ins_claims%rowtype; cl_b2 ins_claims%rowtype; cl_t ins_claims%rowtype;
   pay1 ins_claim_payments%rowtype; pay2 ins_claim_payments%rowtype;
   r1 ins_claim_payments%rowtype; r2 ins_claim_payments%rowtype; o1 ins_claim_payments%rowtype; o2 ins_claim_payments%rowtype;
   v_trust_bank uuid; v_oper_bank uuid;
@@ -181,6 +189,9 @@ declare
   v_pcli uuid; v_pins uuid;
 begin
   -------------------------------------------------------------------
+  -- The approver the helper uses. Approval must be by someone other than the registrant.
+  perform set_config('test.approver', u_appr::text, true);
+
   -- Fixtures (as the table owner)
   -------------------------------------------------------------------
   insert into tenants (id, name) values (v_ta, 'Claims A'), (v_tb, 'Claims B');
@@ -192,17 +203,21 @@ begin
   select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
          'insclm-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
          now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-  from (values (u_mgr), (u_mem), (u_fin), (u_mgr_b)) as u(id);
+  from (values (u_mgr), (u_mem), (u_fin), (u_mgr_b), (u_appr), (u_appr_b)) as u(id);
   insert into app_users (id, tenant_id, name, email) values
     (u_mgr,   v_ta, 'Claims Manager A', 'insclm-' || u_mgr   || '@test.local'),
     (u_mem,   v_ta, 'Claims Member A',  'insclm-' || u_mem   || '@test.local'),
     (u_fin,   v_ta, 'Claims Finance A', 'insclm-' || u_fin   || '@test.local'),
-    (u_mgr_b, v_tb, 'Claims Manager B', 'insclm-' || u_mgr_b || '@test.local');
+    (u_mgr_b, v_tb, 'Claims Manager B', 'insclm-' || u_mgr_b || '@test.local'),
+    (u_appr,  v_ta, 'Claims Approver A', 'insclm-' || u_appr || '@test.local'),
+    (u_appr_b, v_tb, 'Claims Approver B', 'insclm-' || u_appr_b || '@test.local');
   insert into tenant_modules (tenant_id, module) values (v_ta, 'insurance'), (v_tb, 'insurance');
   insert into staff_roles (tenant_id, user_id, module, role) values
     (v_ta, u_mgr,   'insurance', 'manager'),
     (v_ta, u_mem,   'insurance', 'member'),
-    (v_tb, u_mgr_b, 'insurance', 'manager');
+    (v_ta, u_appr,  'insurance', 'manager'),
+    (v_tb, u_mgr_b, 'insurance', 'manager'),
+    (v_tb, u_appr_b, 'insurance', 'manager');
   insert into finance_team_members (tenant_id, user_id, role) values (v_ta, u_fin, 'finance');
 
   insert into gl_accounts (tenant_id, account_code, name, account_type) values (v_ta, '1000', 'Operating Bank', 'asset') returning id into g_bank;
@@ -540,7 +555,9 @@ begin
   set local role authenticated;
   cl_t := pg_temp.newclaim(pb.id, 50000);
   perform ins_transition_claim(cl_t.id, 'assessing');
+  perform pg_temp.jwt(u_appr_b);
   perform ins_transition_claim(cl_t.id, 'approved', null, 50000);
+  perform pg_temp.jwt(u_mgr_b);
   perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, %L)', cl_t.id, 'BETA-CONF-1'),
                                'INS_POSTING_RULE_MISSING', 'recognition without the claim posting roles');
   reset role;
@@ -551,6 +568,65 @@ begin
                          and pg_temp.scalar(format('select count(*) from journal_entries where tenant_id = %L and source_type = ''ins_claim_accrual''', v_tb)) = 0,
                          'approval is allowed without the posting roles; a refused recognition leaves the items and the ledger untouched');
   raise notice 'PASS: approval needs no claim posting roles; recognition stops cleanly when they are missing';
+
+  -------------------------------------------------------------------
+  -- 12b. Segregation of duties and un-approval
+  -------------------------------------------------------------------
+  -- The registrant cannot approve their own claim.
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  cl_u := pg_temp.newclaim(pa.id, 300000);
+  perform ins_transition_claim(cl_u.id, 'assessing', null);
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''approved'', ''ok'', 300000)', cl_u.id),
+                               'INS_SEGREGATION', 'the registrant approving their own claim');
+  perform pg_temp.assert((select status from ins_claims where id = cl_u.id) = 'assessing',
+                         'a refused self-approval leaves the claim assessing');
+
+  -- Another manager approves; the registrant then un-approves before anything is recognised or paid.
+  perform pg_temp.jwt(u_appr);
+  cl_u := ins_transition_claim(cl_u.id, 'approved', 'ok', 300000);
+  perform pg_temp.jwt(u_mgr);
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'', null)', cl_u.id),
+                               'INS_NOTE_REQUIRED', 'un-approving without a reason');
+  perform pg_temp.jwt(u_mem);
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'', ''wrong amount'')', cl_u.id),
+                               'INS_FORBIDDEN', 'a member un-approving a claim');
+  perform pg_temp.jwt(u_mgr);
+  cl_u := ins_transition_claim(cl_u.id, 'assessing', 'Wrong amount, reassessing');
+  perform pg_temp.assert(cl_u.status = 'assessing' and cl_u.approved_amount is null and cl_u.payment_mode is null,
+                         'un-approval clears the decision');
+  perform pg_temp.assert(exists (select 1 from ins_claim_events
+                                  where claim_id = cl_u.id and from_status = 'approved' and to_status = 'assessing'
+                                    and note = 'Wrong amount, reassessing'),
+                         'un-approval is recorded in the claim history');
+
+  -- It can be approved again, with a new amount, by the approver.
+  perform pg_temp.jwt(u_appr);
+  cl_u := ins_transition_claim(cl_u.id, 'approved', 'ok', 150000);
+  perform pg_temp.assert(cl_u.status = 'approved' and cl_u.approved_amount = 150000,
+                         're-approval after un-approval takes the new amount');
+  perform pg_temp.jwt(u_mgr);
+
+  -- A payment blocks un-approval.
+  r1 := ins_record_claim_payment(cl_u.id, 50000, current_date, 'ALPHA-UNAP-1');
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'', ''change of mind'')', cl_u.id),
+                               'INS_CLAIM_PAID', 'un-approving after a payment');
+
+  -- A recognised receivable blocks un-approval. Recognition needs posting roles this fixture does not
+  -- set up, so recognised_at is set directly as the owner to simulate it (no entries are involved here).
+  cl_r := pg_temp.newclaim(pa.id, 100000);
+  perform pg_temp.jwt(u_mgr);
+  perform ins_transition_claim(cl_r.id, 'assessing', null);
+  perform pg_temp.jwt(u_appr);
+  cl_r := ins_transition_claim(cl_r.id, 'approved', 'ok', 100000);
+  perform pg_temp.jwt(u_mgr);
+  reset role;
+  update ins_claims set recognised_at = now() where id = cl_r.id;
+  set local role authenticated;
+  perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'', ''change of mind'')', cl_r.id),
+                               'INS_CLAIM_RECOGNISED', 'un-approving a recognised claim');
+  reset role;
+  raise notice 'PASS: segregation refuses self-approval; un-approval needs a manager, a reason, and no recognition or payment';
 
   -------------------------------------------------------------------
   -- 13. Lockout, isolation, anon, roles and template

@@ -69,6 +69,7 @@ do $$
 declare
   ta uuid:=gen_random_uuid(); tb uuid:=gen_random_uuid(); maker uuid:=gen_random_uuid(); checker uuid:=gen_random_uuid();
   reconciler uuid:=gen_random_uuid(); manager uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); other_fin uuid:=gen_random_uuid();
+  approver uuid:=gen_random_uuid();
   trust_gl uuid; bank_gl uuid; ar_gl uuid; pay_gl uuid; unearned_gl uuid; income_gl uuid;
   trust uuid; operating uuid; otherbank uuid; line_id uuid; insurer uuid; premium_item uuid; payable_item uuid;
   c ins_clients%rowtype; p ins_policies%rowtype; p2 ins_policies%rowtype; draft ins_policies%rowtype;
@@ -84,13 +85,13 @@ begin
   insert into tenants(id,name) values(ta,'Premium cash test A'),(tb,'Premium cash test B');
   insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,aud,role,created_at,updated_at)
     select u,'premium-'||u||'@test.local','{}','{}','authenticated','authenticated',now(),now()
-    from unnest(array[maker,checker,reconciler,manager,outsider,other_fin]) u;
+    from unnest(array[maker,checker,reconciler,manager,outsider,other_fin,approver]) u;
   insert into app_users(id,tenant_id,name,email)
     select u,case when u=other_fin then tb else ta end,'Premium cash test actor','premium-'||u||'@test.local'
-    from unnest(array[maker,checker,reconciler,manager,outsider,other_fin]) u;
+    from unnest(array[maker,checker,reconciler,manager,outsider,other_fin,approver]) u;
   insert into finance_team_members(tenant_id,user_id,role) values(ta,maker,'finance'),(ta,checker,'finance'),(ta,reconciler,'finance'),(tb,other_fin,'finance');
   insert into tenant_modules(tenant_id,module) values(ta,'insurance'),(tb,'insurance');
-  insert into staff_roles(tenant_id,user_id,module,role) values(ta,manager,'insurance','manager');
+  insert into staff_roles(tenant_id,user_id,module,role) values(ta,manager,'insurance','manager'),(ta,approver,'insurance','manager');
   insert into gl_accounts(tenant_id,account_code,name,account_type) values(ta,'1000','Operating','asset') returning id into bank_gl;
   insert into gl_accounts(tenant_id,account_code,name,account_type) values(ta,'1020','Client money','asset') returning id into trust_gl;
   insert into gl_accounts(tenant_id,account_code,name,account_type) values(ta,'1100','AR','asset') returning id into ar_gl;
@@ -162,7 +163,10 @@ begin
   perform pg_temp.jwt(manager); set local role authenticated;
   cn:=ins_create_claim(draft.id,current_date,current_date,'Lead insurer claim',null,100);
   perform ins_transition_claim(cn.id,'assessing');
+  -- Registered by the manager, approved by a different manager (segregation of duties).
+  perform pg_temp.jwt(approver);
   cn:=ins_transition_claim(cn.id,'approved','Lead insurer assessment',100);
+  perform pg_temp.jwt(manager);
   perform pg_temp.assert(cn.payment_mode='insurer_direct','claims remain based on the lead insurer, not a co-insurer');
   perform pg_temp.expect_error(format('select ins_set_policy_financial_configuration(%L,%L::jsonb,%L::jsonb)',draft.id,config,charge_config),'INS_FINANCIAL_IMMUTABLE','bound configuration cannot be reset');
   v:=ins_policy_reversal_eligibility(draft.id);

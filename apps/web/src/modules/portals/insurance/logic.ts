@@ -11,7 +11,7 @@ import type {
 export const CLAIM_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   notified: ['assessing', 'repudiated'],
   assessing: ['approved', 'repudiated'],
-  approved: ['settled'],
+  approved: ['settled', 'assessing'],
   settled: ['closed'],
   repudiated: ['closed'],
   closed: [],
@@ -19,6 +19,19 @@ export const CLAIM_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
 
 /** Decisions that need admin or manager rights on the server. */
 export const CLAIM_DECISION_STATUSES: ClaimStatus[] = ['approved', 'settled', 'repudiated', 'closed'];
+
+/** Segregation of duties: the person who registered a claim cannot approve it. The server enforces this too. */
+export function isClaimApprovalBlockedFor(claim: { created_by?: string | null }, userId: string | null): boolean {
+  return !!claim.created_by && userId !== null && claim.created_by === userId;
+}
+
+/** Un-approval is a manager decision, and only before anything is recognised or paid. */
+export function canUnapproveClaim(
+  claim: { status: ClaimStatus; recognised_at?: string | null; paid_amount: number },
+  canManage: boolean,
+): boolean {
+  return canManage && claim.status === 'approved' && !claim.recognised_at && claim.paid_amount === 0;
+}
 
 export function nextClaimStatuses(from: ClaimStatus): ClaimStatus[] {
   return CLAIM_TRANSITIONS[from] ?? [];

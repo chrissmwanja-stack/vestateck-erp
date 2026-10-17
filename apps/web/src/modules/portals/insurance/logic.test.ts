@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { CommissionEntry, Policy } from './types';
 import {
   buildCommissionStatement,
+  canUnapproveClaim,
   claimRemainingToPay,
+  isClaimApprovalBlockedFor,
   commissionSplit,
   daysBetween,
   formatMoney,
@@ -31,9 +33,28 @@ describe('claim lifecycle (mirrors ins_transition_claim)', () => {
 
   it('refuses skips, reversals and moves out of closed', () => {
     expect(isClaimTransitionAllowed('notified', 'approved')).toBe(false);
-    expect(isClaimTransitionAllowed('approved', 'assessing')).toBe(false);
     expect(isClaimTransitionAllowed('repudiated', 'approved')).toBe(false);
     expect(nextClaimStatuses('closed')).toEqual([]);
+  });
+
+  it('allows un-approval back to assessing, but only through the rule below', () => {
+    expect(isClaimTransitionAllowed('approved', 'assessing')).toBe(true);
+  });
+
+  it('blocks the registrant from approving their own claim, and only them', () => {
+    expect(isClaimApprovalBlockedFor({ created_by: 'u1' }, 'u1')).toBe(true);
+    expect(isClaimApprovalBlockedFor({ created_by: 'u1' }, 'u2')).toBe(false);
+    expect(isClaimApprovalBlockedFor({ created_by: 'u1' }, null)).toBe(false);
+    expect(isClaimApprovalBlockedFor({ created_by: null }, 'u1')).toBe(false);
+  });
+
+  it('offers un-approval only to a manager, before recognition and before any payment', () => {
+    const base = { status: 'approved' as const, recognised_at: null, paid_amount: 0 };
+    expect(canUnapproveClaim(base, true)).toBe(true);
+    expect(canUnapproveClaim(base, false)).toBe(false);
+    expect(canUnapproveClaim({ ...base, recognised_at: '2026-10-17T10:00:00Z' }, true)).toBe(false);
+    expect(canUnapproveClaim({ ...base, paid_amount: 100 }, true)).toBe(false);
+    expect(canUnapproveClaim({ ...base, status: 'assessing' }, true)).toBe(false);
   });
 
   it('treats only notified, assessing and approved as open', () => {
