@@ -205,6 +205,26 @@ If commission has already been transferred to the operating bank, the clawback i
 - The bank must be a client-money bank.
 - Voiding a receipt or payout uses the Finance settlement void, which reverses its journal. Voids are refused on a closed claim.
 
+### 5.10 Claim controls (`20261017110000`, `20261017120000`)
+
+Proposed, for the accountant to confirm.
+
+- **Recognition criteria.** A brokerage-managed claim stays "approved, pending settlement" until a manager records the insurer's written confirmation that it will pay the brokerage. The confirmation reference is required and stored on the claim history. Only then does the journal in section 5.4 post. Claims approved before `20261017110000` were accrued at approval and are treated as recognised.
+- **Segregation of duties.** The person who registered a claim cannot approve it. Recognition and payment are not restricted by this rule.
+- **Un-approval.** An approved claim can return to "assessing" with a reason, but only while nothing has been recognised and nothing has been paid. Nothing is reversed, because nothing was posted. After recognition or any payment, un-approval is refused.
+- **Not built:** withdrawal, overpayment and recovery of a recognised claim (accountant answer 22), and excess or deductible handling (answer 21).
+
+### 5.11 Foreign currency (Phase A3, in progress)
+
+Built so far, with no effect on any company that has no foreign-currency lines (every company is UGX today, and no module yet passes a currency to the posting gateway):
+
+- **Functional currency and rates** (`20261016140000`). Each company has a functional currency (UGX when unset), locked once the company has posted a journal. Exchange rates are dated, entered as a draft, approved by a different person, never edited once approved, and corrected by a correcting entry. A missing rate raises `FX_RATE_MISSING`. A rate older than the approved maximum age raises `FX_RATE_STALE`, and there is deliberately no default age.
+- **Base-currency rounding** (`20261016180000`). Base amounts are rounded per line, so a journal that balances in its own currency can differ by a cent in base currency. The system adds a rounding line to the `fx_rounding` account (template default 5900 "Foreign Exchange Rounding", a code chosen for the accountant to confirm). It does this only within what per-line rounding can produce, and larger differences are refused (`JOURNAL_BASE_UNBALANCED`). Rounding differences do not go to FX gain or loss.
+- **Void at the original rate** (`20261017140000`). A voided foreign journal reverses each line at its original currency and rate, so base amounts net to zero and a reversed rounding line stays flagged as rounding.
+- **Ledger view** (`20261017130000`). The general ledger view shows rate and base debit and credit.
+
+Not built: realised gain or loss at settlement, period-end revaluation at the closing rate, foreign-currency open items, settlements and bank reconciliation. The expected policy (transaction-date rate at recognition, closing rate for monetary items, differences to profit and loss, original rates never overwritten) is recorded in `ROADMAP.md` section 6 and is not yet implemented or signed off.
+
 ## 6. Reporting
 
 - Broker fee tax report: `ins_broker_fee_tax_report` (a view). Broker-fee credit rows for cancellations are dated at posting.
@@ -224,8 +244,10 @@ Sections 5.6 to 5.9 were added after the 11 October review. They summarise the p
 | Section 4, open question 2 (commission timing) | | |
 | Section 4, open question 3 (net-of-commission) | | |
 | Section 4, open question 4 (account names, VAT/WHT) | | |
-| Section 5.1 to 5.9 | | |
+| Section 5.1 to 5.11 | | |
 | Sections 5.6 to 5.9 (premium cash, co-insurance and VAT, cancellations, claim payments) | | |
+| Section 5.10 (claim recognition criteria, segregation of duties, un-approval) | | |
+| Section 5.11 (foreign currency: rounding account 5900, void at original rate) | | |
 
 Accountant name: ______________________ Date: ____________ Signature: ______________________
 
