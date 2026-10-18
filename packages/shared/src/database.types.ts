@@ -16592,6 +16592,10 @@ export type Database = {
         Args: { p_reconciliation_id: string }
         Returns: undefined
       }
+      platform_ins_line_needs_certificate: {
+        Args: { p_line_id: string; p_tenant_id: string }
+        Returns: boolean
+      }
       platform_ins_policy_cash_legacy_totals: {
         Args: { p_policy_id: string }
         Returns: Json
