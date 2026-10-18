@@ -4,6 +4,7 @@ import {
   MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField, Stack,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { allRows, errorText, rpc, table } from '../../db';
 import type { InsClient } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -13,6 +14,7 @@ import { EMPTY_CLIENT_FILTERS, countActive, filterClients, type ClientFilters } 
 const EMPTY = { name: '', client_type: 'corporate', tax_id: '', email: '', phone: '', risk_rating: 'medium' };
 
 export default function ClientsList() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<InsClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export default function ClientsList() {
                 <EmptyRow colSpan={6} text={clients.length === 0 ? 'No clients yet.' : 'No clients match these filters.'} />
               ) : (
                 visible.map((c) => (
-                  <TableRow key={c.id} hover>
+                  <TableRow key={c.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/insurance/clients/${c.id}`)}>
                     <TableCell sx={{ fontWeight: 600 }}>{c.bd_clients?.name ?? '-'}</TableCell>
                     <TableCell sx={{ textTransform: 'capitalize' }}>{c.client_type}</TableCell>
                     <TableCell>{c.tax_id ?? '-'}</TableCell>

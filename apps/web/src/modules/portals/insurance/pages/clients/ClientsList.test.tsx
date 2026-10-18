@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClientsList from './ClientsList';
 
@@ -31,7 +32,7 @@ beforeEach(() => {
 
 describe('ClientsList search and filters', () => {
   it('finds a client by name, tax ID or phone', async () => {
-    render(<ClientsList />);
+    render(<MemoryRouter><ClientsList /></MemoryRouter>);
     await screen.findByText('Acme Ltd');
     await userEvent.type(screen.getByLabelText('Search'), 'jane');
     expect(names()).toEqual(['Jane Doe']);
@@ -44,7 +45,7 @@ describe('ClientsList search and filters', () => {
   });
 
   it('filters by KYC status, so expired and pending clients can be chased', async () => {
-    render(<ClientsList />);
+    render(<MemoryRouter><ClientsList /></MemoryRouter>);
     await screen.findByText('Acme Ltd');
     await userEvent.click(screen.getByLabelText('KYC'));
     await userEvent.click(await screen.findByRole('option', { name: 'Expired' }));
@@ -53,7 +54,7 @@ describe('ClientsList search and filters', () => {
   });
 
   it('combines risk and type, and clear filters restores the list', async () => {
-    render(<ClientsList />);
+    render(<MemoryRouter><ClientsList /></MemoryRouter>);
     await screen.findByText('Acme Ltd');
     await userEvent.click(screen.getByLabelText('Risk'));
     await userEvent.click(await screen.findByRole('option', { name: 'High' }));
