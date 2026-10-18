@@ -63,6 +63,8 @@ export interface ProductLine {
   name: string;
   class: 'general' | 'life' | 'health';
   is_active: boolean;
+  /** Policies on this line need an issued certificate before they can be bound. A line coded MOTOR always does. */
+  requires_certificate: boolean;
 }
 
 export interface Insurer {

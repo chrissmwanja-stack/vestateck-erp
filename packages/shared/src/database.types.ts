@@ -6463,6 +6463,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          requires_certificate: boolean
           tenant_id: string
         }
         Insert: {
@@ -6472,6 +6473,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          requires_certificate?: boolean
           tenant_id: string
         }
         Update: {
@@ -6481,6 +6483,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          requires_certificate?: boolean
           tenant_id?: string
         }
         Relationships: [

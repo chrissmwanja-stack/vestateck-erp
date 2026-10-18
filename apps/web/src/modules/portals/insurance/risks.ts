@@ -12,6 +12,25 @@ export type RiskType = (typeof RISK_TYPES)[number]['value'];
 
 export const MOTOR_LINE_CODE = 'MOTOR';
 
+export interface CertificateLine {
+  code: string;
+  requires_certificate?: boolean | null;
+}
+
+/**
+ * Whether policies on a product line need an issued certificate before binding, and their risks
+ * must be vehicles with a chassis number. Mirrors platform_ins_line_needs_certificate on the
+ * server: the flag on the line, or the code MOTOR, which always needs one.
+ */
+export function lineNeedsCertificate(line: CertificateLine | null | undefined): boolean {
+  return !!line && (line.requires_certificate === true || line.code === MOTOR_LINE_CODE);
+}
+
+/** A line that looks like motor business by its code or name, to prompt the admin to check the flag. */
+export function looksLikeMotorLine(code: string, name: string): boolean {
+  return /^MOT/i.test(code.trim()) || /motor|vehicle|automobile/i.test(name);
+}
+
 export const CERTIFICATE_STATUS_LABEL: Record<string, string> = {
   in_stock: 'In stock',
   issued: 'Issued',
@@ -47,10 +66,10 @@ export const EMPTY_RISK_FORM: RiskForm = {
 };
 
 /** Returns the first problem with a risk form, or null when it can be saved. */
-export function validateRisk(form: RiskForm, lineCode: string | null | undefined): string | null {
+export function validateRisk(form: RiskForm, line: CertificateLine | null | undefined): string | null {
   if (!form.description.trim()) return 'Describe the risk.';
-  if (lineCode === MOTOR_LINE_CODE) {
-    if (form.riskType !== 'vehicle') return 'A motor product line needs a vehicle risk.';
+  if (lineNeedsCertificate(line)) {
+    if (form.riskType !== 'vehicle') return 'A product line that needs a certificate needs a vehicle risk.';
     if (!form.chassisNo.trim()) return 'A vehicle needs a chassis number.';
   }
   if (form.yearMade.trim()) {

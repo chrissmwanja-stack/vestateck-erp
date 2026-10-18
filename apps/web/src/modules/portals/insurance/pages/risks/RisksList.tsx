@@ -8,10 +8,10 @@ import { allRows, errorText, rows, rpc, table } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import type { InsRisk } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
-import { EMPTY_RISK_FORM, RISK_TYPES, validateRisk, type RiskForm } from '../../risks';
+import { EMPTY_RISK_FORM, RISK_TYPES, lineNeedsCertificate, validateRisk, type RiskForm } from '../../risks';
 
 interface ClientOption { id: string; bd_clients: { name: string } | null }
-interface LineOption { id: string; code: string; name: string }
+interface LineOption { id: string; code: string; name: string; requires_certificate: boolean }
 
 export default function RisksList() {
   const { canManage } = useInsuranceAccess();
@@ -35,7 +35,7 @@ export default function RisksList() {
           .select('id, client_id, product_line_id, risk_type, description, reg_no, chassis_no, engine_no, make, model, year_made, sum_insured, status, ins_clients(client_id, bd_clients(name)), ins_product_lines(code, name)')
           .order('created_at', { ascending: false }).order('id')),
         rows<ClientOption>(table('ins_clients').select('id, bd_clients(name)').order('created_at', { ascending: false })),
-        rows<LineOption>(table('ins_product_lines').select('id, code, name').eq('is_active', true).order('name', { ascending: true })),
+        rows<LineOption>(table('ins_product_lines').select('id, code, name, requires_certificate').eq('is_active', true).order('name', { ascending: true })),
       ]);
       setRisks(r);
       setClients(c);
@@ -53,7 +53,7 @@ export default function RisksList() {
   }, [load]);
 
   const selectedLine = useMemo(() => lines.find((l) => l.id === lineId) ?? null, [lines, lineId]);
-  const validation = clientId && lineId ? validateRisk(form, selectedLine?.code) : 'Choose a client and a product line.';
+  const validation = clientId && lineId ? validateRisk(form, selectedLine) : 'Choose a client and a product line.';
 
   const save = async () => {
     setSaving(true);
@@ -103,7 +103,7 @@ export default function RisksList() {
     <Box sx={{ p: 3, maxWidth: 1200 }}>
       <PageHeader
         title="Insured risks"
-        subtitle={`${risks.length} risks. A motor policy needs a vehicle risk and an issued certificate before it can be bound.`}
+        subtitle={`${risks.length} risks. A policy on a line that needs a certificate (motor, for example) needs a vehicle risk and an issued certificate before it can be bound.`}
         actions={canManage ? <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>New risk</Button> : undefined}
       />
       <ErrorBanner message={error} />
@@ -162,7 +162,7 @@ export default function RisksList() {
             <TextField select label="Product line" required value={lineId} onChange={(e) => {
               setLineId(e.target.value);
               const picked = lines.find((l) => l.id === e.target.value);
-              if (picked?.code === 'MOTOR') setForm({ ...form, riskType: 'vehicle' });
+              if (lineNeedsCertificate(picked)) setForm({ ...form, riskType: 'vehicle' });
             }}>
               {lines.map((l) => <MenuItem key={l.id} value={l.id}>{l.code} - {l.name}</MenuItem>)}
             </TextField>

@@ -3,6 +3,7 @@ import { Alert, Button, Card, CardContent, MenuItem, Stack, TextField, Typograph
 import { errorText, rows, rpc, table } from '../../db';
 import { ErrorBanner } from '../../shared';
 import type { InsCertificate, InsRisk } from '../../types';
+import { lineNeedsCertificate } from '../../risks';
 
 interface LinkedRisk { risk_id: string; ins_risks: InsRisk | null }
 
@@ -20,7 +21,7 @@ export default function PolicyRisksCard({
   canManage: boolean;
   onChanged?: () => void;
 }) {
-  const [motor, setMotor] = useState(false);
+  const [needsCertificate, setNeedsCertificate] = useState(false);
   const [linked, setLinked] = useState<LinkedRisk[]>([]);
   const [clientRisks, setClientRisks] = useState<InsRisk[]>([]);
   const [attached, setAttached] = useState<InsCertificate | null>(null);
@@ -32,8 +33,8 @@ export default function PolicyRisksCard({
 
   const load = useCallback(async () => {
     try {
-      const line = await rows<{ code: string }>(table('ins_product_lines').select('code').eq('id', productLineId));
-      setMotor(line[0]?.code === 'MOTOR');
+      const line = await rows<{ code: string; requires_certificate: boolean }>(table('ins_product_lines').select('code, requires_certificate').eq('id', productLineId));
+      setNeedsCertificate(lineNeedsCertificate(line[0]));
       const [lr, risks, att, avail] = await Promise.all([
         rows<LinkedRisk>(table('ins_policy_risks').select('risk_id, ins_risks(id, client_id, risk_type, description, reg_no, chassis_no, status, sum_insured, product_line_id, engine_no, make, model, year_made, ins_clients(client_id, bd_clients(name)), ins_product_lines(code, name))').eq('policy_id', policyId)),
         rows<InsRisk>(table('ins_risks').select('id, client_id, risk_type, description, reg_no, chassis_no, status').eq('client_id', clientId).eq('status', 'active').order('created_at', { ascending: false })),
@@ -115,16 +116,16 @@ export default function PolicyRisksCard({
           </Stack>
         )}
 
-        {motor && (
+        {needsCertificate && (
           <>
-            <Typography variant="subtitle2" gutterBottom>Motor certificate</Typography>
+            <Typography variant="subtitle2" gutterBottom>Certificate</Typography>
             {attached ? (
               <Alert severity="success" sx={{ mb: 1 }}>
                 Certificate {attached.serial_no} is attached. It is used when the policy is bound.
               </Alert>
             ) : (
               <Alert severity="warning" sx={{ mb: 1 }}>
-                A motor policy cannot be bound until an issued certificate is attached to it.
+                This product line needs a certificate: the policy cannot be bound until an issued certificate is attached to it.
               </Alert>
             )}
             {canManage && !attached && (

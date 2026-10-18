@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EMPTY_RISK_FORM, canCloseCertificate, countCertificatesByStatus, firstSerial, validateCertificateRange, validateRisk,
+  EMPTY_RISK_FORM, lineNeedsCertificate, looksLikeMotorLine, canCloseCertificate, countCertificatesByStatus, firstSerial, validateCertificateRange, validateRisk,
   type CertificateRange, type RiskForm,
 } from './risks';
 
@@ -9,24 +9,24 @@ const range = (over: Partial<CertificateRange>): CertificateRange => ({ prefix: 
 
 describe('validateRisk', () => {
   it('needs a description', () => {
-    expect(validateRisk({ ...base, description: '  ' }, 'PROP')).toMatch(/Describe/);
+    expect(validateRisk({ ...base, description: '  ' }, { code: 'PROP' })).toMatch(/Describe/);
   });
 
   it('requires a vehicle and a chassis number on a motor line', () => {
-    expect(validateRisk({ ...base, riskType: 'property' }, 'MOTOR')).toMatch(/vehicle risk/);
-    expect(validateRisk({ ...base, chassisNo: ' ' }, 'MOTOR')).toMatch(/chassis/);
-    expect(validateRisk(base, 'MOTOR')).toBeNull();
+    expect(validateRisk({ ...base, riskType: 'property' }, { code: 'MOTOR' })).toMatch(/vehicle risk/);
+    expect(validateRisk({ ...base, chassisNo: ' ' }, { code: 'MOTOR' })).toMatch(/chassis/);
+    expect(validateRisk(base, { code: 'MOTOR' })).toBeNull();
   });
 
   it('allows a property risk with no chassis on a non-motor line', () => {
-    expect(validateRisk({ ...base, riskType: 'property', chassisNo: '' }, 'PROP')).toBeNull();
+    expect(validateRisk({ ...base, riskType: 'property', chassisNo: '' }, { code: 'PROP' })).toBeNull();
   });
 
   it('checks year and sum insured when given', () => {
-    expect(validateRisk({ ...base, yearMade: '1800' }, 'MOTOR')).toMatch(/Year/);
-    expect(validateRisk({ ...base, yearMade: '2019.5' }, 'MOTOR')).toMatch(/Year/);
-    expect(validateRisk({ ...base, sumInsured: '-1' }, 'MOTOR')).toMatch(/negative/);
-    expect(validateRisk({ ...base, yearMade: '2019', sumInsured: '1000000' }, 'MOTOR')).toBeNull();
+    expect(validateRisk({ ...base, yearMade: '1800' }, { code: 'MOTOR' })).toMatch(/Year/);
+    expect(validateRisk({ ...base, yearMade: '2019.5' }, { code: 'MOTOR' })).toMatch(/Year/);
+    expect(validateRisk({ ...base, sumInsured: '-1' }, { code: 'MOTOR' })).toMatch(/negative/);
+    expect(validateRisk({ ...base, yearMade: '2019', sumInsured: '1000000' }, { code: 'MOTOR' })).toBeNull();
   });
 });
 
@@ -74,3 +74,43 @@ describe('certificate helpers', () => {
     expect(canCloseCertificate({ status: 'used', policy_id: 'p1' })).toBe(false);
   });
 });
+
+describe('lineNeedsCertificate (mirrors platform_ins_line_needs_certificate)', () => {
+  it('needs a certificate when the line says so, whatever its code', () => {
+    expect(lineNeedsCertificate({ code: 'MOT', requires_certificate: true })).toBe(true);
+    expect(lineNeedsCertificate({ code: 'MOTORS', requires_certificate: true })).toBe(true);
+  });
+  it('does not when the flag is off or missing on any other code', () => {
+    expect(lineNeedsCertificate({ code: 'MOT', requires_certificate: false })).toBe(false);
+    expect(lineNeedsCertificate({ code: 'FIRE' })).toBe(false);
+    expect(lineNeedsCertificate({ code: 'MOT', requires_certificate: null })).toBe(false);
+  });
+  it('always needs one for the code MOTOR, even with the flag off', () => {
+    expect(lineNeedsCertificate({ code: 'MOTOR', requires_certificate: false })).toBe(true);
+    expect(lineNeedsCertificate({ code: 'MOTOR' })).toBe(true);
+  });
+  it('is false when there is no line', () => {
+    expect(lineNeedsCertificate(null)).toBe(false);
+    expect(lineNeedsCertificate(undefined)).toBe(false);
+  });
+  it('holds a flagged line to the vehicle rules', () => {
+    expect(validateRisk({ ...base, riskType: 'property' }, { code: 'MOT', requires_certificate: true })).toMatch(/vehicle risk/);
+    expect(validateRisk({ ...base, chassisNo: '' }, { code: 'MOT', requires_certificate: true })).toMatch(/chassis/);
+    expect(validateRisk({ ...base, riskType: 'property', chassisNo: '' }, { code: 'MOT', requires_certificate: false })).toBeNull();
+  });
+});
+
+describe('looksLikeMotorLine', () => {
+  it('spots motor business by code or name', () => {
+    expect(looksLikeMotorLine('MOT', 'Cars')).toBe(true);
+    expect(looksLikeMotorLine('MOTORS', 'Anything')).toBe(true);
+    expect(looksLikeMotorLine('FLEET', 'Motor Fleet')).toBe(true);
+    expect(looksLikeMotorLine('VEH', 'Vehicle cover')).toBe(true);
+  });
+  it('leaves other lines alone', () => {
+    expect(looksLikeMotorLine('FIRE', 'Fire and allied perils')).toBe(false);
+    expect(looksLikeMotorLine('MED', 'Medical')).toBe(false);
+    expect(looksLikeMotorLine('LIFE', 'Group life')).toBe(false);
+  });
+});
+
