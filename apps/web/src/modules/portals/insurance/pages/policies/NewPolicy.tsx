@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { errorText, rows, rpc, table } from '../../db';
+import { draftUpdate } from '../../policyDraft';
 import { commissionSplit, formatMoney, validatePolicyInput } from '../../logic';
-import type { InsClient, Insurer, ProductLine } from '../../types';
+import type { InsClient, Insurer, Policy, ProductLine } from '../../types';
 import { ErrorBanner, PageHeader } from '../../shared';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -14,9 +15,16 @@ const oneYearOn = () => {
   return d.toISOString().slice(0, 10);
 };
 
-// Creates a DRAFT policy. Binding (premium booking) is a separate, deliberate step on the detail page.
+// Creates a DRAFT policy, or edits one when the route has an id. Binding (premium booking) is a separate,
+// deliberate step on the detail page. Only drafts can be edited; the server locks a policy once it is bound.
 export default function NewPolicy() {
   const navigate = useNavigate();
+  const { id: editId } = useParams();
+  const editing = Boolean(editId);
+  const [policyNo, setPolicyNo] = useState('');
+  const [notDraft, setNotDraft] = useState(false);
+  // Saved insurer shares own the insurer and commission rate (see draftUpdate).
+  const [configured, setConfigured] = useState(false);
   const [clients, setClients] = useState<InsClient[]>([]);
   const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [products, setProducts] = useState<ProductLine[]>([]);
@@ -55,16 +63,37 @@ export default function NewPolicy() {
         setFunctional(own);
         setOtherCurrencies([...new Set(rates.map((r) => r.currency))].filter((cur) => cur !== own).sort());
         setForm((f) => ({ ...f, currency: own }));
+        let ins = i;
+        let prods = p;
+        if (editId) {
+          const [pol] = await rows<Policy>(table('ins_policies').select('*').eq('id', editId));
+          if (!pol) throw new Error('Policy not found.');
+          setPolicyNo(pol.policy_no);
+          if (pol.status !== 'draft') setNotDraft(true);
+          // A draft may point at an insurer or product line that has since been deactivated; keep it selectable.
+          if (!ins.some((x) => x.id === pol.insurer_id)) ins = [...ins, ...(await rows<Insurer>(table('ins_insurers').select('*').eq('id', pol.insurer_id)))];
+          if (!prods.some((x) => x.id === pol.product_line_id)) prods = [...prods, ...(await rows<ProductLine>(table('ins_product_lines').select('*').eq('id', pol.product_line_id)))];
+          const shares = await rows<{ id: string }>(table('ins_policy_insurer_shares').select('id').eq('policy_id', editId));
+          setConfigured(shares.length > 0);
+          setForm({
+            clientId: pol.client_id, insurerId: pol.insurer_id, productLineId: pol.product_line_id,
+            inception: pol.inception_date, expiry: pol.expiry_date, sumInsured: String(pol.sum_insured), currency: pol.currency,
+            grossPremium: String(pol.gross_premium), commissionRatePct: String(pol.commission_rate_pct),
+            riskDescription: pol.risk_description ?? '', notes: pol.notes ?? '',
+          });
+          // A draft saved in a currency that has since lost its rate must still show that currency.
+          if (pol.currency !== own) setOtherCurrencies((cur) => [...new Set([...cur, pol.currency])].sort());
+        }
         setClients(c);
-        setInsurers(i);
-        setProducts(p);
+        setInsurers(ins);
+        setProducts(prods);
       } catch (e) {
         setError(errorText(e));
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [editId]);
 
   const gross = Number(form.grossPremium) || 0;
   const rate = Number(form.commissionRatePct) || 0;
@@ -92,6 +121,13 @@ export default function NewPolicy() {
     setSaving(true);
     setError(null);
     try {
+      if (editId) {
+        // .select('id') returns the rows changed, so a policy bound meanwhile (no longer a draft) shows up as none.
+        const changed = await rows<{ id: string }>(table('ins_policies').update(draftUpdate(form, configured)).eq('id', editId).select('id'));
+        if (changed.length === 0) throw new Error('This policy is no longer a draft, so it cannot be edited.');
+        navigate(`/insurance/policies/${editId}`);
+        return;
+      }
       const row = await rpc<{ id: string }>('ins_create_policy', {
         p_client_id: form.clientId,
         p_insurer_id: form.insurerId,
@@ -120,8 +156,21 @@ export default function NewPolicy() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 900 }}>
-      <PageHeader title="New policy (draft)" subtitle="Saved as a draft. Nothing is booked until you bind it." />
+      <PageHeader
+        title={editing ? `Edit draft ${policyNo}` : 'New policy (draft)'}
+        subtitle={editing ? 'Changes are saved to the draft. Nothing is booked until you bind it.' : 'Saved as a draft. Nothing is booked until you bind it.'}
+      />
       <ErrorBanner message={error} />
+      {notDraft && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This policy has been bound, so it can no longer be edited here.
+        </Alert>
+      )}
+      {configured && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This draft has saved insurer shares. Change the insurer and commission in Financial configuration on the policy page.
+        </Alert>
+      )}
       {(noClients || noInsurers || noProducts) && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {noClients && 'Add a client first. '}
@@ -140,8 +189,8 @@ export default function NewPolicy() {
               </TextField>
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField select fullWidth label="Insurer" required value={form.insurerId} onChange={(e) => pickInsurer(e.target.value)}
-                helperText="Selecting an insurer pre-fills its default commission.">
+              <TextField select fullWidth label="Insurer" required value={form.insurerId} onChange={(e) => pickInsurer(e.target.value)} disabled={configured}
+                helperText={configured ? 'Set by the saved insurer shares.' : 'Selecting an insurer pre-fills its default commission.'}>
                 {insurers.map((i) => (
                   <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>
                 ))}
@@ -175,7 +224,7 @@ export default function NewPolicy() {
               <TextField fullWidth type="number" label="Gross premium" value={form.grossPremium} onChange={(e) => setForm({ ...form, grossPremium: e.target.value })} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
             <Grid item xs={6} md={3}>
-              <TextField fullWidth type="number" label="Commission (%)" value={form.commissionRatePct} onChange={(e) => setForm({ ...form, commissionRatePct: e.target.value })} inputProps={{ min: 0, max: 99.99, step: '0.01' }} />
+              <TextField fullWidth type="number" label="Commission (%)" disabled={configured} value={form.commissionRatePct} onChange={(e) => setForm({ ...form, commissionRatePct: e.target.value })} inputProps={{ min: 0, max: 99.99, step: '0.01' }} />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="Risk description" multiline minRows={2} value={form.riskDescription} onChange={(e) => setForm({ ...form, riskDescription: e.target.value })} />
@@ -206,9 +255,9 @@ export default function NewPolicy() {
             </Alert>
           )}
           <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 3 }}>
-            <Button onClick={() => navigate('/insurance/policies')}>Cancel</Button>
-            <Button variant="contained" onClick={save} disabled={saving || problems.length > 0}>
-              {saving ? 'Saving…' : 'Save draft'}
+            <Button onClick={() => navigate(editing ? `/insurance/policies/${editId}` : '/insurance/policies')}>Cancel</Button>
+            <Button variant="contained" onClick={save} disabled={saving || problems.length > 0 || notDraft}>
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Save draft'}
             </Button>
           </Stack>
         </CardContent>

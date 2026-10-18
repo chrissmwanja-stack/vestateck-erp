@@ -17,6 +17,7 @@ const ClientDetail = lazy(() => import('../modules/portals/insurance/pages/clien
 const InsurersList = lazy(() => import('../modules/portals/insurance/pages/insurers/InsurersList'));
 const PoliciesList = lazy(() => import('../modules/portals/insurance/pages/policies/PoliciesList'));
 const NewPolicy = lazy(() => import('../modules/portals/insurance/pages/policies/NewPolicy'));
+const EditPolicy = lazy(() => import('../modules/portals/insurance/pages/policies/NewPolicy'));
 const PolicyDetail = lazy(() => import('../modules/portals/insurance/pages/policies/PolicyDetail'));
 const RenewalsList = lazy(() => import('../modules/portals/insurance/pages/renewals/RenewalsList'));
 const ClaimsList = lazy(() => import('../modules/portals/insurance/pages/claims/ClaimsList'));
@@ -44,6 +45,7 @@ export const insuranceRoutes = (
       <Route path="/insurance/policies" element={<PoliciesList />} />
       <Route path="/insurance/policies/new" element={<NewPolicy />} />
       <Route path="/insurance/policies/:id" element={<PolicyDetail />} />
+      <Route path="/insurance/policies/:id/edit" element={<EditPolicy />} />
       <Route path="/insurance/renewals" element={<RenewalsList />} />
       <Route path="/insurance/claims" element={<ClaimsList />} />
       <Route path="/insurance/claims/new" element={<NewClaim />} />

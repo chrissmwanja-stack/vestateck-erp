@@ -116,6 +116,9 @@ const PolicyDetail = () => {
         actions={
           <Stack direction="row" spacing={1} alignItems="center">
             <PolicyStatusChip status={policy.status} />
+            {policy.status === 'draft' && (
+              <Button variant="outlined" onClick={() => navigate(`/insurance/policies/${id}/edit`)} disabled={busy}>Edit draft</Button>
+            )}
             {canManage && policy.status === 'draft' && (
               <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={busy || financialDirty || reviewPending || !financial}>Bind policy</Button>
             )}
