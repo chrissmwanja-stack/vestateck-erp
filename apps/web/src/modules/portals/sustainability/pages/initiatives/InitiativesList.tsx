@@ -3,17 +3,24 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogA
 import { Add, Edit, Delete, FileDownload, Download } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
-import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from "../../../../../lib/reportExport";
+import type { Tables, TablesInsert } from "@erp-platform/shared";
+
+type Initiative = Tables<"sustainability_initiatives"> & { sustainability_initiative_categories: { name: string } | null };
+type Category = Pick<Tables<"sustainability_initiative_categories">, "id" | "name">;
+
+// The API returns an embedded to-one relation as an object, but older responses wrapped it in an array.
+const toOne = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
 const emptyForm = { title: "", category_id: "", status: "planned", target_value: "", current_value: "", owner: "", start_date: "", end_date: "", description: "" };
 
 export default function InitiativesList() {
   const navigate = useNavigate();
-  const [initiatives, setInitiatives] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<Initiative | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +32,7 @@ export default function InitiativesList() {
       supabase.from("sustainability_initiative_categories").select("id, name").eq("is_active", true).order("name"),
     ]);
     if (iniRes.data) {
-      const norm = (iniRes.data as any[]).map((r: any) => ({ ...r, sustainability_initiative_categories: Array.isArray(r.sustainability_initiative_categories) ? r.sustainability_initiative_categories[0] ?? null : r.sustainability_initiative_categories ?? null }));
-      setInitiatives(norm);
+      setInitiatives(iniRes.data.map(r => ({ ...r, sustainability_initiative_categories: toOne(r.sustainability_initiative_categories) })));
     }
     if (catRes.data) setCategories(catRes.data);
     setLoading(false);
@@ -34,7 +40,7 @@ export default function InitiativesList() {
 
   useEffect(() => { fetchInitiatives(); }, []);
 
-  const getStatusColor = (s: string) => {
+  const getStatusColor = (s: string): "success" | "primary" | "warning" | "default" => {
     if (s === 'completed') return 'success';
     if (s === 'in_progress') return 'primary';
     if (s === 'on_hold') return 'warning';
@@ -51,7 +57,7 @@ export default function InitiativesList() {
     setError(null);
     setOpen(true);
   };
-  const openEdit = (row: any) => {
+  const openEdit = (row: Initiative) => {
     setEditing(row);
     setForm({
       title: row.title || "",
@@ -75,7 +81,7 @@ export default function InitiativesList() {
     if (form.current_value && isNaN(Number(form.current_value))) { setError("Current must be a number."); return; }
     if (form.start_date && form.end_date && form.start_date > form.end_date) { setError("Start cannot be after end."); return; }
     setSaving(true);
-    const payload: any = {
+    const payload: Omit<TablesInsert<"sustainability_initiatives">, "tenant_id"> & { tenant_id?: string } = {
       title: form.title.trim(),
       category_id: form.category_id || null,
       status: form.status,
@@ -90,9 +96,10 @@ export default function InitiativesList() {
     if (editing) res = await supabase.from("sustainability_initiatives").update(payload).eq("id", editing.id);
     else {
       const { data: tenantData } = await supabase.from("sustainability_initiative_categories").select("tenant_id").limit(1).single();
-      const tenant_id = (tenantData as any)?.tenant_id || initiatives[0]?.tenant_id;
+      const tenant_id = tenantData?.tenant_id || initiatives[0]?.tenant_id;
       if (tenant_id) payload.tenant_id = tenant_id;
-      res = await supabase.from("sustainability_initiatives").insert(payload);
+      // tenant_id is only absent when no tenant could be found; the database then decides, as before.
+      res = await supabase.from("sustainability_initiatives").insert(payload as TablesInsert<"sustainability_initiatives">);
     }
     setSaving(false);
     if (res.error) { setError(res.error.message); return; }
@@ -110,28 +117,28 @@ export default function InitiativesList() {
   };
 
   const handleExcel = () => {
-    const cols = [
-      { header: "Title", accessor: (r: any) => r.title },
-      { header: "Category", accessor: (r: any) => r.sustainability_initiative_categories?.name || "-" },
-      { header: "Status", accessor: (r: any) => r.status },
-      { header: "Owner", accessor: (r: any) => r.owner || "-" },
-      { header: "Target", accessor: (r: any) => r.target_value ?? "-" },
-      { header: "Current", accessor: (r: any) => r.current_value ?? "-" },
-      { header: "Progress %", accessor: (r: any) => getProgress(r.current_value, r.target_value).toFixed(0) },
-      { header: "Start", accessor: (r: any) => r.start_date || "-" },
-      { header: "End", accessor: (r: any) => r.end_date || "-" },
+    const cols: ReportExportColumn<Initiative>[] = [
+      { header: "Title", accessor: (r) => r.title },
+      { header: "Category", accessor: (r) => r.sustainability_initiative_categories?.name || "-" },
+      { header: "Status", accessor: (r) => r.status },
+      { header: "Owner", accessor: (r) => r.owner || "-" },
+      { header: "Target", accessor: (r) => r.target_value ?? "-" },
+      { header: "Current", accessor: (r) => r.current_value ?? "-" },
+      { header: "Progress %", accessor: (r) => getProgress(r.current_value, r.target_value).toFixed(0) },
+      { header: "Start", accessor: (r) => r.start_date || "-" },
+      { header: "End", accessor: (r) => r.end_date || "-" },
     ];
-    exportReportToExcel(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}`, "Initiatives", cols as any, initiatives);
+    exportReportToExcel(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}`, "Initiatives", cols, initiatives);
   };
   const handlePdf = () => {
-    const cols = [
-      { header: "Title", accessor: (r: any) => r.title },
-      { header: "Category", accessor: (r: any) => r.sustainability_initiative_categories?.name || "-" },
-      { header: "Status", accessor: (r: any) => r.status },
-      { header: "Target/Curr", accessor: (r: any) => `${r.current_value ?? "-"} / ${r.target_value ?? "-"}` },
-      { header: "Progress", accessor: (r: any) => `${getProgress(r.current_value, r.target_value).toFixed(0)}%` },
+    const cols: ReportExportColumn<Initiative>[] = [
+      { header: "Title", accessor: (r) => r.title },
+      { header: "Category", accessor: (r) => r.sustainability_initiative_categories?.name || "-" },
+      { header: "Status", accessor: (r) => r.status },
+      { header: "Target/Curr", accessor: (r) => `${r.current_value ?? "-"} / ${r.target_value ?? "-"}` },
+      { header: "Progress", accessor: (r) => `${getProgress(r.current_value, r.target_value).toFixed(0)}%` },
     ];
-    exportReportToPdf(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}.pdf`, "Sustainability Initiatives", cols as any, initiatives);
+    exportReportToPdf(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}.pdf`, "Sustainability Initiatives", cols, initiatives);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
@@ -147,9 +154,9 @@ export default function InitiativesList() {
           <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Quick Add</Button>
         </Box>
       </Box>
-      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Category</TableCell><TableCell>Status</TableCell><TableCell>Owner</TableCell><TableCell>Target / Current</TableCell><TableCell>Progress</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{initiatives.length === 0 ? <TableRow><TableCell colSpan={7} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No initiatives yet. Use Quick Add or Full Create Page — needs category lookup from Admin → Initiative Categories.</Typography></TableCell></TableRow> : initiatives.map((i: any) => {
+      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Title</TableCell><TableCell>Category</TableCell><TableCell>Status</TableCell><TableCell>Owner</TableCell><TableCell>Target / Current</TableCell><TableCell>Progress</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{initiatives.length === 0 ? <TableRow><TableCell colSpan={7} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No initiatives yet. Use Quick Add or Full Create Page — needs category lookup from Admin → Initiative Categories.</Typography></TableCell></TableRow> : initiatives.map((i) => {
         const progress = getProgress(i.current_value, i.target_value);
-        return <TableRow key={i.id} hover><TableCell><Typography fontWeight={600}>{i.title}</Typography><Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 300, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.description || ""}</Typography></TableCell><TableCell>{i.sustainability_initiative_categories?.name || "-"}</TableCell><TableCell><Chip label={i.status} size="small" color={getStatusColor(i.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell>{i.owner || "-"}</TableCell><TableCell>{i.current_value ?? "-"} / {i.target_value ?? "-"}</TableCell><TableCell><Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 120 }}><LinearProgress variant="determinate" value={progress} sx={{ flex: 1, height: 6, borderRadius: 1 }} color={progress >= 100 ? "success" : "primary"} /><Typography variant="caption">{progress.toFixed(0)}%</Typography></Box></TableCell><TableCell align="right"><Tooltip title="Edit"><IconButton size="small" aria-label="Edit initiative" onClick={() => openEdit(i)}><Edit fontSize="small" /></IconButton></Tooltip><Tooltip title="Delete"><IconButton size="small" aria-label="Delete initiative" onClick={() => handleDelete(i.id)}><Delete fontSize="small" /></IconButton></Tooltip></TableCell></TableRow>;
+        return <TableRow key={i.id} hover><TableCell><Typography fontWeight={600}>{i.title}</Typography><Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 300, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.description || ""}</Typography></TableCell><TableCell>{i.sustainability_initiative_categories?.name || "-"}</TableCell><TableCell><Chip label={i.status} size="small" color={getStatusColor(i.status)} sx={{ textTransform: "capitalize" }} /></TableCell><TableCell>{i.owner || "-"}</TableCell><TableCell>{i.current_value ?? "-"} / {i.target_value ?? "-"}</TableCell><TableCell><Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 120 }}><LinearProgress variant="determinate" value={progress} sx={{ flex: 1, height: 6, borderRadius: 1 }} color={progress >= 100 ? "success" : "primary"} /><Typography variant="caption">{progress.toFixed(0)}%</Typography></Box></TableCell><TableCell align="right"><Tooltip title="Edit"><IconButton size="small" aria-label="Edit initiative" onClick={() => openEdit(i)}><Edit fontSize="small" /></IconButton></Tooltip><Tooltip title="Delete"><IconButton size="small" aria-label="Delete initiative" onClick={() => handleDelete(i.id)}><Delete fontSize="small" /></IconButton></Tooltip></TableCell></TableRow>;
       })}</TableBody></Table></CardContent></Card>
 
       <Dialog open={open} onClose={() => !saving && setOpen(false)} maxWidth="md" fullWidth>
