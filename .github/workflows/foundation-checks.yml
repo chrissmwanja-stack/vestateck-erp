@@ -106,6 +106,27 @@ jobs:
       - name: Run unit tests
         run: npm run test --workspace=apps/web
 
+  # `any` ratchet: apps/web still has a few hundred `any` uses in older pages, which
+  # throw away the types generated from the database. This fails when a file gets MORE
+  # of them than apps/web/eslint-any-baseline.json allows (a new file allows none), and
+  # when a file gets fewer without the baseline being lowered, so progress is locked in.
+  # See scripts/check-any-ratchet.mjs and apps/web/eslint.config.js.
+  lint-any:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Check the no-explicit-any ratchet
+        run: npm run lint:any --workspace=apps/web
+
   db-shadow-replay:
     runs-on: ubuntu-latest
     steps:
