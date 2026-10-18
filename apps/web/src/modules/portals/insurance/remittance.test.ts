@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysPastDeadline, remittanceFacts, sortRemittanceRows, type RemittanceRow } from './remittance';
+import { chunk, daysPastDeadline, remittanceFacts, sortRemittanceRows, type RemittanceRow } from './remittance';
 
 const row = (over: Partial<RemittanceRow>): RemittanceRow => ({
   policy_id: 'p', policy_no: 'POL-1', insurer_id: 'i', unremitted_amount: 100, receipt_date: '2026-10-01', deadline_date: '2026-10-02', status: 'overdue', ...over,
@@ -26,5 +26,10 @@ describe('remittance report helpers', () => {
       row({ policy_no: 'E', status: 'due_today', deadline_date: '2026-10-17' }),
     ]);
     expect(sorted.map((r) => r.policy_no)).toEqual(['A', 'B', 'E', 'D', 'C']);
+  });
+  it('splits a list into groups no larger than the size, keeping order', () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunk([], 3)).toEqual([]);
+    expect(chunk([1, 2], 5)).toEqual([[1, 2]]);
   });
 });

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
+  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { allRows, errorText, rows, rpc, table } from '../../db';
 import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
-  REMITTANCE_STATUS_LABEL, REMITTANCE_STATUS_ORDER, daysPastDeadline, remittanceFacts, sortRemittanceRows, type RemittanceRow, type RemittanceStatus,
+  REMITTANCE_STATUS_LABEL, REMITTANCE_STATUS_ORDER, chunk, daysPastDeadline, remittanceFacts, sortRemittanceRows, type RemittanceRow, type RemittanceStatus,
 } from '../../remittance';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
@@ -28,7 +28,8 @@ export default function UnremittedPremium() {
   const [asOf, setAsOf] = useState(localIsoDate());
   const [items, setItems] = useState<RemittanceRow[]>([]);
   const [insurers, setInsurers] = useState<Map<string, string>>(new Map());
-  const [currencies, setCurrencies] = useState<Map<string, string>>(new Map());
+  const [policyFacts, setPolicyFacts] = useState<Map<string, { currency: string; client: string }>>(new Map());
+  const [insurerId, setInsurerId] = useState('all');
   const [functional, setFunctional] = useState('UGX');
   const [filter, setFilter] = useState<'all' | RemittanceStatus>('all');
   const [loading, setLoading] = useState(true);
@@ -37,15 +38,22 @@ export default function UnremittedPremium() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [report, ins, pol, settings] = await Promise.all([
-        rpc<RemittanceRow[]>('ins_unremitted_premium_report', { p_as_of: asOf }),
-        rows<{ id: string; name: string }>(table('ins_insurers').select('id, name')),
-        allRows<{ id: string; currency: string }>(() => table('ins_policies').select('id, currency').in('status', ['active', 'renewed']).order('id')),
+      const report = (await rpc<RemittanceRow[]>('ins_unremitted_premium_report', { p_as_of: asOf })) ?? [];
+      const [ins, pol, settings] = await Promise.all([
+        allRows<{ id: string; name: string }>(() => table('ins_insurers').select('id, name').order('id')),
+        // The report carries no currency or client, so look them up for just the policies in it.
+        Promise.all(
+          chunk(Array.from(new Set(report.map((r) => r.policy_id))), 150).map((ids) =>
+            rows<{ id: string; currency: string; ins_clients?: { bd_clients: { name: string } | null } | null }>(
+              table('ins_policies').select('id, currency, ins_clients(bd_clients(name))').in('id', ids),
+            ),
+          ),
+        ).then((pages) => pages.flat()),
         rows<{ functional_currency: string }>(table('tenant_ledger_settings').select('functional_currency')),
       ]);
-      setItems(report ?? []);
+      setItems(report);
       setInsurers(new Map(ins.map((i) => [i.id, i.name])));
-      setCurrencies(new Map(pol.map((p) => [p.id, p.currency])));
+      setPolicyFacts(new Map(pol.map((p) => [p.id, { currency: p.currency, client: p.ins_clients?.bd_clients?.name ?? '-' }])));
       setFunctional(settings[0]?.functional_currency ?? 'UGX');
       setError(null);
     } catch (e) {
@@ -60,15 +68,22 @@ export default function UnremittedPremium() {
     load();
   }, [asOf, load]);
 
-  const currencyOf = (r: RemittanceRow) => currencies.get(r.policy_id) ?? functional;
+  const currencyOf = (r: RemittanceRow) => policyFacts.get(r.policy_id)?.currency ?? functional;
   const facts = useMemo(() => remittanceFacts(items), [items]);
   const counts = useMemo(() => {
     const c = Object.fromEntries(REMITTANCE_STATUS_ORDER.map((s) => [s, 0])) as Record<RemittanceStatus, number>;
     for (const r of items) c[r.status] += 1;
     return c;
   }, [items]);
-  const visible = useMemo(() => sortRemittanceRows(items.filter((r) => filter === 'all' || r.status === filter)), [items, filter]);
-  const total = sumByCurrency(items, currencyOf, (r) => r.unremitted_amount, functional);
+  const insurerOptions = useMemo(
+    () => Array.from(new Set(items.map((r) => r.insurer_id))).map((id) => ({ id, name: insurers.get(id) ?? '-' })).sort((a, b) => a.name.localeCompare(b.name)),
+    [items, insurers],
+  );
+  const visible = useMemo(
+    () => sortRemittanceRows(items.filter((r) => (filter === 'all' || r.status === filter) && (insurerId === 'all' || r.insurer_id === insurerId))),
+    [items, filter, insurerId],
+  );
+  const total = sumByCurrency(visible, currencyOf, (r) => r.unremitted_amount, functional);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
@@ -90,6 +105,12 @@ export default function UnremittedPremium() {
           the value for remittance.deadline_working_days and have an assigned approver approve it. No default is assumed.
         </Alert>
       )}
+      {facts.receiptMissing > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {facts.receiptMissing} {facts.receiptMissing === 1 ? 'policy holds' : 'policies hold'} premium but no posted receipt could be found to start the
+          deadline. Check the receipts on {facts.receiptMissing === 1 ? 'that policy' : 'those policies'}.
+        </Alert>
+      )}
       <Alert severity="info" sx={{ mb: 2 }}>
         Deadlines count Monday to Friday only, because public holidays are not modelled yet. The receipt date is the earliest posted receipt for the policy, so a
         deadline can come out earlier than the true one. Both err towards an alert, not away from one.
@@ -105,6 +126,10 @@ export default function UnremittedPremium() {
               <Chip key={s} label={`${REMITTANCE_STATUS_LABEL[s]} (${counts[s]})`} color={filter === s ? 'primary' : 'default'}
                 variant={counts[s] ? 'filled' : 'outlined'} onClick={() => setFilter(s)} />
             ))}
+            <TextField select size="small" label="Insurer" value={insurerId} onChange={(e) => setInsurerId(e.target.value)} sx={{ minWidth: 220, ml: 'auto' }}>
+              <MenuItem value="all">All</MenuItem>
+              {insurerOptions.map((i) => <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>)}
+            </TextField>
           </Stack>
           <Card>
             <CardContent sx={{ p: 0, overflowX: 'auto' }}>
@@ -112,6 +137,7 @@ export default function UnremittedPremium() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Policy</TableCell>
+                    <TableCell>Client</TableCell>
                     <TableCell>Insurer</TableCell>
                     <TableCell align="right">Held, not remitted</TableCell>
                     <TableCell>Received</TableCell>
@@ -121,13 +147,14 @@ export default function UnremittedPremium() {
                 </TableHead>
                 <TableBody>
                   {visible.length === 0 ? (
-                    <EmptyRow colSpan={6} text={items.length === 0 ? 'No premium is being held for remittance.' : 'Nothing matches this filter.'} />
+                    <EmptyRow colSpan={7} text={items.length === 0 ? 'No premium is being held for remittance.' : 'Nothing matches this filter.'} />
                   ) : (
                     visible.map((r) => {
                       const late = daysPastDeadline(r.deadline_date, asOf);
                       return (
                         <TableRow key={r.policy_id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/insurance/policies/${r.policy_id}`)}>
                           <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.policy_no}</TableCell>
+                          <TableCell>{policyFacts.get(r.policy_id)?.client ?? '-'}</TableCell>
                           <TableCell>{insurers.get(r.insurer_id) ?? '-'}</TableCell>
                           <TableCell align="right">{formatMoney(Number(r.unremitted_amount), currencyOf(r))}</TableCell>
                           <TableCell>{r.receipt_date ?? '-'}</TableCell>
@@ -147,9 +174,9 @@ export default function UnremittedPremium() {
               </Table>
             </CardContent>
           </Card>
-          {items.length > 0 && (
+          {visible.length > 0 && (
             <Typography variant="body2" sx={{ mt: 2, whiteSpace: 'pre-line' }}>
-              <strong>Total held, not remitted:</strong>{'\n'}{formatMoneyByCurrency(total, functional)}
+              <strong>{visible.length === items.length ? 'Total held, not remitted:' : 'Total held, not remitted, for the rows shown:'}</strong>{'\n'}{formatMoneyByCurrency(total, functional)}
             </Typography>
           )}
         </>

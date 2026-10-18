@@ -53,3 +53,10 @@ export function sortRemittanceRows<T extends Pick<RemittanceRow, 'status' | 'dea
       a.policy_no.localeCompare(b.policy_no),
   );
 }
+
+/** Splits a list into groups of at most `size`, so a lookup by id stays within the request length limit. */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
