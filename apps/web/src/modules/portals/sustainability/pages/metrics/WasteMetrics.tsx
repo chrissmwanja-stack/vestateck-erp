@@ -3,20 +3,25 @@ import { Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions
 import { Add, Edit, Delete, FileDownload, Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
-import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from "../../../../../lib/reportExport";
+import type { Tables, TablesInsert } from "@erp-platform/shared";
 import { LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
-interface MetricType { id: string; name: string; unit: string; }
+type MetricType = Pick<Tables<"sustainability_metric_types">, "id" | "name" | "unit">;
+type Metric = Tables<"sustainability_metrics"> & { sustainability_metric_types: { name: string; unit: string | null } | null };
+
+// The API returns an embedded to-one relation as an object, but older responses wrapped it in an array.
+const toOne = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
 const emptyForm = { metric_type_id: "", value: "", recorded_date: new Date().toISOString().slice(0, 10), notes: "" };
 
 export default function WasteMetrics() {
   const { session } = useAuth();
-  const [metrics, setMetrics] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<Metric[]>([]);
   const [types, setTypes] = useState<MetricType[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<Metric | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +33,9 @@ export default function WasteMetrics() {
       supabase.from("sustainability_metric_types").select("id, name, unit").eq("type", "waste").eq("is_active", true).order("name"),
     ]);
     if (metricsRes.data) {
-      const norm = (metricsRes.data as any[]).map((m: any) => ({ ...m, sustainability_metric_types: Array.isArray(m.sustainability_metric_types) ? m.sustainability_metric_types[0] ?? null : m.sustainability_metric_types ?? null }));
-      setMetrics(norm);
+      setMetrics(metricsRes.data.map(m => ({ ...m, sustainability_metric_types: toOne(m.sustainability_metric_types) })));
     }
-    if (typesRes.data) setTypes(typesRes.data as MetricType[]);
+    if (typesRes.data) setTypes(typesRes.data);
     setLoading(false);
   };
 
@@ -42,7 +46,7 @@ export default function WasteMetrics() {
 
   const trend = useMemo(() => {
     const byMonth: Record<string, number> = {};
-    metrics.forEach((m: any) => {
+    metrics.forEach((m) => {
       const key = m.recorded_date?.slice(0,7) || "unknown";
       byMonth[key] = (byMonth[key] || 0) + Number(m.value);
     });
@@ -50,7 +54,7 @@ export default function WasteMetrics() {
   }, [metrics]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(null); setOpen(true); };
-  const openEdit = (row: any) => {
+  const openEdit = (row: Metric) => {
     setEditing(row);
     setForm({ metric_type_id: row.metric_type_id || "", value: String(row.value), recorded_date: row.recorded_date, notes: row.notes || "" });
     setError(null);
@@ -63,8 +67,9 @@ export default function WasteMetrics() {
     if (Number.isNaN(val)) { setError("Value must be a number."); return; }
     if (!form.recorded_date) { setError("Date is required."); return; }
     setSaving(true);
-    const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || metrics[0]?.tenant_id;
-    const payload: any = {
+    const metaTenant: unknown = session?.user?.user_metadata?.tenant_id;
+    const tenant_id = (typeof metaTenant === "string" && metaTenant) || metrics[0]?.tenant_id;
+    const payload: Omit<TablesInsert<"sustainability_metrics">, "tenant_id"> & { tenant_id?: string } = {
       metric_type_id: form.metric_type_id || null,
       type: "waste",
       value: val,
@@ -74,7 +79,8 @@ export default function WasteMetrics() {
     if (tenant_id) payload.tenant_id = tenant_id;
     let res;
     if (editing) res = await supabase.from("sustainability_metrics").update(payload).eq("id", editing.id);
-    else res = await supabase.from("sustainability_metrics").insert(payload);
+    // tenant_id is only absent when no tenant could be found; the database then decides, as before.
+    else res = await supabase.from("sustainability_metrics").insert(payload as TablesInsert<"sustainability_metrics">);
     setSaving(false);
     if (res.error) { setError(res.error.message); return; }
     setOpen(false);
@@ -91,24 +97,24 @@ export default function WasteMetrics() {
   };
 
   const handleExcel = () => {
-    const cols = [
-      { header: "Date", accessor: (r: any) => new Date(r.recorded_date).toLocaleDateString() },
-      { header: "Type", accessor: (r: any) => r.sustainability_metric_types?.name || "-" },
-      { header: "Value", accessor: (r: any) => r.value },
-      { header: "Unit", accessor: (r: any) => r.sustainability_metric_types?.unit || "kg" },
-      { header: "Notes", accessor: (r: any) => r.notes || "-" },
+    const cols: ReportExportColumn<Metric>[] = [
+      { header: "Date", accessor: (r) => new Date(r.recorded_date).toLocaleDateString() },
+      { header: "Type", accessor: (r) => r.sustainability_metric_types?.name || "-" },
+      { header: "Value", accessor: (r) => r.value },
+      { header: "Unit", accessor: (r) => r.sustainability_metric_types?.unit || "kg" },
+      { header: "Notes", accessor: (r) => r.notes || "-" },
     ];
-    exportReportToExcel(`waste-metrics-${new Date().toISOString().slice(0,10)}`, "Waste", cols as any, metrics);
+    exportReportToExcel(`waste-metrics-${new Date().toISOString().slice(0,10)}`, "Waste", cols, metrics);
   };
   const handlePdf = () => {
-    const cols = [
-      { header: "Date", accessor: (r: any) => new Date(r.recorded_date).toLocaleDateString() },
-      { header: "Type", accessor: (r: any) => r.sustainability_metric_types?.name || "-" },
-      { header: "Value", accessor: (r: any) => r.value },
-      { header: "Unit", accessor: (r: any) => r.sustainability_metric_types?.unit || "kg" },
-      { header: "Notes", accessor: (r: any) => (r.notes || "-").slice(0,40) },
+    const cols: ReportExportColumn<Metric>[] = [
+      { header: "Date", accessor: (r) => new Date(r.recorded_date).toLocaleDateString() },
+      { header: "Type", accessor: (r) => r.sustainability_metric_types?.name || "-" },
+      { header: "Value", accessor: (r) => r.value },
+      { header: "Unit", accessor: (r) => r.sustainability_metric_types?.unit || "kg" },
+      { header: "Notes", accessor: (r) => (r.notes || "-").slice(0,40) },
     ];
-    exportReportToPdf(`waste-metrics-${new Date().toISOString().slice(0,10)}.pdf`, "Waste Generated Report", cols as any, metrics, `Total ${total.toLocaleString()} kg • Avg ${avg.toFixed(2)} • ${metrics.length} records`);
+    exportReportToPdf(`waste-metrics-${new Date().toISOString().slice(0,10)}.pdf`, "Waste Generated Report", cols, metrics, `Total ${total.toLocaleString()} kg • Avg ${avg.toFixed(2)} • ${metrics.length} records`);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
@@ -149,11 +155,11 @@ export default function WasteMetrics() {
         </CardContent></Card>
       )}
 
-      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Date</TableCell><TableCell>Metric Type</TableCell><TableCell>Value</TableCell><TableCell>Unit</TableCell><TableCell>Notes</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{metrics.length === 0 ? <TableRow><TableCell colSpan={6} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No waste metrics yet. Add first metric via Add Metric.</Typography></TableCell></TableRow> : metrics.map((m: any) => <TableRow key={m.id} hover><TableCell>{new Date(m.recorded_date).toLocaleDateString()}</TableCell><TableCell>{m.sustainability_metric_types?.name || "-"}</TableCell><TableCell><Typography fontWeight={600}>{Number(m.value).toLocaleString()}</Typography></TableCell><TableCell>{m.sustainability_metric_types?.unit || "kg"}</TableCell><TableCell><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.notes || "-"}</Typography></TableCell><TableCell align="right"><Tooltip title="Edit"><IconButton size="small" aria-label="Edit metric" onClick={() => openEdit(m)}><Edit fontSize="small" /></IconButton></Tooltip><Tooltip title="Delete"><IconButton size="small" aria-label="Delete metric" onClick={() => handleDelete(m.id)}><Delete fontSize="small" /></IconButton></Tooltip></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+      <Card><CardContent sx={{ p: 0 }}><Table><TableHead><TableRow><TableCell>Date</TableCell><TableCell>Metric Type</TableCell><TableCell>Value</TableCell><TableCell>Unit</TableCell><TableCell>Notes</TableCell><TableCell align="right">Actions</TableCell></TableRow></TableHead><TableBody>{metrics.length === 0 ? <TableRow><TableCell colSpan={6} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No waste metrics yet. Add first metric via Add Metric.</Typography></TableCell></TableRow> : metrics.map((m) => <TableRow key={m.id} hover><TableCell>{new Date(m.recorded_date).toLocaleDateString()}</TableCell><TableCell>{m.sustainability_metric_types?.name || "-"}</TableCell><TableCell><Typography fontWeight={600}>{Number(m.value).toLocaleString()}</Typography></TableCell><TableCell>{m.sustainability_metric_types?.unit || "kg"}</TableCell><TableCell><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.notes || "-"}</Typography></TableCell><TableCell align="right"><Tooltip title="Edit"><IconButton size="small" aria-label="Edit metric" onClick={() => openEdit(m)}><Edit fontSize="small" /></IconButton></Tooltip><Tooltip title="Delete"><IconButton size="small" aria-label="Delete metric" onClick={() => handleDelete(m.id)}><Delete fontSize="small" /></IconButton></Tooltip></TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
 
       <Dialog open={open} onClose={() => !saving && setOpen(false)} maxWidth="sm" fullWidth><DialogTitle>{editing ? "Edit Waste Metric" : "Add Waste Metric"}</DialogTitle><DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
         {error && <Alert severity="error">{error}</Alert>}
-        <TextField select label="Metric Type" value={form.metric_type_id} onChange={e => setForm({ ...form, metric_type_id: e.target.value })} fullWidth><MenuItem value="">-- None --</MenuItem>{types.map(t => <MenuItem key={t.id} value={t.id}>{t.name} ({t.unit})</MenuItem>)}</TextField>
+        <TextField select label="Metric Type" value={form.metric_type_id} onChange={e => setForm({ ...form, metric_type_id: e.target.value })} fullWidth><MenuItem value="">-- None --</MenuItem>{types.map(t => <MenuItem key={t.id} value={t.id}>{t.name}{t.unit ? ` (${t.unit})` : ""}</MenuItem>)}</TextField>
         <Grid container spacing={2}><Grid item xs={6}><TextField label="Value *" type="number" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} fullWidth required placeholder="e.g. 12.5" /></Grid><Grid item xs={6}><TextField label="Date *" type="date" value={form.recorded_date} onChange={e => setForm({ ...form, recorded_date: e.target.value })} fullWidth InputLabelProps={{ shrink: true }} required /></Grid></Grid>
         <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} fullWidth multiline rows={2} placeholder="Source, scope, calculation method..." />
       </DialogContent><DialogActions><Button onClick={() => setOpen(false)} disabled={saving}>Cancel</Button><Button variant="contained" onClick={handleSave} disabled={!form.value || !form.recorded_date || saving}>{saving ? "Saving..." : editing ? "Update" : "Create"}</Button></DialogActions></Dialog>
