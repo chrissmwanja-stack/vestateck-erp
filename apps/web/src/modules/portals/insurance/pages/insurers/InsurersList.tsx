@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
@@ -9,6 +9,8 @@ import { useInsuranceAccess } from '../../access';
 import { CLAIM_PAYMENT_MODE_HELP, CLAIM_PAYMENT_MODE_LABEL } from '../../logic';
 import type { ClaimPaymentMode, Insurer } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
+import ListToolbar from '../../ListToolbar';
+import { EMPTY_INSURER_FILTERS, countActive, filterInsurers, type InsurerFilters } from '../../listFilters';
 
 const EMPTY = { code: '', name: '', contact_name: '', contact_email: '', contact_phone: '', default_commission_rate_pct: '0', claim_payment_mode: 'insurer_direct' as ClaimPaymentMode };
 
@@ -21,6 +23,7 @@ export default function InsurersList() {
   const [editing, setEditing] = useState<Insurer | 'new' | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState<InsurerFilters>(EMPTY_INSURER_FILTERS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +94,9 @@ export default function InsurersList() {
     }
   };
 
+  const visible = useMemo(() => filterInsurers(insurers, filters), [insurers, filters]);
+  const set = (patch: Partial<InsurerFilters>) => setFilters((f) => ({ ...f, ...patch }));
+
   if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
 
   const commissionValid = Number(form.default_commission_rate_pct) >= 0 && Number(form.default_commission_rate_pct) < 100;
@@ -103,6 +109,22 @@ export default function InsurersList() {
         actions={canManage && <Button variant="contained" startIcon={<Add />} onClick={openNew}>New insurer</Button>}
       />
       <ErrorBanner message={error} />
+      <ListToolbar
+        search={filters.text}
+        onSearch={(text) => set({ text })}
+        placeholder="Search code, name or contact"
+        shown={visible.length}
+        total={insurers.length}
+        noun="insurers"
+        activeCount={countActive({ ...filters })}
+        onClear={() => setFilters(EMPTY_INSURER_FILTERS)}
+      >
+        <TextField select size="small" label="Status" value={filters.active} onChange={(e) => set({ active: e.target.value as InsurerFilters['active'] })} sx={{ minWidth: 140 }}>
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="inactive">Inactive</MenuItem>
+        </TextField>
+      </ListToolbar>
       <Card>
         <CardContent sx={{ p: 0 }}>
           <Table size="small">
@@ -118,10 +140,10 @@ export default function InsurersList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {insurers.length === 0 ? (
-                <EmptyRow colSpan={canManage ? 7 : 6} text="No insurers yet." />
+              {visible.length === 0 ? (
+                <EmptyRow colSpan={canManage ? 7 : 6} text={insurers.length === 0 ? 'No insurers yet.' : 'No insurers match these filters.'} />
               ) : (
-                insurers.map((i) => (
+                visible.map((i) => (
                   <TableRow key={i.id} hover>
                     <TableCell><Typography fontFamily="monospace">{i.code}</Typography></TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{i.name}</TableCell>

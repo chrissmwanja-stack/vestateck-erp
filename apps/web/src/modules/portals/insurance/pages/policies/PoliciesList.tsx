@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField } from '@mui/material';
+import ListToolbar from '../../ListToolbar';
+import {
+  EMPTY_POLICY_FILTERS, POLICY_SORT_LABEL, countActive, distinctOptions, filterPolicies, sortPolicies, type PolicyFilters, type PolicySort,
+} from '../../listFilters';
 import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { allRows, errorText, table } from '../../db';
@@ -15,6 +19,8 @@ export default function PoliciesList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | PolicyStatus>('all');
+  const [filters, setFilters] = useState<PolicyFilters>(EMPTY_POLICY_FILTERS);
+  const [sort, setSort] = useState<PolicySort>('newest');
 
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +29,7 @@ export default function PoliciesList() {
       try {
         const data = await allRows<Policy>(() => {
           let q = table('ins_policies')
-            .select('id, policy_no, status, inception_date, expiry_date, gross_premium, commission_amount, currency, ins_clients(bd_clients(name)), ins_insurers(name), ins_product_lines(name)')
+            .select('id, policy_no, status, insurer_id, product_line_id, inception_date, expiry_date, gross_premium, commission_amount, currency, ins_clients(bd_clients(name)), ins_insurers(name), ins_product_lines(name)')
             .order('created_at', { ascending: false })
             .order('id');
           if (status !== 'all') q = q.eq('status', status);
@@ -44,6 +50,13 @@ export default function PoliciesList() {
     };
   }, [status]);
 
+  // Insurer and product choices come from the policies themselves, so only ones in use are offered.
+  const insurerOptions = useMemo(() => distinctOptions(policies, (p) => p.insurer_id, (p) => p.ins_insurers?.name), [policies]);
+  const productOptions = useMemo(() => distinctOptions(policies, (p) => p.product_line_id, (p) => p.ins_product_lines?.name), [policies]);
+  const visible = useMemo(() => sortPolicies(filterPolicies(policies, filters), sort), [policies, filters, sort]);
+  const set = (patch: Partial<PolicyFilters>) => setFilters((f) => ({ ...f, ...patch }));
+  const activeCount = countActive({ ...filters, status });
+
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
       <PageHeader
@@ -52,16 +65,36 @@ export default function PoliciesList() {
         actions={<Button variant="contained" startIcon={<Add />} onClick={() => navigate('/insurance/policies/new')}>New policy</Button>}
       />
       <ErrorBanner message={error} />
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} sx={{ minWidth: 200 }}>
-            <MenuItem value="all">All</MenuItem>
-            {POLICY_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>{POLICY_STATUS_LABEL[s]}</MenuItem>
-            ))}
-          </TextField>
-        </CardContent>
-      </Card>
+      <ListToolbar
+        search={filters.text}
+        onSearch={(text) => set({ text })}
+        placeholder="Search policy no, client, insurer or product"
+        shown={visible.length}
+        total={policies.length}
+        noun="policies"
+        activeCount={activeCount}
+        onClear={() => { setFilters(EMPTY_POLICY_FILTERS); setStatus('all'); }}
+      >
+        <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} sx={{ minWidth: 160 }}>
+          <MenuItem value="all">All</MenuItem>
+          {POLICY_STATUSES.map((s) => (
+            <MenuItem key={s} value={s}>{POLICY_STATUS_LABEL[s]}</MenuItem>
+          ))}
+        </TextField>
+        <TextField select size="small" label="Insurer" value={filters.insurerId} onChange={(e) => set({ insurerId: e.target.value })} sx={{ minWidth: 160 }}>
+          <MenuItem value="">All</MenuItem>
+          {insurerOptions.map((o) => <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>)}
+        </TextField>
+        <TextField select size="small" label="Product" value={filters.productLineId} onChange={(e) => set({ productLineId: e.target.value })} sx={{ minWidth: 160 }}>
+          <MenuItem value="">All</MenuItem>
+          {productOptions.map((o) => <MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>)}
+        </TextField>
+        <TextField size="small" type="date" label="Expires from" InputLabelProps={{ shrink: true }} value={filters.expiresFrom} onChange={(e) => set({ expiresFrom: e.target.value })} />
+        <TextField size="small" type="date" label="Expires to" InputLabelProps={{ shrink: true }} value={filters.expiresTo} onChange={(e) => set({ expiresTo: e.target.value })} />
+        <TextField select size="small" label="Sort" value={sort} onChange={(e) => setSort(e.target.value as PolicySort)} sx={{ minWidth: 180 }}>
+          {(Object.keys(POLICY_SORT_LABEL) as PolicySort[]).map((s) => <MenuItem key={s} value={s}>{POLICY_SORT_LABEL[s]}</MenuItem>)}
+        </TextField>
+      </ListToolbar>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
       ) : (
@@ -81,10 +114,10 @@ export default function PoliciesList() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {policies.length === 0 ? (
-                  <EmptyRow colSpan={8} text="No policies yet." />
+                {visible.length === 0 ? (
+                  <EmptyRow colSpan={8} text={policies.length === 0 ? 'No policies yet.' : 'No policies match these filters.'} />
                 ) : (
-                  policies.map((p) => (
+                  visible.map((p) => (
                     <TableRow key={p.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/insurance/policies/${p.id}`)}>
                       <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{p.policy_no}</TableCell>
                       <TableCell>{p.ins_clients?.bd_clients?.name ?? '-'}</TableCell>

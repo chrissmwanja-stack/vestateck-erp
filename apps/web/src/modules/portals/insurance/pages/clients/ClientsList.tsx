@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField, Stack,
@@ -7,6 +7,8 @@ import { Add } from '@mui/icons-material';
 import { allRows, errorText, rpc, table } from '../../db';
 import type { InsClient } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
+import ListToolbar from '../../ListToolbar';
+import { EMPTY_CLIENT_FILTERS, countActive, filterClients, type ClientFilters } from '../../listFilters';
 
 const EMPTY = { name: '', client_type: 'corporate', tax_id: '', email: '', phone: '', risk_rating: 'medium' };
 
@@ -17,6 +19,7 @@ export default function ClientsList() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [filters, setFilters] = useState<ClientFilters>(EMPTY_CLIENT_FILTERS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +64,9 @@ export default function ClientsList() {
     }
   };
 
+  const visible = useMemo(() => filterClients(clients, filters), [clients, filters]);
+  const set = (patch: Partial<ClientFilters>) => setFilters((f) => ({ ...f, ...patch }));
+
   if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
 
   return (
@@ -71,6 +77,34 @@ export default function ClientsList() {
         actions={<Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>New client</Button>}
       />
       <ErrorBanner message={error} />
+      <ListToolbar
+        search={filters.text}
+        onSearch={(text) => set({ text })}
+        placeholder="Search name, tax ID, email or phone"
+        shown={visible.length}
+        total={clients.length}
+        noun="clients"
+        activeCount={countActive({ ...filters })}
+        onClear={() => setFilters(EMPTY_CLIENT_FILTERS)}
+      >
+        <TextField select size="small" label="KYC" value={filters.kyc} onChange={(e) => set({ kyc: e.target.value as ClientFilters['kyc'] })} sx={{ minWidth: 140 }}>
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="pending">Pending</MenuItem>
+          <MenuItem value="verified">Verified</MenuItem>
+          <MenuItem value="expired">Expired</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Risk" value={filters.risk} onChange={(e) => set({ risk: e.target.value as ClientFilters['risk'] })} sx={{ minWidth: 130 }}>
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="low">Low</MenuItem>
+          <MenuItem value="medium">Medium</MenuItem>
+          <MenuItem value="high">High</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Type" value={filters.type} onChange={(e) => set({ type: e.target.value as ClientFilters['type'] })} sx={{ minWidth: 140 }}>
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="corporate">Corporate</MenuItem>
+          <MenuItem value="individual">Individual</MenuItem>
+        </TextField>
+      </ListToolbar>
       <Card>
         <CardContent sx={{ p: 0 }}>
           <Table size="small">
@@ -85,10 +119,10 @@ export default function ClientsList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {clients.length === 0 ? (
-                <EmptyRow colSpan={6} text="No clients yet." />
+              {visible.length === 0 ? (
+                <EmptyRow colSpan={6} text={clients.length === 0 ? 'No clients yet.' : 'No clients match these filters.'} />
               ) : (
-                clients.map((c) => (
+                visible.map((c) => (
                   <TableRow key={c.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{c.bd_clients?.name ?? '-'}</TableCell>
                     <TableCell sx={{ textTransform: 'capitalize' }}>{c.client_type}</TableCell>

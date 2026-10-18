@@ -137,6 +137,8 @@ export interface Claim {
     policy_no: string;
     sum_insured: number;
     currency: string;
+    insurer_id?: string;
+    ins_insurers?: { name: string } | null;
     ins_clients?: { bd_clients: { name: string } | null } | null;
   } | null;
 }
