@@ -14,6 +14,7 @@ import {
   nextClaimStatuses,
   policyTermDays,
   renewalBucket,
+  statementCurrencies,
   validateClaimMoneyInput,
   validatePolicyInput,
   validateStatementPeriod,
@@ -249,6 +250,29 @@ describe('commission statement per insurer', () => {
   it('refuses to total more than one currency', () => {
     const policies = [policy({ id: 'a' }), policy({ id: 'b', policy_no: 'B', currency: 'USD' })];
     expect(() => buildCommissionStatement(policies, [], period)).toThrow(/more than one currency/);
+  });
+
+  it('builds a statement for one chosen currency, leaving the others out of the totals', () => {
+    const policies = [
+      policy({ id: 'a', commission_amount: 100 }),
+      policy({ id: 'b', policy_no: 'B', currency: 'USD', commission_amount: 7 }),
+      policy({ id: 'c', policy_no: 'C', currency: 'USD', commission_amount: 3 }),
+    ];
+    const usd = buildCommissionStatement(policies, [], period, 'USD');
+    expect(usd.rows.map((r) => r.policy_no)).toEqual(['B', 'C']);
+    expect(usd.totals.commission).toBe(10);
+    expect(buildCommissionStatement(policies, [], period, 'UGX').totals.commission).toBe(100);
+  });
+
+  it('lists the currencies in a period, most used first, ignoring drafts and policies outside it', () => {
+    const policies = [
+      policy({ id: 'a' }),
+      policy({ id: 'b', currency: 'USD' }),
+      policy({ id: 'c', currency: 'USD' }),
+      policy({ id: 'd', currency: 'EUR', status: 'draft' }),
+      policy({ id: 'e', currency: 'KES', bound_at: '1999-01-01T00:00:00Z' }),
+    ];
+    expect(statementCurrencies(policies, period)).toEqual(['USD', 'UGX']);
   });
 
   it('keeps totals free of floating point drift', () => {

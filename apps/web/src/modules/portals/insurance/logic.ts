@@ -297,9 +297,11 @@ export function buildCommissionStatement(
   policies: Policy[],
   ledger: CommissionEntry[],
   period: { from: string; to: string },
+  /** Build the statement for one currency. Without it, a period that mixes currencies is refused rather than totalled. */
+  currency?: string,
 ): CommissionStatement {
   const byPolicy = new Map(ledger.map((entry) => [entry.policy_id, entry]));
-  const rows: CommissionStatementRow[] = policies
+  const allRows: CommissionStatementRow[] = policies
     .filter((p) => p.status !== 'draft' && p.bound_at)
     .map((p) => ({ policy: p, boundOn: (p.bound_at as string).slice(0, 10) }))
     .filter(({ boundOn }) => boundOn >= period.from && boundOn <= period.to)
@@ -322,8 +324,9 @@ export function buildCommissionStatement(
       };
     });
 
+  const rows = currency ? allRows.filter((r) => r.currency === currency) : allRows;
   if (new Set(rows.map((r) => r.currency)).size > 1) {
-    throw new Error('This insurer has policies in more than one currency in this period. Narrow the period.');
+    throw new Error('This insurer has policies in more than one currency in this period. Choose a currency.');
   }
 
   const totals = rows.reduce(
@@ -343,6 +346,18 @@ export function buildCommissionStatement(
   );
   for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] = money(totals[key]);
   return { rows, totals };
+}
+
+/** The currencies of the policies a statement would list for the period, the most used first. */
+export function statementCurrencies(policies: Policy[], period: { from: string; to: string }): string[] {
+  const counts = new Map<string, number>();
+  for (const p of policies) {
+    if (p.status === 'draft' || !p.bound_at) continue;
+    const boundOn = p.bound_at.slice(0, 10);
+    if (boundOn < period.from || boundOn > period.to) continue;
+    counts.set(p.currency, (counts.get(p.currency) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c]) => c);
 }
 
 export function validateStatementPeriod(from: string, to: string): string | null {

@@ -6,7 +6,7 @@ import {
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from '../../../../../lib/reportExport';
 import { errorText, rows, table } from '../../db';
 import {
-  buildCommissionStatement, formatMoney, STATEMENT_STATUS_LABEL, validateStatementPeriod,
+  buildCommissionStatement, formatMoney, statementCurrencies, STATEMENT_STATUS_LABEL, validateStatementPeriod,
 } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import { projectInsurerStatementPolicy } from '../../cancellation/statementProjection';
@@ -36,6 +36,10 @@ const CommissionStatements = () => {
   const [generated, setGenerated] = useState<{ insurer: string; from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // What was loaded for the generated statement, kept so switching currency rebuilds it without another query.
+  const [loaded, setLoaded] = useState<{ policies: Policy[]; ledger: CommissionEntry[] } | null>(null);
+  const [currencies, setCurrencies] = useState<string[]>([]);
+  const [chosenCurrency, setChosenCurrency] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +59,28 @@ const CommissionStatements = () => {
   const periodProblem = validateStatementPeriod(from, to);
   const insurerName = useMemo(() => insurers.find((i) => i.id === insurerId)?.name ?? '', [insurers, insurerId]);
 
+  const buildFor = (data: { policies: Policy[]; ledger: CommissionEntry[] }, period: { from: string; to: string }, currency: string): CommissionStatement => {
+    const result = buildCommissionStatement(data.policies, data.ledger, period, currency || undefined);
+    return { ...result, rows: result.rows.map((r) => ({ ...r, commission_rate_pct: data.policies.find((p) => p.id === r.policy_id)?.commission_rate_pct ?? 0 })) };
+  };
+
+  const switchCurrency = (currency: string) => {
+    if (!loaded || !generated) return;
+    setChosenCurrency(currency);
+    try {
+      setStatement(buildFor(loaded, generated, currency));
+      setError(null);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+
   const generate = async () => {
     if (!insurerId || periodProblem) return;
     setLoading(true);
     setError(null);
     setStatement(null);
+    setLoaded(null);
     try {
       // Page through the full authorized tenant set: a non-lead insurer must
       // not disappear merely because the policy header names the lead insurer.
@@ -79,8 +100,13 @@ const CommissionStatements = () => {
         allRows<CommissionEntry>(() => table('ins_commission_ledger').select('*').eq('insurer_id', insurerId).order('id')),
       ]);
       const policies: Policy[] = allPolicies.flatMap((p) => projectInsurerStatementPolicy(p, insurerId));
-      const result = buildCommissionStatement(policies, ledger, { from, to });
-      setStatement({ ...result, rows: result.rows.map((r) => ({ ...r, commission_rate_pct: policies.find((p) => p.id === r.policy_id)?.commission_rate_pct ?? 0 })) });
+      const found = statementCurrencies(policies, { from, to });
+      const first = found[0] ?? '';
+      const data = { policies, ledger };
+      setStatement(buildFor(data, { from, to }, first));
+      setLoaded(data);
+      setCurrencies(found);
+      setChosenCurrency(first);
       setGenerated({ insurer: insurerName, from, to });
     } catch (e) {
       setError(errorText(e));
@@ -114,7 +140,7 @@ const CommissionStatements = () => {
     { header: 'Transfer', accessor: (r) => (r.transfer_no ? `${r.transfer_no} (${r.transfer_date ?? ''})` : '') },
   ];
 
-  const baseName = generated ? `commission-statement-${generated.insurer.replace(/[^A-Za-z0-9]+/g, '-')}-${generated.from}-to-${generated.to}` : '';
+  const baseName = generated ? `commission-statement-${generated.insurer.replace(/[^A-Za-z0-9]+/g, '-')}-${generated.from}-to-${generated.to}${currencies.length > 1 ? `-${chosenCurrency}` : ''}` : '';
   const exportRows: CommissionStatementRow[] = statement
     ? [
         ...statement.rows,
@@ -159,6 +185,15 @@ const CommissionStatements = () => {
         <Button variant="contained" onClick={generate} disabled={!insurerId || !!periodProblem || loading}>Generate</Button>
       </Stack>
       {periodProblem && <Alert severity="warning" sx={{ mb: 2 }}>{periodProblem}</Alert>}
+      {statement && !loading && currencies.length > 1 && (
+        <Alert severity="info" sx={{ mb: 2 }} action={
+          <TextField select size="small" label="Currency" value={chosenCurrency} onChange={(e) => switchCurrency(e.target.value)} sx={{ minWidth: 120 }}>
+            {currencies.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+          </TextField>
+        }>
+          This insurer has policies in {currencies.join(' and ')} in this period. Amounts are never added across currencies, so the statement shows {chosenCurrency} only.
+        </Alert>
+      )}
 
       {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>}
 

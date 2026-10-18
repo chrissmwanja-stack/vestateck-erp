@@ -105,4 +105,29 @@ describe('CommissionStatements', () => {
     expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled();
     expect(mockFrom).not.toHaveBeenCalledWith('ins_policies');
   });
+  it('lets a mixed-currency period be viewed one currency at a time, without adding currencies together', async () => {
+    const mixed = [
+      policy({ id: 'pa', policy_no: 'POL-A', commission_amount: 100 }),
+      policy({ id: 'pu', policy_no: 'POL-USD', currency: 'USD', commission_amount: 7 }),
+      policy({ id: 'pv', policy_no: 'POL-USD2', currency: 'USD', commission_amount: 3 }),
+    ];
+    mockFrom.mockImplementation((name: string) => {
+      if (name === 'ins_insurers') return selectChain([{ id: 'i1', name: 'Alpha Assurance' }]);
+      if (name === 'ins_policies') return selectChain(mixed);
+      if (name === 'ins_commission_ledger') return selectChain([]);
+      throw new Error(`unexpected table ${name}`);
+    });
+    const user = userEvent.setup();
+    await generate(user);
+    // USD has two policies, so it is shown first.
+    await screen.findByText('POL-USD');
+    expect(screen.queryByText('POL-A')).toBeNull();
+    expect(screen.getByText(/USD and UGX/)).toBeTruthy();
+    await user.click(screen.getByLabelText('Currency'));
+    await user.click(await screen.findByRole('option', { name: 'UGX' }));
+    await screen.findByText('POL-A');
+    expect(screen.queryByText('POL-USD')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Export Excel' }));
+    expect(mockExcel.mock.calls[0][0]).toMatch(/-UGX$/);
+  });
 });
