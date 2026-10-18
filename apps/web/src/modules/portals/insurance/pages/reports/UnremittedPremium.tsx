@@ -3,11 +3,13 @@ import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { allRows, errorText, rows, rpc, table } from '../../db';
 import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
-  REMITTANCE_STATUS_LABEL, REMITTANCE_STATUS_ORDER, chunk, daysPastDeadline, remittanceFacts, sortRemittanceRows, type RemittanceRow, type RemittanceStatus,
+  REMITTANCE_EXPORT_COLUMNS, REMITTANCE_STATUS_LABEL, REMITTANCE_STATUS_ORDER, chunk, daysPastDeadline, remittanceExportRows, remittanceFacts, sortRemittanceRows,
+  type RemittanceRow, type RemittanceStatus,
 } from '../../remittance';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
@@ -85,13 +87,36 @@ export default function UnremittedPremium() {
   );
   const total = sumByCurrency(visible, currencyOf, (r) => r.unremitted_amount, functional);
 
+  // Exports exactly what the screen shows, filters included, so the file never disagrees with the page.
+  const exportRows = () =>
+    remittanceExportRows(visible, asOf, {
+      client: (r) => policyFacts.get(r.policy_id)?.client ?? '-',
+      insurer: (r) => insurers.get(r.insurer_id) ?? '-',
+      currency: currencyOf,
+    });
+  const exportName = `unremitted-premium-${asOf}`;
+  const exportSubtitle = [
+    `As of ${asOf}`,
+    filter === 'all' ? null : `Status: ${REMITTANCE_STATUS_LABEL[filter]}`,
+    insurerId === 'all' ? null : `Insurer: ${insurers.get(insurerId) ?? '-'}`,
+    `Total held, not remitted: ${formatMoneyByCurrency(total, functional).split('\n').join('; ')}`,
+  ].filter(Boolean).join('  |  ');
+
   return (
     <Box sx={{ p: 3, maxWidth: 1200 }}>
       <PageHeader
         title="Unremitted premium"
         subtitle="Premium received from clients and not yet paid on to the insurer, against the remittance deadline."
         actions={
-          <TextField size="small" type="date" label="As of" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField size="small" type="date" label="As of" InputLabelProps={{ shrink: true }} value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+            {!loading && visible.length > 0 && (
+              <>
+                <Button variant="outlined" onClick={() => exportReportToExcel(exportName, 'Unremitted premium', REMITTANCE_EXPORT_COLUMNS, exportRows())}>Export Excel</Button>
+                <Button variant="outlined" onClick={() => exportReportToPdf(exportName, 'Unremitted premium', REMITTANCE_EXPORT_COLUMNS, exportRows(), exportSubtitle)}>Export PDF</Button>
+              </>
+            )}
+          </Stack>
         }
       />
       <ErrorBanner message={error} />
