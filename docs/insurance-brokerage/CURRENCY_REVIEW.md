@@ -3,6 +3,16 @@
 Date: 18 Oct 2026. Scope: every place that posts or rebuilds journal lines, and every
 currency guard, as they stand on `main` after slice 2c (`20261017140000`).
 
+**Update 18 Oct 2026: F1 is closed by option B** (migration `20261017170000_procurement_posting_currency.sql`,
+test `test_procurement_posting_currency.sql`). The three posting triggers now pass the document
+currency to the gateway. The rest of this document is the review as written before that change.
+
+**Update 19 Oct 2026: realised gain and loss** (migration `20261018100000_realised_fx.sql`,
+test `test_realised_fx.sql`). The base-currency residue that a foreign invoice paid at a different
+rate left on its control account is removed: payments and receipts now settle at the invoice's
+original rate and the difference is booked as realised gain or loss. The settlement calculation and
+the realised line are reusable by slices 3c and 3d.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
@@ -31,7 +41,7 @@ understated by the exchange rate and the currency label is wrong.
 
 | Table | `currency` column | Posting trigger | Reads currency |
 |---|---|---|---|
-| `supplier_invoices` | yes, nullable, no check | `trg_post_supplier_invoice` | no |
+| `supplier_invoices` | yes, no check | `trg_post_supplier_invoice` | no |
 | `receivable_invoices` | yes, default UGX, no check | `trg_post_receivable_invoice` | no |
 | `cash_bank_transactions` | yes, default UGX, no check | `trg_post_cash_bank_transaction` | no |
 
@@ -97,7 +107,9 @@ gateway. UGX behaviour is identical. A foreign document posts in its currency at
 approved rate, or is refused loudly with `FX_RATE_MISSING` / `REG_PARAM_MISSING` when no
 approved rate or age limit exists. Because no open item is involved, no other guard
 blocks it. This is the better end state, but it turns on foreign accounting for
-procurement, so the procurement owner should know first.
+procurement, so the procurement owner should know first. Until realised gain and loss
+existed (slice 3b, 19 Oct) a foreign invoice paid at a different rate left a base-currency
+residue on the control account.
 
 My recommendation: B, preceded by the production query below. If production holds foreign
 rows already, they are currently misstated and need a decision from the accountant

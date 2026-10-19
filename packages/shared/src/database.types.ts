@@ -16331,6 +16331,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      platform_fx_realised_line: {
+        Args: { p_description?: string; p_result: number; p_tenant_id: string }
+        Returns: Json
+      }
+      platform_fx_settlement: {
+        Args: {
+          p_amount: number
+          p_currency: string
+          p_on: string
+          p_original_rate: number
+          p_settles_debit: boolean
+          p_tenant_id: string
+        }
+        Returns: {
+          base_original: number
+          base_settlement: number
+          result: number
+          settlement_rate: number
+        }[]
+      }
       platform_gl_posting_roles: { Args: never; Returns: string[] }
       platform_has_admin: { Args: never; Returns: boolean }
       platform_ins_allocate_cancellation_refund: {

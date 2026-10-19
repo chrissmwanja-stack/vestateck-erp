@@ -5,8 +5,8 @@
 -- USD 1,000 at the approved rate; UGX and default-currency documents post exactly as before;
 -- VAT and withholding lines carry the currency; receivables and cash/bank transactions do
 -- too; rounding works through the triggers; a missing rate or a stale rate refuses the
--- insert and keeps nothing; and the KNOWN LIMIT (a foreign invoice paid at a different rate
--- leaves a base residue on the control account until realised gain/loss exists, slice 3b).
+-- insert and keeps nothing; and a foreign payment settles at the invoice's original rate
+-- with the difference booked as realised loss (slice 3b), so payables net to zero in base.
 --
 -- Run against a fresh local stack only (`supabase db reset`). One transaction that
 -- ROLLBACKs. Any RAISE EXCEPTION is a real assertion failure.
@@ -68,7 +68,7 @@ declare
   u uuid := gen_random_uuid();
   approver uuid := gen_random_uuid();
   org uuid; cc uuid;
-  g_exp uuid; g_ap uuid; g_ar uuid; g_rev uuid; g_vatin uuid; g_vatout uuid; g_bank uuid; g_rnd uuid;
+  g_exp uuid; g_ap uuid; g_ar uuid; g_rev uuid; g_vatin uuid; g_vatout uuid; g_bank uuid; g_rnd uuid; g_gain uuid; g_loss uuid;
   reg_id uuid; fx_id uuid;
   si_ugx uuid; si_null uuid; si_usd uuid; si_tax uuid; si_rnd uuid; ri_usd uuid; cb1 uuid; cb2 uuid;
   t text; n numeric; r record;
@@ -92,7 +92,8 @@ begin
   insert into gl_accounts (tenant_id, account_code, name, account_type) values
     (ta, '1000', 'Bank', 'asset'), (ta, '1100', 'AR', 'asset'), (ta, '1400', 'VAT input', 'asset'),
     (ta, '2000', 'AP', 'liability'), (ta, '2200', 'VAT output', 'liability'),
-    (ta, '4000', 'Revenue', 'revenue'), (ta, '5000', 'Expense', 'expense'), (ta, '6999', 'FX rounding', 'expense');
+    (ta, '4000', 'Revenue', 'revenue'), (ta, '5000', 'Expense', 'expense'), (ta, '6999', 'FX rounding', 'expense'),
+    (ta, '4900', 'Realised FX gain', 'revenue'), (ta, '5910', 'Realised FX loss', 'expense');
   select id into g_bank   from gl_accounts where tenant_id = ta and account_code = '1000';
   select id into g_ar     from gl_accounts where tenant_id = ta and account_code = '1100';
   select id into g_vatin  from gl_accounts where tenant_id = ta and account_code = '1400';
@@ -101,10 +102,12 @@ begin
   select id into g_rev    from gl_accounts where tenant_id = ta and account_code = '4000';
   select id into g_exp    from gl_accounts where tenant_id = ta and account_code = '5000';
   select id into g_rnd    from gl_accounts where tenant_id = ta and account_code = '6999';
+  select id into g_gain   from gl_accounts where tenant_id = ta and account_code = '4900';
+  select id into g_loss   from gl_accounts where tenant_id = ta and account_code = '5910';
   insert into gl_posting_rules (tenant_id, account_role, gl_account_id) values
     (ta, 'bank', g_bank), (ta, 'ar_control', g_ar), (ta, 'vat_input', g_vatin), (ta, 'ap_control', g_ap),
     (ta, 'vat_output', g_vatout), (ta, 'default_revenue', g_rev), (ta, 'default_expense', g_exp),
-    (ta, 'fx_rounding', g_rnd);
+    (ta, 'fx_rounding', g_rnd), (ta, 'fx_gain_realised', g_gain), (ta, 'fx_loss_realised', g_loss);
 
   perform set_config('reg.via_rpc', 'on', true);
   perform set_config('fx.via_rpc', 'on', true);
@@ -215,25 +218,29 @@ begin
   raise notice 'PASS: a missing or stale rate refuses the insert and keeps nothing';
 
   -------------------------------------------------------------------
-  -- 7. Cash/bank transactions, and the KNOWN LIMIT
+  -- 7. Cash/bank transactions settle at the invoice's original rate
   -------------------------------------------------------------------
-  -- Pay the USD 1,000 invoice today (rate 3800) in USD.
+  -- Pay the USD 1,000 invoice (booked at 3,700) today, when the rate is 3,800.
   insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
     values (ta, 'payment', 'bank', 'supplier_invoice', si_usd, 1000, 'USD', current_date) returning id into cb1;
   perform pg_temp.flush();
-  perform pg_temp.assert(pg_temp.lines_of(cb1) like '%USD@3800%' and pg_temp.lines_of(cb1) not like '%UGX%',
-    format('USD payment must post USD at today''s 3800: %s', pg_temp.lines_of(cb1)));
+  perform pg_temp.assert(exists (select 1 from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
+                                 where e.source_id = cb1 and l.gl_account_id = g_ap and l.debit = 1000 and l.fx_rate = 3700 and l.base_debit = 3700000),
+    format('the payables side must be USD 1,000 at the invoice''s 3700: %s', pg_temp.lines_of(cb1)));
+  perform pg_temp.assert(exists (select 1 from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
+                                 where e.source_id = cb1 and l.gl_account_id = g_bank and l.credit = 1000 and l.fx_rate = 3800 and l.base_credit = 3800000),
+    'the bank side must be USD 1,000 at today''s 3800');
+  perform pg_temp.assert(exists (select 1 from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
+                                 where e.source_id = cb1 and l.gl_account_id = g_loss and l.debit = 100000 and l.currency = 'UGX'),
+    'a realised loss of UGX 100,000 must be booked');
 
-  -- Payables for USD-1 alone: its invoice entry plus this payment.
   select coalesce(sum(l.debit - l.credit), 0) as usd_net, coalesce(sum(l.base_debit - l.base_credit), 0) as base_net
     into r
     from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
    where e.source_id in (si_usd, cb1) and l.gl_account_id = g_ap;
-  perform pg_temp.assert(r.usd_net = 0, format('payables for USD-1 must be zero in USD after payment, got %s', r.usd_net));
-  -- KNOWN LIMIT: zero in USD, but +100,000 in base (paid at 3,800, booked at 3,700). Slice 3b books the loss.
-  perform pg_temp.assert(r.base_net = 100000,
-    format('KNOWN LIMIT changed: expected a 100,000 base residue on payables until realised gain/loss exists, got %s', r.base_net));
-  raise notice 'PASS: a USD payment posts in USD at today''s rate; KNOWN LIMIT pinned: 100,000 base residue until slice 3b';
+  perform pg_temp.assert(r.usd_net = 0 and r.base_net = 0,
+    format('payables for USD-1 must net to zero in USD and in base, got %s USD and %s base', r.usd_net, r.base_net));
+  raise notice 'PASS: a USD payment settles at the invoice rate, books the 100,000 loss, and payables net to zero in base';
 
   -- A UGX payment (default currency) is unchanged.
   insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date)

@@ -159,7 +159,7 @@ begin
   select count(*) into v_lits from regexp_matches(v_def, '''[a-z_]+''::text', 'g');
   perform pg_temp.assert(v_n = cardinality(platform_gl_posting_roles()) and v_lits = cardinality(platform_gl_posting_roles()),
     format('platform_gl_posting_roles() (%s) and the CHECK (%s literals) disagree', cardinality(platform_gl_posting_roles()), v_lits));
-  perform pg_temp.assert(cardinality(platform_gl_posting_roles()) = 22, 'expected 22 roles');
+  perform pg_temp.assert(cardinality(platform_gl_posting_roles()) = 24, 'expected 24 roles');
 
   insert into gl_accounts (tenant_id, account_code, name, account_type)
   values (pg_temp.tid('home'), 'ROLE', 'Role probe', 'asset') returning id into v_acct;
