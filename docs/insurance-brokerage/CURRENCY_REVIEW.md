@@ -7,7 +7,7 @@ currency guard, as they stand on `main` after slice 2c (`20261017140000`).
 test `test_procurement_posting_currency.sql`). The three posting triggers now pass the document
 currency to the gateway. The rest of this document is the review as written before that change.
 
-**Update 19 Oct 2026: realised gain and loss** (migration `20261018100000_realised_fx.sql`,
+**Update 19 Oct 2026: realised gain and loss** (migration `20261019100000_realised_fx.sql`,
 test `test_realised_fx.sql`). The base-currency residue that a foreign invoice paid at a different
 rate left on its control account is removed: payments and receipts now settle at the invoice's
 original rate and the difference is booked as realised gain or loss. The settlement calculation and
