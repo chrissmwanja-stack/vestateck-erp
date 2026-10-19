@@ -25,6 +25,8 @@ export default function NewPolicy() {
   const [notDraft, setNotDraft] = useState(false);
   // Saved insurer shares own the insurer and commission rate (see draftUpdate).
   const [configured, setConfigured] = useState(false);
+  // Linked risks lock the client and product line (the server enforces it too: INS_POLICY_LINKED).
+  const [risksLinked, setRisksLinked] = useState(false);
   const [clients, setClients] = useState<InsClient[]>([]);
   const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [products, setProducts] = useState<ProductLine[]>([]);
@@ -75,6 +77,8 @@ export default function NewPolicy() {
           if (!prods.some((x) => x.id === pol.product_line_id)) prods = [...prods, ...(await rows<ProductLine>(table('ins_product_lines').select('*').eq('id', pol.product_line_id)))];
           const shares = await rows<{ id: string }>(table('ins_policy_insurer_shares').select('id').eq('policy_id', editId));
           setConfigured(shares.length > 0);
+          const linked = await rows<{ risk_id: string }>(table('ins_policy_risks').select('risk_id').eq('policy_id', editId));
+          setRisksLinked(linked.length > 0);
           setForm({
             clientId: pol.client_id, insurerId: pol.insurer_id, productLineId: pol.product_line_id,
             inception: pol.inception_date, expiry: pol.expiry_date, sumInsured: String(pol.sum_insured), currency: pol.currency,
@@ -123,7 +127,7 @@ export default function NewPolicy() {
     try {
       if (editId) {
         // .select('id') returns the rows changed, so a policy bound meanwhile (no longer a draft) shows up as none.
-        const changed = await rows<{ id: string }>(table('ins_policies').update(draftUpdate(form, configured)).eq('id', editId).select('id'));
+        const changed = await rows<{ id: string }>(table('ins_policies').update(draftUpdate(form, configured, risksLinked)).eq('id', editId).select('id'));
         if (changed.length === 0) throw new Error('This policy is no longer a draft, so it cannot be edited.');
         navigate(`/insurance/policies/${editId}`);
         return;
@@ -166,6 +170,11 @@ export default function NewPolicy() {
           This policy has been bound, so it can no longer be edited here.
         </Alert>
       )}
+      {risksLinked && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Risks are linked to this draft, so its client and product line are locked. To change them, unlink the risks on the policy page first.
+        </Alert>
+      )}
       {configured && (
         <Alert severity="info" sx={{ mb: 2 }}>
           This draft has saved insurer shares. Change the insurer and commission in Financial configuration on the policy page.
@@ -182,7 +191,8 @@ export default function NewPolicy() {
         <CardContent>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
-              <TextField select fullWidth label="Client" required value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+              <TextField select fullWidth label="Client" required value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+                disabled={risksLinked} helperText={risksLinked ? 'Locked while risks are linked.' : undefined}>
                 {clients.map((c) => (
                   <MenuItem key={c.id} value={c.id}>{c.bd_clients?.name ?? c.id}</MenuItem>
                 ))}
@@ -197,7 +207,8 @@ export default function NewPolicy() {
               </TextField>
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField select fullWidth label="Product line" required value={form.productLineId} onChange={(e) => setForm({ ...form, productLineId: e.target.value })}>
+              <TextField select fullWidth label="Product line" required value={form.productLineId} onChange={(e) => setForm({ ...form, productLineId: e.target.value })}
+                disabled={risksLinked} helperText={risksLinked ? 'Locked while risks are linked.' : undefined}>
                 {products.map((p) => (
                   <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
                 ))}

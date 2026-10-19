@@ -15,6 +15,7 @@ const mockFrom = vi.fn();
 const updates: unknown[] = [];
 let status = 'draft';
 let shares: { id: string }[] = [];
+let linkedRisks: { risk_id: string }[] = [];
 let updateResult: { data: unknown; error: null | { message: string } } = { data: [{ id: 'pol1' }], error: null };
 
 const policy = () => ({
@@ -32,6 +33,7 @@ function builder(name: string) {
     fx_rates: [],
     ins_policies: [policy()],
     ins_policy_insurer_shares: shares,
+    ins_policy_risks: linkedRisks,
   };
   let isUpdate = false;
   const chain: Record<string, unknown> = {};
@@ -55,7 +57,7 @@ function mount() {
 beforeEach(() => {
   mockFrom.mockReset();
   mockFrom.mockImplementation((name: string) => builder(name));
-  updates.length = 0; status = 'draft'; shares = [];
+  updates.length = 0; status = 'draft'; shares = []; linkedRisks = [];
   updateResult = { data: [{ id: 'pol1' }], error: null };
 });
 
@@ -89,6 +91,31 @@ describe('editing a draft policy', () => {
     await screen.findByText('Policy page');
     expect(updates[0]).not.toHaveProperty('insurer_id');
     expect(updates[0]).not.toHaveProperty('commission_rate_pct');
+  });
+
+  it('lets the client and product line change while no risk is linked', async () => {
+    mount();
+    await screen.findByText('Edit draft POL-7');
+    expect(screen.getByLabelText(/^Client/)).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByLabelText(/^Product line/)).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByText(/client and product line are locked/)).not.toBeInTheDocument();
+  });
+
+  it('locks the client and product line while risks are linked, and leaves them out of the save', async () => {
+    linkedRisks = [{ risk_id: 'r1' }];
+    mount();
+    await screen.findByText(/client and product line are locked/);
+    expect(screen.getByLabelText(/^Client/)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByLabelText(/^Product line/)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getAllByText('Locked while risks are linked.')).toHaveLength(2);
+    const premium = screen.getByLabelText(/^Gross premium/);
+    await userEvent.clear(premium);
+    await userEvent.type(premium, '410000');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Policy page');
+    expect(updates[0]).toMatchObject({ gross_premium: 410000, insurer_id: 'i1' });
+    expect(updates[0]).not.toHaveProperty('client_id');
+    expect(updates[0]).not.toHaveProperty('product_line_id');
   });
 
   it('will not save a policy that has been bound', async () => {

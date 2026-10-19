@@ -19,6 +19,16 @@ describe('draftUpdate', () => {
     expect(patch).not.toHaveProperty('commission_rate_pct');
     expect(patch.gross_premium).toBe(250000.5);
   });
+  it('leaves the client and product line alone while risks are linked, and still writes the rest', () => {
+    const patch = draftUpdate(form, false, true);
+    expect(patch).not.toHaveProperty('client_id');
+    expect(patch).not.toHaveProperty('product_line_id');
+    expect(patch).toMatchObject({ gross_premium: 250000.5, insurer_id: 'i1', notes: 'renewal' });
+  });
+  it('writes the client and product line when no risk is linked', () => {
+    expect(draftUpdate(form, false, false)).toMatchObject({ client_id: 'c1', product_line_id: 'p1' });
+    expect(draftUpdate(form, true)).toMatchObject({ client_id: 'c1', product_line_id: 'p1' });
+  });
   it('treats blank numbers as zero', () => {
     expect(draftUpdate({ ...form, sumInsured: '', grossPremium: '' }, false)).toMatchObject({ sum_insured: 0, gross_premium: 0 });
   });
