@@ -5,6 +5,7 @@ import { errorText, rpc } from '../../modules/portals/insurance/db';
 import type { PolicyCashPolicy } from '../../modules/portals/insurance/policyCash';
 import PolicyCashPanel from '../../modules/portals/insurance/pages/policies/PolicyCashPanel';
 import PolicyCancellationPanel from '../../modules/portals/insurance/cancellation/PolicyCancellationPanel';
+import PendingApprovalsPanel from '../../modules/portals/insurance/pages/policies/PendingApprovalsPanel';
 
 /** Finance route: does not require an Insurance staff role. RPCs are Finance-only. */
 export default function InsurancePremiumCash() {
@@ -17,6 +18,7 @@ export default function InsurancePremiumCash() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
+  const selectedPanel = useRef<HTMLDivElement>(null);
   const load = useCallback(async () => {
     const current = ++generation.current;
     setLoading(true);
@@ -28,27 +30,31 @@ export default function InsurancePremiumCash() {
     finally { if (current === generation.current) setLoading(false); }
   }, [filter, offset]);
   useEffect(() => { void load(); return () => { generation.current++; }; }, [load]);
+  // Opening an item from the worklist selects its policy, which renders further down the page.
+  useEffect(() => { if (selected) selectedPanel.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); }, [selected]);
 
   return <Box sx={{ p: 3 }}>
     <Typography variant="h5" gutterBottom>Insurance premium cash</Typography>
     <Typography sx={{ mb: 2 }}>Prepare premium receipts and insurer remittances, or review another Finance user's pending requests. Insurance staff can view status from the policy; they cannot post cash through Insurance permissions.</Typography>
     <Button component={RouterLink} to="/financial-management/reports/insurance-fee-vat">Broker-fee VAT supplement</Button>
+    <PendingApprovalsPanel onOpen={(policyId) => setParams({ policy: policyId })} />
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Stack direction="row" spacing={1} component="form" onSubmit={(e) => { e.preventDefault(); setOffset(0); setFilter(search); }}>
       <TextField size="small" label="Find policy, client or insurer" value={search} onChange={(e) => setSearch(e.target.value)} />
       <Button type="submit" disabled={loading}>Search</Button><Button onClick={() => void load()} disabled={loading}>Refresh policies</Button>
     </Stack>
     <Box sx={{ overflowX: 'auto' }}><Table size="small" aria-label="Premium cash policies">
-      <TableHead><TableRow><TableCell>Policy</TableCell><TableCell>Client</TableCell><TableCell>Insurer</TableCell><TableCell>Status</TableCell><TableCell /></TableRow></TableHead>
+      <TableHead><TableRow><TableCell>Policy</TableCell><TableCell>Client</TableCell><TableCell>Insurer</TableCell><TableCell>Currency</TableCell><TableCell>Status</TableCell><TableCell /></TableRow></TableHead>
       <TableBody>{policies.map((p) => <TableRow key={p.id} selected={selected === p.id}>
-        <TableCell>{p.policy_no}</TableCell><TableCell>{p.client_name}</TableCell><TableCell>{p.insurer_name}</TableCell><TableCell>{p.status}</TableCell>
+        <TableCell>{p.policy_no}</TableCell><TableCell>{p.client_name}</TableCell><TableCell>{p.insurer_name}</TableCell><TableCell>{p.currency}</TableCell><TableCell>{p.status}</TableCell>
         <TableCell><Button onClick={() => setParams({ policy: p.id })}>View cash workflow</Button></TableCell>
-      </TableRow>)}{!loading && policies.length === 0 && <TableRow><TableCell colSpan={5}>No bound policies found.</TableCell></TableRow>}</TableBody>
+      </TableRow>)}{!loading && policies.length === 0 && <TableRow><TableCell colSpan={6}>No bound policies found.</TableCell></TableRow>}</TableBody>
     </Table></Box>
     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
       <Button disabled={loading || offset === 0} onClick={() => setOffset((v) => Math.max(v - 50, 0))}>Previous</Button>
       <Button disabled={loading || policies.length < 50} onClick={() => setOffset((v) => v + 50)}>Next</Button>
     </Stack>
+    <div ref={selectedPanel} />
     {selected && <PolicyCancellationPanel key={`cancellation-${selected}`} policyId={selected} cashMode="finance" />}
     {selected ? <PolicyCashPanel key={selected} policyId={selected} mode="finance" /> : <Alert severity="info" sx={{ mt: 2 }}>Select a policy to prepare cash or review pending approvals.</Alert>}
   </Box>;
