@@ -7,15 +7,23 @@
 # Usage (repo root):
 #   .\scripts\gen-types.ps1            # from the linked live project
 #   .\scripts\gen-types.ps1 -Local     # from the local stack (supabase start)
+#
+# CLI version: pinned to the version CI uses (supabase/setup-cli `version:` in
+# .github/workflows/foundation-checks.yml). Keep the two equal. CI diffs this file against
+# that CLI's output, and different CLI versions format it differently (comment lines under
+# `export type Database`, parentheses in the Tables/Enums helper types). An unpinned
+# `npx supabase` picks up whatever is installed and made the check fail on formatting alone
+# (20 Oct 2026). Needs Docker running, as before.
 param([switch]$Local)
 
 $ErrorActionPreference = 'Stop'
 $out = 'packages\shared\src\database.types.ts'
+$cli = 'supabase@2.114.0'
 
 if ($Local) {
-  cmd /c "npx supabase gen types typescript --local --schema public > $out"
+  cmd /c "npx --yes $cli gen types typescript --local --schema public > $out"
 } else {
-  cmd /c "npx supabase gen types typescript --project-id xownbroirovedkmqyybc --schema public > $out"
+  cmd /c "npx --yes $cli gen types typescript --project-id xownbroirovedkmqyybc --schema public > $out"
 }
 if ($LASTEXITCODE -ne 0) { throw "supabase gen types failed (exit $LASTEXITCODE)" }
 
