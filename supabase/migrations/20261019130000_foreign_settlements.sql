@@ -100,7 +100,7 @@ security definer
 set search_path to 'public', 'pg_temp'
 as $function$
 declare
-  v_keys constant text[] := array['journal_entry_id', 'status', 'void_journal_entry_id', 'voided_at', 'voided_by', 'void_reason'];
+  v_keys constant text[] := array['journal_entry_id', 'status', 'void_journal_entry_id', 'voided_at', 'voided_by', 'void_reason', 'base_amount'];
   v_functional text;
 begin
   if tg_op = 'INSERT' then
@@ -290,8 +290,8 @@ begin
   v_desc := case p_direction when 'in' then 'Receipt ' else 'Payment ' end || v_no;
 
   if p_direction = 'in' then
-    v_lines := v_lines || jsonb_build_object('gl_account_id', v_bank.gl_account_id, 'debit', p_amount, 'description', v_desc)
-                       || case when v_foreign then jsonb_build_object('currency', v_ccy) else '{}'::jsonb end;
+    v_lines := v_lines || (jsonb_build_object('gl_account_id', v_bank.gl_account_id, 'debit', p_amount, 'description', v_desc)
+                       || case when v_foreign then jsonb_build_object('currency', v_ccy) else '{}'::jsonb end);
   end if;
 
   if not v_foreign then
@@ -346,8 +346,8 @@ begin
   end if;
 
   if p_direction = 'out' then
-    v_lines := v_lines || jsonb_build_object('gl_account_id', v_bank.gl_account_id, 'credit', p_amount, 'description', v_desc)
-                       || case when v_foreign then jsonb_build_object('currency', v_ccy) else '{}'::jsonb end;
+    v_lines := v_lines || (jsonb_build_object('gl_account_id', v_bank.gl_account_id, 'credit', p_amount, 'description', v_desc)
+                       || case when v_foreign then jsonb_build_object('currency', v_ccy) else '{}'::jsonb end);
   end if;
 
   if v_foreign then
