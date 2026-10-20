@@ -30,6 +30,10 @@ const PolicyDetail = () => {
   const [financialDirty, setFinancialDirty] = useState(false);
   const [confirmBind, setConfirmBind] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // The company currency, from tenant_ledger_settings. A draft in another currency cannot be
+  // bound yet (the server refuses with INS_CURRENCY_UNSUPPORTED until A3 slice 3d), so the
+  // Bind button is disabled here with the reason, instead of failing on confirm.
+  const [functional, setFunctional] = useState('UGX');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +46,12 @@ const PolicyDetail = () => {
           .eq('id', id),
       );
       setPolicy(p ?? null);
+      // Convenience only: if the setting cannot be read the page still works and the
+      // server remains the enforcement point.
+      const settings = await rows<{ functional_currency: string }>(
+        table('tenant_ledger_settings').select('functional_currency'),
+      ).catch(() => []);
+      setFunctional(settings[0]?.functional_currency ?? 'UGX');
       const audit = await rows<PolicyReversal>(table('ins_policy_reversals').select('*').eq('original_policy_id', id));
       const linked = audit.length ? audit : await rows<PolicyReversal>(table('ins_policy_reversals').select('*').eq('replacement_policy_id', id));
       setReversal(linked[0] ?? null);
@@ -104,6 +114,18 @@ const PolicyDetail = () => {
 
   const extended = Boolean(financial && (financial.shares.length > 1 || financial.charges.length));
   const reviewPending = Boolean(financial && (financial.shares.some((s) => !s.reviewed) || financial.charges.some((c) => !c.reviewed || c.amount === null)));
+  // A draft priced in another currency cannot be bound until foreign-currency binding is built (A3 slice 3d).
+  const foreignDraft = policy.status === 'draft' && policy.currency !== functional;
+  const bindBlocked = busy || financialDirty || reviewPending || !financial || foreignDraft;
+  const bindBlockedTitle = foreignDraft
+    ? `Cannot bind yet: this draft is in ${policy.currency}, not the company currency (${functional}). Foreign-currency binding is not built yet.`
+    : reviewPending
+      ? 'Review the saved insurer shares and charges before binding.'
+      : !financial
+        ? 'Save the financial configuration before binding.'
+        : financialDirty
+          ? 'Financial configuration has unsaved changes.'
+          : undefined;
   const split = commissionSplit(policy.gross_premium, policy.commission_rate_pct);
   const term = policyTermDays(policy.inception_date, policy.expiry_date);
   const daysLeft = daysBetween(new Date().toISOString().slice(0, 10), policy.expiry_date);
@@ -120,7 +142,7 @@ const PolicyDetail = () => {
               <Button variant="outlined" onClick={() => navigate(`/insurance/policies/${id}/edit`)} disabled={busy}>Edit draft</Button>
             )}
             {canManage && policy.status === 'draft' && (
-              <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={busy || financialDirty || reviewPending || !financial}>Bind policy</Button>
+              <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={bindBlocked} title={bindBlockedTitle}>Bind policy</Button>
             )}
             {canManage && policy.status === 'draft' && (
               <Button color="error" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete draft</Button>
@@ -154,6 +176,13 @@ const PolicyDetail = () => {
       {policy.status === 'draft' && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {extended ? 'This draft uses saved insurer shares and charges. Binding creates the full premium/charge receivable, a payable for each insurer, and separately deferred commission per insurer. Review all configuration before binding.' : 'This is a draft. Binding books the premium: the client is billed the gross premium, the insurer is owed the net, and commission is deferred until the insurer is fully paid. Bound policies are locked.'}
+        </Alert>
+      )}
+      {foreignDraft && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This draft is in {policy.currency}, not the company currency ({functional}). It cannot be bound yet: binding a
+          policy in a foreign currency is refused (INS_CURRENCY_UNSUPPORTED) until foreign-currency posting is finished.
+          The draft is safe to keep and edit.
         </Alert>
       )}
 
@@ -245,7 +274,7 @@ const PolicyDetail = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmBind(false)} disabled={busy}>Cancel</Button>
-          <Button variant="contained" onClick={bind} disabled={busy || financialDirty || reviewPending || !financial}>{busy ? 'Binding…' : 'Bind policy'}</Button>
+          <Button variant="contained" onClick={bind} disabled={bindBlocked} title={bindBlockedTitle}>{busy ? 'Binding…' : 'Bind policy'}</Button>
         </DialogActions>
       </Dialog>
 

@@ -5,6 +5,7 @@ import { errorText, rows, rpc, table } from '../../db';
 import { draftUpdate } from '../../policyDraft';
 import { commissionSplit, formatMoney, validatePolicyInput } from '../../logic';
 import type { InsClient, Insurer, Policy, ProductLine } from '../../types';
+import { KYC_LABEL } from '../../clientKyc';
 import { ErrorBanner, PageHeader } from '../../shared';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -54,7 +55,7 @@ export default function NewPolicy() {
     (async () => {
       try {
         const [c, i, p, settings, rates] = await Promise.all([
-          rows<InsClient>(table('ins_clients').select('id, client_id, bd_clients(name)').order('created_at', { ascending: false })),
+          rows<InsClient>(table('ins_clients').select('id, client_id, bd_clients(name), kyc_status, risk_rating').order('created_at', { ascending: false })),
           rows<Insurer>(table('ins_insurers').select('*').eq('is_active', true).order('name', { ascending: true })),
           rows<ProductLine>(table('ins_product_lines').select('*').eq('is_active', true).order('name', { ascending: true })),
           rows<{ functional_currency: string }>(table('tenant_ledger_settings').select('functional_currency')),
@@ -115,6 +116,12 @@ export default function NewPolicy() {
 
   const currencies = [functional, ...otherCurrencies];
   const foreign = form.currency !== functional;
+  // A warning, not a block: whether a client whose KYC is not verified may be bound is a
+  // compliance decision that has not been made yet (see the UI review, step 3b).
+  // A client without a KYC status on the row (nothing fetched) raises no warning.
+  const selectedClient = clients.find((c) => c.id === form.clientId) ?? null;
+  const kycWarning = selectedClient && selectedClient.kyc_status
+    && (selectedClient.kyc_status !== 'verified' || selectedClient.risk_rating === 'high');
 
   const pickInsurer = (id: string) => {
     const ins = insurers.find((i) => i.id === id);
@@ -258,6 +265,13 @@ export default function NewPolicy() {
             <Alert severity="info" sx={{ mt: 2 }}>
               {form.currency} is not the company currency ({functional}). The draft can be saved, but it cannot be bound until
               foreign-currency posting is finished. Binding is refused with a message until then.
+            </Alert>
+          )}
+          {kycWarning && selectedClient && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {selectedClient.bd_clients?.name ?? 'This client'}: KYC is {KYC_LABEL[selectedClient.kyc_status].toLowerCase()}
+              {selectedClient.risk_rating === 'high' ? '; the risk rating is high' : ''}. The draft can be saved, but check
+              KYC before binding. Whether a client whose KYC is not verified may be bound is still to be decided.
             </Alert>
           )}
           {problems.length > 0 && (

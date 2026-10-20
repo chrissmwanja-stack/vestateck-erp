@@ -8,7 +8,7 @@
 --      reversed, because nothing was posted. Once a receivable is recognised, or any
 --      payment is recorded, un-approval is refused.
 --
--- The rest of ins_transition_claim is unchanged from 20261016190000_ins_claim_recognition.sql.
+-- The rest of ins_transition_claim is unchanged from 20261017110000_ins_claim_recognition.sql.
 
 create or replace function public.ins_transition_claim(
   p_claim_id uuid,

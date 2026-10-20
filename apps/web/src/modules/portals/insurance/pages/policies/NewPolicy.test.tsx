@@ -32,7 +32,10 @@ function setup() {
   mockFrom.mockImplementation((table: string) => {
     switch (table) {
       case 'ins_clients':
-        return builder(() => ({ data: [{ id: 'c1', client_id: 'bd1', bd_clients: { name: 'Acme Ltd' } }], error: null }));
+        return builder(() => ({ data: [
+          { id: 'c1', client_id: 'bd1', bd_clients: { name: 'Acme Ltd' }, kyc_status: 'verified', risk_rating: 'low' },
+          { id: 'c2', client_id: 'bd2', bd_clients: { name: 'Pending Ltd' }, kyc_status: 'pending', risk_rating: 'high' },
+        ], error: null }));
       case 'ins_insurers':
         return builder(() => ({ data: [{ id: 'i1', name: 'Jubilee', default_commission_rate_pct: 10 }], error: null }));
       case 'ins_product_lines':
@@ -113,5 +116,42 @@ describe('NewPolicy currency', () => {
     await pick('Product line', 'Motor');
     await userEvent.click(screen.getByRole('button', { name: /save draft/i }));
     await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_create_policy', expect.objectContaining({ p_currency: 'UGX' })));
+  });
+});
+
+describe('NewPolicy KYC warning', () => {
+  it('warns when the chosen client is pending and high risk, and stays silent for a verified low-risk client', async () => {
+    setup();
+    await screen.findByLabelText('Currency');
+    expect(screen.queryByText(/: KYC is /)).not.toBeInTheDocument();
+
+    await pick('Client', 'Pending Ltd');
+    expect(screen.getByText(/Pending Ltd: KYC is pending/)).toBeInTheDocument();
+    expect(screen.getByText(/the risk rating is high/)).toBeInTheDocument();
+
+    // A warning, not a block: the save still goes through.
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await userEvent.click(screen.getByRole('button', { name: /save draft/i }));
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_create_policy', expect.anything()));
+
+    await pick('Client', 'Acme Ltd');
+    expect(screen.queryByText(/: KYC is /)).not.toBeInTheDocument();
+  });
+
+  it('mentions an expired KYC without the risk clause when only KYC is a problem', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'ins_clients') {
+        return builder(() => ({ data: [
+          { id: 'c3', client_id: 'bd3', bd_clients: { name: 'Lapsed Ltd' }, kyc_status: 'expired', risk_rating: 'medium' },
+        ], error: null }));
+      }
+      return builder(() => ({ data: table === 'tenant_ledger_settings' ? [{ functional_currency: 'UGX' }] : [], error: null }));
+    });
+    render(<MemoryRouter><NewPolicy /></MemoryRouter>);
+    await screen.findByLabelText('Currency');
+    await pick('Client', 'Lapsed Ltd');
+    expect(screen.getByText(/Lapsed Ltd: KYC is expired/)).toBeInTheDocument();
+    expect(screen.queryByText(/risk rating is high/)).not.toBeInTheDocument();
   });
 });

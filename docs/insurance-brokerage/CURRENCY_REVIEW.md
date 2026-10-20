@@ -13,6 +13,15 @@ rate left on its control account is removed: payments and receipts now settle at
 original rate and the difference is booked as realised gain or loss. The settlement calculation and
 the realised line are reusable by slices 3c and 3d.
 
+**Update 20 Oct 2026: slice 3c is built.** Open items may be foreign at their booked rate
+(`20261019120000_foreign_open_items.sql`) and settlements foreign at their settled rate
+(`20261019130000_foreign_settlements.sql`, which failed a fresh replay and was repaired in place by
+`20261020090000_fix_foreign_settlements.sql`). `OPEN_ITEM_CURRENCY` is gone; `SETTLEMENT_CURRENCY`
+now means only that a settlement must be in its bank account's currency. What remains of this
+review's plan: slice 3d (credit notes, bank accounts, transfers, policy bind and the insurance
+posting functions -- the insurance currency guards stand until then) and 3e (period-end
+revaluation), plus the column defaults that assume UGX and the 8-versus-10-decimal rate question.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
