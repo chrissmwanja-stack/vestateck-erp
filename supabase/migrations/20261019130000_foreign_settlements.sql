@@ -155,8 +155,8 @@ create or replace function public.platform_fin_record_settlement_impl(
   p_amount numeric,
   p_settlement_date date,
   p_allocations jsonb,
-  p_reference text,
-  p_notes text
+  p_reference text default null,
+  p_notes text default null
 )
 returns public.fin_settlements
 language plpgsql
