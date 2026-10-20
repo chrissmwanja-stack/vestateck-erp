@@ -2623,6 +2623,7 @@ export type Database = {
         Row: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
@@ -2631,7 +2632,9 @@ export type Database = {
           document_date: string
           document_no: string
           due_date: string | null
+          fx_rate: number
           id: string
+          journal_entry_id: string | null
           party_account_id: string
           side: string
           source_id: string | null
@@ -2641,6 +2644,7 @@ export type Database = {
         Insert: {
           accounting_policy_version?: number
           amount: number
+          base_amount?: number | null
           control_role: string
           created_at?: string
           created_by?: string | null
@@ -2649,7 +2653,9 @@ export type Database = {
           document_date: string
           document_no: string
           due_date?: string | null
+          fx_rate?: number
           id?: string
+          journal_entry_id?: string | null
           party_account_id: string
           side: string
           source_id?: string | null
@@ -2659,6 +2665,7 @@ export type Database = {
         Update: {
           accounting_policy_version?: number
           amount?: number
+          base_amount?: number | null
           control_role?: string
           created_at?: string
           created_by?: string | null
@@ -2667,7 +2674,9 @@ export type Database = {
           document_date?: string
           document_no?: string
           due_date?: string | null
+          fx_rate?: number
           id?: string
+          journal_entry_id?: string | null
           party_account_id?: string
           side?: string
           source_id?: string | null
@@ -2675,6 +2684,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fin_open_items_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fin_open_items_party_account_id_fkey"
             columns: ["party_account_id"]
@@ -2710,14 +2726,17 @@ export type Database = {
           accounting_policy_version: number
           amount: number
           bank_account_id: string
+          base_amount: number | null
           created_at: string
           created_by: string | null
           currency: string
           direction: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           notes: string | null
           party_account_id: string
+          realised_result: number
           reference: string | null
           settlement_date: string
           settlement_no: string
@@ -2732,14 +2751,17 @@ export type Database = {
           accounting_policy_version?: number
           amount: number
           bank_account_id: string
+          base_amount?: number | null
           created_at?: string
           created_by?: string | null
           currency: string
           direction: string
+          fx_rate?: number
           id?: string
           journal_entry_id?: string | null
           notes?: string | null
           party_account_id: string
+          realised_result?: number
           reference?: string | null
           settlement_date: string
           settlement_no: string
@@ -2754,14 +2776,17 @@ export type Database = {
           accounting_policy_version?: number
           amount?: number
           bank_account_id?: string
+          base_amount?: number | null
           created_at?: string
           created_by?: string | null
           currency?: string
           direction?: string
+          fx_rate?: number
           id?: string
           journal_entry_id?: string | null
           notes?: string | null
           party_account_id?: string
+          realised_result?: number
           reference?: string | null
           settlement_date?: string
           settlement_no?: string
@@ -11753,6 +11778,7 @@ export type Database = {
         Row: {
           allocated_amount: number | null
           amount: number | null
+          base_outstanding_amount: number | null
           control_role: string | null
           credited_amount: number | null
           currency: string | null
@@ -11760,6 +11786,7 @@ export type Database = {
           document_date: string | null
           document_no: string | null
           due_date: string | null
+          fx_rate: number | null
           id: string | null
           outstanding_amount: number | null
           party_account_id: string | null
@@ -13369,6 +13396,7 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
@@ -13377,7 +13405,52 @@ export type Database = {
           document_date: string
           document_no: string
           due_date: string | null
+          fx_rate: number
           id: string
+          journal_entry_id: string | null
+          party_account_id: string
+          side: string
+          source_id: string | null
+          source_type: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_open_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_create_open_item_fx: {
+        Args: {
+          p_amount: number
+          p_control_role: string
+          p_currency: string
+          p_description: string
+          p_document_date: string
+          p_document_no: string
+          p_due_date: string
+          p_journal_entry_id: string
+          p_party_account_id: string
+          p_source_id: string
+          p_source_type: string
+          p_tenant_id: string
+        }
+        Returns: {
+          accounting_policy_version: number
+          amount: number
+          base_amount: number | null
+          control_role: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          document_date: string
+          document_no: string
+          due_date: string | null
+          fx_rate: number
+          id: string
+          journal_entry_id: string | null
           party_account_id: string
           side: string
           source_id: string | null
@@ -13452,14 +13525,17 @@ export type Database = {
           accounting_policy_version: number
           amount: number
           bank_account_id: string
+          base_amount: number | null
           created_at: string
           created_by: string | null
           currency: string
           direction: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           notes: string | null
           party_account_id: string
+          realised_result: number
           reference: string | null
           settlement_date: string
           settlement_no: string
@@ -13523,14 +13599,17 @@ export type Database = {
           accounting_policy_version: number
           amount: number
           bank_account_id: string
+          base_amount: number | null
           created_at: string
           created_by: string | null
           currency: string
           direction: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           notes: string | null
           party_account_id: string
+          realised_result: number
           reference: string | null
           settlement_date: string
           settlement_no: string
@@ -15027,6 +15106,7 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
@@ -15035,7 +15115,9 @@ export type Database = {
           document_date: string
           document_no: string
           due_date: string | null
+          fx_rate: number
           id: string
+          journal_entry_id: string | null
           party_account_id: string
           side: string
           source_id: string | null
@@ -16209,14 +16291,17 @@ export type Database = {
           accounting_policy_version: number
           amount: number
           bank_account_id: string
+          base_amount: number | null
           created_at: string
           created_by: string | null
           currency: string
           direction: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           notes: string | null
           party_account_id: string
+          realised_result: number
           reference: string | null
           settlement_date: string
           settlement_no: string
@@ -16282,14 +16367,17 @@ export type Database = {
           accounting_policy_version: number
           amount: number
           bank_account_id: string
+          base_amount: number | null
           created_at: string
           created_by: string | null
           currency: string
           direction: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           notes: string | null
           party_account_id: string
+          realised_result: number
           reference: string | null
           settlement_date: string
           settlement_no: string
@@ -16653,6 +16741,7 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
@@ -16661,7 +16750,9 @@ export type Database = {
           document_date: string
           document_no: string
           due_date: string | null
+          fx_rate: number
           id: string
+          journal_entry_id: string | null
           party_account_id: string
           side: string
           source_id: string | null
