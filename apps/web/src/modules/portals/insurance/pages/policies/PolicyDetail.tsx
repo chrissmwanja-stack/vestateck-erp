@@ -138,7 +138,7 @@ const PolicyDetail = () => {
         subtitle={`${policy.ins_clients?.bd_clients?.name ?? 'Client'} · ${policy.ins_insurers?.name ?? 'Insurer'} · ${policy.ins_product_lines?.name ?? 'Product'}`}
         actions={
           <Stack direction="row" spacing={1} alignItems="center">
-            <PolicyStatusChip status={policy.status} />
+            <PolicyStatusChip status={policy.status} expiryDate={policy.expiry_date} />
             {policy.status === 'draft' && (
               <Button variant="outlined" onClick={() => navigate(`/insurance/policies/${id}/edit`)} disabled={busy}>Edit draft</Button>
             )}

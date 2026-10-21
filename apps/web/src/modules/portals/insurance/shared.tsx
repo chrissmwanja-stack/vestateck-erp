@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Alert, Box, Chip, Typography } from '@mui/material';
-import { CLAIM_STATUS_LABEL, COMMISSION_STATUS_LABEL, POLICY_STATUS_LABEL } from './logic';
+import { localIsoDate } from './fx';
+import { CLAIM_STATUS_LABEL, COMMISSION_STATUS_LABEL, POLICY_DISPLAY_STATUS_LABEL, policyDisplayStatus, type PolicyDisplayStatus } from './logic';
 import type { ClaimStatus, CommissionStatus, PolicyStatus } from './types';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
@@ -21,7 +22,8 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
-const POLICY_COLOR: Record<PolicyStatus, 'default' | 'primary' | 'success'> = {
+const POLICY_COLOR: Record<PolicyDisplayStatus, 'default' | 'primary' | 'success' | 'warning'> = {
+  expired: 'warning',
   draft: 'default',
   active: 'success',
   renewed: 'primary',
@@ -44,8 +46,10 @@ const COMMISSION_COLOR: Record<CommissionStatus, 'default' | 'primary' | 'succes
   transferred: 'primary',
 };
 
-export function PolicyStatusChip({ status }: { status: PolicyStatus }) {
-  return <Chip size="small" label={POLICY_STATUS_LABEL[status]} color={POLICY_COLOR[status]} variant={status === 'draft' ? 'outlined' : 'filled'} />;
+/** Pass `expiryDate` so an active policy past its expiry shows as Expired. */
+export function PolicyStatusChip({ status, expiryDate }: { status: PolicyStatus; expiryDate?: string | null }) {
+  const shown: PolicyDisplayStatus = expiryDate ? policyDisplayStatus({ status, expiry_date: expiryDate }, localIsoDate()) : status;
+  return <Chip size="small" label={POLICY_DISPLAY_STATUS_LABEL[shown]} color={POLICY_COLOR[shown]} variant={shown === 'draft' ? 'outlined' : 'filled'} />;
 }
 
 export function ClaimStatusChip({ status }: { status: ClaimStatus }) {

@@ -168,6 +168,27 @@ export function isInForce(policy: { status: PolicyStatus; expiry_date: string },
   return policy.status === 'active' && policy.expiry_date.slice(0, 10) >= todayIso;
 }
 
+/**
+ * What to show for a policy's status. The stored status never becomes 'expired'
+ * (the server only moves a policy on renewal, cancellation or reversal), so an
+ * active policy whose expiry date has passed is shown as 'expired' until it is
+ * renewed. This is a display state only: nothing is written to the database.
+ */
+export type PolicyDisplayStatus = PolicyStatus | 'expired';
+
+export function isExpired(policy: { status: PolicyStatus; expiry_date: string }, todayIso: string): boolean {
+  return policy.status === 'active' && policy.expiry_date.slice(0, 10) < todayIso;
+}
+
+export function policyDisplayStatus(policy: { status: PolicyStatus; expiry_date: string }, todayIso: string): PolicyDisplayStatus {
+  return isExpired(policy, todayIso) ? 'expired' : policy.status;
+}
+
+export const POLICY_DISPLAY_STATUS_LABEL: Record<PolicyDisplayStatus, string> = {
+  ...POLICY_STATUS_LABEL,
+  expired: 'Expired',
+};
+
 /** Open claims are those still being worked on (not settled, repudiated or closed). */
 export function isClaimOpen(status: ClaimStatus): boolean {
   return status === 'notified' || status === 'assessing' || status === 'approved';

@@ -7,18 +7,19 @@ import {
 import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { allRows, errorText, table } from '../../db';
-import { formatMoney, POLICY_STATUS_LABEL } from '../../logic';
-import type { Policy, PolicyStatus } from '../../types';
+import { formatMoney, POLICY_DISPLAY_STATUS_LABEL, type PolicyDisplayStatus } from '../../logic';
+import { localIsoDate } from '../../fx';
+import type { Policy } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 
-const POLICY_STATUSES: PolicyStatus[] = ['draft', 'active', 'renewed', 'reversed', 'cancelled'];
+const POLICY_STATUSES: PolicyDisplayStatus[] = ['draft', 'active', 'expired', 'renewed', 'reversed', 'cancelled'];
 
 export default function PoliciesList() {
   const navigate = useNavigate();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | PolicyStatus>('all');
+  const [status, setStatus] = useState<'all' | PolicyDisplayStatus>('all');
   const [filters, setFilters] = useState<PolicyFilters>(EMPTY_POLICY_FILTERS);
   const [sort, setSort] = useState<PolicySort>('newest');
 
@@ -32,7 +33,11 @@ export default function PoliciesList() {
             .select('id, policy_no, status, insurer_id, product_line_id, inception_date, expiry_date, gross_premium, commission_amount, currency, ins_clients(bd_clients(name)), ins_insurers(name), ins_product_lines(name)')
             .order('created_at', { ascending: false })
             .order('id');
-          if (status !== 'all') q = q.eq('status', status);
+          // 'expired' is not stored: it is an active policy whose expiry date has passed.
+          const today = localIsoDate();
+          if (status === 'expired') q = q.eq('status', 'active').lt('expiry_date', today);
+          else if (status === 'active') q = q.eq('status', 'active').gte('expiry_date', today);
+          else if (status !== 'all') q = q.eq('status', status);
           return q;
         });
         if (!cancelled) {
@@ -78,7 +83,7 @@ export default function PoliciesList() {
         <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} sx={{ minWidth: 160 }}>
           <MenuItem value="all">All</MenuItem>
           {POLICY_STATUSES.map((s) => (
-            <MenuItem key={s} value={s}>{POLICY_STATUS_LABEL[s]}</MenuItem>
+            <MenuItem key={s} value={s}>{POLICY_DISPLAY_STATUS_LABEL[s]}</MenuItem>
           ))}
         </TextField>
         <TextField select size="small" label="Insurer" value={filters.insurerId} onChange={(e) => set({ insurerId: e.target.value })} sx={{ minWidth: 160 }}>
@@ -126,7 +131,7 @@ export default function PoliciesList() {
                       <TableCell>{p.inception_date} to {p.expiry_date}</TableCell>
                       <TableCell align="right">{formatMoney(p.gross_premium, p.currency)}</TableCell>
                       <TableCell align="right">{p.status === 'draft' ? '-' : formatMoney(p.commission_amount, p.currency)}</TableCell>
-                      <TableCell><PolicyStatusChip status={p.status} /></TableCell>
+                      <TableCell><PolicyStatusChip status={p.status} expiryDate={p.expiry_date} /></TableCell>
                     </TableRow>
                   ))
                 )}

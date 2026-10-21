@@ -156,7 +156,7 @@ export default function ClientDetail() {
                 policies.map((p) => (
                   <TableRow key={p.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/insurance/policies/${p.id}`)}>
                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{p.policy_no}</TableCell>
-                    <TableCell><PolicyStatusChip status={p.status} /></TableCell>
+                    <TableCell><PolicyStatusChip status={p.status} expiryDate={p.expiry_date} /></TableCell>
                     <TableCell>{p.ins_insurers?.name ?? '-'}</TableCell>
                     <TableCell>{p.ins_product_lines?.name ?? '-'}</TableCell>
                     <TableCell>{p.inception_date} to {p.expiry_date}</TableCell>
