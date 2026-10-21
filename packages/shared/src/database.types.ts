@@ -2113,6 +2113,68 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          bucket: string
+          byte_size: number
+          content_hash: string
+          created_at: string
+          created_by: string | null
+          doc_kind: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          id: string
+          mime_type: string
+          path: string
+          template_code: string | null
+          template_version: number | null
+          tenant_id: string
+        }
+        Insert: {
+          bucket: string
+          byte_size: number
+          content_hash: string
+          created_at?: string
+          created_by?: string | null
+          doc_kind: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          id?: string
+          mime_type: string
+          path: string
+          template_code?: string | null
+          template_version?: number | null
+          tenant_id: string
+        }
+        Update: {
+          bucket?: string
+          byte_size?: number
+          content_hash?: string
+          created_at?: string
+          created_by?: string | null
+          doc_kind?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          id?: string
+          mime_type?: string
+          path?: string
+          template_code?: string | null
+          template_version?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenditure_slips: {
         Row: {
           amount: number
@@ -13427,6 +13489,45 @@ export type Database = {
         Returns: undefined
       }
       dismiss_announcement: { Args: { p_id: string }; Returns: undefined }
+      documents_register: {
+        Args: {
+          p_byte_size: number
+          p_bucket: string
+          p_content_hash: string
+          p_doc_kind?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_file_name: string
+          p_mime_type?: string
+          p_path: string
+          p_template_code?: string
+          p_template_version?: number
+        }
+        Returns: {
+          bucket: string
+          byte_size: number
+          content_hash: string
+          created_at: string
+          created_by: string | null
+          doc_kind: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          id: string
+          mime_type: string
+          path: string
+          template_code: string | null
+          template_version: number | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      documents_via_rpc: { Args: never; Returns: boolean }
       edit_purchase_order: {
         Args: {
           p_amount: number
