@@ -42,7 +42,7 @@ When this draft was written, `PHASE0_COUPLING_AUDIT.md` still listed D4d (bank r
 | `ins_product_lines` | Lines of business (motor, fire, medical, ...). | Admin and manager write. Members read. |
 | `ins_insurers` | Insurance companies. Default commission rate. | Guarded. Party account created on first bind. |
 | `ins_clients` | Insurance profile on top of `bd_clients`: client type, TIN, risk rating, KYC status. | Guard checks the BD client is in the same tenant. |
-| `ins_policies` | Policy header. Statuses: `draft`, `active`, `renewed`. Premium, commission and net stored on bind. | Inserts go through `ins_create_policy`. Bound rows are locked by a guard. |
+| `ins_policies` | Policy header. Statuses: `draft`, `active`, `renewed`. Premium, commission and net stored on bind. Optional branch, agent, and a `transaction_type` stamp (`new_business`/`renewal`, `20261020210000`). | Inserts go through `ins_create_policy`. Bound rows are locked by a guard. |
 | `ins_claims` | Claim header. Reserve, approved and paid amounts. | Status moves go through `ins_transition_claim`. |
 | `ins_claim_events` | Append-only claim history. | Written by RPCs. |
 | `ins_claim_payments` | One row per claim payment, receipt or payout. | Written by RPCs and a settlement-void trigger. See 3.4. |

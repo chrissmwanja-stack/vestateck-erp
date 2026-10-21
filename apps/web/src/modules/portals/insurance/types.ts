@@ -96,6 +96,9 @@ export interface Policy {
   client_id: string;
   insurer_id: string;
   product_line_id: string;
+  branch_id: string | null;
+  agent_id: string | null;
+  transaction_type: string;
   inception_date: string;
   expiry_date: string;
   sum_insured: number;
@@ -270,4 +273,26 @@ export interface InsCertificate {
   issued_at: string | null;
   close_reason: string | null;
   ins_risks: { reg_no: string | null; chassis_no: string | null; description: string } | null;
+}
+
+/** An active branch (organisation site) a policy can be filed under. */
+export interface OrgOption {
+  id: string;
+  site_name: string;
+}
+
+/** An active intermediary that can be recorded as the agent on a policy. */
+export interface AgentOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+/** One approved row of the insurer/product commission rate matrix. */
+export interface InsurerProductRate {
+  insurer_id: string;
+  product_line_id: string;
+  rate: number;
+  effective_from: string;
+  effective_to: string | null;
 }

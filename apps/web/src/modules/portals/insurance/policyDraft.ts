@@ -2,6 +2,8 @@ export interface PolicyDraftForm {
   clientId: string;
   insurerId: string;
   productLineId: string;
+  branchId: string;
+  agentId: string;
   inception: string;
   expiry: string;
   sumInsured: string;
@@ -32,6 +34,8 @@ export function draftUpdate(form: PolicyDraftForm, hasConfiguration: boolean, ri
     sum_insured: Number(form.sumInsured) || 0,
     currency: form.currency,
     gross_premium: Number(form.grossPremium) || 0,
+    branch_id: form.branchId || null,
+    agent_id: form.agentId || null,
     risk_description: form.riskDescription.trim() || null,
     notes: form.notes.trim() || null,
   };

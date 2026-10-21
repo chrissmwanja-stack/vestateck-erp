@@ -20,6 +20,7 @@ let updateResult: { data: unknown; error: null | { message: string } } = { data:
 
 const policy = () => ({
   id: 'pol1', policy_no: 'POL-7', status, client_id: 'c1', insurer_id: 'i1', product_line_id: 'p1',
+  branch_id: 'org1', agent_id: 'ag1', transaction_type: 'new_business',
   inception_date: '2026-10-01', expiry_date: '2027-09-30', sum_insured: 5000000, currency: 'UGX', gross_premium: 250000,
   commission_rate_pct: 12.5, risk_description: 'Fleet of 3', notes: null,
 });
@@ -31,13 +32,16 @@ function builder(name: string) {
     ins_product_lines: [{ id: 'p1', name: 'Motor' }],
     tenant_ledger_settings: [{ functional_currency: 'UGX' }],
     fx_rates: [],
+    organizations: [{ id: 'org1', site_name: 'Kampala HQ' }],
+    ins_intermediaries: [{ id: 'ag1', name: 'Jane Agent', category: 'insurer_appointed_agent' }],
+    ins_insurer_product_rates: [],
     ins_policies: [policy()],
     ins_policy_insurer_shares: shares,
     ins_policy_risks: linkedRisks,
   };
   let isUpdate = false;
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order']) chain[m] = vi.fn(() => chain);
+  for (const m of ['select', 'eq', 'lte', 'gte', 'or', 'order']) chain[m] = vi.fn(() => chain);
   chain.update = vi.fn((patch: unknown) => { isUpdate = true; updates.push(patch); return chain; });
   (chain as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve(isUpdate ? updateResult : { data: data[name], error: null });
   return chain;
@@ -68,6 +72,9 @@ describe('editing a draft policy', () => {
     expect(screen.getByLabelText(/^Gross premium/)).toHaveValue(250000);
     expect(screen.getByLabelText(/^Commission/)).toHaveValue(12.5);
     expect(screen.getByDisplayValue('Fleet of 3')).toBeInTheDocument();
+    // The saved branch and agent come back into the selects.
+    expect(screen.getByText('Kampala HQ')).toBeInTheDocument();
+    expect(screen.getByText('Jane Agent')).toBeInTheDocument();
   });
 
   it('saves changes to the draft and returns to the policy', async () => {
@@ -79,7 +86,7 @@ describe('editing a draft policy', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Policy page');
     expect(updates).toHaveLength(1);
-    expect(updates[0]).toMatchObject({ gross_premium: 300000, insurer_id: 'i1', commission_rate_pct: 12.5, client_id: 'c1' });
+    expect(updates[0]).toMatchObject({ gross_premium: 300000, insurer_id: 'i1', commission_rate_pct: 12.5, client_id: 'c1', branch_id: 'org1', agent_id: 'ag1' });
   });
 
   it('leaves the insurer and commission to the saved shares', async () => {

@@ -20,10 +20,13 @@ vi.mock('../../../../../lib/supabaseClient', () => ({
 
 let fxRates: { currency: string }[] = [];
 let fxError = false;
+let branches: { id: string; site_name: string }[] = [];
+let agents: { id: string; name: string; category: string }[] = [];
+let matrixRates: { insurer_id: string; product_line_id: string; rate: number; effective_from: string; effective_to: string | null }[] = [];
 
 function builder(result: () => { data: unknown; error: { message: string } | null }) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order']) chain[m] = vi.fn(() => chain);
+  for (const m of ['select', 'eq', 'lte', 'gte', 'or', 'order']) chain[m] = vi.fn(() => chain);
   (chain as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve(result());
   return chain;
 }
@@ -44,6 +47,12 @@ function setup() {
         return builder(() => ({ data: [{ functional_currency: 'UGX' }], error: null }));
       case 'fx_rates':
         return builder(() => (fxError ? { data: null, error: { message: 'permission denied' } } : { data: fxRates, error: null }));
+      case 'organizations':
+        return builder(() => ({ data: branches, error: null }));
+      case 'ins_intermediaries':
+        return builder(() => ({ data: agents, error: null }));
+      case 'ins_insurer_product_rates':
+        return builder(() => ({ data: matrixRates, error: null }));
       default:
         throw new Error(`unexpected table ${table}`);
     }
@@ -59,6 +68,9 @@ async function pick(label: string, option: RegExp | string) {
 beforeEach(() => {
   fxRates = [];
   fxError = false;
+  branches = [];
+  agents = [];
+  matrixRates = [];
   mockFrom.mockReset();
   mockRpc.mockReset();
   mockRpc.mockResolvedValue({ data: { id: 'new-policy' }, error: null });
@@ -153,5 +165,100 @@ describe('NewPolicy KYC warning', () => {
     await pick('Client', 'Lapsed Ltd');
     expect(screen.getByText(/Lapsed Ltd: KYC is expired/)).toBeInTheDocument();
     expect(screen.queryByText(/risk rating is high/)).not.toBeInTheDocument();
+  });
+});
+
+describe('NewPolicy branch, agent and rate matrix', () => {
+  it('lists active branches and agents, and saves the selection on the draft', async () => {
+    branches = [{ id: 'org1', site_name: 'Kampala HQ' }];
+    agents = [{ id: 'ag1', name: 'Jane Agent', category: 'insurer_appointed_agent' }];
+    setup();
+    await screen.findByLabelText('Currency');
+
+    await pick('Branch', 'Kampala HQ');
+    await pick('Agent', 'Jane Agent');
+    await pick('Client', 'Acme Ltd');
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await userEvent.click(screen.getByRole('button', { name: /save draft/i }));
+
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_create_policy', expect.objectContaining({
+      p_branch_id: 'org1',
+      p_agent_id: 'ag1',
+    })));
+  });
+
+  it('sends null branch and agent when nothing is selected', async () => {
+    setup();
+    await screen.findByLabelText('Currency');
+    expect(screen.getByText(/optional: the branch this policy belongs to/i)).toBeInTheDocument();
+    expect(screen.getByText(/optional: the agent who introduced the policy/i)).toBeInTheDocument();
+
+    await pick('Client', 'Acme Ltd');
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await userEvent.click(screen.getByRole('button', { name: /save draft/i }));
+
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_create_policy', expect.objectContaining({
+      p_branch_id: null,
+      p_agent_id: null,
+    })));
+  });
+
+  it('pre-fills the commission from an approved matrix rate for the chosen insurer and product line', async () => {
+    matrixRates = [
+      { insurer_id: 'i1', product_line_id: 'p1', rate: 17.5, effective_from: '2026-01-01', effective_to: null },
+    ];
+    setup();
+    await screen.findByLabelText('Currency');
+
+    await pick('Insurer', 'Jubilee');
+    // Insurer default (10) applies first...
+    expect(screen.getByLabelText(/^Commission/)).toHaveValue(10);
+    await pick('Product line', 'Motor');
+    // ...then the pair-specific matrix rate wins.
+    expect(await screen.findByText(/pre-filled from the approved rate matrix \(17\.5%\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Commission/)).toHaveValue(17.5);
+  });
+
+  it('keeps the insurer default when no matrix rate matches the pair', async () => {
+    matrixRates = [
+      { insurer_id: 'i1', product_line_id: 'other-line', rate: 25, effective_from: '2026-01-01', effective_to: null },
+    ];
+    setup();
+    await screen.findByLabelText('Currency');
+
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await waitFor(() => expect(screen.getByLabelText(/^Commission/)).toHaveValue(10));
+    expect(screen.queryByText(/pre-filled from the approved rate matrix/i)).not.toBeInTheDocument();
+  });
+
+  it('ignores a matrix rate that has already expired', async () => {
+    const year = new Date().getFullYear();
+    matrixRates = [
+      { insurer_id: 'i1', product_line_id: 'p1', rate: 30, effective_from: `${year - 1}-01-01`, effective_to: `${year - 1}-12-31` },
+    ];
+    setup();
+    await screen.findByLabelText('Currency');
+
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await waitFor(() => expect(screen.getByLabelText(/^Commission/)).toHaveValue(10));
+    expect(screen.queryByText(/pre-filled from the approved rate matrix/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the later of two overlapping approved rates', async () => {
+    const year = new Date().getFullYear();
+    matrixRates = [
+      { insurer_id: 'i1', product_line_id: 'p1', rate: 12, effective_from: `${year}-01-01`, effective_to: null },
+      { insurer_id: 'i1', product_line_id: 'p1', rate: 15, effective_from: `${year}-06-01`, effective_to: null },
+    ];
+    setup();
+    await screen.findByLabelText('Currency');
+
+    await pick('Insurer', 'Jubilee');
+    await pick('Product line', 'Motor');
+    await waitFor(() => expect(screen.getByLabelText(/^Commission/)).toHaveValue(15));
   });
 });

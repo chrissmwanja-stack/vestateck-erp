@@ -5378,6 +5378,82 @@ export type Database = {
           },
         ]
       }
+      ins_insurer_product_rates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          entered_by: string | null
+          id: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          entered_by?: string | null
+          id?: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          entered_by?: string | null
+          id?: string
+          insurer_id?: string
+          product_line_id?: string
+          rate?: number
+          source_ref?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_insurer_product_rates_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_product_rates_product_line_id_fkey"
+            columns: ["product_line_id"]
+            isOneToOne: false
+            referencedRelation: "ins_product_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_product_rates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_insurers: {
         Row: {
           claim_payment_mode: string
@@ -5607,8 +5683,10 @@ export type Database = {
       }
       ins_policies: {
         Row: {
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -5630,11 +5708,14 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type: string
           updated_at: string
         }
         Insert: {
+          agent_id?: string | null
           bound_at?: string | null
           bound_by?: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount?: number | null
           commission_rate_pct?: number
@@ -5656,11 +5737,14 @@ export type Database = {
           status?: string
           sum_insured?: number
           tenant_id: string
+          transaction_type?: string
           updated_at?: string
         }
         Update: {
+          agent_id?: string | null
           bound_at?: string | null
           bound_by?: string | null
+          branch_id?: string | null
           client_id?: string
           commission_amount?: number | null
           commission_rate_pct?: number
@@ -5682,9 +5766,24 @@ export type Database = {
           status?: string
           sum_insured?: number
           tenant_id?: string
+          transaction_type?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ins_policies_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ins_intermediaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ins_policies_client_id_fkey"
             columns: ["client_id"]
@@ -14656,6 +14755,32 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ins_approve_insurer_product_rate: {
+        Args: { p_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          entered_by: string | null
+          id: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_product_rates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_attach_certificate: {
         Args: { p_policy_id: string; p_serial_no: string }
         Returns: undefined
@@ -14663,8 +14788,10 @@ export type Database = {
       ins_bind_policy: {
         Args: { p_policy_id: string }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -14686,6 +14813,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {
@@ -14808,6 +14936,8 @@ export type Database = {
       }
       ins_create_policy: {
         Args: {
+          p_agent_id: string
+          p_branch_id: string
           p_client_id: string
           p_commission_rate_pct: number
           p_currency: string
@@ -14821,8 +14951,10 @@ export type Database = {
           p_sum_insured: number
         }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -14844,6 +14976,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {
@@ -14856,8 +14989,10 @@ export type Database = {
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -14879,6 +15014,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {
@@ -14990,6 +15126,32 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_policy_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_end_insurer_product_rate: {
+        Args: { p_effective_to: string; p_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          entered_by: string | null
+          id: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_product_rates"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -15460,6 +15622,39 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_set_insurer_product_rate: {
+        Args: {
+          p_effective_from: string
+          p_effective_to?: string
+          p_insurer_id: string
+          p_product_line_id: string
+          p_rate: number
+          p_source_ref?: string
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          entered_by: string | null
+          id: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_product_rates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_set_intermediary_status: {
         Args: { p_id: string; p_note?: string; p_to: string }
         Returns: {
@@ -15884,6 +16079,32 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_commission_transfers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_withdraw_insurer_product_rate: {
+        Args: { p_id: string; p_reason: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          entered_by: string | null
+          id: string
+          insurer_id: string
+          product_line_id: string
+          rate: number
+          source_ref: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_product_rates"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -16443,8 +16664,10 @@ export type Database = {
       platform_ins_bind_policy_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -16466,6 +16689,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {
@@ -16478,8 +16702,10 @@ export type Database = {
       platform_ins_bind_policy_risk_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -16501,6 +16727,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {
@@ -16659,8 +16886,10 @@ export type Database = {
       platform_ins_create_renewal_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          agent_id?: string | null
           bound_at: string | null
           bound_by: string | null
+          branch_id?: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -16682,6 +16911,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
+          transaction_type?: string
           updated_at: string
         }
         SetofOptions: {

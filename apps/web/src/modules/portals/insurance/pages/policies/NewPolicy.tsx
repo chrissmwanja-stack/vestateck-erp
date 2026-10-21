@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { errorText, rows, rpc, table } from '../../db';
 import { draftUpdate } from '../../policyDraft';
 import { commissionSplit, formatMoney, validatePolicyInput } from '../../logic';
-import type { InsClient, Insurer, Policy, ProductLine } from '../../types';
+import type { AgentOption, InsClient, Insurer, InsurerProductRate, OrgOption, Policy, ProductLine } from '../../types';
 import { KYC_LABEL } from '../../clientKyc';
 import { ErrorBanner, PageHeader } from '../../shared';
 
@@ -31,6 +31,11 @@ export default function NewPolicy() {
   const [clients, setClients] = useState<InsClient[]>([]);
   const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [products, setProducts] = useState<ProductLine[]>([]);
+  const [branches, setBranches] = useState<OrgOption[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [matrixRates, setMatrixRates] = useState<InsurerProductRate[]>([]);
+  // The rate the form was pre-filled with from the approved matrix (shown as a hint, not a lock).
+  const [matrixRate, setMatrixRate] = useState<number | null>(null);
   // The company's own currency, and the other currencies that have an approved exchange rate.
   const [functional, setFunctional] = useState('UGX');
   const [otherCurrencies, setOtherCurrencies] = useState<string[]>([]);
@@ -41,6 +46,8 @@ export default function NewPolicy() {
     clientId: '',
     insurerId: '',
     productLineId: '',
+    branchId: '',
+    agentId: '',
     inception: today(),
     expiry: oneYearOn(),
     sumInsured: '0',
@@ -54,13 +61,22 @@ export default function NewPolicy() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, i, p, settings, rates] = await Promise.all([
+        const [c, i, p, settings, rates, br, ag, matrix] = await Promise.all([
           rows<InsClient>(table('ins_clients').select('id, client_id, bd_clients(name), kyc_status, risk_rating').order('created_at', { ascending: false })),
           rows<Insurer>(table('ins_insurers').select('*').eq('is_active', true).order('name', { ascending: true })),
           rows<ProductLine>(table('ins_product_lines').select('*').eq('is_active', true).order('name', { ascending: true })),
           rows<{ functional_currency: string }>(table('tenant_ledger_settings').select('functional_currency')),
           // Reading rates is a convenience. If it fails the form still works in the company's currency.
           rows<{ currency: string }>(table('fx_rates').select('currency').eq('status', 'approved')).catch(() => [] as { currency: string }[]),
+          // Branch and agent are optional dimensions; a failure to read them leaves the selects empty.
+          rows<OrgOption>(table('organizations').select('id, site_name').eq('is_active', true).order('site_name', { ascending: true })).catch(() => [] as OrgOption[]),
+          rows<AgentOption>(table('ins_intermediaries').select('id, name, category').eq('status', 'active').order('name', { ascending: true })).catch(() => [] as AgentOption[]),
+          // Approved commission matrix rates in force today. If this fails, commission stays manual.
+          rows<InsurerProductRate>(
+            table('ins_insurer_product_rates').select('insurer_id, product_line_id, rate, effective_from, effective_to')
+              .eq('status', 'approved').lte('effective_from', today())
+              .or(`effective_to.is.null,effective_to.gte.${today()}`),
+          ).catch(() => [] as InsurerProductRate[]),
         ]);
         const own = settings[0]?.functional_currency ?? 'UGX';
         setFunctional(own);
@@ -68,6 +84,8 @@ export default function NewPolicy() {
         setForm((f) => ({ ...f, currency: own }));
         let ins = i;
         let prods = p;
+        let brs = br;
+        let ags = ag;
         if (editId) {
           const [pol] = await rows<Policy>(table('ins_policies').select('*').eq('id', editId));
           if (!pol) throw new Error('Policy not found.');
@@ -76,12 +94,17 @@ export default function NewPolicy() {
           // A draft may point at an insurer or product line that has since been deactivated; keep it selectable.
           if (!ins.some((x) => x.id === pol.insurer_id)) ins = [...ins, ...(await rows<Insurer>(table('ins_insurers').select('*').eq('id', pol.insurer_id)))];
           if (!prods.some((x) => x.id === pol.product_line_id)) prods = [...prods, ...(await rows<ProductLine>(table('ins_product_lines').select('*').eq('id', pol.product_line_id)))];
+          // Same for the branch and agent saved on the draft (they may have been deactivated since).
+          if (pol.branch_id && !brs.some((x) => x.id === pol.branch_id)) brs = [...brs, ...(await rows<OrgOption>(table('organizations').select('id, site_name').eq('id', pol.branch_id)))];
+          if (pol.agent_id && !ags.some((x) => x.id === pol.agent_id)) ags = [...ags, ...(await rows<AgentOption>(table('ins_intermediaries').select('id, name, category').eq('id', pol.agent_id)))];
           const shares = await rows<{ id: string }>(table('ins_policy_insurer_shares').select('id').eq('policy_id', editId));
           setConfigured(shares.length > 0);
           const linked = await rows<{ risk_id: string }>(table('ins_policy_risks').select('risk_id').eq('policy_id', editId));
           setRisksLinked(linked.length > 0);
           setForm({
             clientId: pol.client_id, insurerId: pol.insurer_id, productLineId: pol.product_line_id,
+            branchId: pol.branch_id ?? '',
+            agentId: pol.agent_id ?? '',
             inception: pol.inception_date, expiry: pol.expiry_date, sumInsured: String(pol.sum_insured), currency: pol.currency,
             grossPremium: String(pol.gross_premium), commissionRatePct: String(pol.commission_rate_pct),
             riskDescription: pol.risk_description ?? '', notes: pol.notes ?? '',
@@ -92,6 +115,9 @@ export default function NewPolicy() {
         setClients(c);
         setInsurers(ins);
         setProducts(prods);
+        setBranches(brs);
+        setAgents(ags);
+        setMatrixRates(matrix);
       } catch (e) {
         setError(errorText(e));
       } finally {
@@ -99,6 +125,29 @@ export default function NewPolicy() {
       }
     })();
   }, [editId]);
+
+  // Pre-fill the commission from the approved rate matrix once an insurer AND product line are
+  // chosen. The matrix rate is specific to the pair, so it beats the insurer's general default
+  // that picking an insurer applies. It is a default, not a lock: the field stays editable, and
+  // an existing draft keeps its saved rate (this only runs for new drafts).
+  useEffect(() => {
+    if (editId || !form.insurerId || !form.productLineId || matrixRates.length === 0) {
+      setMatrixRate(null);
+      return;
+    }
+    const day = today();
+    const match = matrixRates
+      .filter((r) => r.insurer_id === form.insurerId && r.product_line_id === form.productLineId
+        && r.effective_from <= day && (!r.effective_to || r.effective_to >= day))
+      .sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
+    if (match) {
+      setForm((f) => ({ ...f, commissionRatePct: String(match.rate) }));
+      setMatrixRate(match.rate);
+    } else {
+      setMatrixRate(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId, form.insurerId, form.productLineId, matrixRates]);
 
   const gross = Number(form.grossPremium) || 0;
   const rate = Number(form.commissionRatePct) || 0;
@@ -143,6 +192,8 @@ export default function NewPolicy() {
         p_client_id: form.clientId,
         p_insurer_id: form.insurerId,
         p_product_line_id: form.productLineId,
+        p_branch_id: form.branchId || null,
+        p_agent_id: form.agentId || null,
         p_inception_date: form.inception,
         p_expiry_date: form.expiry,
         p_sum_insured: Number(form.sumInsured) || 0,
@@ -221,6 +272,24 @@ export default function NewPolicy() {
                 ))}
               </TextField>
             </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField select fullWidth label="Branch" value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                helperText="Optional: the branch this policy belongs to.">
+                <MenuItem value=""><em>None</em></MenuItem>
+                {branches.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>{b.site_name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField select fullWidth label="Agent" value={form.agentId} onChange={(e) => setForm({ ...form, agentId: e.target.value })}
+                helperText="Optional: the agent who introduced the policy. Active agents only.">
+                <MenuItem value=""><em>None</em></MenuItem>
+                {agents.map((a) => (
+                  <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
             <Grid item xs={6} md={3}>
               <TextField fullWidth type="date" label="Inception" InputLabelProps={{ shrink: true }} value={form.inception} onChange={(e) => setForm({ ...form, inception: e.target.value })} />
             </Grid>
@@ -242,7 +311,9 @@ export default function NewPolicy() {
               <TextField fullWidth type="number" label="Gross premium" value={form.grossPremium} onChange={(e) => setForm({ ...form, grossPremium: e.target.value })} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
             <Grid item xs={6} md={3}>
-              <TextField fullWidth type="number" label="Commission (%)" disabled={configured} value={form.commissionRatePct} onChange={(e) => setForm({ ...form, commissionRatePct: e.target.value })} inputProps={{ min: 0, max: 99.99, step: '0.01' }} />
+              <TextField fullWidth type="number" label="Commission (%)" disabled={configured} value={form.commissionRatePct} onChange={(e) => setForm({ ...form, commissionRatePct: e.target.value })}
+                inputProps={{ min: 0, max: 99.99, step: '0.01' }}
+                helperText={matrixRate != null ? `Pre-filled from the approved rate matrix (${matrixRate}%).` : undefined} />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="Risk description" multiline minRows={2} value={form.riskDescription} onChange={(e) => setForm({ ...form, riskDescription: e.target.value })} />
