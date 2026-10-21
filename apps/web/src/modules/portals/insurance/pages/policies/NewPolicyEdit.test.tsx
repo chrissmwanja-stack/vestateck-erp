@@ -7,8 +7,9 @@ import NewPolicy from './NewPolicy';
 // Editing a draft reuses the New policy form. Only drafts are editable, and a draft with saved
 // insurer shares keeps its insurer and commission rate in the Financial configuration panel.
 
+const mockRpc = vi.fn();
 vi.mock('../../../../../lib/supabaseClient', () => ({
-  supabase: { from: (name: string) => mockFrom(name), rpc: vi.fn() },
+  supabase: { from: (name: string) => mockFrom(name), rpc: (...args: unknown[]) => mockRpc(...args) },
 }));
 const mockFrom = vi.fn();
 
@@ -61,6 +62,11 @@ function mount() {
 beforeEach(() => {
   mockFrom.mockReset();
   mockFrom.mockImplementation((name: string) => builder(name));
+  mockRpc.mockReset();
+  mockRpc.mockImplementation((fn: string) => {
+    if (fn === 'ins_branch_options') return Promise.resolve({ data: [{ id: 'org1', site_name: 'Kampala HQ', is_active: true }], error: null });
+    return Promise.resolve({ data: null, error: null });
+  });
   updates.length = 0; status = 'draft'; shares = []; linkedRisks = [];
   updateResult = { data: [{ id: 'pol1' }], error: null };
 });

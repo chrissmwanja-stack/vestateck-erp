@@ -69,7 +69,10 @@ export default function NewPolicy() {
           // Reading rates is a convenience. If it fails the form still works in the company's currency.
           rows<{ currency: string }>(table('fx_rates').select('currency').eq('status', 'approved')).catch(() => [] as { currency: string }[]),
           // Branch and agent are optional dimensions; a failure to read them leaves the selects empty.
-          rows<OrgOption>(table('organizations').select('id, site_name').eq('is_active', true).order('site_name', { ascending: true })).catch(() => [] as OrgOption[]),
+          // Branches live in another module's table, so the insurance-gated RPC resolves them (and the
+          // names) for insurance users; edit mode also asks for inactive branches so a draft's saved
+          // branch stays selectable.
+          rpc<OrgOption[]>('ins_branch_options', { p_include_inactive: Boolean(editId) }).catch(() => [] as OrgOption[]),
           rows<AgentOption>(table('ins_intermediaries').select('id, name, category').eq('status', 'active').order('name', { ascending: true })).catch(() => [] as AgentOption[]),
           // Approved commission matrix rates in force today. If this fails, commission stays manual.
           rows<InsurerProductRate>(
@@ -94,8 +97,8 @@ export default function NewPolicy() {
           // A draft may point at an insurer or product line that has since been deactivated; keep it selectable.
           if (!ins.some((x) => x.id === pol.insurer_id)) ins = [...ins, ...(await rows<Insurer>(table('ins_insurers').select('*').eq('id', pol.insurer_id)))];
           if (!prods.some((x) => x.id === pol.product_line_id)) prods = [...prods, ...(await rows<ProductLine>(table('ins_product_lines').select('*').eq('id', pol.product_line_id)))];
-          // Same for the branch and agent saved on the draft (they may have been deactivated since).
-          if (pol.branch_id && !brs.some((x) => x.id === pol.branch_id)) brs = [...brs, ...(await rows<OrgOption>(table('organizations').select('id, site_name').eq('id', pol.branch_id)))];
+          // Same for the agent saved on the draft (it may have been deactivated since; the branch RPC
+          // above already includes inactive branches in edit mode).
           if (pol.agent_id && !ags.some((x) => x.id === pol.agent_id)) ags = [...ags, ...(await rows<AgentOption>(table('ins_intermediaries').select('id, name, category').eq('id', pol.agent_id)))];
           const shares = await rows<{ id: string }>(table('ins_policy_insurer_shares').select('id').eq('policy_id', editId));
           setConfigured(shares.length > 0);

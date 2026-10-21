@@ -12062,6 +12062,23 @@ export type Database = {
           },
         ]
       }
+      ins_client_statement: {
+        Row: {
+          balance_amount: number | null
+          billed_amount: number | null
+          bound_date: string | null
+          client_id: string | null
+          client_name: string | null
+          currency: string | null
+          expiry_date: string | null
+          policy_id: string | null
+          policy_no: string | null
+          received_amount: number | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       ins_commission_ledger: {
         Row: {
           allocated_premium: number | null
@@ -12188,6 +12205,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ins_production_book: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          bound_date: string | null
+          branch_id: string | null
+          branch_name: string | null
+          client_id: string | null
+          client_name: string | null
+          commission_amount: number | null
+          currency: string | null
+          gross_premium: number | null
+          insurer_id: string | null
+          insurer_name: string | null
+          net_premium_to_insurer: number | null
+          policy_id: string | null
+          policy_no: string | null
+          product_line_id: string | null
+          product_line_name: string | null
+          status: string | null
+          tenant_id: string | null
+          transaction_type: string | null
+        }
+        Relationships: []
       }
       ins_renewal_pipeline: {
         Row: {
@@ -14947,6 +14989,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      ins_branch_options: {
+        Args: { p_include_inactive?: boolean }
+        Returns: {
+          id: string
+          is_active: boolean
+          site_name: string
+        }[]
       }
       ins_cancellation_cash_context: {
         Args: {

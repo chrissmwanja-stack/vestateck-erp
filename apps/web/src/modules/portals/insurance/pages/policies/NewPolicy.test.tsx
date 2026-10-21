@@ -73,7 +73,10 @@ beforeEach(() => {
   matrixRates = [];
   mockFrom.mockReset();
   mockRpc.mockReset();
-  mockRpc.mockResolvedValue({ data: { id: 'new-policy' }, error: null });
+  mockRpc.mockImplementation((fn: string) => {
+    if (fn === 'ins_branch_options') return Promise.resolve({ data: branches, error: null });
+    return Promise.resolve({ data: { id: 'new-policy' }, error: null });
+  });
 });
 
 describe('NewPolicy currency', () => {
