@@ -2137,12 +2137,12 @@ export type Database = {
           content_hash: string
           created_at?: string
           created_by?: string | null
-          doc_kind: string
+          doc_kind?: string
           entity_id: string
           entity_type: string
           file_name: string
           id?: string
-          mime_type: string
+          mime_type?: string
           path: string
           template_code?: string | null
           template_version?: number | null
@@ -3054,6 +3054,76 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fx_revaluation_runs: {
+        Row: {
+          accounting_policy_version: number
+          as_of: string
+          detail: Json
+          id: string
+          journal_entry_id: string | null
+          posted_at: string
+          posted_by: string | null
+          status: string
+          tenant_id: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          accounting_policy_version?: number
+          as_of: string
+          detail?: Json
+          id?: string
+          journal_entry_id?: string | null
+          posted_at?: string
+          posted_by?: string | null
+          status?: string
+          tenant_id: string
+          void_journal_entry_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          accounting_policy_version?: number
+          as_of?: string
+          detail?: Json
+          id?: string
+          journal_entry_id?: string | null
+          posted_at?: string
+          posted_by?: string | null
+          status?: string
+          tenant_id?: string
+          void_journal_entry_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fx_revaluation_runs_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fx_revaluation_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fx_revaluation_runs_void_journal_entry_id_fkey"
+            columns: ["void_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -4847,8 +4917,22 @@ export type Database = {
             foreignKeyName: "ins_certificate_stock_policy_fk"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_certificate_stock_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_certificate_stock_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_certificate_stock_policy_fk"
@@ -5093,8 +5177,22 @@ export type Database = {
             foreignKeyName: "ins_claims_policy_fk"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_claims_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claims_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_claims_policy_fk"
@@ -5242,8 +5340,22 @@ export type Database = {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["policy_id"]
           },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
@@ -5887,8 +5999,22 @@ export type Database = {
             foreignKeyName: "ins_policies_renewal_fk"
             columns: ["tenant_id", "renewal_of_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policies_renewal_fk"
+            columns: ["tenant_id", "renewal_of_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policies_renewal_fk"
+            columns: ["tenant_id", "renewal_of_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policies_renewal_fk"
@@ -6024,8 +6150,22 @@ export type Database = {
             foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_cancellations_tenant_id_policy_id_fkey"
@@ -6107,8 +6247,22 @@ export type Database = {
             foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_cash_reconciliation_events_tenant_id_policy_id_fkey"
@@ -6209,8 +6363,22 @@ export type Database = {
             foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_cash_requests_tenant_id_policy_id_fkey"
@@ -6300,8 +6468,22 @@ export type Database = {
             foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_charges_tenant_id_policy_id_fkey"
@@ -6378,8 +6560,22 @@ export type Database = {
             foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_financial_snapshots_tenant_id_policy_id_fkey"
@@ -6455,8 +6651,22 @@ export type Database = {
             foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_insurer_shares_tenant_id_policy_id_fkey"
@@ -6578,8 +6788,22 @@ export type Database = {
             foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
             columns: ["tenant_id", "original_policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
+            columns: ["tenant_id", "original_policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
+            columns: ["tenant_id", "original_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_reversals_tenant_id_original_policy_id_fkey"
@@ -6592,8 +6816,22 @@ export type Database = {
             foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
             columns: ["tenant_id", "replacement_policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
+            columns: ["tenant_id", "replacement_policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
+            columns: ["tenant_id", "replacement_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_reversals_tenant_id_replacement_policy_id_fkey"
@@ -6631,8 +6869,22 @@ export type Database = {
             foreignKeyName: "ins_policy_risks_policy_fk"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_risks_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_risks_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_policy_risks_policy_fk"
@@ -12086,7 +12338,22 @@ export type Database = {
           status: string | null
           tenant_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ins_policies_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "ins_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ins_commission_ledger: {
         Row: {
@@ -12116,8 +12383,22 @@ export type Database = {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
             columns: ["policy_id"]
             isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
             referencedRelation: "ins_policies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["policy_id"]
           },
           {
             foreignKeyName: "ins_commission_entries_policy_id_fkey"
@@ -12238,7 +12519,50 @@ export type Database = {
           tenant_id: string | null
           transaction_type: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ins_policies_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ins_intermediaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "ins_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_product_line_id_fkey"
+            columns: ["product_line_id"]
+            isOneToOne: false
+            referencedRelation: "ins_product_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ins_renewal_pipeline: {
         Row: {
@@ -13542,8 +13866,8 @@ export type Database = {
       dismiss_announcement: { Args: { p_id: string }; Returns: undefined }
       documents_register: {
         Args: {
-          p_byte_size: number
           p_bucket: string
+          p_byte_size: number
           p_content_hash: string
           p_doc_kind?: string
           p_entity_id: string
@@ -13729,16 +14053,19 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -13799,6 +14126,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_revalue_fx: {
+        Args: { p_as_of: string }
+        Returns: {
+          accounting_policy_version: number
+          as_of: string
+          detail: Json
+          id: string
+          journal_entry_id: string | null
+          posted_at: string
+          posted_by: string | null
+          status: string
+          tenant_id: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_revaluation_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fin_void_credit_note: {
         Args: {
           p_credit_note_id: string
@@ -13808,16 +14159,19 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -13831,6 +14185,30 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "fin_credit_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_void_fx_revaluation: {
+        Args: { p_reason: string; p_run_id: string }
+        Returns: {
+          accounting_policy_version: number
+          as_of: string
+          detail: Json
+          id: string
+          journal_entry_id: string | null
+          posted_at: string
+          posted_by: string | null
+          status: string
+          tenant_id: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_revaluation_runs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -14940,10 +15318,10 @@ export type Database = {
       ins_bind_policy: {
         Args: { p_policy_id: string }
         Returns: {
-          agent_id?: string | null
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
-          branch_id?: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -14965,7 +15343,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
-          transaction_type?: string
+          transaction_type: string
           updated_at: string
         }
         SetofOptions: {
@@ -14974,6 +15352,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_branch_options: {
+        Args: { p_include_inactive?: boolean }
+        Returns: {
+          id: string
+          is_active: boolean
+          site_name: string
+        }[]
       }
       ins_broker_fee_tax_rows: {
         Args: { p_date_from?: string; p_date_to?: string }
@@ -14998,14 +15384,6 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
-      }
-      ins_branch_options: {
-        Args: { p_include_inactive?: boolean }
-        Returns: {
-          id: string
-          is_active: boolean
-          site_name: string
-        }[]
       }
       ins_cancellation_cash_context: {
         Args: {
@@ -15094,65 +15472,116 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      ins_create_policy: {
-        Args: {
-          p_agent_id: string
-          p_branch_id: string
-          p_client_id: string
-          p_commission_rate_pct: number
-          p_currency: string
-          p_expiry_date: string
-          p_gross_premium: number
-          p_inception_date: string
-          p_insurer_id: string
-          p_notes?: string
-          p_product_line_id: string
-          p_risk_description?: string
-          p_sum_insured: number
-        }
-        Returns: {
-          agent_id?: string | null
-          bound_at: string | null
-          bound_by: string | null
-          branch_id?: string | null
-          client_id: string
-          commission_amount: number | null
-          commission_rate_pct: number
-          created_at: string
-          created_by: string | null
-          currency: string
-          expiry_date: string
-          gross_premium: number
-          id: string
-          inception_date: string
-          insurer_id: string
-          journal_entry_id: string | null
-          net_premium_to_insurer: number | null
-          notes: string | null
-          policy_no: string
-          product_line_id: string
-          renewal_of_id: string | null
-          risk_description: string | null
-          status: string
-          sum_insured: number
-          tenant_id: string
-          transaction_type?: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "ins_policies"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      ins_create_policy:
+        | {
+            Args: {
+              p_agent_id: string
+              p_branch_id: string
+              p_client_id: string
+              p_commission_rate_pct: number
+              p_currency: string
+              p_expiry_date: string
+              p_gross_premium: number
+              p_inception_date: string
+              p_insurer_id: string
+              p_notes?: string
+              p_product_line_id: string
+              p_risk_description?: string
+              p_sum_insured: number
+            }
+            Returns: {
+              agent_id: string | null
+              bound_at: string | null
+              bound_by: string | null
+              branch_id: string | null
+              client_id: string
+              commission_amount: number | null
+              commission_rate_pct: number
+              created_at: string
+              created_by: string | null
+              currency: string
+              expiry_date: string
+              gross_premium: number
+              id: string
+              inception_date: string
+              insurer_id: string
+              journal_entry_id: string | null
+              net_premium_to_insurer: number | null
+              notes: string | null
+              policy_no: string
+              product_line_id: string
+              renewal_of_id: string | null
+              risk_description: string | null
+              status: string
+              sum_insured: number
+              tenant_id: string
+              transaction_type: string
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "ins_policies"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_client_id: string
+              p_commission_rate_pct: number
+              p_currency: string
+              p_expiry_date: string
+              p_gross_premium: number
+              p_inception_date: string
+              p_insurer_id: string
+              p_notes?: string
+              p_product_line_id: string
+              p_risk_description?: string
+              p_sum_insured: number
+            }
+            Returns: {
+              agent_id: string | null
+              bound_at: string | null
+              bound_by: string | null
+              branch_id: string | null
+              client_id: string
+              commission_amount: number | null
+              commission_rate_pct: number
+              created_at: string
+              created_by: string | null
+              currency: string
+              expiry_date: string
+              gross_premium: number
+              id: string
+              inception_date: string
+              insurer_id: string
+              journal_entry_id: string | null
+              net_premium_to_insurer: number | null
+              notes: string | null
+              policy_no: string
+              product_line_id: string
+              renewal_of_id: string | null
+              risk_description: string | null
+              status: string
+              sum_insured: number
+              tenant_id: string
+              transaction_type: string
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "ins_policies"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
-          agent_id?: string | null
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
-          branch_id?: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -15174,7 +15603,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
-          transaction_type?: string
+          transaction_type: string
           updated_at: string
         }
         SetofOptions: {
@@ -16581,16 +17010,19 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -16624,16 +17056,19 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -16705,16 +17140,19 @@ export type Database = {
         Returns: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -16799,6 +17237,30 @@ export type Database = {
         Args: { p_description?: string; p_result: number; p_tenant_id: string }
         Returns: Json
       }
+      platform_fx_revalue_impl: {
+        Args: { p_as_of: string; p_tenant_id: string }
+        Returns: {
+          accounting_policy_version: number
+          as_of: string
+          detail: Json
+          id: string
+          journal_entry_id: string | null
+          posted_at: string
+          posted_by: string | null
+          status: string
+          tenant_id: string
+          void_journal_entry_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fx_revaluation_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       platform_fx_settlement: {
         Args: {
           p_amount: number
@@ -16824,10 +17286,10 @@ export type Database = {
       platform_ins_bind_policy_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
-          agent_id?: string | null
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
-          branch_id?: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -16849,7 +17311,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
-          transaction_type?: string
+          transaction_type: string
           updated_at: string
         }
         SetofOptions: {
@@ -16862,10 +17324,10 @@ export type Database = {
       platform_ins_bind_policy_risk_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
-          agent_id?: string | null
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
-          branch_id?: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -16887,7 +17349,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
-          transaction_type?: string
+          transaction_type: string
           updated_at: string
         }
         SetofOptions: {
@@ -17046,10 +17508,10 @@ export type Database = {
       platform_ins_create_renewal_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
-          agent_id?: string | null
+          agent_id: string | null
           bound_at: string | null
           bound_by: string | null
-          branch_id?: string | null
+          branch_id: string | null
           client_id: string
           commission_amount: number | null
           commission_rate_pct: number
@@ -17071,7 +17533,7 @@ export type Database = {
           status: string
           sum_insured: number
           tenant_id: string
-          transaction_type?: string
+          transaction_type: string
           updated_at: string
         }
         SetofOptions: {
