@@ -39,6 +39,22 @@ open-item and settlement paths still have no dedicated test file in `supabase/te
 functions are exercised indirectly by the suite, but a test on the model of `test_foreign_credit_notes.sql`
 would close that gap.
 
+**Update 21 Oct 2026, later: slice 3d-2 is built.** Policies bind in a foreign currency
+(`20261021160000_foreign_bind_and_transfer.sql`, `test_foreign_bind_transfer.sql`). `INS_CURRENCY_UNSUPPORTED`
+is gone: the bind journal posts in the policy's currency at the approved inception-date rate, and the premium
+and insurer items are created with the bind entry (so they hold the bound rate). Commission transfers now
+require both accounts in the same currency (and the commission's policies in it), book the trust side at each
+policy's bound rate (naming the bind entry as its rate source) and the operating side at the transfer-date
+rate, with the difference as realised gain or loss; voiding a transfer reverses it exactly. The commission
+recognition triggers carry the item's currency (recognition at the bound rate via the booking entry; the
+reversal reverses the recognition journal in reversal mode), and claim recognition accrues in the policy's
+currency with its own booking entry. The cancellation pipeline is deliberately left functional-currency
+behind an explicit `INS_CANCELLATION_CURRENCY` guard (a trigger on `ins_policy_cancellations`) until slice
+3d-3 converts it. What remains of this review's plan: 3d-3 (the cancellation pipeline), 3e (period-end
+revaluation), and the UGX column defaults plus the 8-versus-10-decimal rate question. `test_ins_core.sql`
+was updated: its USD-bind refusal now expects `FX_RATE_MISSING` without a rate and a successful bind at the
+rate once one is approved.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert

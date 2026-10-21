@@ -72,14 +72,13 @@ describe('policy detail reversal access', () => {
 });
 
 describe('foreign-currency draft bind', () => {
-  it('disables bind for a draft in a currency that is not the company currency, and says why', async () => {
+  it('binds a draft in another currency like any other, and says it binds at the approved inception-date rate', async () => {
     canManage = true; status = 'draft'; currency = 'USD'; mount();
     await screen.findByText(/This draft is in USD, not the company currency \(UGX\)/);
-    const bind = screen.getByRole('button', { name: 'Bind policy' });
-    expect(bind).toBeDisabled();
-    expect(bind).toHaveAttribute('title', expect.stringContaining('not the company currency'));
-    // The confirmation dialog cannot be opened for a blocked bind.
-    expect(screen.queryByText(/Bind POL-1\?/)).not.toBeInTheDocument();
+    expect(screen.getByText(/at the approved rate for the inception date/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Bind policy' })).toBeEnabled());
+    // The bind is no longer blocked by the currency; the server prices it at the rate.
+    expect(screen.getByRole('button', { name: 'Bind policy' }).getAttribute('title') ?? '').not.toContain('not the company currency');
   });
 
   it('enables bind for a draft in the company currency once the configuration is reviewed', async () => {

@@ -31,9 +31,9 @@ const PolicyDetail = () => {
   const [financialDirty, setFinancialDirty] = useState(false);
   const [confirmBind, setConfirmBind] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // The company currency, from tenant_ledger_settings. A draft in another currency cannot be
-  // bound yet (the server refuses with INS_CURRENCY_UNSUPPORTED until A3 slice 3d), so the
-  // Bind button is disabled here with the reason, instead of failing on confirm.
+  // The company currency, from tenant_ledger_settings. A draft in another currency binds in
+  // its own currency at the approved inception-date rate (A3 slice 3d-2); the banner below
+  // tells the user what happens when no rate is approved yet.
   const [functional, setFunctional] = useState('UGX');
 
   const load = useCallback(async () => {
@@ -115,12 +115,12 @@ const PolicyDetail = () => {
 
   const extended = Boolean(financial && (financial.shares.length > 1 || financial.charges.length));
   const reviewPending = Boolean(financial && (financial.shares.some((s) => !s.reviewed) || financial.charges.some((c) => !c.reviewed || c.amount === null)));
-  // A draft priced in another currency cannot be bound until foreign-currency binding is built (A3 slice 3d).
+  // A draft priced in another currency binds like any other (A3 slice 3d-2): in its own
+  // currency, at the approved rate for the inception date. Without a rate the server
+  // refuses with FX_RATE_MISSING and the banner below says what is needed.
   const foreignDraft = policy.status === 'draft' && policy.currency !== functional;
-  const bindBlocked = busy || financialDirty || reviewPending || !financial || foreignDraft;
-  const bindBlockedTitle = foreignDraft
-    ? `Cannot bind yet: this draft is in ${policy.currency}, not the company currency (${functional}). Foreign-currency binding is not built yet.`
-    : reviewPending
+  const bindBlocked = busy || financialDirty || reviewPending || !financial;
+  const bindBlockedTitle = reviewPending
       ? 'Review the saved insurer shares and charges before binding.'
       : !financial
         ? 'Save the financial configuration before binding.'
@@ -181,10 +181,10 @@ const PolicyDetail = () => {
         </Alert>
       )}
       {foreignDraft && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          This draft is in {policy.currency}, not the company currency ({functional}). It cannot be bound yet: binding a
-          policy in a foreign currency is refused (INS_CURRENCY_UNSUPPORTED) until foreign-currency posting is finished.
-          The draft is safe to keep and edit.
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This draft is in {policy.currency}, not the company currency ({functional}). Binding books it in {policy.currency}
+          {' '}at the approved rate for the inception date; if no approved rate exists for that date, the bind is refused
+          (FX_RATE_MISSING) until a rate is approved. The draft is safe to keep and edit.
         </Alert>
       )}
 

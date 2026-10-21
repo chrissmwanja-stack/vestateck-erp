@@ -627,7 +627,8 @@ begin
                          and pg_temp.n_bind_journals(v_tb) = 0 and pg_temp.n_ins_items(v_tb) = 0,
                          'a missing posting rule stops the bind before any write');
 
-  -- A policy in a non-ledger currency can be drafted but not bound.
+  -- A policy in a non-ledger currency drafts; binding it needs an approved rate for the
+  -- inception date (A3 slice 3d-2 lifted INS_CURRENCY_UNSUPPORTED).
   perform pg_temp.jwt(u_mem);
   set local role authenticated;
   p_x := ins_create_policy(c1.id, v_insr, v_pl, current_date - 1, current_date + 364, 1000, 'USD', 1000, 10, null, null);
@@ -635,14 +636,34 @@ begin
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
   perform pg_temp.motor_cert(p_x.id);
-  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'INS_CURRENCY_UNSUPPORTED', 'binding a USD policy');
+  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_x.id), 'FX_RATE_MISSING', 'binding a USD policy without a rate');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id = p_x.id) = 'draft'
-                         and pg_temp.n_items_for(p_x.id) = 0, 'a non-ledger currency bind leaves the policy a draft with no open items');
+                         and pg_temp.n_items_for(p_x.id) = 0, 'a rateless bind leaves the policy a draft with no open items');
+  perform set_config('reg.via_rpc', 'on', true);
+  perform set_config('fx.via_rpc', 'on', true);
+  insert into regulatory_parameters (tenant_id, parameter_key, value_num, effective_from, source_ref)
+    values ((select tenant_id from ins_policies where id = p_x.id), 'fx.rate_max_age_days', 90, date '2000-01-01', 'UNVERIFIED: test fixture');
+  update regulatory_parameters set status = 'approved', approved_by = gen_random_uuid(), approved_at = now()
+   where parameter_key = 'fx.rate_max_age_days' and tenant_id = (select tenant_id from ins_policies where id = p_x.id);
+  insert into fx_rates (tenant_id, currency, rate_date, rate, source)
+  values ((select tenant_id from ins_policies where id = p_x.id), 'USD', current_date - 1, 3700, 'fixture');
+  update fx_rates set status = 'approved', approved_by = gen_random_uuid(), approved_at = now()
+   where currency = 'USD' and tenant_id = (select tenant_id from ins_policies where id = p_x.id);
+  perform set_config('reg.via_rpc', 'off', true);
+  perform set_config('fx.via_rpc', 'off', true);
+  perform pg_temp.jwt(u_mgr);
+  set local role authenticated;
+  p_x := ins_bind_policy(p_x.id);
+  reset role;
+  perform pg_temp.assert((select status from ins_policies where id = p_x.id) = 'active'
+                         and (select fx_rate from fin_open_items where source_type = 'ins_policy_premium' and source_id = p_x.id) = 3700
+                         and (select currency from fin_open_items where source_type = 'ins_policy_premium' and source_id = p_x.id) = 'USD',
+                         'with a rate, the USD policy binds and its items carry the inception rate');
 
-  perform pg_temp.assert(pg_temp.n_bind_journals(v_ta) = v_j0 and pg_temp.n_ins_items(v_ta) = v_i0,
-                         'refused binds in tenant A posted no journal and created no open items');
-  raise notice 'PASS: refused binds leave no journal, no open items, no party accounts';
+  perform pg_temp.assert(pg_temp.n_bind_journals(v_ta) = v_j0 + 1 and pg_temp.n_ins_items(v_ta) = v_i0 + 2,
+                         'the rateless refusal wrote nothing; the successful bind wrote exactly one journal and two items');
+  raise notice 'PASS: refused binds leave no journal, no open items, no party accounts; a rated bind posts';
 
   -------------------------------------------------------------------
   -- 9. Bound policies are locked; drafts are deletable by managers only
