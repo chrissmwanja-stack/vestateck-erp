@@ -2551,16 +2551,19 @@ export type Database = {
         Row: {
           accounting_policy_version: number
           amount: number
+          base_amount: number | null
           control_role: string
           created_at: string
           created_by: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate: number
           id: string
           journal_entry_id: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result: number
           reason: string
           reference: string | null
           side: string
@@ -2574,16 +2577,19 @@ export type Database = {
         Insert: {
           accounting_policy_version?: number
           amount: number
+          base_amount?: number | null
           control_role: string
           created_at?: string
           created_by?: string | null
           credit_date: string
           credit_note_no: string
           currency: string
+          fx_rate?: number
           id?: string
           journal_entry_id?: string | null
           offset_gl_account_id: string
           party_account_id: string
+          realised_result?: number
           reason: string
           reference?: string | null
           side: string
@@ -2597,16 +2603,19 @@ export type Database = {
         Update: {
           accounting_policy_version?: number
           amount?: number
+          base_amount?: number | null
           control_role?: string
           created_at?: string
           created_by?: string | null
           credit_date?: string
           credit_note_no?: string
           currency?: string
+          fx_rate?: number
           id?: string
           journal_entry_id?: string | null
           offset_gl_account_id?: string
           party_account_id?: string
+          realised_result?: number
           reason?: string
           reference?: string | null
           side?: string

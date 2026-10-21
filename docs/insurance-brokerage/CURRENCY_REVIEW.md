@@ -22,6 +22,23 @@ review's plan: slice 3d (credit notes, bank accounts, transfers, policy bind and
 posting functions -- the insurance currency guards stand until then) and 3e (period-end
 revaluation), plus the column defaults that assume UGX and the 8-versus-10-decimal rate question.
 
+**Update 21 Oct 2026: slice 3d-1 is built.** Credit notes may be foreign
+(`20261021140000_foreign_credit_notes.sql`, `test_foreign_credit_notes.sql`). `fin_credit_notes` carries
+`fx_rate` (the credit-date rate the offset line is booked at), `base_amount` and `realised_result`; the
+guard no longer refuses a foreign note but requires the approved credit-date rate at 8 decimals (a
+functional note stays at rate 1 with no result). `platform_fin_raise_credit_note_impl` takes the note's
+currency from the items it applies to (they must agree), books one control line per booking entry at the
+rate that entry used (each naming the entry as its rate source), the offset at the note-date rate, and the
+difference as realised gain or loss; the receivable side signs like a receipt, the payable side mirrors a
+payment. `platform_fin_raise_policy_credit_note_impl` gets the same treatment for the policy-reversal
+exemption, and `platform_fin_void_credit_note_impl` now voids in reversal mode so a foreign note negates
+exactly, realised line included. What remains of this review's plan: slice 3d-2 (transfers between bank
+accounts, policy bind and the insurance posting functions) and 3e (period-end revaluation), plus the
+column defaults that assume UGX and the 8-versus-10-decimal rate question. Note: slices 3c's foreign
+open-item and settlement paths still have no dedicated test file in `supabase/tests/` -- their guards and
+functions are exercised indirectly by the suite, but a test on the model of `test_foreign_credit_notes.sql`
+would close that gap.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
