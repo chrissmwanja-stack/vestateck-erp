@@ -55,6 +55,21 @@ revaluation), and the UGX column defaults plus the 8-versus-10-decimal rate ques
 was updated: its USD-bind refusal now expects `FX_RATE_MISSING` without a rate and a successful bind at the
 rate once one is approved.
 
+**Update 21 Oct 2026, latest: slice 3d-3 is built.** The cancellation pipeline may run on a foreign policy
+(`20261021170000_foreign_cancellation.sql`, `test_foreign_cancellation.sql`), and the
+`INS_CANCELLATION_CURRENCY` guard from 3d-2 is gone. The credit note against an original premium or insurer
+item takes the item's currency: the control side returns the item at its booked rate (naming the booking
+entry), the clearing side takes the cancellation-date rate, and the difference books as realised gain or
+loss. The Finance decision journal posts every adjustment leg in the policy's currency at the
+cancellation-date rate, so the clearing account still nets to zero in the currency AND in base; the refund
+and insurer-recovery items are now created with their booking entry, and the retained-commission
+recognition posts at the rate the policy was bound at (the bind entry is its rate source). Known residue,
+documented and deliberate: the unearned-commission account keeps a small base difference (clawback at the
+cancellation rate against a bind at the bound rate) -- period-end revaluation (3e) is what clears residues
+like that. What remains of this review's plan: 3e (period-end revaluation), then the UGX column defaults
+and the 8-versus-10-decimal rate question. `test_foreign_bind_transfer.sql` section 8 was flipped: a
+foreign proposal is now accepted rather than refused.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert

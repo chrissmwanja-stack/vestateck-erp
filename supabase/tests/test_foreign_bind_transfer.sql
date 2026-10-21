@@ -460,15 +460,15 @@ begin
   raise notice 'PASS: claim recognition accrues in the policy currency with its own booking entry';
 
   -------------------------------------------------------------------
-  -- 8. The cancellation pipeline stays functional-currency until 3d-3.
+  -- 8. The cancellation pipeline accepts foreign policies (slice 3d-3
+  --    lifted the 3d-2 guard; see test_foreign_cancellation.sql for the
+  --    full posting).
   -------------------------------------------------------------------
-  perform pg_temp.expect_error(format(
-    'insert into ins_policy_cancellations (tenant_id, policy_id, request_key, reason, effective_date, insurer_terms, charge_refunds, proposed_by, calculation) values (%L, %L, %L, ''test foreign cancellation'', current_date, ''[]''::jsonb, ''[]''::jsonb, %L, ''{}''::jsonb)',
-    ta, p_usd.id, gen_random_uuid(), maker),
-    'INS_CANCELLATION_CURRENCY', 'a foreign cancellation proposal');
+  insert into ins_policy_cancellations (tenant_id, policy_id, request_key, reason, effective_date, insurer_terms, charge_refunds, proposed_by, calculation)
+  values (ta, p_usd.id, gen_random_uuid(), 'test foreign cancellation', current_date, '[]'::jsonb, '[]'::jsonb, maker, '{}'::jsonb);
   insert into ins_policy_cancellations (tenant_id, policy_id, request_key, reason, effective_date, insurer_terms, charge_refunds, proposed_by, calculation)
   values (ta, p_ugx.id, gen_random_uuid(), 'test functional cancellation', current_date, '[]'::jsonb, '[]'::jsonb, maker, '{}'::jsonb);
-  raise notice 'PASS: a foreign cancellation is refused and a functional one accepted';
+  raise notice 'PASS: foreign and functional cancellation proposals are both accepted';
 
   raise notice 'ALL PASS: foreign bind, transfer and recognition';
 end
