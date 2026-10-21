@@ -89,9 +89,25 @@ history, the residue lives on the control GL and is cleared there. That closes t
 the unearned base residue from cancellations and recognition now clears at the next period-end, and the
 period-end books translate the residual exposure once, in one place. The engine refuses tenants whose
 template lacks the unrealised accounts (`FX_UNREALISED_ACCOUNT_MISSING`); insurance companies created
-before this slice are backfilled. Remaining on this review: foreign-currency bank reconciliation (the
-rest of A3), then the UGX column defaults (F3) and the 8-versus-10-decimal rate question (F4) before
-any non-UGX company is enabled.
+before this slice are backfilled. Remaining on this review: the UGX column defaults (F3) and the
+8-versus-10-decimal rate question (F4) before any non-UGX company is enabled.
+
+**Update 21 Oct 2026, latest: A3 is complete -- foreign-currency bank reconciliation.**
+(`20261021190000_foreign_bank_reconciliation.sql`, `test_foreign_bank_reconciliation.sql`.) Bank
+reconciliation was the last functional-currency-only corner. The statement importer now pins every
+line to the registered account's currency: an omitted currency defaults to the account's (not UGX)
+and a wrong one is refused (`BANK_STMT_CURRENCY`); unregistered names keep the legacy free-text
+behaviour so old imports do not break. The manual cash matcher refuses a line and a transaction in
+different currencies (the settlement and transfer matchers already checked), and the candidate
+search filters its cash/bank branch by currency, so auto-match can no longer cross-match a USD line
+with a UGX amount. The reconciliation position reads a foreign account's GL in the account's own
+currency -- the only legs that can reconcile to its statement -- and reports the functional
+side-effects (the 3e revaluation legs and 3b realised-FX legs) separately as `fx_gl_movements`;
+functional accounts see exactly the five components they saw before. A foreign settlement books its
+bank leg at the settlement-date rate, so the statement reconciles the money at the rate it arrived
+and the period-end run only revalues what the account still carries. What remains of this review:
+the UGX column defaults (F3) and the 8-versus-10-decimal rate question (F4) before any non-UGX
+company is enabled.
 
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration

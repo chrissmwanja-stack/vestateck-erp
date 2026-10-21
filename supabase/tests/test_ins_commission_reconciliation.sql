@@ -273,14 +273,15 @@ begin
   perform pg_temp.assert(t1.amount = 100000 and t2.amount = 100000 and t3.amount = 50000,
                          'fixture: transfers of 100000, 100000 and 50000');
 
-  -- Statement lines, imported as the finance user.
+  -- Statement lines, imported as the finance user. The importer refuses
+  -- mixed currencies now, so the deliberate foreign line ('out usd', a
+  -- negative fixture for the candidate search) is crafted directly.
   perform pg_temp.jwt(u_fin);
   set local role authenticated;
   perform import_bank_statement_lines('TRUST-UGX', jsonb_build_array(
     jsonb_build_object('statement_date', current_date, 'amount',  -50000, 'description', 'out t3'),
     jsonb_build_object('statement_date', current_date, 'amount', -100000, 'description', 'out amb a'),
-    jsonb_build_object('statement_date', current_date, 'amount', -100000, 'description', 'out amb b'),
-    jsonb_build_object('statement_date', current_date, 'amount', -100000, 'description', 'out usd', 'currency', 'USD')
+    jsonb_build_object('statement_date', current_date, 'amount', -100000, 'description', 'out amb b')
   ));
   perform import_bank_statement_lines('OPER-UGX', jsonb_build_array(
     jsonb_build_object('statement_date', current_date, 'amount',   50000, 'description', 'in t3'),
@@ -291,6 +292,8 @@ begin
     jsonb_build_object('statement_date', current_date, 'amount', -100000, 'description', 'other bank')
   ));
   reset role;
+  insert into bank_statement_lines (tenant_id, bank_account, statement_date, amount, currency, description, imported_by)
+  values (v_ta, 'TRUST-UGX', current_date, -100000, 'USD', 'out usd', u_fin);
   l_out_t3 := pg_temp.line(v_ta, 'out t3');     l_in_t3  := pg_temp.line(v_ta, 'in t3');
   l_amb_a  := pg_temp.line(v_ta, 'out amb a');  l_amb_b  := pg_temp.line(v_ta, 'out amb b');
   l_in_amb := pg_temp.line(v_ta, 'in amb');     l_in_over := pg_temp.line(v_ta, 'in over');
