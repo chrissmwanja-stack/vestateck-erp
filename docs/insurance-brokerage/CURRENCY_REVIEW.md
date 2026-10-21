@@ -127,6 +127,24 @@ entry-level `rate_from_entry` key and reversal context are the traceability mech
 granularity. With A3 complete and F3/F4 resolved, nothing in this review blocks enabling a
 non-UGX company.
 
+**Addendum 21 Oct 2026: the claims path is proven.**
+(`20261021210000_foreign_claim_payments.sql`, `test_foreign_claims.sql`.) The last money path that
+had never walked a foreign currency end to end was claims: recognition accrues in the policy
+currency at the recognition-date rate (the claim items carry it with their booking entry), the
+insurer's money lands in the client-money account in the claim's currency and nets the receivable
+to zero in the currency AND in base with no realised legs (same-day, same rate), the payout pays
+the client out of the same trust and the claim settles, and the whole flow reconciles with the
+bank-reconciliation position. One real defect surfaced and is fixed here: the payout's
+anti-fronting check ("never pay the client ahead of the insurer") summed receipt and payout
+amounts across currencies -- it now counts held funds per currency, so only money that arrived in
+the payout account's currency satisfies a payout from it (the settlement engine's
+`SETTLEMENT_CURRENCY` guard remains as the backstop). With this, every money path in the product
+-- premiums, settlements, credit notes, transfers, recognition, cancellation, revaluation, bank
+reconciliation and claims -- is proven currency-true by an executable test. On the long-standing
+test-gap note: 3b has had its dedicated file all along (`test_realised_fx.sql`); 3c's foreign
+paths are exercised by the three 3d test files that all run through `fin_create_open_item_fx` and
+foreign settlements -- no separate 3c file is needed.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
