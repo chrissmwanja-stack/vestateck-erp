@@ -94,6 +94,46 @@ describe('ProductionBook', () => {
     expect(await screen.findByText(/no$/)).toBeInTheDocument();
   });
 
+  it('shows the written-premium trend by month with per-currency bars', async () => {
+    book = [
+      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-09-15', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
+      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'renewal', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
+      { policy_id: 'p3', policy_no: 'POL-3', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: null, agent_name: 'Jane', product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-07', currency: 'USD', gross_premium: 200, commission_amount: 20, net_premium_to_insurer: 180 },
+    ];
+    render(<ProductionBook />);
+    await screen.findByText('Acme');
+    expect(screen.getByLabelText('Written premium trend')).toBeInTheDocument();
+    // One bar per month per currency, currencies never merged.
+    expect(screen.getByTestId('trend-bar-2026-09-UGX')).toBeInTheDocument();
+    expect(screen.getByTestId('trend-bar-2026-10-UGX')).toBeInTheDocument();
+    expect(screen.getByTestId('trend-bar-2026-10-USD')).toBeInTheDocument();
+    expect(screen.queryByTestId('trend-bar-2026-09-USD')).not.toBeInTheDocument();
+    // The tooltip carries the month, the per-currency total and the policy count.
+    expect(screen.getByTestId('trend-bar-2026-10-UGX')).toHaveAttribute('title', expect.stringContaining('Oct 2026'));
+    expect(screen.getByTestId('trend-bar-2026-10-USD').getAttribute('title')).toContain('USD 200.00');
+    expect(screen.getByText('2 policies')).toBeInTheDocument();
+    expect(screen.getByText('Sep 2026')).toBeInTheDocument();
+  });
+
+  it('hides the trend strip when nothing was written', async () => {
+    render(<ProductionBook />);
+    await screen.findByText(/no business was written/i);
+    expect(screen.queryByLabelText('Written premium trend')).not.toBeInTheDocument();
+  });
+
+  it('groups the table by month when chosen', async () => {
+    book = [
+      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-09-15', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
+      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
+    ];
+    render(<ProductionBook />);
+    await screen.findByText('Acme');
+    await userEvent.click(screen.getByLabelText('Group by'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Month' }));
+    expect(await screen.findByText('2026-09')).toBeInTheDocument();
+    expect(screen.getByText('2026-10')).toBeInTheDocument();
+  });
+
   it('offers the exports', async () => {
     render(<ProductionBook />);
     await screen.findByText(/no business was written/i);

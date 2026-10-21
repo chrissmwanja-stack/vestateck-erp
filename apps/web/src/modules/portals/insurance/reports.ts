@@ -25,7 +25,16 @@ export interface ProductionRow {
   net_premium_to_insurer: number | null;
 }
 
-export type ProductionGroupBy = 'client' | 'insurer' | 'branch' | 'agent' | 'product' | 'transaction_type' | 'status';
+export type ProductionGroupBy = 'client' | 'insurer' | 'branch' | 'agent' | 'product' | 'transaction_type' | 'status' | 'month';
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** '2026-09' -> 'Sep 2026', without touching Intl (test environments vary). */
+export function shortMonth(month: string): string {
+  const [y, m] = month.split('-');
+  const idx = Number(m) - 1;
+  return `${SHORT_MONTHS[idx] ?? m} ${y}`;
+}
 
 export const PRODUCTION_GROUPERS: Record<ProductionGroupBy, { label: string; of: (r: ProductionRow) => string }> = {
   client: { label: 'Client', of: (r) => r.client_name ?? r.client_id ?? '-' },
@@ -35,6 +44,7 @@ export const PRODUCTION_GROUPERS: Record<ProductionGroupBy, { label: string; of:
   product: { label: 'Product line', of: (r) => r.product_line_name ?? r.product_line_id ?? '-' },
   transaction_type: { label: 'Transaction type', of: (r) => r.transaction_type ?? '-' },
   status: { label: 'Status', of: (r) => r.status ?? '-' },
+  month: { label: 'Month', of: (r) => (r.bound_date ?? '').slice(0, 7) || 'No date' },
 };
 
 export interface ProductionGroup {
@@ -67,6 +77,31 @@ export function groupProduction(rows: ProductionRow[], groupBy: ProductionGroupB
 function addInto(totals: Record<string, number>, currency: string | null, amount: number | null): void {
   const cur = currency || 'UGX';
   totals[cur] = (totals[cur] ?? 0) + Number(amount ?? 0);
+}
+
+export interface TrendMonth {
+  /** 'YYYY-MM', ascending. */
+  month: string;
+  count: number;
+  /** Gross written premium per currency -- currencies are never merged. */
+  gross: Record<string, number>;
+}
+
+/** The premiums-written trend: gross written premium per month, per currency, oldest first. */
+export function premiumTrend(rows: ProductionRow[]): TrendMonth[] {
+  const map = new Map<string, TrendMonth>();
+  for (const r of rows) {
+    const month = (r.bound_date ?? '').slice(0, 7);
+    if (!month) continue;
+    let t = map.get(month);
+    if (!t) {
+      t = { month, count: 0, gross: {} };
+      map.set(month, t);
+    }
+    t.count += 1;
+    addInto(t.gross, r.currency, r.gross_premium);
+  }
+  return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
 export interface StatementRow {

@@ -6,7 +6,7 @@ import {
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from '../../../../../lib/reportExport';
 import { allRows, errorText, rows, table } from '../../db';
 import { formatMoneyByCurrency } from '../../logic';
-import { groupProduction, PRODUCTION_GROUPERS, type ProductionGroupBy, type ProductionRow } from '../../reports';
+import { groupProduction, premiumTrend, PRODUCTION_GROUPERS, shortMonth, type ProductionGroupBy, type ProductionRow } from '../../reports';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
@@ -14,9 +14,10 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // The production book: business written in a period (bound policies, reversed
 // ones excluded by the view), grouped by any reporting dimension -- client,
-// insurer, branch, agent, product line, transaction type or status. Money is
-// totalled per currency; the read is server-gated (the view re-checks tenant
-// and insurance access on every query).
+// insurer, branch, agent, product line, transaction type, status or month.
+// Money is totalled per currency; a per-month trend strip shows the written
+// premium over time. The read is server-gated (the view re-checks tenant and
+// insurance access on every query).
 export default function ProductionBook() {
   const [from, setFrom] = useState(firstOfYear());
   const [to, setTo] = useState(today());
@@ -49,6 +50,27 @@ export default function ProductionBook() {
 
   const groups = useMemo(() => groupProduction(bookRows, groupBy), [bookRows, groupBy]);
   const grouper = PRODUCTION_GROUPERS[groupBy];
+  const trend = useMemo(() => premiumTrend(bookRows), [bookRows]);
+
+  // One bar row per month; each bar is a currency (never merged), scaled to
+  // the currency's own maximum so a small USD book stays visible next to UGX.
+  const trendBars = useMemo(() => trend.map((t) => ({
+    month: t.month,
+    label: shortMonth(t.month),
+    count: t.count,
+    bars: Object.entries(t.gross)
+      .map(([currency, gross]) => ({ currency, gross: Number(gross) }))
+      .sort((a, b) => a.currency.localeCompare(b.currency)),
+  })), [trend]);
+  const trendMaxByCurrency = useMemo(() => {
+    const max: Record<string, number> = {};
+    for (const t of trend) {
+      for (const [currency, gross] of Object.entries(t.gross)) {
+        max[currency] = Math.max(max[currency] ?? 0, Number(gross));
+      }
+    }
+    return max;
+  }, [trend]);
 
   const totals = useMemo(() => ({
     count: bookRows.length,
@@ -79,7 +101,7 @@ export default function ProductionBook() {
     <Box sx={{ p: 3 }}>
       <PageHeader
         title="Production book"
-        subtitle="Business written in the period, by client, insurer, branch, agent, product line, transaction type or status. Reversed policies are not production."
+        subtitle="Business written in the period, by client, insurer, branch, agent, product line, transaction type, status or month, with the written-premium trend. Reversed policies are not production."
       />
       <ErrorBanner message={error} />
       <Card>
@@ -106,6 +128,40 @@ export default function ProductionBook() {
               </Stack>
             </Grid>
           </Grid>
+
+          {!loading && trendBars.length > 0 && (
+            <Box sx={{ mb: 3 }} aria-label="Written premium trend">
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Gross premium written by month
+              </Typography>
+              {trendBars.map((t) => (
+                <Box key={t.month} sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 1 }}>
+                  {t.bars.map((b) => {
+                    const max = trendMaxByCurrency[b.currency] || 1;
+                    const px = Math.max(4, Math.round((b.gross / max) * 72));
+                    return (
+                      <Box
+                        key={b.currency}
+                        data-testid={`trend-bar-${t.month}-${b.currency}`}
+                        title={`${t.label} ${t.month}: ${formatMoneyByCurrency({ [b.currency]: b.gross }, functional).replace(/\n/g, ' ')} gross, ${t.count} ${t.count === 1 ? 'policy' : 'policies'}`}
+                        sx={{
+                          width: 36, height: px,
+                          bgcolor: b.currency === functional ? 'primary.main' : 'secondary.main',
+                          opacity: 0.85, borderRadius: '2px 2px 0 0',
+                        }}
+                      />
+                    );
+                  })}
+                  <Box component="span" sx={{ minWidth: 56, display: 'inline-block' }}>
+                    <Typography variant="caption" display="block">{t.label}</Typography>
+                    <Typography variant="caption" display="block">
+                      {`${t.count} ${t.count === 1 ? 'policy' : 'policies'}`}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>

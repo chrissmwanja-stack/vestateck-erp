@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agedBalances, agingBucket, groupProduction, type ProductionRow, type StatementRow } from './reports';
+import { agedBalances, agingBucket, groupProduction, premiumTrend, shortMonth, type ProductionRow, type StatementRow } from './reports';
 
 const prod = (over: Partial<ProductionRow>): ProductionRow => ({
   policy_id: 'p1', policy_no: 'POL-1', client_id: 'c1', client_name: 'Acme', insurer_id: 'i1', insurer_name: 'Jubilee',
@@ -75,5 +75,54 @@ describe('agedBalances', () => {
     expect(acme?.buckets).toMatchObject({ current: 1000, over90: 400 });
     expect(acme?.total).toBe(1400);
     expect(aged[0].total).toBe(1400); // biggest balance first
+  });
+});
+
+describe('groupProduction by month', () => {
+  it('buckets written business by the month the policy was bound', () => {
+    const rows = [
+      prod({ bound_date: '2026-09-15' }),
+      prod({ policy_id: 'p2', bound_date: '2026-10-01' }),
+      prod({ policy_id: 'p3', bound_date: '2026-10-20', currency: 'USD', gross_premium: 200, commission_amount: 20, net_premium_to_insurer: 180 }),
+    ];
+    const byMonth = groupProduction(rows, 'month');
+    expect(byMonth).toHaveLength(2);
+    // Sorted by policy count desc, then key.
+    expect(byMonth[0]).toMatchObject({ key: '2026-10', count: 2 });
+    expect(byMonth[0].gross).toEqual({ UGX: 1000, USD: 200 });
+    expect(byMonth[1]).toMatchObject({ key: '2026-09', count: 1 });
+  });
+
+  it('keeps an undated policy visible as its own group', () => {
+    const groups = groupProduction([prod({}), prod({ policy_id: 'p2', bound_date: null })], 'month');
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.key)).toContain('No date');
+  });
+});
+
+describe('premiumTrend', () => {
+  it('builds an ascending per-month series with per-currency gross', () => {
+    const rows = [
+      prod({ bound_date: '2026-10-05', gross_premium: 700, commission_amount: 70, net_premium_to_insurer: 630 }),
+      prod({ policy_id: 'p2', bound_date: '2026-09-15', gross_premium: 1000 }),
+      prod({ policy_id: 'p3', bound_date: '2026-10-20', currency: 'USD', gross_premium: 200, commission_amount: 20, net_premium_to_insurer: 180 }),
+    ];
+    const trend = premiumTrend(rows);
+    expect(trend.map((t) => t.month)).toEqual(['2026-09', '2026-10']);
+    expect(trend[0].gross).toEqual({ UGX: 1000 });
+    expect(trend[1].gross).toEqual({ UGX: 700, USD: 200 });
+    expect(trend[1].count).toBe(2);
+  });
+
+  it('skips rows without a bound date and returns an empty series for an empty book', () => {
+    expect(premiumTrend([])).toEqual([]);
+    expect(premiumTrend([prod({ bound_date: null })])).toEqual([]);
+  });
+});
+
+describe('shortMonth', () => {
+  it('formats without Intl', () => {
+    expect(shortMonth('2026-09')).toBe('Sep 2026');
+    expect(shortMonth('2027-01')).toBe('Jan 2027');
   });
 });
