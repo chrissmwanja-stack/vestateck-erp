@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField, Typography,
+  TableHead, TableRow, TextField,
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from '../../../../../lib/reportExport';
 import { allRows, errorText, rows, table } from '../../db';

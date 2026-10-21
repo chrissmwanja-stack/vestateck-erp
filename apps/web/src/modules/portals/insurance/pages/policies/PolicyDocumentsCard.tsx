@@ -133,7 +133,7 @@ export default function PolicyDocumentsCard({ policyId, canManage }: { policyId:
     setGenerating(kind);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-ins-doc', {
+      const { error: fnError } = await supabase.functions.invoke('generate-ins-doc', {
         body: { policy_id: policyId, kind },
       });
       if (fnError) {

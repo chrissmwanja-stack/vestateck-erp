@@ -58,14 +58,14 @@ beforeEach(() => {
 
 describe('PolicyDocumentsCard', () => {
   it('shows the empty state and hides the upload button from non-managers', async () => {
-    const { container } = render(<PolicyDocumentsCard policyId="p1" canManage={false} />);
+    render(<PolicyDocumentsCard policyId="p1" canManage={false} />);
     expect(await screen.findByText(/no documents yet/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /attach file/i })).not.toBeInTheDocument();
   });
 
   it('lists registered documents with a friendly kind label and a download link', async () => {
     docs = [{ id: 'd1', doc_kind: 'client_debit_note', file_name: 'debit-note.pdf', path: 'tenant-1/x.pdf', byte_size: 2048, created_at: '2026-10-21T08:00:00Z' }];
-    const { container } = render(<PolicyDocumentsCard policyId="p1" canManage={false} />);
+    render(<PolicyDocumentsCard policyId="p1" canManage={false} />);
     expect(await screen.findByText('debit-note.pdf')).toBeInTheDocument();
     expect(screen.getByText('Client debit note')).toBeInTheDocument();
     expect(screen.getByText('2.0 KB')).toBeInTheDocument();
