@@ -192,8 +192,8 @@ begin
     'v0 ships no feature-flag overrides');
 
   -- 1d. Chart of accounts and posting rules match the template item for item.
-  perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 24, 'expected 24 gl_accounts');
-  perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 24, 'expected 24 gl_posting_rules');
+  perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 26, 'expected 26 gl_accounts');
+  perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 26, 'expected 26 gl_posting_rules');
 
   select string_agg(i.name, ', ') into v_bad from industry_template_items i
    where i.template_key = 'insurance' and i.kind = 'gl_account'
@@ -225,10 +225,12 @@ begin
     (select a.account_code from gl_posting_rules r join gl_accounts a on a.id = r.gl_account_id
       where r.tenant_id = t_ins and r.account_role = 'commission_income') = '4000'
     and (select count(*) from gl_posting_rules r join gl_accounts a on a.id = r.gl_account_id
-          where r.tenant_id = t_ins and a.account_type = 'revenue') = 3
+          where r.tenant_id = t_ins and a.account_type = 'revenue') = 4
     and (select a.account_code from gl_posting_rules r join gl_accounts a on a.id = r.gl_account_id
-          where r.tenant_id = t_ins and r.account_role = 'fx_gain_realised') = '4900',
-    'only commission income (4000), brokerage fees (4100) and realised exchange gain (4900) may be revenue accounts');
+          where r.tenant_id = t_ins and r.account_role = 'fx_gain_realised') = '4900'
+    and (select a.account_code from gl_posting_rules r join gl_accounts a on a.id = r.gl_account_id
+          where r.tenant_id = t_ins and r.account_role = 'fx_gain_unrealised') = '4901',
+    'only commission income (4000), brokerage fees (4100), realised exchange gain (4900) and unrealised exchange gain (4901) may be revenue accounts');
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -364,8 +366,8 @@ do $$
 begin
   perform pg_temp.assert(is_finance_team_member(), 'finance user should be a finance team member');
   perform pg_temp.assert(not has_po_access(), 'finance user in an insurance tenant must not need or hold PO access');
-  perform pg_temp.assert((select count(*) from gl_accounts) = 24, 'finance user should read the 24-account chart');
-  perform pg_temp.assert((select count(*) from gl_posting_rules) = 24, 'finance user should read the 24 posting rules');
+  perform pg_temp.assert((select count(*) from gl_accounts) = 26, 'finance user should read the 26-account chart');
+  perform pg_temp.assert((select count(*) from gl_posting_rules) = 26, 'finance user should read the 26 posting rules');
   perform pg_temp.assert(not can_access_client_master(), 'finance-only user must not reach the client master');
 end $$;
 reset role;

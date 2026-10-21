@@ -29,7 +29,7 @@ begin
   if n <> 8 then raise exception 'FAIL: UAT tenant departments: expected 8, got %', n; end if;
 
   select count(*) into n from gl_accounts where tenant_id = v_t;
-  if n <> 24 then raise exception 'FAIL: UAT tenant GL accounts: expected 24, got %', n; end if;
+  if n <> 26 then raise exception 'FAIL: UAT tenant GL accounts: expected 26, got %', n; end if;
 
   select count(*) into n from app_users where tenant_id = v_t;
   if n <> 6 then raise exception 'FAIL: UAT tenant users: expected 6, got %', n; end if;

@@ -70,6 +70,29 @@ like that. What remains of this review's plan: 3e (period-end revaluation), then
 and the 8-versus-10-decimal rate question. `test_foreign_bind_transfer.sql` section 8 was flipped: a
 foreign proposal is now accepted rather than refused.
 
+**Update 21 Oct 2026, latest: slice 3e is built -- period-end revaluation.**
+(`20261021180000_period_end_revaluation.sql`, `test_fx_revaluation.sql`.) Finance can now run
+`fin_revalue_fx(as_of)` (and void a run with `fin_void_fx_revaluation(run_id, reason)`). One run
+revalues every foreign monetary balance to the approved closing rate of the run date: the control
+accounts that still carry outstanding foreign open items (receivable, payable, insurer payable,
+commission receivable, insurer claim receivable, client claim payable), the foreign bank GLs, and the
+unearned-commission account per currency. The run posts one balanced functional-currency journal: each
+account moves onto `currency balance x closing rate` and the offset books the unrealised result to the
+new `fx_gain_unrealised` (credit, template account 4901) and `fx_loss_unrealised` (debit, 5911) posting
+roles; payable-side items enter the revaluation signed so a payable strengthens as a loss, not a gain.
+A run refuses a future date (`FX_REVAL_INPUT`), a same-day repeat while one is live (`FX_REVAL_EXISTS`),
+and any run date missing an approved rate -- all-or-nothing, before anything is written
+(`FX_RATE_MISSING`). A later run first reverses the previous live journal (`fx_revaluation_void`) and
+then measures, so exactly one revaluation journal is ever live and only what still differs from the
+closing rate is posted again. Open items keep their booked rate and base: revaluation never overwrites
+history, the residue lives on the control GL and is cleared there. That closes the loop 3d left open:
+the unearned base residue from cancellations and recognition now clears at the next period-end, and the
+period-end books translate the residual exposure once, in one place. The engine refuses tenants whose
+template lacks the unrealised accounts (`FX_UNREALISED_ACCOUNT_MISSING`); insurance companies created
+before this slice are backfilled. Remaining on this review: foreign-currency bank reconciliation (the
+rest of A3), then the UGX column defaults (F3) and the 8-versus-10-decimal rate question (F4) before
+any non-UGX company is enabled.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
