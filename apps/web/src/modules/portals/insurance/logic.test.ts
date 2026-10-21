@@ -195,6 +195,7 @@ describe('claim payment helpers', () => {
 describe('commission statement per insurer', () => {
   const policy = (over: Partial<Policy>): Policy => ({
     id: 'p1', policy_no: 'POL-1', status: 'active', client_id: 'c1', insurer_id: 'i1', product_line_id: 'pl1',
+    branch_id: null, agent_id: null, transaction_type: 'new_business',
     inception_date: '2026-10-01', expiry_date: '2027-10-01', sum_insured: 0, currency: 'UGX',
     gross_premium: 1000, commission_rate_pct: 10, commission_amount: 100, net_premium_to_insurer: 900,
     bound_at: '2026-10-05T08:00:00Z', journal_entry_id: null, renewal_of_id: null, risk_description: null, notes: null,
