@@ -1020,7 +1020,7 @@ export type Database = {
         Insert: {
           amount: number
           bank_account: string
-          currency?: string
+          currency: string
           description?: string | null
           id?: string
           imported_at?: string
@@ -1964,7 +1964,7 @@ export type Database = {
           amount: number
           bank_account?: string | null
           created_at?: string
-          currency?: string
+          currency: string
           description?: string | null
           id?: string
           payment_method: string
@@ -2434,7 +2434,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           gl_account_id?: string | null
           id?: string
           is_active?: boolean
@@ -2714,7 +2714,7 @@ export type Database = {
           control_role: string
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           description?: string | null
           document_date: string
           document_no: string
@@ -5904,7 +5904,7 @@ export type Database = {
           commission_rate_pct?: number
           created_at?: string
           created_by?: string | null
-          currency?: string
+          currency: string
           expiry_date: string
           gross_premium?: number
           id?: string
@@ -7334,7 +7334,7 @@ export type Database = {
           base_credit?: number | null
           base_debit?: number | null
           credit?: number
-          currency?: string
+          currency: string
           debit?: number
           description?: string | null
           fx_rate?: number
@@ -19399,4 +19399,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
