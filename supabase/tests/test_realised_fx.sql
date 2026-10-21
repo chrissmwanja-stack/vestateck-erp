@@ -209,8 +209,8 @@ begin
   insert into supplier_invoices (tenant_id, cost_center_id, invoice_number, invoice_date, amount_incl_vat, vat_amount, wht_amount, currency, organization_id, prf_oif_number)
     values (ta, cc, 'UGX-RF-1', current_date - 1, 100000, 0, 0, 'UGX', org, 'PRF-RF4') returning id into si_ugx;
   perform pg_temp.expect_error(format(
-    $q$insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date)
-       values (%L, 'payment', 'bank', 'supplier_invoice', %L, 100, current_date)$q$, ta, si),
+    $q$insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
+       values (%L, 'payment', 'bank', 'supplier_invoice', %L, 100, 'UGX', current_date)$q$, ta, si),
     'CASH_CURRENCY_MISMATCH', 'UGX payment against a USD invoice');
   perform pg_temp.expect_error(format(
     $q$insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
@@ -229,8 +229,8 @@ begin
     $q$insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
        values (%L, 'payment', 'bank', 'payroll_run', %L, 100, 'USD', current_date)$q$, ta, run),
     'CASH_PAYROLL_CURRENCY', 'payroll payment in USD');
-  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date)
-    values (ta, 'payment', 'bank', 'payroll_run', run, 100000, current_date);
+  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
+    values (ta, 'payment', 'bank', 'payroll_run', run, 100000, 'UGX', current_date);
   perform pg_temp.flush();
   perform pg_temp.assert(exists (select 1 from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
                                  where e.source_id = (select id from cash_bank_transactions where reference_id = run) and l.gl_account_id = g_sal and l.currency = 'UGX' and l.fx_rate = 1),

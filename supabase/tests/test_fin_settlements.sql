@@ -151,7 +151,7 @@ begin
   -- Bank accounts of tenant A.
   insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id) values (v_ta, 'OPS-UGX', 'operating', 'UGX', v_gl_bank) returning id into v_ops;
   insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id) values (v_ta, 'TRUST-UGX', 'client_money', 'UGX', v_gl_trust) returning id into v_trust;
-  insert into fin_bank_accounts (tenant_id, name) values (v_ta, 'LEGACY-NOGL') returning id into v_legacy;
+  insert into fin_bank_accounts (tenant_id, name, currency) values (v_ta, 'LEGACY-NOGL', 'UGX') returning id into v_legacy;
   insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id) values (v_ta, 'RETIRED-UGX', 'operating', 'UGX', v_gl_spare) returning id into v_inact;
   update fin_bank_accounts set is_active = false where id = v_inact;
   reset role;

@@ -109,6 +109,24 @@ and the period-end run only revalues what the account still carries. What remain
 the UGX column defaults (F3) and the 8-versus-10-decimal rate question (F4) before any non-UGX
 company is enabled.
 
+**Update 21 Oct 2026, final: F3 and F4 are resolved -- the review is closed.**
+(`20261021200000_f3_f4_currency_defaults.sql`, `test_f3_f4_currency_defaults.sql`; the owner chose
+"round to 8" and "drop the defaults".) F3: six currency columns defaulted to 'UGX'
+(`journal_entry_lines`, `cash_bank_transactions`, `fin_open_items`, `fin_bank_accounts`,
+`ins_policies`, plus `bank_statement_lines`, which the original finding missed). The journal
+gateway now derives an omitted line currency from the tenant's ledger, every default is dropped,
+and any writer that omits currency fails loudly with a not-null violation instead of silently
+labelling unlabelled money as UGX. UGX companies behave exactly as before -- their ledger IS UGX.
+F4: rates are 8-decimal end to end. Lines and the guards already rounded to 8; `fx_rates` still
+stored up to 10, so an approved rate could be more precise than anything ever posted with it. Now
+a rate is rounded to 8 at approval (a before-trigger on `fx_rates` covering every write path) and
+check constraints pin the invariant on `fx_rates`, `journal_entry_lines` and `fin_settlements`:
+the stored rate IS the rate that was used. Live data had zero violations before the constraints
+landed. One residual note: a journal line still does not record which rate ROW it used -- the
+entry-level `rate_from_entry` key and reversal context are the traceability mechanism, at entry
+granularity. With A3 complete and F3/F4 resolved, nothing in this review blocks enabling a
+non-UGX company.
+
 Method: all migrations replayed on a scratch Postgres 16; current function definitions
 read from the catalog (so later redefinitions are respected, not the first migration
 that mentions a function); findings marked **proved** were reproduced by a real insert
@@ -179,18 +197,21 @@ None of them passes a currency to the gateway. Each needs the same change as the
 guards: carry the document currency into the journal lines, and book realised gain or
 loss where a settlement meets a rate different from the original.
 
-### F3. Column defaults assume UGX
+### F3. Column defaults assume UGX -- RESOLVED 21 Oct 2026
 
 `journal_entry_lines.currency`, `fin_bank_accounts.currency`, `fin_open_items.currency`
-and `ins_policies.currency` default to `'UGX'`. The functional-currency setter is not
-enabled for clients, so this is harmless today. It must be resolved before any company
-other than a UGX one is switched, otherwise a default `'UGX'` label looks like a foreign
-currency to a USD company.
+and `ins_policies.currency` defaulted to `'UGX'` (as did `cash_bank_transactions.currency`
+and `bank_statement_lines.currency`). Resolved in `20261021200000`: the gateway derives an
+omitted line currency from the tenant's ledger and every default is dropped -- omission is
+a loud not-null failure, never a silent UGX label. See the final update above.
 
-### F4. Already recorded in the roadmap
+### F4. Rate precision -- RESOLVED 21 Oct 2026 (owner: round to 8)
 
-A line stores its rate to 8 decimals while `fx_rates` holds 10, and a line does not
-record which rate row it used.
+Lines rounded their rate to 8 decimals while `fx_rates` held 10. Resolved in
+`20261021200000`: approval rounds to 8 (before-trigger) and check constraints pin
+`rate = round(rate, 8)` on `fx_rates`, `journal_entry_lines` and `fin_settlements`, so the
+stored rate is exactly the rate used. A line still does not record which rate row it used;
+traceability is at entry granularity via `rate_from_entry` and the reversal context.
 
 ## 3. Decision needed from you: how to close F1
 

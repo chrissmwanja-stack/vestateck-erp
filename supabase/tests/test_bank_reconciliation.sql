@@ -114,10 +114,10 @@ begin
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    50000, current_date, 'ACC-001', 'Matching receipt'
+    50000, 'UGX', current_date, 'ACC-001', 'Matching receipt'
   ) returning id into v_txn_id;
 
   select * into v_recon from match_bank_statement_line(v_line_id, v_txn_id);
@@ -146,10 +146,10 @@ begin
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'cash', 'receivable_invoice', gen_random_uuid(),
-    7500, current_date, null, 'Cash receipt, not bank'
+    7500, 'UGX', current_date, null, 'Cash receipt, not bank'
   ) returning id into v_txn_id;
 
   v_caught := false;
@@ -170,10 +170,10 @@ begin
   -------------------------------------------------------------------
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    7500, current_date, 'ACC-002', 'Right amount, wrong account'
+    7500, 'UGX', current_date, 'ACC-002', 'Right amount, wrong account'
   ) returning id into v_txn_id;
 
   v_caught := false;
@@ -196,10 +196,10 @@ begin
   -------------------------------------------------------------------
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    7300, current_date, 'ACC-001', 'Close but not exact, bank charge assumed'
+    7300, 'UGX', current_date, 'ACC-001', 'Close but not exact, bank charge assumed'
   ) returning id into v_txn_id;
 
   select * into v_recon from match_bank_statement_line(v_line_id, v_txn_id);
@@ -222,10 +222,10 @@ begin
   -------------------------------------------------------------------
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    7500, current_date, 'ACC-001', 'Another candidate for an already-matched line'
+    7500, 'UGX', current_date, 'ACC-001', 'Another candidate for an already-matched line'
   ) returning id into v_txn_id;
 
   v_caught := false;
@@ -254,10 +254,10 @@ begin
   -- re-matchable against a fresh exact-amount transaction.
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    7500, current_date, 'ACC-001', 'Re-match after unmatch'
+    7500, 'UGX', current_date, 'ACC-001', 'Re-match after unmatch'
   ) returning id into v_txn_id;
 
   select * into v_recon from match_bank_statement_line(v_line_id, v_txn_id);
@@ -293,10 +293,10 @@ begin
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    12345, current_date - 2, 'ACC-AUTO', 'The one candidate, 2 days earlier'
+    12345, 'UGX', current_date - 2, 'ACC-AUTO', 'The one candidate, 2 days earlier'
   ) returning id into v_txn_id;
 
   v_matched_count := auto_match_bank_statement('ACC-AUTO', current_date - 10, current_date + 10);
@@ -353,18 +353,18 @@ begin
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    44000, current_date - 1, 'ACC-AUTO', 'Ambiguous candidate 1'
+    44000, 'UGX', current_date - 1, 'ACC-AUTO', 'Ambiguous candidate 1'
   ) returning id into v_txn_id;
 
   insert into cash_bank_transactions (
     tenant_id, transaction_type, payment_method, reference_type, reference_id,
-    amount, transaction_date, bank_account, description
+    amount, currency, transaction_date, bank_account, description
   ) values (
     v_tenant_id, 'receipt', 'bank', 'receivable_invoice', gen_random_uuid(),
-    44000, current_date - 3, 'ACC-AUTO', 'Ambiguous candidate 2'
+    44000, 'UGX', current_date - 3, 'ACC-AUTO', 'Ambiguous candidate 2'
   ) returning id into v_txn2_id;
 
   v_matched_count := auto_match_bank_statement('ACC-AUTO', current_date - 10, current_date + 10);

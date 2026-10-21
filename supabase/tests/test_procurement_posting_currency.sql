@@ -243,8 +243,8 @@ begin
   raise notice 'PASS: a USD payment settles at the invoice rate, books the 100,000 loss, and payables net to zero in base';
 
   -- A UGX payment (default currency) is unchanged.
-  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date)
-    values (ta, 'payment', 'bank', 'supplier_invoice', si_ugx, 1000, current_date - 1) returning id into cb2;
+  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date)
+    values (ta, 'payment', 'bank', 'supplier_invoice', si_ugx, 1000, 'UGX', current_date - 1) returning id into cb2;
   perform pg_temp.flush();
   perform pg_temp.assert(not exists (select 1 from journal_entries e join journal_entry_lines l on l.journal_entry_id = e.id
                                      where e.source_id = cb2 and (l.currency <> 'UGX' or l.fx_rate <> 1 or l.is_rounding)),

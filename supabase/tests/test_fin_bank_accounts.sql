@@ -98,8 +98,9 @@ begin
   insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id)
   values (v_ta, 'TRUST-UGX', 'client_money', 'UGX', v_trust_a) returning id into v_trust;
 
-  -- A legacy-style row: defaults, no GL account yet.
-  insert into fin_bank_accounts (tenant_id, name) values (v_ta, 'LEGACY-1') returning id into v_legacy;
+  -- A legacy-style row: no GL account yet; currency is stated explicitly now
+  -- that columns no longer default to UGX.
+  insert into fin_bank_accounts (tenant_id, name, currency) values (v_ta, 'LEGACY-1', 'UGX') returning id into v_legacy;
   select * into v_row from fin_bank_accounts where id = v_legacy;
   if v_row.kind <> 'operating' or v_row.currency <> 'UGX' or v_row.gl_account_id is not null or not v_row.is_active then
     raise exception 'FAIL: defaults wrong for a bare insert (kind %, currency %, gl %, active %)',
@@ -108,52 +109,52 @@ begin
   raise notice 'PASS: finance user registers operating, client-money and legacy-style accounts';
 
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind) values (%L, ''CM-NOGL'', ''client_money'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, currency) values (%L, ''CM-NOGL'', ''client_money'', ''UGX'')', v_ta),
     'fin_bank_accounts_client_money_gl_check', 'client_money without a GL account');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id) values (%L, ''X-LIAB'', %L)', v_ta, v_liab_a),
+    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id, currency) values (%L, ''X-LIAB'', %L, ''UGX'')', v_ta, v_liab_a),
     'BANK_ACCOUNT_GL_INVALID', 'liability GL account');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id) values (%L, ''X-OTHERTENANT'', %L)', v_ta, v_bank_b),
+    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id, currency) values (%L, ''X-OTHERTENANT'', %L, ''UGX'')', v_ta, v_bank_b),
     'BANK_ACCOUNT_GL_INVALID', 'GL account of another company');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id) values (%L, ''X-INACTIVE'', %L)', v_ta, v_inactive_a),
+    format('insert into fin_bank_accounts (tenant_id, name, gl_account_id, currency) values (%L, ''X-INACTIVE'', %L, ''UGX'')', v_ta, v_inactive_a),
     'BANK_ACCOUNT_GL_INVALID', 'inactive GL account');
   raise notice 'PASS: GL account must be an active asset account of the same company';
 
   -- Segregation: three independent ways to break it.
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-OPS-ON-TRUST'', ''operating'', %L)', v_ta, v_trust_a),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-OPS-ON-TRUST'', ''operating'', %L, ''UGX'')', v_ta, v_trust_a),
     'BANK_ACCOUNT_SEGREGATION', 'operating account on the client-money GL account');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-CM-ON-OPS'', ''client_money'', %L)', v_ta, v_bank_a),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-CM-ON-OPS'', ''client_money'', %L, ''UGX'')', v_ta, v_bank_a),
     'BANK_ACCOUNT_SEGREGATION', 'client-money account sharing an operating account''s GL account');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-CM-ON-CASH'', ''client_money'', %L)', v_ta, v_cash_a),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-CM-ON-CASH'', ''client_money'', %L, ''UGX'')', v_ta, v_cash_a),
     'BANK_ACCOUNT_SEGREGATION', 'client-money account on the operating cash posting account');
   -- A dedicated second client-money account on its own GL account is fine.
-  insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (v_ta, 'TRUST-2', 'client_money', v_spare_a);
+  insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (v_ta, 'TRUST-2', 'client_money', v_spare_a, 'UGX');
   -- ...and then that GL account is client money for good.
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-OPS-ON-TRUST2'', ''operating'', %L)', v_ta, v_spare_a),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-OPS-ON-TRUST2'', ''operating'', %L, ''UGX'')', v_ta, v_spare_a),
     'BANK_ACCOUNT_SEGREGATION', 'operating account on a second client-money GL account');
   raise notice 'PASS: client money and operating money cannot share a GL account';
 
   -- Plain CHECKs and uniqueness.
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, ''OPS-UGX'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, ''OPS-UGX'', ''UGX'')', v_ta),
     'fin_bank_accounts_tenant_name_unique', 'duplicate name');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, '' PADDED'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, '' PADDED'', ''UGX'')', v_ta),
     'fin_bank_accounts_name_check', 'name with leading space');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, '''')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, '''', ''UGX'')', v_ta),
     'fin_bank_accounts_name_check', 'empty name');
   perform pg_temp.expect_error(
     format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, ''X-CUR'', ''ugx'')', v_ta),
     'fin_bank_accounts_currency_check', 'lower-case currency');
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-KIND'', ''savings'', %L)', v_ta, v_spare2_a),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-KIND'', ''savings'', %L, ''UGX'')', v_ta, v_spare2_a),
     'fin_bank_accounts_kind_check', 'unknown kind');
   raise notice 'PASS: name, currency and kind constraints';
 
@@ -201,7 +202,7 @@ begin
     raise exception 'FAIL: cost_control member should read the registry, saw % rows', v_n;
   end if;
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, ''CC-WRITE'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, ''CC-WRITE'', ''UGX'')', v_ta),
     'row-level security', 'cost_control insert');
   update fin_bank_accounts set bank_name = 'hijack' where id = v_ops;
   get diagnostics v_n = row_count;
@@ -218,7 +219,7 @@ begin
     raise exception 'FAIL: non-finance member saw % registry row(s)', v_n;
   end if;
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, ''OUT-WRITE'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, ''OUT-WRITE'', ''UGX'')', v_ta),
     'row-level security', 'non-finance insert');
 
   -- Finance user of another company: sees nothing of A, cannot write into A.
@@ -230,9 +231,9 @@ begin
     raise exception 'FAIL: another company''s finance user saw % registry row(s)', v_n;
   end if;
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name) values (%L, ''CROSS-TENANT'')', v_ta),
+    format('insert into fin_bank_accounts (tenant_id, name, currency) values (%L, ''CROSS-TENANT'', ''UGX'')', v_ta),
     'row-level security', 'cross-tenant insert');
-  insert into fin_bank_accounts (tenant_id, name, gl_account_id) values (v_tb, 'B-OPS', v_bank_b);
+  insert into fin_bank_accounts (tenant_id, name, gl_account_id, currency) values (v_tb, 'B-OPS', v_bank_b, 'UGX');
 
   -- anon: no access at all.
   reset role;
@@ -264,13 +265,13 @@ begin
   -- recorded_by defaults to auth.uid() and is NOT NULL, so fixtures act as a user.
   perform set_config('request.jwt.claims', json_build_object('sub', v_fin_a, 'role', 'authenticated')::text, true);
   alter table cash_bank_transactions disable trigger set_cash_bank_transaction_defaults_trigger;
-  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date, bank_account)
-  values (v_ta, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 1000, current_date, 'UNMAPPED-1'),
-         (v_ta, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 1000, current_date, 'OPS-UGX');
+  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date, bank_account)
+  values (v_ta, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 1000, 'UGX', current_date, 'UNMAPPED-1'),
+         (v_ta, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 1000, 'UGX', current_date, 'OPS-UGX');
   alter table cash_bank_transactions enable trigger set_cash_bank_transaction_defaults_trigger;
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, amount)
-  values (v_ta, 'UNMAPPED-1', current_date, -1000),
-         (v_ta, 'UNMAPPED-2', current_date, -500);
+  insert into bank_statement_lines (tenant_id, bank_account, statement_date, amount, currency)
+  values (v_ta, 'UNMAPPED-1', current_date, -1000, 'UGX'),
+         (v_ta, 'UNMAPPED-2', current_date, -500, 'UGX');
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_fin_a, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -321,15 +322,15 @@ begin
     ('JUNKCUR', 'ugx '),
     ('BADCUR', 'XX')
   ) as c(acct, cur);
-  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date, bank_account)
-  values (v_tc, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, current_date, null),
-         (v_tc, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, current_date, '   ');
-  insert into bank_statement_lines (tenant_id, bank_account, statement_date, amount)
-  values (v_tc, 'CENTENARY', current_date, 50), (v_tc, 'STANBIC-1', current_date, 50);
+  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date, bank_account)
+  values (v_tc, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, 'UGX', current_date, null),
+         (v_tc, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, 'UGX', current_date, '   ');
+  insert into bank_statement_lines (tenant_id, bank_account, statement_date, amount, currency)
+  values (v_tc, 'CENTENARY', current_date, 50, 'UGX'), (v_tc, 'STANBIC-1', current_date, 50, 'UGX');
 
-  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, transaction_date, bank_account)
-  values (v_td, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, current_date, 'D-ACC'),
-         (v_te, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, current_date, 'E-ACC');
+  insert into cash_bank_transactions (tenant_id, transaction_type, payment_method, reference_type, reference_id, amount, currency, transaction_date, bank_account)
+  values (v_td, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, 'UGX', current_date, 'D-ACC'),
+         (v_te, 'payment', 'bank', 'payroll_run', gen_random_uuid(), 100, 'UGX', current_date, 'E-ACC');
 
   alter table cash_bank_transactions enable trigger set_cash_bank_transaction_defaults_trigger;
 
@@ -377,7 +378,7 @@ begin
   -- The 'client_money_bank' rule account cannot back an operating account
   -- (rule path; no client_money registry row exists in tenant C).
   perform pg_temp.expect_error(
-    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id) values (%L, ''X-OPS-ON-CMRULE'', ''operating'', %L)', v_tc, v_trust_c),
+    format('insert into fin_bank_accounts (tenant_id, name, kind, gl_account_id, currency) values (%L, ''X-OPS-ON-CMRULE'', ''operating'', %L, ''UGX'')', v_tc, v_trust_c),
     'BANK_ACCOUNT_SEGREGATION', 'operating account on the client_money_bank rule account');
   -- Moving the tenant boundary is blocked even for the table owner.
   perform pg_temp.expect_error(
