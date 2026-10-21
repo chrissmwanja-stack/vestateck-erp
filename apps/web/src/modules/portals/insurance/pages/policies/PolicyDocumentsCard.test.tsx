@@ -12,11 +12,13 @@ const mockRpc = vi.fn();
 const mockUpload = vi.fn();
 const mockSignedUrl = vi.fn();
 const mockRemove = vi.fn();
+const mockInvoke = vi.fn();
 
 vi.mock('../../../../../lib/supabaseClient', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
     rpc: (...args: unknown[]) => mockRpc(...args),
+    functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
     storage: {
       from: (_bucket: string) => ({ upload: mockUpload, createSignedUrl: mockSignedUrl, remove: mockRemove }),
     },
@@ -50,6 +52,8 @@ beforeEach(() => {
   mockSignedUrl.mockReset();
   mockRemove.mockReset();
   mockRemove.mockResolvedValue({ data: null, error: null });
+  mockInvoke.mockReset();
+  mockInvoke.mockResolvedValue({ data: { id: 'd9', kind: 'client_debit_note', path: 'p' }, error: null });
 });
 
 describe('PolicyDocumentsCard', () => {
@@ -118,5 +122,47 @@ describe('PolicyDocumentsCard', () => {
     expect(await screen.findByText(/storage bucket not found/i)).toBeInTheDocument();
     expect(mockRpc).not.toHaveBeenCalledWith('documents_register', expect.anything());
     expect(mockRemove).not.toHaveBeenCalled();
+  });
+});
+
+describe('PolicyDocumentsCard generation', () => {
+  it('offers the pack only to managers, and invokes the function with the policy and kind', async () => {
+    const noManager = render(<PolicyDocumentsCard policyId="p1" canManage={false} />);
+    expect(await noManager.findByText(/no documents yet/i)).toBeInTheDocument();
+    expect(noManager.queryByRole('button', { name: /client debit note/i })).not.toBeInTheDocument();
+    noManager.unmount();
+
+    const { container } = render(<PolicyDocumentsCard policyId="p1" canManage />);
+    await screen.findByText(/no documents yet/i);
+    await userEvent.click(screen.getByRole('button', { name: /client debit note/i }));
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('generate-ins-doc', {
+      body: { policy_id: 'p1', kind: 'client_debit_note' },
+    }));
+    // the registry is re-read after generation
+    await waitFor(() => expect(mockFrom.mock.calls.filter(([t]) => t === 'documents').length).toBeGreaterThan(1));
+    void container;
+  });
+
+  it('surfaces the function error detail from the response body', async () => {
+    // functions.invoke resolves with a FunctionsHttpError whose .context holds the response body.
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'FunctionsHttpError', context: { clone: () => ({ json: async () => ({ error: 'You are not authorized to document this policy' }) }) } },
+    });
+    render(<PolicyDocumentsCard policyId="p1" canManage />);
+    await screen.findByText(/no documents yet/i);
+    await userEvent.click(screen.getByRole('button', { name: /renewal notice/i }));
+    expect(await screen.findByText(/not authorized to document this policy/i)).toBeInTheDocument();
+  });
+
+  it('keeps the pack disabled while another document is generating', async () => {
+    let resolveFn: (v: unknown) => void = () => {};
+    mockInvoke.mockReturnValue(new Promise((resolve) => { resolveFn = resolve; }));
+    render(<PolicyDocumentsCard policyId="p1" canManage />);
+    await screen.findByText(/no documents yet/i);
+    await userEvent.click(screen.getByRole('button', { name: /risk note/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /generating/i })).toBeDisabled());
+    resolveFn({ data: { id: 'd9' }, error: null });
+    await waitFor(() => expect(screen.getByRole('button', { name: /^risk note$/i })).toBeEnabled());
   });
 });

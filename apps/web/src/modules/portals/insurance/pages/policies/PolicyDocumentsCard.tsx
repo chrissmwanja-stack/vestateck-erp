@@ -125,6 +125,30 @@ export default function PolicyDocumentsCard({ policyId, canManage }: { policyId:
     }
   };
 
+  // Generates one of the document pack via the generate-ins-doc edge function.
+  // The function renders the PDF, stores it and registers it; from here the
+  // registry is simply re-read.
+  const [generating, setGenerating] = useState<string | null>(null);
+  const generate = async (kind: string) => {
+    setGenerating(kind);
+    setError(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-ins-doc', {
+        body: { policy_id: policyId, kind },
+      });
+      if (fnError) {
+        const context = (fnError as { context?: Response }).context;
+        const detail = context ? await context.clone().json().catch(() => null) : null;
+        throw new Error(detail?.error ?? fnError.message);
+      }
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setGenerating(null);
+    }
+  };
+
   return (
     <Stack spacing={1} sx={{ mt: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -144,12 +168,32 @@ export default function PolicyDocumentsCard({ policyId, canManage }: { policyId:
         )}
       </Stack>
       <ErrorBanner message={error} />
+      {canManage && (
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button variant="outlined" size="small" disabled={busy || generating !== null}
+            onClick={() => void generate('client_debit_note')}>
+            {generating === 'client_debit_note' ? 'Generating…' : 'Client debit note'}
+          </Button>
+          <Button variant="outlined" size="small" disabled={busy || generating !== null}
+            onClick={() => void generate('insurer_debit_note')}>
+            {generating === 'insurer_debit_note' ? 'Generating…' : 'Insurer debit note'}
+          </Button>
+          <Button variant="outlined" size="small" disabled={busy || generating !== null}
+            onClick={() => void generate('risk_note')}>
+            {generating === 'risk_note' ? 'Generating…' : 'Risk note'}
+          </Button>
+          <Button variant="outlined" size="small" disabled={busy || generating !== null}
+            onClick={() => void generate('renewal_notice')}>
+            {generating === 'renewal_notice' ? 'Generating…' : 'Renewal notice'}
+          </Button>
+        </Stack>
+      )}
       {loading ? (
         <CircularProgress size={24} sx={{ mx: 'auto', my: 2 }} />
       ) : docs.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No documents yet. Generated debit notes, risk notes and renewal notices will appear here,
-          alongside any files attached to the policy.
+          No documents yet. Generate a debit note, risk note or renewal notice above, or attach a file
+          and it will be listed here.
         </Typography>
       ) : (
         <Table size="small">
