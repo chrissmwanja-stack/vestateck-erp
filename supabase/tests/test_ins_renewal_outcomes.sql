@@ -48,8 +48,20 @@ $$;
 create function pg_temp.activate(p_id uuid)
 returns void language plpgsql as $$
 begin
+  -- An active policy is a bound policy: ins_policies_bound_check demands the
+  -- commission split and a bound_at. Fill them from the policy's own rate the
+  -- way the bind path would, so the flip from draft is a valid activation.
+  -- via_rpc is scoped to this helper: the claim guards read it off the
+  -- transaction, and a leaked 'on' would let the later direct-write probes
+  -- through.
   perform set_config('ins.via_rpc', 'on', true);
-  update ins_policies set status = 'active' where id = p_id;
+  update ins_policies set
+    status = 'active',
+    bound_at = coalesce(bound_at, now()),
+    commission_amount = coalesce(commission_amount, round(gross_premium * commission_rate_pct / 100.0, 2)),
+    net_premium_to_insurer = coalesce(net_premium_to_insurer, gross_premium - round(gross_premium * commission_rate_pct / 100.0, 2))
+  where id = p_id;
+  perform set_config('ins.via_rpc', 'off', true);
 end $$;
 
 do $$

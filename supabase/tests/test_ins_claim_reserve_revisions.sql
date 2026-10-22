@@ -48,8 +48,20 @@ $$;
 create function pg_temp.activate(p_id uuid)
 returns void language plpgsql as $$
 begin
+  -- An active policy is a bound policy: ins_policies_bound_check demands the
+  -- commission split and a bound_at. Fill them from the policy's own rate the
+  -- way the bind path would, so the flip from draft is a valid activation.
+  -- via_rpc is scoped to this helper: the claim guards read it off the
+  -- transaction, and a leaked 'on' would let the later direct-write probes
+  -- through.
   perform set_config('ins.via_rpc', 'on', true);
-  update ins_policies set status = 'active' where id = p_id;
+  update ins_policies set
+    status = 'active',
+    bound_at = coalesce(bound_at, now()),
+    commission_amount = coalesce(commission_amount, round(gross_premium * commission_rate_pct / 100.0, 2)),
+    net_premium_to_insurer = coalesce(net_premium_to_insurer, gross_premium - round(gross_premium * commission_rate_pct / 100.0, 2))
+  where id = p_id;
+  perform set_config('ins.via_rpc', 'off', true);
 end $$;
 
 do $$
@@ -101,6 +113,9 @@ begin
   perform pg_temp.assert(n = 1, 'only one history row so far');
 
   -- ---- Direct edits are refused ----
+  -- ins_create_claim above (like every claim RPC) raises ins.via_rpc for the
+  -- rest of the transaction; the guard would read 'on' and let these through.
+  perform set_config('ins.via_rpc', 'off', true);
   perform pg_temp.expect_state(format('update ins_claims set reserve_amount = 1 where id = %L',cl.id),'42501','direct reserve update');
   perform pg_temp.expect_state(format('insert into ins_claim_reserve_history(tenant_id,claim_id,kind,previous_amount,new_amount,reason) values(%L,%L,%L,1,2,%L)',ta,cl.id,'revision','Direct insert attempt'),'42501','direct history insert');
   perform pg_temp.expect_state(format('delete from ins_claim_reserve_history where claim_id = %L',cl.id),'42501','direct history delete');
