@@ -9108,6 +9108,7 @@ export type Database = {
           created_at: string
           id: string
           invoice_request_id: string | null
+          link_path: string | null
           purchase_order_id: string | null
           read_at: string | null
           recipient_id: string
@@ -9121,6 +9122,7 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_request_id?: string | null
+          link_path?: string | null
           purchase_order_id?: string | null
           read_at?: string | null
           recipient_id: string
@@ -9134,6 +9136,7 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_request_id?: string | null
+          link_path?: string | null
           purchase_order_id?: string | null
           read_at?: string | null
           recipient_id?: string
@@ -16710,6 +16713,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_renewal_notification_sweep: { Args: never; Returns: number }
       ins_revise_claim_reserve: {
         Args: { p_claim_id: string; p_new_amount: number; p_reason: string }
         Returns: {

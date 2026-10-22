@@ -12,6 +12,7 @@ import {
 } from '../../logic';
 import type { BulkRenewalResult, RenewalOutcome, RenewalRow } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
+import { useRenewalNotificationSweep } from '../../renewalNotificationSweep';
 
 const ORDER: RenewalBucket[] = ['overdue', 'd0_30', 'd31_60', 'd61_90', 'd91_120'];
 const BULK_LIMIT = 100;
@@ -25,6 +26,7 @@ type Filter = 'all' | 'closed' | RenewalBucket;
 // takes it off the open list; a manager can reopen it.
 export default function RenewalsList() {
   const navigate = useNavigate();
+  useRenewalNotificationSweep();
   const { canManage } = useInsuranceAccess();
   const [items, setItems] = useState<RenewalRow[]>([]);
   const [loading, setLoading] = useState(true);

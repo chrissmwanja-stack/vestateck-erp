@@ -11,6 +11,7 @@ import type { Claim, Policy, RenewalRow } from '../types';
 
 type ClaimRow = Pick<Claim, 'status' | 'reserve_amount'> & { ins_policies: { currency: string } | null };
 import { PageHeader, ErrorBanner } from '../shared';
+import { useRenewalNotificationSweep } from '../renewalNotificationSweep';
 
 interface Kpi {
   label: string;
@@ -26,6 +27,7 @@ interface Kpi {
 // There is no separate summary RPC yet; that is a roadmap item once volumes justify it.
 export default function InsuranceDashboard() {
   const navigate = useNavigate();
+  useRenewalNotificationSweep();
   // Premium cash requests are approved in the Finance workbench, which only Finance users can open.
   const canOpenFinanceCash = Boolean(useMyModuleAccess()?.canAccessFinance);
   const [kpis, setKpis] = useState<Kpi[] | null>(null);

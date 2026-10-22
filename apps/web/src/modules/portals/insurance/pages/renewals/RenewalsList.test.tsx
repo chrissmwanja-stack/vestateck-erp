@@ -6,6 +6,8 @@ import RenewalsList from './RenewalsList';
 
 let canManage = false;
 vi.mock('../../access', () => ({ useInsuranceAccess: () => ({ canManage, loading: false }) }));
+// The notification sweep is covered in renewalNotificationSweep.test.ts; keep it out of these rpc assertions.
+vi.mock('../../renewalNotificationSweep', () => ({ useRenewalNotificationSweep: () => undefined }));
 
 const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 let bulkResponse: unknown = [];

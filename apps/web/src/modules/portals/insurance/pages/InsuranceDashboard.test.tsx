@@ -7,6 +7,7 @@ import { formatMoney } from '../logic';
 // The dashboard totals money per currency. A USD policy next to a UGX policy gives two
 // lines on a card, never one added-up figure.
 
+vi.mock('../renewalNotificationSweep', () => ({ useRenewalNotificationSweep: () => undefined }));
 const mockFrom = vi.fn();
 const mockRpc = vi.fn();
 

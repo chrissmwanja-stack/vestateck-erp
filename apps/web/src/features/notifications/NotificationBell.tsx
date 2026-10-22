@@ -11,6 +11,7 @@ import {
   Button,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
 interface Notification {
@@ -20,12 +21,14 @@ interface Notification {
   body: string;
   request_id: string | null;
   purchase_order_id: string | null;
+  link_path: string | null;
   recipient_id: string;
   read_at: string | null;
   created_at: string;
 }
 
 export default function NotificationBell({ userId }: { userId: string }) {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -36,7 +39,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
    // (notifications_select_own policy scopes rows to recipient_id = auth.uid())
     const { data, error } = await supabase
       .from("notifications")
-      .select("id, type, title, body, request_id, purchase_order_id, recipient_id, read_at, created_at")
+      .select("id, type, title, body, request_id, purchase_order_id, link_path, recipient_id, read_at, created_at")
       .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -93,6 +96,15 @@ export default function NotificationBell({ userId }: { userId: string }) {
       .eq("recipient_id", userId);
   };
 
+  // Marks the notification read and, when it carries an in-app path, goes there.
+  const openNotification = (notification: Notification) => {
+    markAsRead(notification);
+    if (notification.link_path) {
+      closeMenu();
+      navigate(notification.link_path);
+    }
+  };
+
   // IMPROVEMENT: mark all read
   const markAllAsRead = async () => {
     await supabase
@@ -137,7 +149,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
             {notifications.map((n) => (
               <ListItemButton
                 key={n.id}
-                onClick={() => markAsRead(n)}
+                onClick={() => openNotification(n)}
                 sx={{
                   alignItems: "flex-start",
                   bgcolor: n.read_at ? "transparent" : "action.hover",
