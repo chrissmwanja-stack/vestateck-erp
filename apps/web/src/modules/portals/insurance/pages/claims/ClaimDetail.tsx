@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText,
-  DialogTitle, Grid, Stack, TextField, Typography,
+  DialogTitle, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../../../../lib/supabaseClient';
 import { errorText, rows, rpc, table } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import {
-  canUnapproveClaim, CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, nextClaimStatuses,
+  canUnapproveClaim, CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, isReserveRevisable, nextClaimStatuses,
+  reserveDelta, validateReserveRevision,
 } from '../../logic';
-import type { Claim, ClaimEvent, ClaimStatus } from '../../types';
+import type { Claim, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
 import ClaimPayments from './ClaimPayments';
 
@@ -33,6 +34,10 @@ export default function ClaimDetail() {
   const [userId, setUserId] = useState<string | null>(null);
   const [claim, setClaim] = useState<Claim | null>(null);
   const [events, setEvents] = useState<ClaimEvent[]>([]);
+  const [reserves, setReserves] = useState<ClaimReserveEntry[]>([]);
+  const [reserveOpen, setReserveOpen] = useState(false);
+  const [reserveInput, setReserveInput] = useState('');
+  const [reserveReason, setReserveReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<Step | null>(null);
@@ -50,6 +55,7 @@ export default function ClaimDetail() {
       );
       setClaim(c ?? null);
       setEvents(await rows<ClaimEvent>(table('ins_claim_events').select('id, from_status, to_status, note, created_at').eq('claim_id', id).order('created_at', { ascending: true })));
+      setReserves(await rows<ClaimReserveEntry>(table('ins_claim_reserve_history').select('id, kind, previous_amount, new_amount, reason, revised_at').eq('claim_id', id).order('revised_at', { ascending: true })));
       setError(null);
     } catch (e) {
       setError(errorText(e));
@@ -73,6 +79,28 @@ export default function ClaimDetail() {
     setStep(s);
     setAmount(s.needsAmount ? String(claim.reserve_amount || '') : '');
     setNote('');
+  };
+
+  const openReserve = () => {
+    if (!claim) return;
+    setReserveInput(String(claim.reserve_amount));
+    setReserveReason('');
+    setReserveOpen(true);
+  };
+
+  const submitReserve = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc('ins_revise_claim_reserve', { p_claim_id: id, p_new_amount: Number(reserveInput), p_reason: reserveReason });
+      setReserveOpen(false);
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+      setReserveOpen(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submit = async () => {
@@ -112,6 +140,7 @@ export default function ClaimDetail() {
   const amountNum = Number(amount);
   const amountInvalid = !!step?.needsAmount && (!(amountNum > 0) || (sumInsured > 0 && amountNum > sumInsured));
   const noteInvalid = step?.needsNote && !note.trim();
+  const reserveErrors = validateReserveRevision({ current: claim.reserve_amount, next: Number(reserveInput), sumInsured, currency, reason: reserveReason });
 
   return (
     <Box sx={{ p: 3, maxWidth: 1100 }}>
@@ -153,11 +182,14 @@ export default function ClaimDetail() {
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>Amounts ({currency})</Typography>
               <Row label="Reserve" value={formatMoney(claim.reserve_amount, currency)} />
+              {isReserveRevisable(claim.status) && (
+                <Button size="small" sx={{ mb: 1 }} onClick={openReserve}>Revise reserve</Button>
+              )}
               <Row label="Approved" value={claim.approved_amount == null ? '-' : formatMoney(claim.approved_amount, currency)} />
               <Row label="Paid to the client" value={formatMoney(claim.paid_amount, currency)} />
               {claim.settled_at && <Row label="Settled" value={new Date(claim.settled_at).toLocaleString()} />}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Reserve is set when the claim is reported. A claim settles by itself once payments cover the approved amount.
+                The reserve is the running estimate of what the claim will cost. Revise it as the loss develops; every change is kept below. A claim settles by itself once payments cover the approved amount.
               </Typography>
             </CardContent>
           </Card>
@@ -165,6 +197,47 @@ export default function ClaimDetail() {
       </Grid>
 
       <ClaimPayments claim={claim} currency={currency} canManage={canManage} onChanged={load} />
+
+      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Reserve history</Typography>
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Reserve ({currency})</TableCell>
+                <TableCell align="right">Change</TableCell>
+                <TableCell>Reason</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {reserves.length === 0 ? (
+                <TableRow><TableCell colSpan={4}><Typography color="text.secondary">No reserve history yet.</Typography></TableCell></TableRow>
+              ) : (
+                reserves.map((r) => {
+                  const delta = reserveDelta(r.previous_amount, r.new_amount);
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell>{new Date(r.revised_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {r.previous_amount == null ? formatMoney(r.new_amount, currency) : `${formatMoney(r.previous_amount, currency)} → ${formatMoney(r.new_amount, currency)}`}
+                      </TableCell>
+                      <TableCell align="right">
+                        {r.kind === 'initial' ? '-' : (
+                          <Typography variant="body2" color={delta > 0 ? 'warning.main' : 'success.main'}>
+                            {delta > 0 ? '+' : ''}{formatMoney(delta, currency)}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{r.reason}</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>History</Typography>
       <Card variant="outlined">
@@ -186,6 +259,28 @@ export default function ClaimDetail() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={reserveOpen} onClose={() => !busy && setReserveOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Revise reserve</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Set the new estimate of what this claim will cost. The change and your reason are kept in the reserve history.
+          </DialogContentText>
+          <Stack spacing={2}>
+            <TextField autoFocus label={`New reserve (${currency})`} type="number" value={reserveInput} onChange={(e) => setReserveInput(e.target.value)}
+              inputProps={{ min: 0, step: '0.01' }}
+              helperText={sumInsured > 0 ? `Currently ${formatMoney(claim.reserve_amount, currency)}. At most the sum insured, ${formatMoney(sumInsured, currency)}.` : `Currently ${formatMoney(claim.reserve_amount, currency)}.`} />
+            <TextField label="Reason" required multiline minRows={2} value={reserveReason} onChange={(e) => setReserveReason(e.target.value)} />
+          </Stack>
+          {reserveErrors.length > 0 && reserveReason.trim().length > 0 && (
+            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>{reserveErrors[0]}</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReserveOpen(false)} disabled={busy}>Cancel</Button>
+          <Button variant="contained" onClick={submitReserve} disabled={busy || reserveErrors.length > 0}>{busy ? 'Saving…' : 'Save reserve'}</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={step !== null} onClose={() => !busy && setStep(null)} fullWidth maxWidth="sm">
         <DialogTitle>{step?.label}</DialogTitle>

@@ -834,9 +834,13 @@ begin
   perform pg_temp.expect_error(format('update ins_claims set approved_amount = 9 where id = %L', cl1.id), 'INS_CLAIM_RPC_ONLY', 'direct approved amount');
   perform pg_temp.expect_error(format('update ins_claims set paid_amount = 0.5, approved_amount = 1 where id = %L', cl1.id), 'INS_CLAIM_RPC_ONLY', 'direct paid amount');
   perform pg_temp.expect_error(format('update ins_claims set settled_at = now() where id = %L', cl1.id), 'INS_CLAIM_RPC_ONLY', 'direct settled date');
-  update ins_claims set reserve_amount = 2500000, insurer_claim_ref = 'INSR-77' where id = cl1.id;
+  -- The reserve changes only through ins_revise_claim_reserve (20261022090000), which keeps a history.
+  perform pg_temp.expect_error(format('update ins_claims set reserve_amount = 2500000 where id = %L', cl1.id), 'INS_CLAIM_RPC_ONLY', 'direct reserve change');
+  update ins_claims set insurer_claim_ref = 'INSR-77' where id = cl1.id;
   get diagnostics v_n = row_count;
-  perform pg_temp.assert(v_n = 1, 'a member can still edit the reserve and the insurer reference');
+  perform pg_temp.assert(v_n = 1, 'a member can still edit the insurer reference');
+  perform ins_revise_claim_reserve(cl1.id, 2500000, 'Reserve revised in the core test');
+  perform pg_temp.assert((select reserve_amount from ins_claims where id = cl1.id) = 2500000, 'a member can revise the reserve through the RPC');
   reset role;
   perform pg_temp.flag_off();
   perform pg_temp.expect_error(format('update ins_claims set claim_no = ''CHANGED'' where id = %L', cl1.id), 'INS_IMMUTABLE', 'changing a claim number');

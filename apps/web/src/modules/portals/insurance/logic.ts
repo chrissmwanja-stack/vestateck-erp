@@ -189,6 +189,39 @@ export const POLICY_DISPLAY_STATUS_LABEL: Record<PolicyDisplayStatus, string> = 
   expired: 'Expired',
 };
 
+/** The reserve can be revised while the claim is still open. */
+export function isReserveRevisable(status: ClaimStatus): boolean {
+  return isClaimOpen(status);
+}
+
+const to2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Client-side checks matching ins_revise_claim_reserve(). The server decides. */
+export function validateReserveRevision(input: {
+  current: number;
+  next: number;
+  sumInsured: number;
+  currency: string;
+  reason: string;
+}): string[] {
+  const errors: string[] = [];
+  if (!Number.isFinite(input.next) || input.next < 0) {
+    errors.push('Enter a reserve of zero or more.');
+  } else {
+    if (to2(input.next) === to2(input.current)) errors.push(`The reserve is already ${formatMoney(input.current, input.currency)}.`);
+    if (input.sumInsured > 0 && to2(input.next) > input.sumInsured) {
+      errors.push(`The reserve cannot exceed the sum insured of ${formatMoney(input.sumInsured, input.currency)}.`);
+    }
+  }
+  if (input.reason.trim().length < 5) errors.push('Give a reason of at least 5 characters.');
+  return errors;
+}
+
+/** Signed change between two reserves, to 2 decimal places. */
+export function reserveDelta(previous: number | null, next: number): number {
+  return to2(next - (previous ?? 0));
+}
+
 /** Open claims are those still being worked on (not settled, repudiated or closed). */
 export function isClaimOpen(status: ClaimStatus): boolean {
   return status === 'notified' || status === 'assessing' || status === 'approved';

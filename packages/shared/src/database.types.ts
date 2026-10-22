@@ -5098,6 +5098,57 @@ export type Database = {
           },
         ]
       }
+      ins_claim_reserve_history: {
+        Row: {
+          claim_id: string
+          id: string
+          kind: string
+          new_amount: number
+          previous_amount: number | null
+          reason: string
+          revised_at: string
+          revised_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          claim_id: string
+          id?: string
+          kind: string
+          new_amount: number
+          previous_amount?: number | null
+          reason: string
+          revised_at?: string
+          revised_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          claim_id?: string
+          id?: string
+          kind?: string
+          new_amount?: number
+          previous_amount?: number | null
+          reason?: string
+          revised_at?: string
+          revised_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_reserve_history_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_reserve_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claims: {
         Row: {
           approved_amount: number | null
@@ -16542,6 +16593,37 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_revise_claim_reserve: {
+        Args: { p_claim_id: string; p_new_amount: number; p_reason: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_claim_ref: string | null
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          reserve_amount: number
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
           isOneToOne: true
           isSetofReturn: false
         }

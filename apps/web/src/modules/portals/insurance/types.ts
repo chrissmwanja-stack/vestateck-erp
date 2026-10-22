@@ -154,6 +154,16 @@ export interface ClaimEvent {
   created_at: string;
 }
 
+/** One row of a claim's reserve history. 'initial' is the reserve when the claim was registered. */
+export interface ClaimReserveEntry {
+  id: string;
+  kind: 'initial' | 'revision';
+  previous_amount: number | null;
+  new_amount: number;
+  reason: string;
+  revised_at: string;
+}
+
 export interface ClaimPayment {
   id: string;
   claim_id: string;
