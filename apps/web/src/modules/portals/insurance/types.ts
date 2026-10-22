@@ -194,6 +194,20 @@ export interface RenewalRow {
   commission_rate_pct: number;
   currency: string;
   renewal_draft_id: string | null;
+  renewal_outcome: RenewalOutcome | null;
+  renewal_outcome_reason: string | null;
+}
+
+/** Why an active policy is not being renewed. A renewed policy needs no outcome: its status becomes 'renewed'. */
+export type RenewalOutcome = 'lost' | 'declined' | 'lapsed';
+
+/** One element of the array ins_create_renewal_drafts() returns. */
+export interface BulkRenewalResult {
+  policy_id: string;
+  policy_no: string | null;
+  ok: boolean;
+  draft_id?: string;
+  error?: string;
 }
 
 /** A policy's commission as shown on an insurer statement. 'legacy' = bound before commission deferral (income taken at bind, no ledger entry). */

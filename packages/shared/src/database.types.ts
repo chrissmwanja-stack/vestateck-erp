@@ -7201,6 +7201,51 @@ export type Database = {
           },
         ]
       }
+      ins_renewal_outcomes: {
+        Row: {
+          id: string
+          outcome: string
+          policy_id: string
+          reason: string
+          recorded_at: string
+          recorded_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          id?: string
+          outcome: string
+          policy_id: string
+          reason: string
+          recorded_at?: string
+          recorded_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          id?: string
+          outcome?: string
+          policy_id?: string
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_renewal_outcomes_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_risks: {
         Row: {
           chassis_no: string | null
@@ -12839,6 +12884,8 @@ export type Database = {
           product_line_id: string | null
           product_name: string | null
           renewal_draft_id: string | null
+          renewal_outcome: string | null
+          renewal_outcome_reason: string | null
           tenant_id: string | null
         }
         Relationships: [
@@ -15833,6 +15880,10 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      ins_clear_renewal_outcome: {
+        Args: { p_policy_id: string }
+        Returns: undefined
+      }
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
@@ -15870,6 +15921,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_create_renewal_drafts: {
+        Args: { p_policy_ids: string[] }
+        Returns: Json
       }
       ins_decide_cancellation_cash: {
         Args: { p_decision: string; p_reason: string; p_request_id: string }
@@ -16401,6 +16456,24 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_claim_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_record_renewal_outcome: {
+        Args: { p_outcome: string; p_policy_id: string; p_reason: string }
+        Returns: {
+          id: string
+          outcome: string
+          policy_id: string
+          reason: string
+          recorded_at: string
+          recorded_by: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_renewal_outcomes"
           isOneToOne: true
           isSetofReturn: false
         }

@@ -1,6 +1,6 @@
 import type {
-  ClaimPaymentKind, ClaimPaymentMode, ClaimStatus, CommissionEntry, CommissionStatement, CommissionStatementRow,
-  CommissionStatus, Policy, PolicyStatus, StatementCommissionStatus,
+  BulkRenewalResult, ClaimPaymentKind, ClaimPaymentMode, ClaimStatus, CommissionEntry, CommissionStatement, CommissionStatementRow,
+  CommissionStatus, Policy, PolicyStatus, RenewalOutcome, StatementCommissionStatus,
 } from './types';
 
 // Pure helpers for the insurance screens. Nothing here touches the database.
@@ -221,6 +221,42 @@ export function renewalBucket(daysToExpiry: number): RenewalBucket {
   if (daysToExpiry <= 90) return 'd61_90';
   if (daysToExpiry <= 120) return 'd91_120';
   return 'later';
+}
+
+export const RENEWAL_OUTCOME_LABEL: Record<RenewalOutcome, string> = {
+  lost: 'Lost to another broker or insurer',
+  declined: 'Client declined to renew',
+  lapsed: 'No response, allowed to lapse',
+};
+
+export const RENEWAL_OUTCOMES: RenewalOutcome[] = ['lost', 'declined', 'lapsed'];
+
+/** A pipeline row is open until a renewal outcome is recorded for it. */
+export function isRenewalOpen(row: { renewal_outcome: RenewalOutcome | null }): boolean {
+  return row.renewal_outcome === null;
+}
+
+/** A renewal can be started when the policy is open and has no draft yet. The server checks both again. */
+export function canStartRenewal(row: { renewal_outcome: RenewalOutcome | null; renewal_draft_id: string | null }): boolean {
+  return isRenewalOpen(row) && row.renewal_draft_id === null;
+}
+
+export function validateRenewalOutcome(outcome: RenewalOutcome | '', reason: string): string[] {
+  const errors: string[] = [];
+  if (!outcome) errors.push('Choose what happened.');
+  if (reason.trim().length < 5) errors.push('Give a reason of at least 5 characters.');
+  return errors;
+}
+
+/** Counts a bulk renewal's results and lists the refusals, with the server's code prefix removed. */
+export function summariseBulkRenewal(results: BulkRenewalResult[]): {
+  created: number;
+  failed: { policy_no: string; message: string }[];
+} {
+  const failed = results
+    .filter((r) => !r.ok)
+    .map((r) => ({ policy_no: r.policy_no ?? 'Unknown policy', message: friendlyError(r.error ?? 'Could not start the renewal.') }));
+  return { created: results.filter((r) => r.ok).length, failed };
 }
 
 /** Whole days between two ISO dates (YYYY-MM-DD), end minus start. */
