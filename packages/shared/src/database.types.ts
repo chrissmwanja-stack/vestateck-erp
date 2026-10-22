@@ -5306,6 +5306,7 @@ export type Database = {
           id: string
           insurer_share_id: string | null
           policy_id: string
+          source_open_item_id: string | null
           status: string
           tenant_id: string
           transfer_id: string | null
@@ -5318,6 +5319,7 @@ export type Database = {
           id?: string
           insurer_share_id?: string | null
           policy_id: string
+          source_open_item_id?: string | null
           status?: string
           tenant_id: string
           transfer_id?: string | null
@@ -5330,6 +5332,7 @@ export type Database = {
           id?: string
           insurer_share_id?: string | null
           policy_id?: string
+          source_open_item_id?: string | null
           status?: string
           tenant_id?: string
           transfer_id?: string | null
@@ -5370,6 +5373,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_policy_insurer_shares"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_source_open_item_id_fkey"
+            columns: ["source_open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_source_open_item_id_fkey"
+            columns: ["source_open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_source_open_item_id_fkey"
+            columns: ["source_open_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ins_commission_entries_tenant_id_fkey"
@@ -5557,6 +5581,65 @@ export type Database = {
             columns: ["void_journal_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_endorsement_clawbacks: {
+        Row: {
+          amount: number
+          commission_entry_id: string
+          created_at: string
+          endorsement_id: string
+          id: string
+          journal_entry_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          commission_entry_id: string
+          created_at?: string
+          endorsement_id: string
+          id?: string
+          journal_entry_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          commission_entry_id?: string
+          created_at?: string
+          endorsement_id?: string
+          id?: string
+          journal_entry_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_endorsement_clawbacks_commission_entry_id_fkey"
+            columns: ["commission_entry_id"]
+            isOneToOne: false
+            referencedRelation: "ins_commission_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_endorsement_clawbacks_commission_entry_id_fkey"
+            columns: ["commission_entry_id"]
+            isOneToOne: false
+            referencedRelation: "ins_commission_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_endorsement_clawbacks_endorsement_id_fkey"
+            columns: ["endorsement_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_endorsements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_endorsement_clawbacks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -6498,6 +6581,181 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_insurers"
             referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_policy_endorsement_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: Json | null
+          endorsement_id: string
+          event: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          endorsement_id: string
+          event: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          endorsement_id?: string
+          event?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_endorsement_events_endorsement_id_fkey"
+            columns: ["endorsement_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_endorsements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsement_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_policy_endorsements: {
+        Row: {
+          accounting_mappings: Json | null
+          calculation: Json
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          accounting_mappings?: Json | null
+          calculation: Json
+          changes?: Json
+          checked_at?: string | null
+          checked_by?: string | null
+          commission_entry_ids?: Json
+          credit_note_ids?: Json
+          effective_date: string
+          endorsement_no?: string | null
+          id?: string
+          insurer_terms: Json
+          journal_entry_id?: string | null
+          manual_exception_accepted?: boolean
+          operation_txid?: number | null
+          policy_id: string
+          posting_date?: string | null
+          premium_item_id?: string | null
+          prepared_at?: string | null
+          prepared_by?: string | null
+          proposed_at?: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          accounting_mappings?: Json | null
+          calculation?: Json
+          changes?: Json
+          checked_at?: string | null
+          checked_by?: string | null
+          commission_entry_ids?: Json
+          credit_note_ids?: Json
+          effective_date?: string
+          endorsement_no?: string | null
+          id?: string
+          insurer_terms?: Json
+          journal_entry_id?: string | null
+          manual_exception_accepted?: boolean
+          operation_txid?: number | null
+          policy_id?: string
+          posting_date?: string | null
+          premium_item_id?: string | null
+          prepared_at?: string | null
+          prepared_by?: string | null
+          proposed_at?: string
+          proposed_by?: string
+          reason?: string
+          request_key?: string
+          review_note?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_endorsements_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsements_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsements_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsements_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_endorsements_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
         ]
       }
@@ -15719,6 +15977,48 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_decide_policy_endorsement: {
+        Args: {
+          p_accept_manual_exception?: boolean
+          p_decision: string
+          p_endorsement_id: string
+          p_review_note: string
+        }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_end_insurer_product_rate: {
         Args: { p_effective_to: string; p_id: string }
         Returns: {
@@ -15744,6 +16044,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_endorsement_mappings: {
+        Args: { p_clearing_gl_account_id: string; p_policy_id: string }
+        Returns: Json
+      }
+      ins_endorsement_review_position: {
+        Args: { p_policy_id: string }
+        Returns: Json
       }
       ins_ensure_client_account: {
         Args: { p_ins_client_id: string }
@@ -15934,6 +16242,43 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_prepare_policy_endorsement: {
+        Args: { p_clearing_gl_account_id: string; p_endorsement_id: string }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_preview_policy_cancellation: {
         Args: {
           p_charge_refunds: Json
@@ -15942,6 +16287,59 @@ export type Database = {
           p_policy_id: string
         }
         Returns: Json
+      }
+      ins_preview_policy_endorsement: {
+        Args: {
+          p_changes: Json
+          p_effective_date: string
+          p_insurer_terms: Json
+          p_policy_id: string
+        }
+        Returns: Json
+      }
+      ins_propose_policy_endorsement: {
+        Args: {
+          p_changes: Json
+          p_effective_date: string
+          p_insurer_terms: Json
+          p_policy_id: string
+          p_reason: string
+          p_request_key: string
+        }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_recognise_claim_receivable: {
         Args: { p_claim_id: string; p_insurer_confirmation: string }
@@ -16700,6 +17098,10 @@ export type Database = {
       }
       ins_withdraw_policy_cancellation: {
         Args: { p_cancellation_id: string; p_reason: string }
+        Returns: undefined
+      }
+      ins_withdraw_policy_endorsement: {
+        Args: { p_endorsement_id: string; p_reason: string }
         Returns: undefined
       }
       is_business_dev: { Args: never; Returns: boolean }
@@ -17568,6 +17970,10 @@ export type Database = {
       platform_ins_cxl_before_unmatch: {
         Args: { p_reconciliation_id: string }
         Returns: undefined
+      }
+      platform_ins_endorsement_money: {
+        Args: { p_value: string }
+        Returns: number
       }
       platform_ins_line_needs_certificate: {
         Args: { p_line_id: string; p_tenant_id: string }
@@ -19285,12 +19691,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19312,13 +19718,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19337,13 +19742,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19362,13 +19766,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19381,11 +19784,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

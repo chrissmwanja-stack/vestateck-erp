@@ -15,6 +15,7 @@ import PolicyReversalAction from './PolicyReversalAction';
 import PolicyRisksCard from './PolicyRisksCard';
 import PolicyDocumentsCard from './PolicyDocumentsCard';
 import PolicyCancellationPanel from '../../cancellation/PolicyCancellationPanel';
+import EndorsementsPanel from '../../endorsements/EndorsementsPanel';
 import type { Claim, Policy, PolicyReversal } from '../../types';
 
 const PolicyDetail = () => {
@@ -169,6 +170,13 @@ const PolicyDetail = () => {
       )}
       <PolicyDocumentsCard policyId={id} canManage={canManage} />
       {policy.status !== 'draft' && <PolicyCancellationPanel policyId={id} onPosted={load} />}
+      {policy.status !== 'draft' && (
+        <EndorsementsPanel
+          policyId={id}
+          canManage={canManage}
+          policyActive={policy.status === 'active' || policy.status === 'renewed'}
+        />
+      )}
       {reversal && <Alert severity="info" sx={{ mb: 2 }}>
         {reversal.original_policy_id === id ? 'Reversed' : 'Replacement for a policy reversed'} on {reversal.reversal_date}: {reversal.reason}. Accounting: {reversal.accounting_treatment}.
         {reversal.original_policy_id !== id && <Button onClick={() => navigate(`/insurance/policies/${reversal.original_policy_id}`)}>Original policy</Button>}
