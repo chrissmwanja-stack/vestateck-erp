@@ -8,6 +8,7 @@ import { allRows, errorText, rows, table } from '../../db';
 import { formatMoneyByCurrency } from '../../logic';
 import { groupProduction, premiumTrend, PRODUCTION_GROUPERS, shortMonth, type ProductionGroupBy, type ProductionRow } from '../../reports';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
+import Typography from '@mui/material/Typography';
 
 const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
 const today = () => new Date().toISOString().slice(0, 10);
