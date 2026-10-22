@@ -5137,6 +5137,13 @@ export type Database = {
             foreignKeyName: "ins_claim_reserve_history_claim_fk"
             columns: ["tenant_id", "claim_id"]
             isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["tenant_id", "claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_reserve_history_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
             referencedRelation: "ins_claims"
             referencedColumns: ["tenant_id", "id"]
           },
@@ -7285,8 +7292,29 @@ export type Database = {
             foreignKeyName: "ins_renewal_outcomes_policy_fk"
             columns: ["tenant_id", "policy_id"]
             isOneToOne: true
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_outcomes_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
             referencedRelation: "ins_policies"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_outcomes_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_outcomes_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
           },
           {
             foreignKeyName: "ins_renewal_outcomes_tenant_id_fkey"
@@ -15780,6 +15808,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_clear_renewal_outcome: {
+        Args: { p_policy_id: string }
+        Returns: undefined
+      }
       ins_commission_bank_accounts: {
         Args: never
         Returns: {
@@ -15931,10 +15963,6 @@ export type Database = {
               isSetofReturn: false
             }
           }
-      ins_clear_renewal_outcome: {
-        Args: { p_policy_id: string }
-        Returns: undefined
-      }
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
@@ -16511,24 +16539,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      ins_record_renewal_outcome: {
-        Args: { p_outcome: string; p_policy_id: string; p_reason: string }
-        Returns: {
-          id: string
-          outcome: string
-          policy_id: string
-          reason: string
-          recorded_at: string
-          recorded_by: string | null
-          tenant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "ins_renewal_outcomes"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       ins_record_claim_payout: {
         Args: {
           p_amount: number
@@ -16597,33 +16607,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      ins_revise_claim_reserve: {
-        Args: { p_claim_id: string; p_new_amount: number; p_reason: string }
+      ins_record_renewal_outcome: {
+        Args: { p_outcome: string; p_policy_id: string; p_reason: string }
         Returns: {
-          approved_amount: number | null
-          assigned_to: string | null
-          claim_no: string
-          created_at: string
-          created_by: string | null
           id: string
-          insurer_claim_ref: string | null
-          loss_date: string
-          loss_description: string
-          notified_date: string
-          paid_amount: number
-          payment_mode: string | null
+          outcome: string
           policy_id: string
-          recognised_at: string | null
-          recognised_by: string | null
-          reserve_amount: number
-          settled_at: string | null
-          status: string
+          reason: string
+          recorded_at: string
+          recorded_by: string | null
           tenant_id: string
-          updated_at: string
         }
         SetofOptions: {
           from: "*"
-          to: "ins_claims"
+          to: "ins_renewal_outcomes"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -16709,6 +16706,37 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_policy_reversals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_revise_claim_reserve: {
+        Args: { p_claim_id: string; p_new_amount: number; p_reason: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_claim_ref: string | null
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          reserve_amount: number
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -18063,6 +18091,44 @@ export type Database = {
         Returns: Json
       }
       platform_ins_create_renewal_legacy_impl: {
+        Args: { p_policy_id: string }
+        Returns: {
+          agent_id: string | null
+          bound_at: string | null
+          bound_by: string | null
+          branch_id: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          transaction_type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_create_renewal_pre_outcome_impl: {
         Args: { p_policy_id: string }
         Returns: {
           agent_id: string | null
@@ -19957,3 +20023,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

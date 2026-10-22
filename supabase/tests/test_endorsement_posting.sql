@@ -1,4 +1,5 @@
--- Endorsements, slice E2: Finance posting of prepared proposals (UGX first).
+-- Endorsements, slices E2 + E3: Finance posting of prepared proposals, in the
+-- ledger currency and (E3) in a foreign policy currency on the 3d patterns.
 -- (ins_prepare_policy_endorsement, ins_decide_policy_endorsement, the
 -- endorsement commission entries and their recognition, the credit notes and
 -- clawbacks on returns, and the statement/cash integration.)
@@ -11,9 +12,13 @@
 -- return side (credit notes at the booked rates capped at each item's
 -- outstanding, recovery items for the excess, clawbacks from the deferred
 -- pool first and from earned commission income afterwards, recorded in the
--- clawback ledger), the clearing account netting to zero, descriptive-only
--- endorsements that post nothing, the interim cancellation block, the
--- currency guard, and the statement view netting posted deltas.
+-- clawback ledger), the clearing account netting to zero (in the currency and
+-- in base), descriptive-only endorsements that post nothing, the interim
+-- cancellation block, the statement view netting posted deltas, and the E3
+-- foreign battery: the additional side at the posting-date rate with its own
+-- entry, returns crediting the original items at their booked rates against
+-- the credit-date clearing offset with the difference realised, and the
+-- honest clawback on a foreign policy.
 --
 -- Run against a fresh local stack only (`supabase db reset`). One transaction
 -- that ROLLBACKs. Any RAISE EXCEPTION is a real assertion failure.
@@ -113,6 +118,7 @@ declare
   e1 ins_policy_endorsements%rowtype; e2 ins_policy_endorsements%rowtype;
   q jsonb; n integer; amt numeric; st text; v_client_end uuid;
   v_item uuid; v_entry uuid; v_client_item uuid;
+  item fin_open_items%rowtype;
 begin
   perform set_config('test.approver', fin1::text, true);
 
@@ -153,6 +159,14 @@ begin
   insert into gl_posting_rules (tenant_id, account_role, gl_account_id) values
     (ta,'ar_control',v_ar),(ta,'insurer_payable',v_payable),
     (ta,'unearned_commission',v_unearned),(ta,'commission_income',v_income);
+  -- The realised-FX accounts the foreign credit notes book through (3b roles;
+  -- real tenants get them from the template, the fixture adds them by hand).
+  insert into gl_accounts (tenant_id, account_code, name, account_type) values
+    (ta,'4900','Realised exchange gain','revenue'), (ta,'5910','Realised exchange loss','expense');
+  insert into gl_posting_rules (tenant_id, account_role, gl_account_id)
+    select ta, 'fx_gain_realised', id from gl_accounts where tenant_id = ta and account_code = '4900';
+  insert into gl_posting_rules (tenant_id, account_role, gl_account_id)
+    select ta, 'fx_loss_realised', id from gl_accounts where tenant_id = ta and account_code = '5910';
   insert into fin_bank_accounts (id, tenant_id, name, kind, currency, gl_account_id, is_active)
   values (gen_random_uuid(), ta, 'Trust UGX', 'client_money', 'UGX', v_bank_gl, true)
   returning id into v_bank;
@@ -526,7 +540,12 @@ begin
   raise notice 'PASS: statements and the review position net the posted endorsements';
 
   -------------------------------------------------------------------
-  -- 9. The currency guard (E2 posts in the functional currency only).
+  -- 9. A foreign-currency endorsement posts in the policy's own
+  --    currency on the 3d patterns (E3): the additional side at the
+  --    posting-date rate with booking entries; returns credit the
+  --    original items at their booked rate against a clearing offset
+  --    at the credit-date rate, the difference realised; clawbacks at
+  --    the posting-date rate with the documented base residue.
   -------------------------------------------------------------------
   perform pg_temp.jwt(mgr);
   set local role authenticated;
@@ -536,10 +555,96 @@ begin
   perform pg_temp.jwt(fin1);
   e2 := ins_prepare_policy_endorsement(e2.id, v_clearing);
   perform pg_temp.jwt(fin2);
-  perform pg_temp.expect_error(
-    format('select ins_decide_policy_endorsement(%L::uuid, ''approve'', ''Checker approves a foreign endorsement early'')', e2.id),
-    'INS_ENDORSEMENT_CURRENCY', 'posting a foreign-currency endorsement');
-  raise notice 'PASS: foreign-currency posting waits for slice E3';
+  e2 := ins_decide_policy_endorsement(e2.id, 'approve', 'Checker approves the foreign endorsement');
+  reset role;
+  perform pg_temp.assert(e2.status = 'posted' and e2.endorsement_no similar to 'END-[0-9]{4}-[0-9]{4}',
+    'the USD endorsement posts with its END- number');
+  perform pg_temp.assert(
+    (select l.currency from journal_entry_lines l where l.journal_entry_id = e2.journal_entry_id limit 1) = 'USD'
+    and (select l.fx_rate from journal_entry_lines l where l.journal_entry_id = e2.journal_entry_id limit 1) = 3800,
+    'the additional side journals in USD at the posting-date rate 3800');
+  select * into item from fin_open_items
+   where tenant_id = ta and source_type = 'ins_policy_endorsement' and source_id = e2.id;
+  perform pg_temp.assert(item.currency = 'USD' and item.amount = 1000 and item.fx_rate = 3800
+     and item.journal_entry_id = e2.journal_entry_id,
+    'the USD AR item is 1,000 at the booked 3800, carrying its booking entry');
+  select id into v_entry from ins_commission_entries
+   where tenant_id = ta and source_open_item_id in (
+     select id from fin_open_items
+      where tenant_id = ta and source_type = 'ins_policy_endorsement_insurer' and document_no = e2.endorsement_no);
+  perform pg_temp.assert(v_entry is not null
+     and (select amount from ins_commission_entries where id = v_entry) = 100
+     and (select status from ins_commission_entries where id = v_entry) = 'deferred',
+    'the USD endorsement created its own deferred 100 entry naming its insurer item');
+  raise notice 'PASS: the foreign additional side posts at the posting-date rate with its own entry';
+
+  -- The return: -500 USD against items booked at 3600, clearing at 3800.
+  perform pg_temp.jwt(mgr);
+  set local role authenticated;
+  e2 := ins_propose_policy_endorsement(pc.id, current_date,
+    jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '-500')),
+    '{}'::jsonb, 'Partial USD return premium', gen_random_uuid());
+  perform pg_temp.jwt(fin1);
+  e2 := ins_prepare_policy_endorsement(e2.id, v_clearing);
+  perform pg_temp.jwt(fin2);
+  e2 := ins_decide_policy_endorsement(e2.id, 'approve', 'Checker approves the partial return');
+  reset role;
+  -- Client note: 500 at the note-date 3800 against a bind item at 3600 ->
+  -- realised gain 500*3800 - 500*3600 = 100,000 UGX, credited to fx gain.
+  select id into v_item from fin_credit_notes
+   where tenant_id = ta and reference = e2.endorsement_no and side = 'receivable';
+  perform pg_temp.assert(v_item is not null, 'the return raised a client credit note');
+  perform pg_temp.assert(
+    (select amount from fin_credit_notes where id = v_item) = 500
+    and (select currency from fin_credit_notes where id = v_item) = 'USD'
+    and (select fx_rate from fin_credit_notes where id = v_item) = 3800
+    and (select realised_result from fin_credit_notes where id = v_item) = 100000,
+    'the client note is 500 USD at 3800 with a +100,000 realised gain');
+  perform pg_temp.assert(exists (
+    select 1 from journal_entry_lines l join gl_accounts a on a.id = l.gl_account_id
+     where l.journal_entry_id = (select journal_entry_id from fin_credit_notes where id = v_item)
+       and a.account_code = '4900' and l.currency = 'UGX' and l.credit = 100000),
+    'the realised gain books in UGX through the 4900 role');
+  -- Insurer note: net 450 (500 less the 50 claw) booked 3600 vs clearing 3800
+  -- -> realised loss 450*3600 - 450*3800 = -90,000 UGX.
+  select id into v_client_item from fin_credit_notes
+   where tenant_id = ta and reference = e2.endorsement_no and side = 'payable';
+  perform pg_temp.assert(
+    (select amount from fin_credit_notes where id = v_client_item) = 450
+    and (select realised_result from fin_credit_notes where id = v_client_item) = -90000,
+    'the insurer note is 450 USD with a -90,000 realised loss');
+  -- The claw comes off the bind's deferred pool honestly: 50 recorded, the
+  -- bind entry itself untouched.
+  perform pg_temp.assert(exists (
+    select 1 from ins_endorsement_clawbacks x join ins_commission_entries ce on ce.id = x.commission_entry_id
+     where x.endorsement_id = e2.id and x.tenant_id = ta and x.amount = 50 and ce.status = 'deferred'),
+    'the clawback takes 50 from the deferred pool');
+  perform pg_temp.assert(exists (
+    select 1 from ins_commission_entries ce
+     where ce.policy_id = (select policy_id from ins_policy_endorsements where id = e2.id)
+       and ce.amount = 1000 and ce.status = 'deferred'),
+    'the bind''s 1,000 deferred entry is intact -- commission rows are never mutated');
+  -- The clearing account nets to zero across the return's three journals,
+  -- in the currency and in base.
+  perform pg_temp.assert(abs((
+    select coalesce(sum((l.debit - l.credit) * l.fx_rate), 0)
+      from journal_entry_lines l join gl_accounts a on a.id = l.gl_account_id
+     where a.account_code = '2090'
+       and l.journal_entry_id in (
+         (select journal_entry_id from fin_credit_notes where id = v_item),
+         (select journal_entry_id from fin_credit_notes where id = v_client_item),
+         e2.journal_entry_id))) < 0.005,
+    'the clearing account nets to zero in base across the return');
+  perform pg_temp.assert(abs((
+    select coalesce(sum(l.debit - l.credit), 0)
+      from journal_entry_lines l join gl_accounts a on a.id = l.gl_account_id
+     where a.account_code = '2090' and l.currency = 'USD'
+       and l.journal_entry_id in (
+         (select journal_entry_id from fin_credit_notes where id = v_item),
+         (select journal_entry_id from fin_credit_notes where id = v_client_item),
+         e2.journal_entry_id))) < 0.005,
+    'and in the policy''s currency');
+  raise notice 'PASS: the foreign return credits at booked rates, realises the difference, claws honestly';
 
   -------------------------------------------------------------------
   -- 10. Access and tenant gates on the new surface.
@@ -566,7 +671,7 @@ begin
   reset role;
   raise notice 'PASS: preparation and decisions stay Finance, and tenants stay apart';
 
-  raise notice 'ALL PASS: endorsement posting (E2)';
+  raise notice 'ALL PASS: endorsement posting (E2 + the E3 foreign legs)';
 end
 $$;
 
