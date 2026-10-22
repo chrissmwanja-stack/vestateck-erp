@@ -8,6 +8,7 @@ let canManage = false;
 vi.mock('../../access', () => ({ useInsuranceAccess: () => ({ canManage, loading: false }) }));
 
 const updates: unknown[] = [];
+const updatedTables: string[] = [];
 let kyc = 'pending';
 let policies: unknown[] = [];
 vi.mock('../../../../../lib/supabaseClient', () => ({
@@ -15,7 +16,7 @@ vi.mock('../../../../../lib/supabaseClient', () => ({
     from: (name: string) => {
       const chain: Record<string, unknown> = {};
       for (const m of ['select', 'eq', 'order']) chain[m] = vi.fn(() => chain);
-      chain.update = vi.fn((patch: unknown) => { updates.push(patch); return chain; });
+      chain.update = vi.fn((patch: unknown) => { updates.push(patch); updatedTables.push(name); return chain; });
       (chain as { then: unknown }).then = (resolve: (v: unknown) => void) =>
         resolve({
           data: name === 'ins_clients'
@@ -38,7 +39,7 @@ function mount() {
 }
 
 beforeEach(() => {
-  canManage = false; kyc = 'pending'; updates.length = 0;
+  canManage = false; kyc = 'pending'; updates.length = 0; updatedTables.length = 0;
   policies = [{ id: 'p1', policy_no: 'POL-1', status: 'active', inception_date: '2026-10-01', expiry_date: '2027-10-01', gross_premium: 1000, currency: 'UGX', ins_insurers: { name: 'Jubilee' }, ins_product_lines: { name: 'Motor' } }];
 });
 
@@ -81,5 +82,39 @@ describe('client detail', () => {
     await userEvent.type(tin, '1000099999');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updates).toEqual([{ tax_id: '1000099999', risk_rating: 'medium', client_type: 'corporate' }]));
+  });
+
+  it('lets a manager change the name, email and phone on the client master', async () => {
+    canManage = true; mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit profile' }));
+    const name = screen.getByLabelText(/^Name/);
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Acme Limited');
+    await userEvent.type(screen.getByLabelText('Phone'), '0700123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updatedTables).toEqual(['ins_clients', 'bd_clients']));
+    expect(updates[1]).toEqual({ name: 'Acme Limited', phone: '0700123456' });
+  });
+
+  it('lets a member change email and phone but not the name', async () => {
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit profile' }));
+    expect(screen.getByLabelText(/^Name/)).toBeDisabled();
+    const email = screen.getByLabelText('Email');
+    await userEvent.clear(email);
+    await userEvent.type(email, 'claims@acme.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updatedTables).toEqual(['ins_clients', 'bd_clients']));
+    expect(updates[1]).toEqual({ email: 'claims@acme.test' });
+  });
+
+  it('blocks saving while the email is invalid', async () => {
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit profile' }));
+    const email = screen.getByLabelText('Email');
+    await userEvent.clear(email);
+    await userEvent.type(email, 'not-an-email');
+    expect(screen.getByText(/valid email address/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 });

@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { allRows, errorText, rows, table, write } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
+import { contactPatch, contactToForm, validateClientContact } from '../../clientContact';
 import { formatMoney } from '../../logic';
 import { KYC_ACTION_LABEL, KYC_LABEL, KYC_MEANING, kycTargets, type KycStatus } from '../../clientKyc';
 import type { InsClient, Policy } from '../../types';
@@ -33,7 +34,7 @@ export default function ClientDetail() {
   const [busy, setBusy] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<KycStatus | null>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ tax_id: '', risk_rating: 'medium', client_type: 'corporate' });
+  const [form, setForm] = useState({ tax_id: '', risk_rating: 'medium', client_type: 'corporate', ...contactToForm(null) });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,8 +82,32 @@ export default function ClientDetail() {
 
   const startEdit = () => {
     if (!client) return;
-    setForm({ tax_id: client.tax_id ?? '', risk_rating: client.risk_rating, client_type: client.client_type });
+    setForm({ tax_id: client.tax_id ?? '', risk_rating: client.risk_rating, client_type: client.client_type, ...contactToForm(client.bd_clients) });
     setEditing(true);
+  };
+
+  // A member cannot change the name, so a name the client master does not return must not block their save.
+  const contactErrors = validateClientContact(form);
+  if (!canManage) delete contactErrors.name;
+  const hasContactErrors = Object.keys(contactErrors).length > 0;
+
+  // Tax ID, type and rating live on the insurance profile; name, email and phone on the shared
+  // client master. Each write is sent only when something in it changed.
+  const saveProfile = async () => {
+    if (!client || hasContactErrors) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await write(table('ins_clients').update({ tax_id: form.tax_id.trim() || null, risk_rating: form.risk_rating, client_type: form.client_type }).eq('id', id));
+      const patch = contactPatch(client.bd_clients, form);
+      if (Object.keys(patch).length > 0) await write(table('bd_clients').update(patch).eq('id', client.client_id));
+      setEditing(false);
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
@@ -188,6 +213,13 @@ export default function ClientDetail() {
         <DialogTitle>Edit profile</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+              disabled={!canManage} error={!!contactErrors.name}
+              helperText={contactErrors.name ?? (canManage ? 'Documents already issued keep the name they were issued with.' : 'Only insurance managers can change the name.')}
+            />
+            <TextField label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} error={!!contactErrors.email} helperText={contactErrors.email} />
+            <TextField label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} error={!!contactErrors.phone} helperText={contactErrors.phone} />
             <TextField select label="Type" value={form.client_type} onChange={(e) => setForm({ ...form, client_type: e.target.value })}>
               <MenuItem value="corporate">Corporate</MenuItem>
               <MenuItem value="individual">Individual</MenuItem>
@@ -198,20 +230,15 @@ export default function ClientDetail() {
               <MenuItem value="medium">Medium</MenuItem>
               <MenuItem value="high">High</MenuItem>
             </TextField>
-            <Typography variant="caption" color="text.secondary">Name, email and phone are kept in Business Development.</Typography>
+            <Typography variant="caption" color="text.secondary">Name, email and phone are shared with Business Development, so a change here shows there too.</Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditing(false)}>Cancel</Button>
           <Button
             variant="contained"
-            disabled={busy}
-            onClick={() =>
-              update(
-                { tax_id: form.tax_id.trim() || null, risk_rating: form.risk_rating as InsClient['risk_rating'], client_type: form.client_type as InsClient['client_type'] },
-                () => setEditing(false),
-              )
-            }
+            disabled={busy || hasContactErrors}
+            onClick={saveProfile}
           >
             Save
           </Button>
