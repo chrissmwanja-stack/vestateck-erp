@@ -70,8 +70,16 @@ end $$;
 
 create function pg_temp.cnt(p_type text, p_user uuid default null)
 returns integer language sql as $$
-  select count(*)::integer from notifications
-  where type = p_type and (p_user is null or recipient_id = p_user) $$;
+  -- Scoped to this suite's own users (their notify- emails). The seeded UAT
+  -- tenant goes through the very same code paths -- seed.sql registers a
+  -- claim, so its insurance admin already has an ins_claim_registered row
+  -- that survives this script's rollback -- and an unfiltered count is not
+  -- zero. Every recipient of a notification is an app_users row, so the
+  -- scope cannot drop a row this suite created.
+  select count(*)::integer from notifications n
+  where n.type = p_type
+    and (p_user is null or n.recipient_id = p_user)
+    and n.recipient_id in (select id from app_users where email like 'notify-%') $$;
 
 do $$
 declare
@@ -228,20 +236,28 @@ begin
   reset role;
   perform pg_temp.assert(r = 0 and (select count(*) from notifications) = n, 'a second sweep is silent');
 
-  -- a policy first seen inside the 7-day window is not told again at 30
-  perform pg_temp.jwt(mem);
-  perform set_config('ins.via_rpc','on',true);
+  -- a policy first seen inside the 7-day window is not told again at 30.
+  -- Time travel for one active policy: ins_policies_guard freezes every
+  -- non-draft policy unconditionally (only status and notes move, and only
+  -- through the RPCs), so the harness drops the table's user triggers for
+  -- this one fixture update -- the assertion is about the sweep's marks,
+  -- not the lock.
+  alter table ins_policies disable trigger user;
   update ins_policies set expiry_date = current_date + 25 where id = p7.id;
-  perform set_config('ins.via_rpc','off',true);
+  alter table ins_policies enable trigger user;
   perform pg_temp.jwt(mem); set local role authenticated;
   r := ins_renewal_notification_sweep();
   reset role;
   perform pg_temp.assert(r = 0, 'a policy already announced at 7 days is not announced again at 30');
 
   -- a tenant with nobody to tell leaves the markers alone
-  perform pg_temp.jwt(bmem); set local role authenticated;
+  -- Reference data goes in as the table owner: tenant B deliberately has no
+  -- insurance admin or manager, and product lines are manager-only through
+  -- RLS. The client and the policy are the member's own RPC calls -- the
+  -- point of this section is a tenant whose sweep has nobody to tell.
   insert into ins_product_lines(tenant_id,code,name) values(tb,'FIRE','Fire') returning id into line_b;
   insert into ins_insurers(tenant_id,code,name) values(tb,'BETA','Beta') returning id into insurer_b;
+  perform pg_temp.jwt(bmem); set local role authenticated;
   cb := ins_register_client('Lonely client','corporate',null,null,null,'low');
   pb := ins_create_policy(cb.id,insurer_b,line_b,current_date-360,current_date+5,1000000,'UGX',1000,10,null,null);
   reset role;
