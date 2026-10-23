@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   public: {
     Tables: {
       access_requests: {
@@ -6010,6 +6005,63 @@ export type Database = {
           },
         ]
       }
+      ins_notification_marks: {
+        Row: {
+          kind: string
+          policy_id: string
+          sent_at: string
+          tenant_id: string
+        }
+        Insert: {
+          kind: string
+          policy_id: string
+          sent_at?: string
+          tenant_id: string
+        }
+        Update: {
+          kind?: string
+          policy_id?: string
+          sent_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_notification_marks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_notification_marks_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_notification_marks_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_notification_marks_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_notification_marks_tenant_id_policy_id_fkey"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+        ]
+      }
       ins_policies: {
         Row: {
           agent_id: string | null
@@ -9113,6 +9165,7 @@ export type Database = {
           created_at: string
           id: string
           invoice_request_id: string | null
+          link_path: string | null
           purchase_order_id: string | null
           read_at: string | null
           recipient_id: string
@@ -9126,6 +9179,7 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_request_id?: string | null
+          link_path?: string | null
           purchase_order_id?: string | null
           read_at?: string | null
           recipient_id: string
@@ -9139,6 +9193,7 @@ export type Database = {
           created_at?: string
           id?: string
           invoice_request_id?: string | null
+          link_path?: string | null
           purchase_order_id?: string | null
           read_at?: string | null
           recipient_id?: string
@@ -16246,6 +16301,26 @@ export type Database = {
         }
         Returns: number
       }
+      ins_notify: {
+        Args: {
+          p_body: string
+          p_exclude: string[]
+          p_link: string
+          p_recipients: string[]
+          p_tenant: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
+      ins_notify_finance_users: {
+        Args: { p_tenant: string }
+        Returns: string[]
+      }
+      ins_notify_insurance_users: {
+        Args: { p_roles: string[]; p_tenant: string }
+        Returns: string[]
+      }
       ins_policy_cancellation_context: {
         Args: { p_offset?: number; p_policy_id: string }
         Returns: Json
@@ -16680,6 +16755,7 @@ export type Database = {
         Args: { p_receipt_date: string; p_tenant_id: string }
         Returns: string
       }
+      ins_renewal_notification_sweep: { Args: never; Returns: number }
       ins_reverse_policy: {
         Args: {
           p_policy_id: string
@@ -19917,12 +19993,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19946,11 +20022,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19971,11 +20047,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -19996,11 +20072,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -20013,11 +20089,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -20031,3 +20107,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
