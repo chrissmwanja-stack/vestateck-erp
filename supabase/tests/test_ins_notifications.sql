@@ -85,7 +85,7 @@ declare
   p7 ins_policies%rowtype; p30 ins_policies%rowtype; p60 ins_policies%rowtype; pfar ins_policies%rowtype;
   plap ins_policies%rowtype; plapold ins_policies%rowtype; pdraft ins_policies%rowtype; pout ins_policies%rowtype;
   pcanc ins_policies%rowtype; pb ins_policies%rowtype;
-  e uuid; c uuid; cr uuid; bank uuid; cl ins_claims%rowtype; n integer; r integer; body text;
+  e uuid; c uuid; cr uuid; bank uuid; cl ins_claims%rowtype; n integer; r integer; digest_body text;
 begin
   insert into tenants(id,name) values(ta,'Notify A'),(tb,'Notify B');
   insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data,aud,role,created_at,updated_at)
@@ -130,7 +130,7 @@ begin
   perform pg_temp.jwt(f2);
   update ins_policy_endorsements set status = 'rejected', checked_by = f2, checked_at = now(), review_note = 'Schedule does not match the request' where id = e;
   perform pg_temp.assert(pg_temp.cnt('ins_endorsement_rejected') = 2 and pg_temp.cnt('ins_endorsement_rejected', mem) = 1 and pg_temp.cnt('ins_endorsement_rejected', f1) = 1, 'rejection reaches the proposer and the preparer');
-  perform pg_temp.assert((select body from notifications where type = 'ins_endorsement_rejected' limit 1) like '%Schedule does not match%', 'rejection carries the reviewer note');
+  perform pg_temp.assert((select nt.body from notifications nt where nt.type = 'ins_endorsement_rejected' limit 1) like '%Schedule does not match%', 'rejection carries the reviewer note');
 
   -- ============ cancellations and their cash requests ============
   perform pg_temp.jwt(mem);
@@ -143,7 +143,7 @@ begin
   insert into ins_cancellation_cash_requests(tenant_id,cancellation_id,kind,bank_account_id,amount,cash_date,reference,notes,request_key,maker_id)
     values(ta,c,'premium_receipt',bank,1500000,current_date,'REF-001','Client refund received',gen_random_uuid(),f1) returning id into cr;
   perform pg_temp.assert(pg_temp.cnt('ins_cancellation_cash_pending') = 1 and pg_temp.cnt('ins_cancellation_cash_pending', f2) = 1, 'a cash request reaches the other Finance checker, not its maker');
-  perform pg_temp.assert((select body from notifications where type = 'ins_cancellation_cash_pending') like '%1,500,000.00%', 'the cash notice states the amount');
+  perform pg_temp.assert((select nt.body from notifications nt where nt.type = 'ins_cancellation_cash_pending') like '%1,500,000.00%', 'the cash notice states the amount');
   perform pg_temp.jwt(f2);
   update ins_cancellation_cash_requests set status = 'rejected', checker_id = f2, checked_at = now(), decision_reason = 'Reference does not match' where id = cr;
   perform pg_temp.assert(pg_temp.cnt('ins_cancellation_cash_rejected', f1) = 1, 'the maker is told when the request is rejected');
@@ -213,13 +213,13 @@ begin
   perform pg_temp.assert(pg_temp.cnt('ins_renewal_due', mgr) = 3 and pg_temp.cnt('ins_renewal_due', adm) = 3, 'managers and admins get one digest per window');
   perform pg_temp.assert(pg_temp.cnt('ins_policy_lapsed', mgr) = 1, 'and one lapsed digest');
   perform pg_temp.assert(pg_temp.cnt('ins_renewal_due', mem) = 0 and pg_temp.cnt('ins_policy_lapsed', mem) = 0, 'members get none');
-  select string_agg(b.body, ' | ') into body from notifications b where b.recipient_id = mgr;
-  perform pg_temp.assert(body like '%' || plap.policy_no || '%', 'the lapsed digest names the policy');
-  perform pg_temp.assert(body not like '%' || plapold.policy_no || '%', 'a policy lapsed 45 days ago is not announced');
-  perform pg_temp.assert(body not like '%' || pfar.policy_no || '%', 'a policy 95 days out is not announced');
-  perform pg_temp.assert(body not like '%' || pdraft.policy_no || '%', 'a policy with a renewal draft is not announced');
-  perform pg_temp.assert(body not like '%' || pout.policy_no || '%', 'a policy with a renewal outcome is not announced');
-  perform pg_temp.assert(body not like '%' || pcanc.policy_no || '%', 'a policy being cancelled is not announced');
+  select string_agg(b.body, ' | ') into digest_body from notifications b where b.recipient_id = mgr;
+  perform pg_temp.assert(digest_body like '%' || plap.policy_no || '%', 'the lapsed digest names the policy');
+  perform pg_temp.assert(digest_body not like '%' || plapold.policy_no || '%', 'a policy lapsed 45 days ago is not announced');
+  perform pg_temp.assert(digest_body not like '%' || pfar.policy_no || '%', 'a policy 95 days out is not announced');
+  perform pg_temp.assert(digest_body not like '%' || pdraft.policy_no || '%', 'a policy with a renewal draft is not announced');
+  perform pg_temp.assert(digest_body not like '%' || pout.policy_no || '%', 'a policy with a renewal outcome is not announced');
+  perform pg_temp.assert(digest_body not like '%' || pcanc.policy_no || '%', 'a policy being cancelled is not announced');
   perform pg_temp.assert(pg_temp.cnt('ins_renewal_due', bmem) = 0, 'another tenant is untouched');
 
   select count(*) into n from notifications;
