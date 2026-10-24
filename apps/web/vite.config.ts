@@ -20,25 +20,11 @@ export default defineConfig({
             if (id.includes('react-router')) return 'router';
             return 'vendor';
           }
-          // Portal grouping — Finance, Procurement, etc. loaded on demand but cached as portal
-          if (id.includes('features/financial') || id.includes('features/finance')) return 'finance';
-          if (
-            id.includes('features/procurement') ||
-            id.includes('features/requests') ||
-            id.includes('features/offers') ||
-            id.includes('features/approvals') ||
-            id.includes('features/multiplexing')
-          )
-            return 'procurement';
-          if (id.includes('features/it-support')) return 'it-support';
-          if (id.includes('modules/portals/hr')) return 'hr';
-          if (id.includes('modules/portals/law-compliance')) return 'law';
-          if (id.includes('modules/portals/pmo')) return 'pmo';
-          if (id.includes('modules/portals/business-development')) return 'bd';
-          if (id.includes('modules/portals/machine-operation')) return 'machine';
-          if (id.includes('modules/portals/sustainability')) return 'sustainability';
-          if (id.includes('features/admin') || id.includes('features/team') || id.includes('features/account')) return 'admin';
-          if (id.includes('features/reports')) return 'reports';
+          // App code is deliberately NOT grouped by hand. Grouping features into
+          // finance/procurement/admin chunks created import cycles between those
+          // chunks, and a production build then threw "Cannot access 'X' before
+          // initialization" at load (blank screen). Rollup splits the lazy routes
+          // on its own and keeps shared modules acyclic.
         },
       },
     },
