@@ -1,16 +1,15 @@
 -- Production hardening, tier 0 (small, behaviour-neutral fixes).
 --
 -- Driven by the live Supabase advisors on 2026-11-06. Nothing here changes
--- what an application user can do; it closes advisor findings and puts one
--- object that only ever existed in production under version control.
+-- what an application user can do; it closes advisor findings and tightens
+-- grants on keepalive_ping().
 --
--- 1. keepalive_ping() existed in production with no migration (a Studio
---    change; MIGRATION_POLICY rule 3 says commit the equivalent the same
---    day). The body below is copied from the live definition. It is called
---    by .github/workflows/supabase-keepalive.yml with the anon key, so it is
---    the one definer function besides health_check() and
+-- 1. keepalive_ping() was added to production directly; its original
+--    migration is backfilled as 20261029053936_add_keepalive_ping_function.sql.
+--    It is called by .github/workflows/supabase-keepalive.yml with the anon
+--    key, so it is the one definer function besides health_check() and
 --    get_platform_branding() that anon may execute. authenticated does not
---    need it, so that grant goes.
+--    need it, so that grant goes, and the search_path gains pg_temp.
 --
 -- 2. documents_via_rpc() had no pinned search_path (advisor 0011).
 --
