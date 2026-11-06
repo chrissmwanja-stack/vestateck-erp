@@ -15797,6 +15797,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_branch_name: { Args: { p_org_id: string }; Returns: string }
       ins_branch_options: {
         Args: { p_include_inactive?: boolean }
         Returns: {
@@ -16406,6 +16407,10 @@ export type Database = {
           id: string
           name: string
         }[]
+      }
+      ins_policy_endorsement_receipts: {
+        Args: { p_policy_id: string }
+        Returns: number
       }
       ins_policy_financial_details: {
         Args: { p_policy_id: string }

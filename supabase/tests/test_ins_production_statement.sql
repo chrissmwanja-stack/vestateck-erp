@@ -7,11 +7,15 @@
 --      the commission views).
 --   3. Statement: billed = gross on bind; received counts posted receipts
 --      only; balance is the difference. A pending request is not money.
---   4. Tenant isolation and the module gate: the views are definer with the
---      guard in the WHERE (tenant + insurance access), so another tenant's
---      manager sees none of tenant A's rows, a user with no insurance role
---      sees nothing, and the names resolve even though bd_clients and
---      organizations belong to other modules.
+--   4. Tenant isolation and the module gate: the views are security_invoker
+--      (20261106140000), so base-table RLS applies to the caller, with the
+--      tenant + insurance guard repeated in the WHERE. Another tenant's
+--      manager sees none of tenant A's rows, and a finance-only user with no
+--      insurance role sees nothing. An insurance-only user (no finance team
+--      membership) still gets every name and amount: bd_clients is readable
+--      through can_access_client_master(), and the branch name and the
+--      endorsement receipts, whose tables are finance/PO-gated, come through
+--      the guarded helpers ins_branch_name() and ins_policy_endorsement_receipts().
 --   5. ins_branch_options: active branches for insurance users, inactive ones
 --      only on request, and nothing across tenants.
 --
@@ -187,7 +191,7 @@ begin
   perform pg_temp.assert(v_n = 2, 'both written policies of the client are on the statement');
 
   -------------------------------------------------------------------
-  -- 3. Tenant isolation and the module gate (definer views, guard in WHERE)
+  -- 3. Tenant isolation and the module gate (security_invoker views)
   -------------------------------------------------------------------
   perform pg_temp.jwt(mgr_b);
   perform pg_temp.assert((select count(*) from ins_production_book) = 0,
@@ -197,6 +201,38 @@ begin
   perform pg_temp.jwt(mem);
   perform pg_temp.assert((select count(*) from ins_production_book) = 2,
                          'an insurance member reads the production book');
+  -- An insurance-only user (member: no finance team membership) still gets the
+  -- names and amounts that come from tables other modules own. This is the
+  -- regression guard for security_invoker: without the helpers the branch name
+  -- would be NULL and the endorsement receipts would silently drop out.
+  perform pg_temp.assert((select client_name from ins_production_book where policy_id = p1.id) = 'Prod client',
+                         'an insurance-only member still sees the client name on the production book');
+  perform pg_temp.assert((select branch_name from ins_production_book where policy_id = p1.id) = 'Kampala',
+                         'an insurance-only member still sees the branch name');
+  select * into v_rec from ins_client_statement where policy_id = p1.id;
+  perform pg_temp.assert(v_rec.client_name = 'Prod client' and v_rec.received_amount = 200000
+                         and v_rec.balance_amount = 300000,
+                         'an insurance-only member sees the client name and the posted receipt on the statement');
+  -- A finance-only user has no insurance role: the views are empty for them.
+  perform pg_temp.jwt(maker);
+  perform pg_temp.assert((select count(*) from ins_production_book) = 0,
+                         'a finance-only user sees no production rows');
+  perform pg_temp.assert((select count(*) from ins_client_statement) = 0,
+                         'a finance-only user sees no statement rows');
+  -- The helpers carry the same guard as the views, so they answer only for
+  -- insurance users of the same tenant.
+  perform pg_temp.assert(ins_branch_name(v_branch) is null,
+                         'ins_branch_name returns nothing to a user without insurance access');
+  perform pg_temp.assert(ins_policy_endorsement_receipts(p1.id) = 0,
+                         'ins_policy_endorsement_receipts returns zero to a user without insurance access');
+  perform pg_temp.jwt(mgr_b);
+  perform pg_temp.assert(ins_branch_name(v_branch) is null,
+                         'ins_branch_name returns nothing across tenants');
+  perform pg_temp.assert(ins_policy_endorsement_receipts(p1.id) = 0,
+                         'ins_policy_endorsement_receipts returns zero across tenants');
+  perform pg_temp.jwt(mem);
+  perform pg_temp.assert(ins_branch_name(v_branch) = 'Kampala',
+                         'ins_branch_name resolves for an insurance-only member');
 
   -------------------------------------------------------------------
   -- 4. Branch options for the New policy screen
