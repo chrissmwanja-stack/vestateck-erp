@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, MenuItem, Stack, Table, TableBody, TableCell, TableHead,
-  TableRow, TextField, Typography,
+  TableRow, TextField, 
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useInsuranceAccess } from '../../access';
