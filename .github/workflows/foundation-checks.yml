@@ -158,6 +158,10 @@ jobs:
         run: |
           DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB" -v ON_ERROR_STOP=1 -c "create extension if not exists plpgsql_check;"
+          # The extension installs ~20 functions into public, which the later
+          # `supabase gen types` step would then emit into database.types.ts
+          # and report as drift. Remove it however this step ends.
+          trap 'psql "$DB" -q -c "drop extension if exists plpgsql_check cascade;"' EXIT
           # plpgsql_check_function() returns text lines; the _tb variant is the
           # one that returns columns (lineno, sqlstate, message, ...). Trigger
           # functions must be checked against a trigger's table (relid).
@@ -244,10 +248,10 @@ jobs:
       - name: Check generated types match the migrations
         run: |
           supabase gen types typescript --local --schema public > /tmp/types.local.ts
-          norm() { sed -e 's/\r$//' -e '/__InternalSupabase/,/^  }$/d' "$1"; }
+          norm() { sed -e 's/\r$//' -e '/^  \/\/ Allows to automatically instantiate/d' -e '/^  \/\/ instead of createClient</d' -e '/__InternalSupabase/,/^  }$/d' "$1"; }
           if ! diff <(norm packages/shared/src/database.types.ts) <(norm /tmp/types.local.ts) > /tmp/types.diff; then
             echo "::warning::packages/shared/src/database.types.ts is out of date with the migrations. Run scripts/gen-types.ps1 and commit the result."
-            head -60 /tmp/types.diff
+            head -300 /tmp/types.diff
             exit 1
           fi
           echo "Generated types match the migrations."
