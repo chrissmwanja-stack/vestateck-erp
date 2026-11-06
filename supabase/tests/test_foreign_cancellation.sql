@@ -19,6 +19,18 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -180,7 +192,7 @@ begin
     cc := ins_register_client('FC client', 'corporate', null, null, null, 'low');
     p_usd := ins_create_policy(cc.id, v_insr, v_line, current_date - 1, current_date + 335,
                                20000, 'USD', 10000, 10, v_branch, null, 'FC fleet', null);
-    perform pg_temp.motor_cert(p_usd.id); p_usd := ins_bind_policy(p_usd.id);
+    perform pg_temp.motor_cert(p_usd.id); p_usd := pg_temp.approve_and_bind(p_usd.id);
   end;
   reset role;
   perform pg_temp.assert(p_usd.status = 'active', 'the USD policy binds');

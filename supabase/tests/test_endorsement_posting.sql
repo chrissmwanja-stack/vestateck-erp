@@ -27,6 +27,18 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 create function pg_temp.motor_cert(p_policy uuid) returns void
 language plpgsql as $$
@@ -212,13 +224,13 @@ begin
     v_client := cc.id;
     pa := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             50000000, 'UGX', 1000000, 10, v_branch, null, 'EP fleet', null);
-    perform pg_temp.motor_cert(pa.id); pa := ins_bind_policy(pa.id);
+    perform pg_temp.motor_cert(pa.id); pa := pg_temp.approve_and_bind(pa.id);
     pb := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             20000000, 'UGX', 400000, 10, v_branch, null, 'EP second', null);
-    perform pg_temp.motor_cert(pb.id); pb := ins_bind_policy(pb.id);
+    perform pg_temp.motor_cert(pb.id); pb := pg_temp.approve_and_bind(pb.id);
     pc := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             30000000, 'USD', 10000, 10, v_branch, null, 'EP foreign', null);
-    perform pg_temp.motor_cert(pc.id); pc := ins_bind_policy(pc.id);
+    perform pg_temp.motor_cert(pc.id); pc := pg_temp.approve_and_bind(pc.id);
   end;
   reset role;
   perform pg_temp.assert(pa.status = 'active' and pb.status = 'active' and pc.status = 'active',

@@ -31,6 +31,18 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -185,7 +197,7 @@ begin
     'amount', 50, 'recipient_mode', 'broker', 'income_gl_account_id', fee_gl,
     'vat_mode', 'exclusive', 'vat_rate_pct', 18, 'reviewed', true));
   perform ins_set_policy_financial_configuration(p.id, config, charge_config);
-  perform pg_temp.motor_cert(p.id); p := ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p := pg_temp.approve_and_bind(p.id);
 
   -- A claim on the bound policy, so the claim cash position has a row.
   cl := ins_create_claim(p.id, current_date, current_date, 'Views test loss', 'CLM-VIEW-1', 5000);

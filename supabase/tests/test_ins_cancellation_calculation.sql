@@ -3,6 +3,18 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -108,9 +120,9 @@ begin
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
   p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  perform pg_temp.motor_cert(p.id); p:=ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p:=pg_temp.approve_and_bind(p.id);
   p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  perform pg_temp.motor_cert(p2.id); p2:=ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2:=pg_temp.approve_and_bind(p2.id);
   draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';
@@ -139,7 +151,7 @@ begin
     jsonb_set(charge_config,'{1,recipient_insurer_id}',to_jsonb(gen_random_uuid()::text))),'INS_CHARGE_RECIPIENT','charge recipient must participate');
   perform ins_set_policy_financial_configuration(draft.id,config,charge_config);
   perform pg_temp.expect_state(format('update ins_policy_insurer_shares set share_pct=1 where policy_id=%L',draft.id),'42501','no direct configuration DML');
-  perform pg_temp.motor_cert(draft.id); draft:=ins_bind_policy(draft.id);
+  perform pg_temp.motor_cert(draft.id); draft:=pg_temp.approve_and_bind(draft.id);
   reset role;
   select id into a from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=insurer;
   select id into b from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=beta;

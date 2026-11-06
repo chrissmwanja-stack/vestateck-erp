@@ -21,6 +21,18 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -235,9 +247,9 @@ begin
   p1 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
   p2 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
   p3 := pg_temp.newpol(c1.id, v_insr, v_pl, 500000, 10);
-  perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
-  perform pg_temp.motor_cert(p2.id); p2 := ins_bind_policy(p2.id);
-  perform pg_temp.motor_cert(p3.id); p3 := ins_bind_policy(p3.id);
+  perform pg_temp.motor_cert(p1.id); p1 := pg_temp.approve_and_bind(p1.id);
+  perform pg_temp.motor_cert(p2.id); p2 := pg_temp.approve_and_bind(p2.id);
+  perform pg_temp.motor_cert(p3.id); p3 := pg_temp.approve_and_bind(p3.id);
   reset role;
   select id into e1 from ins_commission_entries where policy_id = p1.id;
   select id into e2 from ins_commission_entries where policy_id = p2.id;

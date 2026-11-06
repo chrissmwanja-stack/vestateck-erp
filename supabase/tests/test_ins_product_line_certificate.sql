@@ -4,6 +4,18 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -85,7 +97,7 @@ begin
   r_vehicle := ins_register_risk(c.id, line_mot, 'property', 'Showroom');
   perform pg_temp.assert(r_vehicle is not null, 'unflagged MOT line accepts a property risk');
   p1 := ins_create_policy(c.id,insurer,line_mot,current_date,current_date+365,80000000,'UGX',1000,10,null,null);
-  p1 := ins_bind_policy(p1.id);
+  p1 := pg_temp.approve_and_bind(p1.id);
   perform pg_temp.assert(p1.status = 'active', 'unflagged MOT line binds with no certificate');
 
   -- Only a manager can change the setting. A member's update changes nothing; another company's manager cannot reach it.
@@ -109,7 +121,7 @@ begin
   perform pg_temp.expect_error(format('select ins_register_risk(%L,%L,%L,%L)', c.id, line_mot, 'vehicle', 'Pickup'),
     'INS_RISK_INPUT', 'flagged line needs a chassis number');
   p2 := ins_create_policy(c.id,insurer,line_mot,current_date,current_date+365,80000000,'UGX',1000,10,null,null);
-  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p2.id),
+  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p2.id),
     'INS_MOTOR_CERTIFICATE_REQUIRED', 'flagged line bind without certificate');
   select status into st from ins_policies where id = p2.id;
   perform pg_temp.assert(st = 'draft', 'a refused bind leaves the policy in draft');
@@ -120,25 +132,25 @@ begin
   perform ins_issue_certificate('CL-0001', r_vehicle, 'Kampala');
   perform ins_link_policy_risk(p2.id, r_vehicle);
   perform ins_attach_certificate(p2.id, 'CL-0001');
-  p2 := ins_bind_policy(p2.id);
+  p2 := pg_temp.approve_and_bind(p2.id);
   perform pg_temp.assert(p2.status = 'active', 'flagged line binds with a certificate');
   select status into st from ins_certificate_stock where serial_no = 'CL-0001' and tenant_id = ta;
   perform pg_temp.assert(st = 'used', 'the certificate is consumed at bind');
 
   -- MOTOR stays gated even with the flag off: the code is never silently opened.
   p3 := ins_create_policy(c.id,insurer,line_motor,current_date,current_date+365,80000000,'UGX',1000,10,null,null);
-  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p3.id),
+  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p3.id),
     'INS_MOTOR_CERTIFICATE_REQUIRED', 'MOTOR bind without certificate, flag off');
 
   -- A line with no requirement is not gated.
   p4 := ins_create_policy(c.id,insurer,line_fire,current_date,current_date+365,50000000,'UGX',1000,10,null,null);
-  p4 := ins_bind_policy(p4.id);
+  p4 := pg_temp.approve_and_bind(p4.id);
   perform pg_temp.assert(p4.status = 'active', 'fire line binds with no certificate');
 
   -- Switching the setting off opens the line again.
   update ins_product_lines set requires_certificate = false where id = line_mot;
   p1 := ins_create_policy(c.id,insurer,line_mot,current_date,current_date+365,80000000,'UGX',1000,10,null,null);
-  p1 := ins_bind_policy(p1.id);
+  p1 := pg_temp.approve_and_bind(p1.id);
   perform pg_temp.assert(p1.status = 'active', 'a line with the setting switched off binds with no certificate');
 
   raise notice 'PASS: product line certificate requirement';

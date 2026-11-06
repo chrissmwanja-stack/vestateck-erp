@@ -21,6 +21,18 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare p public.ins_policies;
+begin
+  perform public.ins_submit_policy_for_approval(p_id);
+  perform public.ins_decide_policy(p_id, 'approved');
+  select public.ins_bind_policy(p_id) into p;
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 create function pg_temp.motor_cert(p_policy uuid) returns void
 language plpgsql as $$
@@ -197,7 +209,7 @@ begin
     cc := ins_register_client('FCL client', 'corporate', null, null, null, 'low');
     p_usd := ins_create_policy(cc.id, v_beta, v_line, current_date - 1, current_date + 335,
                                20000, 'USD', 10000, 10, v_branch, null, 'FCL fleet', null);
-    perform pg_temp.motor_cert(p_usd.id); p_usd := ins_bind_policy(p_usd.id);
+    perform pg_temp.motor_cert(p_usd.id); p_usd := pg_temp.approve_and_bind(p_usd.id);
   end;
   reset role;
   perform pg_temp.assert(p_usd.status = 'active' and p_usd.currency = 'USD', 'the USD policy binds');
