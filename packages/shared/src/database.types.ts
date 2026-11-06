@@ -4962,6 +4962,64 @@ export type Database = {
           },
         ]
       }
+      ins_claim_documents: {
+        Row: {
+          claim_id: string
+          created_at: string
+          doc_type: string
+          id: string
+          note: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          doc_type: string
+          id?: string
+          note?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          doc_type?: string
+          id?: string
+          note?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_documents_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["tenant_id", "claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_documents_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_events: {
         Row: {
           actor_id: string | null
@@ -5168,6 +5226,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -5190,6 +5250,8 @@ export type Database = {
           claim_no: string
           created_at?: string
           created_by?: string | null
+          excess_amount?: number
+          excess_handling?: string
           id?: string
           insurer_claim_ref?: string | null
           loss_date: string
@@ -5212,6 +5274,8 @@ export type Database = {
           claim_no?: string
           created_at?: string
           created_by?: string | null
+          excess_amount?: number
+          excess_handling?: string
           id?: string
           insurer_claim_ref?: string | null
           loss_date?: string
@@ -5783,6 +5847,136 @@ export type Database = {
           },
         ]
       }
+      ins_insurer_statement_lines: {
+        Row: {
+          claims_paid: number
+          commission: number
+          id: string
+          policy_id: string
+          premium: number
+          statement_id: string
+          tenant_id: string
+        }
+        Insert: {
+          claims_paid?: number
+          commission?: number
+          id?: string
+          policy_id: string
+          premium?: number
+          statement_id: string
+          tenant_id: string
+        }
+        Update: {
+          claims_paid?: number
+          commission?: number
+          id?: string
+          policy_id?: string
+          premium?: number
+          statement_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_insurer_statement_lines_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statement_lines_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statement_lines_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statement_lines_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statement_lines_stmt_fk"
+            columns: ["tenant_id", "statement_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurer_statements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statement_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_insurer_statements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          notes: string | null
+          period_from: string
+          period_to: string
+          received_date: string
+          statement_ref: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          period_from: string
+          period_to: string
+          received_date?: string
+          statement_ref: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          period_from?: string
+          period_to?: string
+          received_date?: string
+          statement_ref?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_insurer_statements_insurer_fk"
+            columns: ["tenant_id", "insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_statements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_insurers: {
         Row: {
           claim_payment_mode: string
@@ -6228,6 +6422,72 @@ export type Database = {
           },
           {
             foreignKeyName: "ins_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_policy_approvals: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          id: string
+          note: string | null
+          policy_id: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          policy_id: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          policy_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_approvals_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_approvals_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_approvals_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_approvals_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_approvals_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7314,6 +7574,219 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ins_product_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_quotes: {
+        Row: {
+          accepted_policy_id: string | null
+          client_id: string
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          gross_premium: number
+          id: string
+          insurer_id: string
+          insurer_ref: string | null
+          notes: string | null
+          product_line_id: string
+          quote_no: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          accepted_policy_id?: string | null
+          client_id: string
+          commission_rate_pct?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          gross_premium?: number
+          id?: string
+          insurer_id: string
+          insurer_ref?: string | null
+          notes?: string | null
+          product_line_id: string
+          quote_no: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          sum_insured?: number
+          tenant_id: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          accepted_policy_id?: string | null
+          client_id?: string
+          commission_rate_pct?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          gross_premium?: number
+          id?: string
+          insurer_id?: string
+          insurer_ref?: string | null
+          notes?: string | null
+          product_line_id?: string
+          quote_no?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          sum_insured?: number
+          tenant_id?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_quotes_tenant_client_fk"
+            columns: ["tenant_id", "client_id"]
+            isOneToOne: false
+            referencedRelation: "ins_clients"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_insurer_fk"
+            columns: ["tenant_id", "insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_policy_fk"
+            columns: ["tenant_id", "accepted_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_policy_fk"
+            columns: ["tenant_id", "accepted_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_policy_fk"
+            columns: ["tenant_id", "accepted_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_policy_fk"
+            columns: ["tenant_id", "accepted_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_quotes_tenant_product_fk"
+            columns: ["tenant_id", "product_line_id"]
+            isOneToOne: false
+            referencedRelation: "ins_product_lines"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_renewal_notices: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          notice_no: string
+          policy_id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          notice_no: string
+          policy_id: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          notice_no?: string
+          policy_id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_renewal_notices_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_notices_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_notices_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_notices_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: true
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_renewal_notices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -15851,6 +16324,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -15903,6 +16378,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -16029,6 +16506,49 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      ins_create_quote: {
+        Args: {
+          p_client_id: string
+          p_commission_rate_pct: number
+          p_currency: string
+          p_gross_premium: number
+          p_insurer_id: string
+          p_notes?: string
+          p_product_line_id: string
+          p_sum_insured: number
+          p_valid_until?: string
+        }
+        Returns: {
+          accepted_policy_id: string | null
+          client_id: string
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          gross_premium: number
+          id: string
+          insurer_id: string
+          insurer_ref: string | null
+          notes: string | null
+          product_line_id: string
+          quote_no: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+          valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_quotes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
@@ -16101,6 +16621,66 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_cancellation_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_decide_insurer_statement: {
+        Args: { p_notes?: string; p_statement_id: string; p_status: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          notes: string | null
+          period_from: string
+          period_to: string
+          received_date: string
+          statement_ref: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_statements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_decide_policy: {
+        Args: { p_decision: string; p_note?: string; p_policy_id: string }
+        Returns: {
+          agent_id: string | null
+          bound_at: string | null
+          bound_by: string | null
+          branch_id: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          transaction_type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -16219,6 +16799,39 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_decide_quote: {
+        Args: { p_decision: string; p_insurer_ref?: string; p_quote_id: string }
+        Returns: {
+          accepted_policy_id: string | null
+          client_id: string
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          gross_premium: number
+          id: string
+          insurer_id: string
+          insurer_ref: string | null
+          notes: string | null
+          product_line_id: string
+          quote_no: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+          valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_quotes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_end_insurer_product_rate: {
         Args: { p_effective_to: string; p_id: string }
         Returns: {
@@ -16278,9 +16891,40 @@ export type Database = {
           submitted_by_name: string
         }[]
       }
+      ins_generate_renewal_notices: {
+        Args: never
+        Returns: {
+          notice_id: string
+          policy_id: string
+        }[]
+      }
       ins_insurer_commission_statement_data: {
         Args: { p_insurer_id: string }
         Returns: Json
+      }
+      ins_insurer_remittance_position: {
+        Args: { p_as_of?: string }
+        Returns: {
+          currency: string
+          earliest_deadline: string
+          earliest_receipt: string
+          insurer_id: string
+          insurer_name: string
+          status: string
+          unremitted_amount: number
+        }[]
+      }
+      ins_insurer_statement_reconciliation: {
+        Args: { p_statement_id: string }
+        Returns: {
+          field: string
+          insurer_amount: number
+          line_id: string
+          match: boolean
+          our_amount: number
+          policy_id: string
+          policy_no: string
+        }[]
       }
       ins_intermediary_chain_has: {
         Args: { p_start: string; p_target: string; p_tenant: string }
@@ -16307,6 +16951,29 @@ export type Database = {
         }
         Returns: number
       }
+      ins_mark_renewal_notice_sent: {
+        Args: { p_channel?: string; p_notice_id: string }
+        Returns: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          notice_no: string
+          policy_id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_renewal_notices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_notify: {
         Args: {
           p_body: string
@@ -16326,6 +16993,44 @@ export type Database = {
       ins_notify_insurance_users: {
         Args: { p_roles: string[]; p_tenant: string }
         Returns: string[]
+      }
+      ins_place_quote: {
+        Args: { p_quote_id: string }
+        Returns: {
+          agent_id: string | null
+          bound_at: string | null
+          bound_by: string | null
+          branch_id: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          transaction_type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_policy_cancellation_context: {
         Args: { p_offset?: number; p_policy_id: string }
@@ -16573,6 +17278,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -16697,6 +17404,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_record_insurer_statement: {
+        Args: {
+          p_insurer_id: string
+          p_lines: Json
+          p_notes?: string
+          p_period_from: string
+          p_period_to: string
+          p_statement_ref: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          notes: string | null
+          period_from: string
+          period_to: string
+          received_date: string
+          statement_ref: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_statements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_record_renewal_outcome: {
         Args: { p_outcome: string; p_policy_id: string; p_reason: string }
         Returns: {
@@ -16809,6 +17545,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -16879,6 +17617,31 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_intermediaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_claim_document: {
+        Args: {
+          p_claim_id: string
+          p_doc_type: string
+          p_note?: string
+          p_status: string
+        }
+        Returns: {
+          claim_id: string
+          created_at: string
+          doc_type: string
+          id: string
+          note: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_documents"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -17122,6 +17885,44 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_submit_policy_for_approval: {
+        Args: { p_policy_id: string }
+        Returns: {
+          agent_id: string | null
+          bound_at: string | null
+          bound_by: string | null
+          branch_id: string | null
+          client_id: string
+          commission_amount: number | null
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          expiry_date: string
+          gross_premium: number
+          id: string
+          inception_date: string
+          insurer_id: string
+          journal_entry_id: string | null
+          net_premium_to_insurer: number | null
+          notes: string | null
+          policy_no: string
+          product_line_id: string
+          renewal_of_id: string | null
+          risk_description: string | null
+          status: string
+          sum_insured: number
+          tenant_id: string
+          transaction_type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_submit_policy_share_cash_request: {
         Args: {
           p_amount: number
@@ -17157,6 +17958,39 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_policy_cash_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_submit_quote: {
+        Args: { p_quote_id: string }
+        Returns: {
+          accepted_policy_id: string | null
+          client_id: string
+          commission_rate_pct: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          gross_premium: number
+          id: string
+          insurer_id: string
+          insurer_ref: string | null
+          notes: string | null
+          product_line_id: string
+          quote_no: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          sum_insured: number
+          tenant_id: string
+          updated_at: string
+          valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_quotes"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -17209,6 +18043,8 @@ export type Database = {
           claim_no: string
           created_at: string
           created_by: string | null
+          excess_amount: number
+          excess_handling: string
           id: string
           insurer_claim_ref: string | null
           loss_date: string
@@ -17247,6 +18083,26 @@ export type Database = {
           status: string
           unremitted_amount: number
         }[]
+      }
+      ins_verify_claim_document: {
+        Args: { p_claim_id: string; p_doc_type: string }
+        Returns: {
+          claim_id: string
+          created_at: string
+          doc_type: string
+          id: string
+          note: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_verify_intermediary: {
         Args: { p_id: string; p_note?: string }
