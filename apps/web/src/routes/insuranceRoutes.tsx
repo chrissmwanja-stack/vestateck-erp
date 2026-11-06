@@ -33,6 +33,7 @@ const IntermediariesList = lazy(() => import('../modules/portals/insurance/pages
 const CertificateStock = lazy(() => import('../modules/portals/insurance/pages/risks/CertificateStock'));
 const RegulatoryRules = lazy(() => import('../modules/portals/insurance/pages/admin/RegulatoryRules'));
 const UnremittedPremium = lazy(() => import('../modules/portals/insurance/pages/reports/UnremittedPremium'));
+const RemittancePosition = lazy(() => import('../modules/portals/insurance/pages/reports/RemittancePosition'));
 const ProductionBook = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionBook'));
 const ClientStatements = lazy(() => import('../modules/portals/insurance/pages/reports/ClientStatements'));
 
@@ -70,6 +71,7 @@ export const insuranceRoutes = (
           (RLS and the reg_* RPCs) decides who may draft, approve, end-date and assign. */}
       <Route path="/insurance/regulatory" element={<RegulatoryRules />} />
       <Route path="/insurance/reports/unremitted-premium" element={<UnremittedPremium />} />
+      <Route path="/insurance/reports/remittance-position" element={<RemittancePosition />} />
       {/* Reports read views that re-check tenant and insurance access on every query; open to every insurance role. */}
       <Route path="/insurance/reports/production-book" element={<ProductionBook />} />
       <Route path="/insurance/reports/client-statements" element={<ClientStatements />} />

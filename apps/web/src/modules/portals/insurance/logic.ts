@@ -111,6 +111,9 @@ export function validateClaimMoneyInput(input: {
 
 export const POLICY_STATUS_LABEL: Record<PolicyStatus, string> = {
   draft: 'Draft',
+  pending_approval: 'Pending approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
   active: 'Active',
   renewed: 'Renewed',
   reversed: 'Reversed',

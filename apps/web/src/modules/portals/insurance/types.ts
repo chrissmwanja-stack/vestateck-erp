@@ -2,7 +2,7 @@
 // db.ts checks table, view and RPC names against the generated Database types.
 // Query results stay loose there, so the row shapes are typed here.
 
-export type PolicyStatus = 'draft' | 'active' | 'renewed' | 'reversed' | 'cancelled';
+export type PolicyStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'active' | 'renewed' | 'reversed' | 'cancelled';
 export type ClaimStatus = 'notified' | 'assessing' | 'approved' | 'settled' | 'repudiated' | 'closed';
 export type CommissionStatus = 'deferred' | 'earned' | 'transferred';
 /** Who pays a claim: the insurer straight to the client, or the insurer to the brokerage which pays the client. */

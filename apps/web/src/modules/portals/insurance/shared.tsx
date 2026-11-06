@@ -25,6 +25,9 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 const POLICY_COLOR: Record<PolicyDisplayStatus, 'default' | 'primary' | 'success' | 'warning'> = {
   expired: 'warning',
   draft: 'default',
+  pending_approval: 'warning',
+  approved: 'success',
+  rejected: 'default',
   active: 'success',
   renewed: 'primary',
   reversed: 'default',
