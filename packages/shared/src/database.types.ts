@@ -17376,6 +17376,7 @@ export type Database = {
       is_payroll_approver: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: never; Returns: boolean }
+      keepalive_ping: { Args: never; Returns: Json }
       link_ticket_to_problem: {
         Args: { p_problem_id: string; p_ticket_id: string }
         Returns: undefined
