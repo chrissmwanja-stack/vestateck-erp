@@ -58,9 +58,10 @@ describe('quotes list', () => {
   it('renders quotes with resolved names and status chips', async () => {
     mount();
     await screen.findByText('Q-0001');
-    expect(screen.getByText('Acme Ltd')).toBeInTheDocument();
-    expect(screen.getByText('Jubilee')).toBeInTheDocument();
-    expect(screen.getByText('Motor')).toBeInTheDocument();
+    // Every quote in the fixture uses the same client, insurer and product line.
+    expect(screen.getAllByText('Acme Ltd')).toHaveLength(4);
+    expect(screen.getAllByText('Jubilee')).toHaveLength(4);
+    expect(screen.getAllByText('Motor')).toHaveLength(4);
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('submitted')).toBeInTheDocument();
     expect(screen.getByText('accepted')).toBeInTheDocument();
@@ -114,12 +115,14 @@ describe('quotes list', () => {
     mount();
     await screen.findByText('Q-0001');
     await userEvent.click(screen.getByText('New quote'));
-    await userEvent.click(await screen.findByLabelText('Client'));
-    await userEvent.click(await screen.findByText('Acme Ltd'));
-    await userEvent.click(screen.getByLabelText('Insurer'));
-    await userEvent.click(await screen.findByText('Jubilee'));
-    await userEvent.click(screen.getByLabelText('Product line'));
-    await userEvent.click(await screen.findByText('Motor'));
+    // Required MUI selects are labelled "Client *" etc., so match by role and a name pattern,
+    // and pick the option by role (the quotes table behind the dialog repeats these names).
+    await userEvent.click(await screen.findByRole('combobox', { name: /^Client/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Acme Ltd' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Insurer/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Jubilee' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Product line/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Motor' }));
     await userEvent.type(screen.getByLabelText('Gross premium'), '120000');
     await userEvent.click(screen.getByText('Create draft'));
     await waitFor(() =>

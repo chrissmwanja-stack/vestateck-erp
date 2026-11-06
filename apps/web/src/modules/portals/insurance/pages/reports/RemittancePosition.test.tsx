@@ -56,7 +56,8 @@ describe('remittance position', () => {
     mount();
     await screen.findByText('Jubilee');
     await userEvent.click(screen.getByLabelText('Status'));
-    await userEvent.click(await screen.findByText('Overdue'));
+    // 'Overdue' is also a status chip in the table, so pick the dropdown option by role.
+    await userEvent.click(await screen.findByRole('option', { name: 'Overdue' }));
     expect(screen.getByText('Jubilee')).toBeInTheDocument();
     expect(screen.queryByText('UAP')).not.toBeInTheDocument();
   });
