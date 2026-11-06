@@ -171,6 +171,26 @@ jobs:
             where n.nspname = 'public'
               and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
               and c.level = 'error'
+              -- Known false positives (verified 7 Nov 2026), narrowly scoped:
+              -- (a) shared trigger functions that branch on tg_table_name are
+              --     checked against EVERY table they are attached to, so they
+              --     "miss" fields that only exist on another table's branch;
+              -- (b) platform_fx_revalue_impl creates temp tables at runtime,
+              --     which a static check cannot see.
+              -- A genuine typo in any other function is still reported.
+              and not (
+                c.functionid::regprocedure::text = any(array[
+                  'ins_cancellation_cash_evidence_guard()',
+                  'ins_cancellation_evidence_guard()',
+                  'ins_cancellation_finance_lock_guard()',
+                  'prevent_journal_mutation()',
+                  'prevent_posted_invoice_update()'])
+                and c.sqlstate = '42703'
+                and c.message ~ '^record .(old|new). has no field')
+              and not (
+                c.functionid::regprocedure::text = 'platform_fx_revalue_impl(uuid,date)'
+                and ((c.sqlstate = '42P01' and c.message ~ 'reval_')
+                  or (c.sqlstate = '55000' and c.message ~ 'record .r. is not assigned')))
             order by 1, 2")
           if [ -n "$OUT" ]; then
             echo "::error::plpgsql_check found problems in public plpgsql functions:"
@@ -275,20 +295,26 @@ jobs:
       # schemas (the baseline migration fails on `extensions`), so replaying
       # migrations into it cannot work. `supabase start` already produced a
       # fully migrated database, so clone it as a template instead. A template
-      # source must have no other sessions: terminate the stack's service
-      # connections and retry, because they reconnect on their own.
+      # source must have no other sessions, and the stack's services reconnect
+      # the instant they are terminated, so: connect via template1, forbid new
+      # connections to `postgres`, terminate the existing ones, clone, then
+      # allow connections again (always, via the trap).
       - name: Create disposable, migrated concurrency databases
         run: |
-          ADMIN="postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres"
+          ADMIN="postgresql://supabase_admin:postgres@127.0.0.1:54322/template1"
+          p() { psql "$ADMIN" -v ON_ERROR_STOP=1 -q -At "$@"; }
+          trap 'p -c "alter database postgres with allow_connections true;"' EXIT
+          p -c "alter database postgres with allow_connections false;"
+          for i in $(seq 1 15); do
+            p -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = 'postgres' and pid <> pg_backend_pid();" >/dev/null
+            n=$(p -c "select count(*) from pg_stat_activity where datname = 'postgres';")
+            [ "$n" = "0" ] && break
+            sleep 1
+          done
+          [ "$n" = "0" ] || { echo "::error::$n sessions still hold postgres open"; p -c "select pid, usename, application_name, backend_type from pg_stat_activity where datname = 'postgres';"; exit 1; }
           for d in premium_cash_test coinsurance_cash_test; do
-            psql "$ADMIN" -v ON_ERROR_STOP=1 -q -c "drop database if exists $d;"
-            ok=0
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-              psql "$ADMIN" -q -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = 'postgres' and pid <> pg_backend_pid();" >/dev/null
-              if psql "$ADMIN" -v ON_ERROR_STOP=1 -q -c "create database $d template postgres;"; then ok=1; break; fi
-              sleep 2
-            done
-            [ "$ok" = 1 ] || { echo "::error::could not clone postgres into $d"; exit 1; }
+            p -c "drop database if exists $d;"
+            p -c "create database $d template postgres;"
           done
 
       - name: Run insurance concurrency scripts
