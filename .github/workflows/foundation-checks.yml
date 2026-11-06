@@ -158,14 +158,19 @@ jobs:
         run: |
           DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB" -v ON_ERROR_STOP=1 -c "create extension if not exists plpgsql_check;"
+          # plpgsql_check_function() returns text lines; the _tb variant is the
+          # one that returns columns (lineno, sqlstate, message, ...). Trigger
+          # functions must be checked against a trigger's table (relid).
           OUT=$(psql "$DB" -t -A -F '|' -c "
-            select p.oid::regprocedure::text, c.lineno, c.sqlstate, c.message
+            select c.functionid::regprocedure::text, c.lineno, c.sqlstate, c.message
             from pg_proc p
             join pg_namespace n on n.oid = p.pronamespace
-            cross join lateral plpgsql_check_function(p.oid, fatal_errors := false) c
+            left join pg_trigger t on t.tgfoid = p.oid and not t.tgisinternal
+            cross join lateral plpgsql_check_function_tb(
+              p.oid, coalesce(t.tgrelid, 0), fatal_errors := false) c
             where n.nspname = 'public'
               and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
-              and c.sqlstate is not null
+              and c.level = 'error'
             order by 1, 2")
           if [ -n "$OUT" ]; then
             echo "::error::plpgsql_check found problems in public plpgsql functions:"
@@ -266,15 +271,24 @@ jobs:
       - name: Start local stack
         run: supabase start
 
+      # A bare `create database` has no `extensions`, `auth` or `storage`
+      # schemas (the baseline migration fails on `extensions`), so replaying
+      # migrations into it cannot work. `supabase start` already produced a
+      # fully migrated database, so clone it as a template instead. A template
+      # source must have no other sessions: terminate the stack's service
+      # connections and retry, because they reconnect on their own.
       - name: Create disposable, migrated concurrency databases
         run: |
-          ADMIN="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          ADMIN="postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres"
           for d in premium_cash_test coinsurance_cash_test; do
-            psql "$ADMIN" -c "drop database if exists $d;"
-            psql "$ADMIN" -c "create database $d;"
-            for f in supabase/migrations/*.sql; do
-              psql "postgresql://postgres:postgres@127.0.0.1:54322/$d" -v ON_ERROR_STOP=1 -q -f "$f"
+            psql "$ADMIN" -v ON_ERROR_STOP=1 -q -c "drop database if exists $d;"
+            ok=0
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              psql "$ADMIN" -q -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = 'postgres' and pid <> pg_backend_pid();" >/dev/null
+              if psql "$ADMIN" -v ON_ERROR_STOP=1 -q -c "create database $d template postgres;"; then ok=1; break; fi
+              sleep 2
             done
+            [ "$ok" = 1 ] || { echo "::error::could not clone postgres into $d"; exit 1; }
           done
 
       - name: Run insurance concurrency scripts
