@@ -856,16 +856,21 @@ begin
   perform ins_link_policy_risk(v_p1, v_risk_fleet);
   perform ins_attach_certificate(v_p1, 'MC-SEED-0001');
 
-  -- Bind requires an approved policy (20261106180000 + 20261106230000):
-  -- submit each policy, approve it, then bind.
+  -- Bind requires an approved policy (20261106180000 + 20261106230000).
+  -- Segregation of duties: submit as the account manager (current claims),
+  -- approve as the platform admin (a different user), then bind as the manager.
   perform ins_submit_policy_for_approval(v_p1);
-  perform ins_decide_policy(v_p1, 'approved');
-  perform ins_bind_policy(v_p1);
   perform ins_submit_policy_for_approval(v_p2);
-  perform ins_decide_policy(v_p2, 'approved');
-  perform ins_bind_policy(v_p2);
   perform ins_submit_policy_for_approval(v_p3);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin_pa, 'role', 'authenticated')::text, true);
+  perform ins_decide_policy(v_p1, 'approved');
+  perform ins_decide_policy(v_p2, 'approved');
   perform ins_decide_policy(v_p3, 'approved');
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_u_mgr, 'role', 'authenticated')::text, true);
+  perform ins_bind_policy(v_p1);
+  perform ins_bind_policy(v_p2);
   perform ins_bind_policy(v_p3);
 
   perform ins_create_claim(v_p1, current_date - 20, current_date - 18,
