@@ -8,8 +8,8 @@
 --      SECURITY INVOKER ones (the advisor flags both).
 --   3. The only SECURITY DEFINER functions anon can execute are the three
 --      intentional ones. A new anon-executable definer function fails here.
---   4. Views must be security_invoker. The two known exceptions are reported
---      as GAP notices (they never fail the run, per the convention in
+--   4. Views must be security_invoker. There are no known exceptions now; an entry
+--      added to v_known_gap is reported as a GAP notice (they never fail the run, per the convention in
 --      security_authorization.sql); any OTHER non-invoker view fails.
 --      Remove an entry from v_known_gap when its view is fixed.
 --
@@ -18,7 +18,7 @@
 do $$
 declare
   v_fail text[] := '{}';
-  v_known_gap text[] := array['ins_production_book', 'ins_client_statement'];
+  v_known_gap text[] := '{}';
   v_anon_ok text[] := array['health_check', 'get_platform_branding', 'keepalive_ping'];
   r record;
 begin
@@ -81,7 +81,7 @@ begin
      order by 1
   loop
     if r.relname = any (v_known_gap) then
-      raise notice 'GAP: view public.% is not security_invoker (known; fix tracked in tier 1)', r.relname;
+      raise notice 'GAP: view public.% is not security_invoker (known gap)', r.relname;
     else
       v_fail := v_fail || format('view public.%s is not security_invoker', r.relname);
     end if;

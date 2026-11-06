@@ -31,10 +31,15 @@ supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        continues (supabase/migrations_archive holds the 201
                        pre-squash migrations, kept for history). Verified
                        2026-09-16: replaying every tracked migration from an
-                       empty database reproduces production's schema exactly
-                       — same tables, function signatures and bodies, and
-                       RLS policies (including USING/WITH CHECK clauses),
-                       byte-for-byte. See "Notes on the schema" below.
+                       empty database matched production's tables, function
+                       signatures and bodies, and RLS policies (including
+                       USING/WITH CHECK clauses). View options were not
+                       compared, and a later check found they differed: the
+                       grandfathered remote_schema dumps reset
+                       security_invoker on 15 views, and migration
+                       20261106130000 restores it. Grants and other catalog
+                       settings are not covered by that verification either.
+                       See "Notes on the schema" below.
 supabase/functions    Edge Functions: accept-invite, bootstrap-admin, create-tenant,
                        generate-po, invite-user, resend-invite, send-operator-digest
                        (JWT verification is declared per function in
