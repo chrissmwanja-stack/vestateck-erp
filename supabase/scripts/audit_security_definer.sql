@@ -34,7 +34,7 @@ with fn as (
     and p.prokind = 'f'
 ), allow(proname) as (
   -- Intentionally public / pure helpers. Keep this list tiny and justified.
-  values ('health_check'), ('get_platform_branding')
+  values ('health_check'), ('get_platform_branding'), ('keepalive_ping')
 ), known_open(proname) as (
   -- Confirmed gaps that cannot be fixed by a simple REVOKE and are tracked
   -- separately. Listed so CI stays green while they stay VISIBLE in the

@@ -122,7 +122,7 @@ As of 2026-09-16, the financial-write `SECURITY DEFINER` functions
 `EXECUTE`-able by `anon` (unauthenticated) — Postgres's default grant-to-PUBLIC
 had exposed them to direct RPC calls (`/rest/v1/rpc/...`). The CI exposure audit
 (`supabase/scripts/audit_security_definer.sql`) keeps this visible; the only
-intentionally anon-executable functions are `health_check` and
+intentionally anon-executable functions are `health_check`, `keepalive_ping` and
 `get_platform_branding`.
 `scripts/check-migration-policy.sh` also now rejects any new migration
 containing `DROP COLUMN` or `DROP TABLE` on an existing object — see
