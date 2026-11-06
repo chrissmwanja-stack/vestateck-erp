@@ -1051,6 +1051,15 @@ begin
       format('insert into approval_assignments (tenant_id, user_id, workflow_stage_id) values (%L, %L, %L)', v_t2, authz_t.id('u2'), authz_t.id('S_T2')), '42501');
     perform authz_t.expect_denied('cross-tenant INSERT workflow_stages as ' || v_who,
       format('insert into workflow_stages (tenant_id, name, sequence_order, approver_role) values (%L, %L, 9, %L)', v_t2, 'AZ Injected', 'x'), '42501');
+    -- sap_payments: set_sap_payment_defaults() overwrites tenant_id with the purchase
+    -- order's tenant, so a caller sending a foreign purchase order id must be refused
+    -- by the WITH CHECK, never land a row in tenant 2. Migration 20261106150000 added
+    -- the tenant check to the policy. Do NOT send tenant_id explicitly (the UI does
+    -- not): the trigger derives it, and the row must be judged on the final value.
+    perform authz_t.expect_denied('cross-tenant INSERT sap_payments (foreign purchase order) as ' || v_who,
+      format('insert into sap_payments (purchase_order_id, amount, status) values (%L, 1, %L)', v_t2c.poid, 'pending_sap'), '42501');
+    perform authz_t.check('cross-tenant INSERT sap_payments as ' || v_who || ' creates no tenant-2 row',
+      authz_t.q(format('select count(*)::text from sap_payments where tenant_id = %L', v_t2)) = '0');
     -- trg_set_request_defaults overwrites tenant_id with the caller's own
     -- tenant, so this path can be refused by the trigger (no department) or
     -- land the row in the caller's tenant; what must never happen is a row
