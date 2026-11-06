@@ -65,7 +65,7 @@ begin
   perform public.ins_decide_policy(p_id, 'approved');
   perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
 
-  select public.ins_bind_policy(p_id) into p;
+  p := public.ins_bind_policy(p_id);
   return p;
 end $$;
 
