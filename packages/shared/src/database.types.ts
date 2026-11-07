@@ -213,6 +213,36 @@ export type Database = {
           },
         ]
       }
+      accounting_setting_definitions: {
+        Row: {
+          allowed_values: string[]
+          created_at: string
+          default_value: string
+          description: string
+          key: string
+          label: string
+          requires_legal_review: boolean
+        }
+        Insert: {
+          allowed_values: string[]
+          created_at?: string
+          default_value: string
+          description: string
+          key: string
+          label: string
+          requires_legal_review?: boolean
+        }
+        Update: {
+          allowed_values?: string[]
+          created_at?: string
+          default_value?: string
+          description?: string
+          key?: string
+          label?: string
+          requires_legal_review?: boolean
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           account_code: string
@@ -2005,6 +2035,132 @@ export type Database = {
           },
           {
             foreignKeyName: "cash_bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_accounting_setting_events: {
+        Row: {
+          actor: string | null
+          at: string
+          detail: Json
+          event: string
+          id: string
+          setting_id: string
+          setting_key: string
+          tenant_id: string
+        }
+        Insert: {
+          actor?: string | null
+          at?: string
+          detail?: Json
+          event: string
+          id?: string
+          setting_id: string
+          setting_key: string
+          tenant_id: string
+        }
+        Update: {
+          actor?: string | null
+          at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          setting_id?: string
+          setting_key?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_accounting_setting_events_setting_fk"
+            columns: ["tenant_id", "setting_id"]
+            isOneToOne: false
+            referencedRelation: "company_accounting_settings"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "company_accounting_setting_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_accounting_settings: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          rationale: string
+          review_reference: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          setting_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: string
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          id?: string
+          rationale: string
+          review_reference?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          setting_key: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          value: string
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          rationale?: string
+          review_reference?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_name?: string | null
+          setting_key?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          value?: string
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_accounting_settings_setting_key_fkey"
+            columns: ["setting_key"]
+            isOneToOne: false
+            referencedRelation: "accounting_setting_definitions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "company_accounting_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5771,6 +5927,154 @@ export type Database = {
           },
         ]
       }
+      ins_import_batches: {
+        Row: {
+          accounting_policy_version: number
+          committed_at: string | null
+          committed_by: string | null
+          created_at: string
+          created_by: string | null
+          cut_over_date: string
+          error_count: number
+          id: string
+          label: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          validated_at: string | null
+        }
+        Insert: {
+          accounting_policy_version?: number
+          committed_at?: string | null
+          committed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          cut_over_date: string
+          error_count?: number
+          id?: string
+          label: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Update: {
+          accounting_policy_version?: number
+          committed_at?: string | null
+          committed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          cut_over_date?: string
+          error_count?: number
+          id?: string
+          label?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_import_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_import_profiles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          mapping: Json
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mapping: Json
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mapping?: Json
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_import_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          errors: Json
+          id: string
+          line: number
+          raw: Json
+          resolved: Json
+          sheet: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          line: number
+          raw: Json
+          resolved?: Json
+          sheet: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          errors?: Json
+          id?: string
+          line?: number
+          raw?: Json
+          resolved?: Json
+          sheet?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_import_rows_batch_fk"
+            columns: ["tenant_id", "batch_id"]
+            isOneToOne: false
+            referencedRelation: "ins_import_batches"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_import_rows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_insurer_product_rates: {
         Row: {
           approved_at: string | null
@@ -6263,6 +6567,7 @@ export type Database = {
       }
       ins_policies: {
         Row: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -6276,9 +6581,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -6292,6 +6599,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accounting_config_snapshot?: Json | null
           agent_id?: string | null
           bound_at?: string | null
           bound_by?: string | null
@@ -6305,9 +6613,11 @@ export type Database = {
           expiry_date: string
           gross_premium?: number
           id?: string
+          import_batch_id?: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id?: string | null
+          migrated_at?: string | null
           net_premium_to_insurer?: number | null
           notes?: string | null
           policy_no: string
@@ -6321,6 +6631,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accounting_config_snapshot?: Json | null
           agent_id?: string | null
           bound_at?: string | null
           bound_by?: string | null
@@ -6334,9 +6645,11 @@ export type Database = {
           expiry_date?: string
           gross_premium?: number
           id?: string
+          import_batch_id?: string | null
           inception_date?: string
           insurer_id?: string
           journal_entry_id?: string | null
+          migrated_at?: string | null
           net_premium_to_insurer?: number | null
           notes?: string | null
           policy_no?: string
@@ -6370,6 +6683,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policies_import_batch_fk"
+            columns: ["tenant_id", "import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "ins_import_batches"
+            referencedColumns: ["tenant_id", "id"]
           },
           {
             foreignKeyName: "ins_policies_insurer_id_fkey"
@@ -14047,6 +14367,10 @@ export type Database = {
     }
     Functions: {
       acct_get_policy_version: { Args: { p_on?: string }; Returns: number }
+      acct_get_setting: {
+        Args: { p_key: string; p_on?: string }
+        Returns: Json
+      }
       acct_policy_approve: {
         Args: { p_id: string }
         Returns: {
@@ -14095,6 +14419,128 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      acct_setting_approve: {
+        Args: { p_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          rationale: string
+          review_reference: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          setting_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_accounting_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      acct_setting_propose: {
+        Args: {
+          p_effective_from: string
+          p_key: string
+          p_rationale: string
+          p_value: string
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          rationale: string
+          review_reference: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          setting_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_accounting_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      acct_setting_record_review: {
+        Args: { p_id: string; p_reference: string; p_reviewer_name: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          rationale: string
+          review_reference: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          setting_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_accounting_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      acct_setting_withdraw: {
+        Args: { p_id: string; p_reason: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          rationale: string
+          review_reference: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          setting_key: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          value: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_accounting_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      acct_settings_overview: { Args: never; Returns: Json }
       add_group_member: {
         Args: { p_group_id: string; p_user_id: string }
         Returns: undefined
@@ -16240,6 +16686,7 @@ export type Database = {
       ins_bind_policy: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -16253,9 +16700,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -16421,6 +16870,7 @@ export type Database = {
               p_sum_insured: number
             }
             Returns: {
+              accounting_config_snapshot: Json | null
               agent_id: string | null
               bound_at: string | null
               bound_by: string | null
@@ -16434,9 +16884,11 @@ export type Database = {
               expiry_date: string
               gross_premium: number
               id: string
+              import_batch_id: string | null
               inception_date: string
               insurer_id: string
               journal_entry_id: string | null
+              migrated_at: string | null
               net_premium_to_insurer: number | null
               notes: string | null
               policy_no: string
@@ -16471,6 +16923,7 @@ export type Database = {
               p_sum_insured: number
             }
             Returns: {
+              accounting_config_snapshot: Json | null
               agent_id: string | null
               bound_at: string | null
               bound_by: string | null
@@ -16484,9 +16937,11 @@ export type Database = {
               expiry_date: string
               gross_premium: number
               id: string
+              import_batch_id: string | null
               inception_date: string
               insurer_id: string
               journal_entry_id: string | null
+              migrated_at: string | null
               net_premium_to_insurer: number | null
               notes: string | null
               policy_no: string
@@ -16552,6 +17007,7 @@ export type Database = {
       ins_create_renewal_draft: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -16565,9 +17021,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -16650,6 +17108,7 @@ export type Database = {
       ins_decide_policy: {
         Args: { p_decision: string; p_note?: string; p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -16663,9 +17122,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -16898,6 +17359,62 @@ export type Database = {
           policy_id: string
         }[]
       }
+      ins_import_commit_policies: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
+      ins_import_create_batch: {
+        Args: { p_cut_over_date: string; p_label: string }
+        Returns: {
+          accounting_policy_version: number
+          committed_at: string | null
+          committed_by: string | null
+          created_at: string
+          created_by: string | null
+          cut_over_date: string
+          error_count: number
+          id: string
+          label: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          validated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_import_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_import_save_profile: {
+        Args: { p_mapping: Json; p_name: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          mapping: Json
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_import_profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_import_stage_rows: {
+        Args: {
+          p_batch_id: string
+          p_replace?: boolean
+          p_rows: Json
+          p_sheet: string
+        }
+        Returns: number
+      }
+      ins_import_validate_batch: { Args: { p_batch_id: string }; Returns: Json }
       ins_insurer_commission_statement_data: {
         Args: { p_insurer_id: string }
         Returns: Json
@@ -16997,6 +17514,7 @@ export type Database = {
       ins_place_quote: {
         Args: { p_quote_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -17010,9 +17528,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -17888,6 +18408,7 @@ export type Database = {
       ins_submit_policy_for_approval: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -17901,9 +18422,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -18511,6 +19034,10 @@ export type Database = {
         Args: { p_on: string; p_tenant_id: string }
         Returns: number
       }
+      platform_acct_setting_value: {
+        Args: { p_key: string; p_on: string; p_tenant_id: string }
+        Returns: string
+      }
       platform_admin_bypass: { Args: never; Returns: boolean }
       platform_admin_has_mfa_factor: { Args: never; Returns: boolean }
       platform_admin_mfa_gate: { Args: { p_action: string }; Returns: boolean }
@@ -18819,6 +19346,7 @@ export type Database = {
       platform_ins_bind_policy_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -18832,9 +19360,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -18857,6 +19387,7 @@ export type Database = {
       platform_ins_bind_policy_risk_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -18870,9 +19401,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -19041,6 +19574,7 @@ export type Database = {
       platform_ins_create_renewal_legacy_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -19054,9 +19588,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -19079,6 +19615,7 @@ export type Database = {
       platform_ins_create_renewal_pre_outcome_impl: {
         Args: { p_policy_id: string }
         Returns: {
+          accounting_config_snapshot: Json | null
           agent_id: string | null
           bound_at: string | null
           bound_by: string | null
@@ -19092,9 +19629,11 @@ export type Database = {
           expiry_date: string
           gross_premium: number
           id: string
+          import_batch_id: string | null
           inception_date: string
           insurer_id: string
           journal_entry_id: string | null
+          migrated_at: string | null
           net_premium_to_insurer: number | null
           notes: string | null
           policy_no: string
@@ -19144,6 +19683,19 @@ export type Database = {
         Args: { p_value: string }
         Returns: number
       }
+      platform_ins_import_allocate: {
+        Args: { p_shares: Json; p_total: number }
+        Returns: {
+          amount: number
+          insurer_id: string
+        }[]
+      }
+      platform_ins_import_date: { Args: { p_text: string }; Returns: string }
+      platform_ins_import_err: {
+        Args: { p_code: string; p_message: string }
+        Returns: Json
+      }
+      platform_ins_import_num: { Args: { p_text: string }; Returns: number }
       platform_ins_line_needs_certificate: {
         Args: { p_line_id: string; p_tenant_id: string }
         Returns: boolean
