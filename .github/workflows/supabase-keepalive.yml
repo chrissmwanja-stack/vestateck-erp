@@ -2,14 +2,24 @@ name: Supabase keep-alive
 
 # Pings the VestaTeck ERP Supabase project so the free tier never pauses
 # from inactivity (pauses after ~7 days without activity).
+#
+# GitHub also switches off scheduled workflows after 60 days with no repository
+# activity, which would silently stop this ping. The last step re-enables this
+# workflow on every run, which resets that 60-day timer, so the schedule keeps
+# itself alive even if nobody touches the repo.
 on:
   schedule:
     - cron: "0 6 */3 * *"   # every 3 days at 06:00 UTC
   workflow_dispatch: {}      # allows a manual run from the Actions tab
 
+permissions:
+  contents: read
+  actions: write             # only used by the "Keep this schedule enabled" step
+
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Call keepalive_ping()
         env:
@@ -31,3 +41,10 @@ jobs:
           done
           echo "Keep-alive failed after 3 attempts" >&2
           exit 1
+
+      - name: Keep this schedule enabled
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/supabase-keepalive.yml/enable"
