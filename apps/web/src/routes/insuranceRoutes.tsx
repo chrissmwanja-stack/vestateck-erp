@@ -20,6 +20,8 @@ const NewPolicy = lazy(() => import('../modules/portals/insurance/pages/policies
 const EditPolicy = lazy(() => import('../modules/portals/insurance/pages/policies/NewPolicy'));
 const PolicyDetail = lazy(() => import('../modules/portals/insurance/pages/policies/PolicyDetail'));
 const RenewalsList = lazy(() => import('../modules/portals/insurance/pages/renewals/RenewalsList'));
+const RenewalNotices = lazy(() => import('../modules/portals/insurance/pages/renewals/RenewalNotices'));
+const QuotesList = lazy(() => import('../modules/portals/insurance/pages/quotes/QuotesList'));
 const ClaimsList = lazy(() => import('../modules/portals/insurance/pages/claims/ClaimsList'));
 const NewClaim = lazy(() => import('../modules/portals/insurance/pages/claims/NewClaim'));
 const ClaimDetail = lazy(() => import('../modules/portals/insurance/pages/claims/ClaimDetail'));
@@ -32,6 +34,8 @@ const IntermediariesList = lazy(() => import('../modules/portals/insurance/pages
 const CertificateStock = lazy(() => import('../modules/portals/insurance/pages/risks/CertificateStock'));
 const RegulatoryRules = lazy(() => import('../modules/portals/insurance/pages/admin/RegulatoryRules'));
 const UnremittedPremium = lazy(() => import('../modules/portals/insurance/pages/reports/UnremittedPremium'));
+const RemittancePosition = lazy(() => import('../modules/portals/insurance/pages/reports/RemittancePosition'));
+const InsurerStatements = lazy(() => import('../modules/portals/insurance/pages/reports/InsurerStatements'));
 const ProductionBook = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionBook'));
 const ClientStatements = lazy(() => import('../modules/portals/insurance/pages/reports/ClientStatements'));
 
@@ -49,6 +53,8 @@ export const insuranceRoutes = (
       <Route path="/insurance/policies/:id" element={<PolicyDetail />} />
       <Route path="/insurance/policies/:id/edit" element={<EditPolicy />} />
       <Route path="/insurance/renewals" element={<RenewalsList />} />
+      <Route path="/insurance/renewals/notices" element={<RenewalNotices />} />
+      <Route path="/insurance/quotes" element={<QuotesList />} />
       <Route path="/insurance/claims" element={<ClaimsList />} />
       <Route path="/insurance/claims/new" element={<NewClaim />} />
       <Route path="/insurance/claims/:id" element={<ClaimDetail />} />
@@ -68,6 +74,8 @@ export const insuranceRoutes = (
           (RLS and the reg_* RPCs) decides who may draft, approve, end-date and assign. */}
       <Route path="/insurance/regulatory" element={<RegulatoryRules />} />
       <Route path="/insurance/reports/unremitted-premium" element={<UnremittedPremium />} />
+      <Route path="/insurance/reports/remittance-position" element={<RemittancePosition />} />
+      <Route path="/insurance/reports/insurer-statements" element={<InsurerStatements />} />
       {/* Reports read views that re-check tenant and insurance access on every query; open to every insurance role. */}
       <Route path="/insurance/reports/production-book" element={<ProductionBook />} />
       <Route path="/insurance/reports/client-statements" element={<ClientStatements />} />

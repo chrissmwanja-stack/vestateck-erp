@@ -13,6 +13,7 @@ import { ThemeModeProvider, useThemeMode } from './lib/themeModeContext';
 import { ToastProvider } from './lib/toastContext';
 import { ConfirmProvider } from './lib/confirmContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { installErrorTracking } from './lib/errorTracking';
 import { getTheme } from './theme/theme';
 
 function ThemedApp() {
@@ -36,6 +37,8 @@ function ThemedApp() {
     </ThemeProvider>
   );
 }
+
+installErrorTracking();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

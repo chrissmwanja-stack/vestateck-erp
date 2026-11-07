@@ -147,6 +147,62 @@ jobs:
       - name: Replay all migrations + seed from scratch
         run: supabase start
 
+      # Static plpgsql lint (risks-gaps #4): plpgsql_check parses every
+      # public plpgsql function body and flags unknown columns, ambiguous
+      # references and type errors WITHOUT executing them -- the class of
+      # bug that made every sap_payments insert fail at runtime until the
+      # 16:00 fix. Requires the plpgsql_check extension in the local image;
+      # if it is missing here, enable it in the Supabase config or install
+      # it and re-run.
+      - name: Static plpgsql lint (plpgsql_check)
+        run: |
+          DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          psql "$DB" -v ON_ERROR_STOP=1 -c "create extension if not exists plpgsql_check;"
+          # The extension installs ~20 functions into public, which the later
+          # `supabase gen types` step would then emit into database.types.ts
+          # and report as drift. Remove it however this step ends.
+          trap 'psql "$DB" -q -c "drop extension if exists plpgsql_check cascade;"' EXIT
+          # plpgsql_check_function() returns text lines; the _tb variant is the
+          # one that returns columns (lineno, sqlstate, message, ...). Trigger
+          # functions must be checked against a trigger's table (relid).
+          OUT=$(psql "$DB" -t -A -F '|' -c "
+            select c.functionid::regprocedure::text, c.lineno, c.sqlstate, c.message
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            left join pg_trigger t on t.tgfoid = p.oid and not t.tgisinternal
+            cross join lateral plpgsql_check_function_tb(
+              p.oid, coalesce(t.tgrelid, 0), fatal_errors := false) c
+            where n.nspname = 'public'
+              and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
+              and c.level = 'error'
+              -- Known false positives (verified 7 Nov 2026), narrowly scoped:
+              -- (a) shared trigger functions that branch on tg_table_name are
+              --     checked against EVERY table they are attached to, so they
+              --     "miss" fields that only exist on another table's branch;
+              -- (b) platform_fx_revalue_impl creates temp tables at runtime,
+              --     which a static check cannot see.
+              -- A genuine typo in any other function is still reported.
+              and not (
+                c.functionid::regprocedure::text = any(array[
+                  'ins_cancellation_cash_evidence_guard()',
+                  'ins_cancellation_evidence_guard()',
+                  'ins_cancellation_finance_lock_guard()',
+                  'prevent_journal_mutation()',
+                  'prevent_posted_invoice_update()'])
+                and c.sqlstate = '42703'
+                and c.message ~ '^record .(old|new). has no field')
+              and not (
+                c.functionid::regprocedure::text = 'platform_fx_revalue_impl(uuid,date)'
+                and ((c.sqlstate = '42P01' and c.message ~ 'reval_')
+                  or (c.sqlstate = '55000' and c.message ~ 'record .r. is not assigned')))
+            order by 1, 2")
+          if [ -n "$OUT" ]; then
+            echo "::error::plpgsql_check found problems in public plpgsql functions:"
+            echo "$OUT"
+            exit 1
+          fi
+          echo "plpgsql_check clean: no static errors in public plpgsql functions."
+
       # The tenant_id FK audit from the 17 Aug report, §4 -- corrected
       # to exclude views (see scripts/audit_tenant_fk.sql header).
       # Confirmed 0 rows against production on 2026-08-18; any output
@@ -192,10 +248,13 @@ jobs:
       - name: Check generated types match the migrations
         run: |
           supabase gen types typescript --local --schema public > /tmp/types.local.ts
-          norm() { sed -e 's/\r$//' -e '/__InternalSupabase/,/^  }$/d' "$1"; }
+          # Normalise CLI-build formatting noise: CRLF, the two comment lines and
+          # __InternalSupabase stamp, redundant parentheses the helper types get
+          # in some builds, and trailing blank lines.
+          norm() { sed -e 's/\r$//' -e '/^  \/\/ Allows to automatically instantiate/d' -e '/^  \/\/ instead of createClient</d' -e '/__InternalSupabase/,/^  }$/d' -e 's/ extends (\([A-Za-z]*\) extends {$/ extends \1 extends {/' -e 's/^    : never) = never,$/    : never = never,/' "$1" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'; }
           if ! diff <(norm packages/shared/src/database.types.ts) <(norm /tmp/types.local.ts) > /tmp/types.diff; then
             echo "::warning::packages/shared/src/database.types.ts is out of date with the migrations. Run scripts/gen-types.ps1 and commit the result."
-            head -60 /tmp/types.diff
+            head -300 /tmp/types.diff
             exit 1
           fi
           echo "Generated types match the migrations."
@@ -217,3 +276,62 @@ jobs:
             psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f "$f"
             echo "::endgroup::"
           done
+
+  # Insurance concurrency races (risks-gaps #5): the scripts under
+  # scripts/test-ins-*-concurrency.ts were previously manual-only. They
+  # drive real two-connection PostgreSQL races against disposable
+  # *_cash_test databases, so they now run on every push like the SQL
+  # suite. The scripts refuse any non-local target themselves.
+  insurance-concurrency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.114.0
+
+      - name: Start local stack
+        run: supabase start
+
+      # A bare `create database` has no `extensions`, `auth` or `storage`
+      # schemas (the baseline migration fails on `extensions`), so replaying
+      # migrations into it cannot work. `supabase start` already produced a
+      # fully migrated database, so clone it as a template instead. A template
+      # source must have no other sessions, and the stack's services reconnect
+      # the instant they are terminated, so: connect via template1, forbid new
+      # connections to `postgres`, terminate the existing ones, clone, then
+      # allow connections again (always, via the trap).
+      - name: Create disposable, migrated concurrency databases
+        run: |
+          ADMIN="postgresql://supabase_admin:postgres@127.0.0.1:54322/template1"
+          p() { psql "$ADMIN" -v ON_ERROR_STOP=1 -q -At "$@"; }
+          trap 'p -c "alter database postgres with allow_connections true;"' EXIT
+          p -c "alter database postgres with allow_connections false;"
+          for i in $(seq 1 15); do
+            p -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = 'postgres' and pid <> pg_backend_pid();" >/dev/null
+            n=$(p -c "select count(*) from pg_stat_activity where datname = 'postgres';")
+            [ "$n" = "0" ] && break
+            sleep 1
+          done
+          [ "$n" = "0" ] || { echo "::error::$n sessions still hold postgres open"; p -c "select pid, usename, application_name, backend_type from pg_stat_activity where datname = 'postgres';"; exit 1; }
+          for d in premium_cash_test coinsurance_cash_test; do
+            p -c "drop database if exists $d;"
+            p -c "create database $d template postgres;"
+          done
+
+      - name: Run insurance concurrency scripts
+        env:
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGHOST: 127.0.0.1
+          PGPORT: '54322'
+        run: |
+          PGDATABASE=premium_cash_test node scripts/test-ins-policy-cash-concurrency.ts
+          PGDATABASE=coinsurance_cash_test node scripts/test-ins-cancellation-concurrency.ts
+          PGDATABASE=coinsurance_cash_test node scripts/test-ins-cancellation-cash-concurrency.ts
+          PGDATABASE=coinsurance_cash_test node scripts/test-ins-coinsurance-concurrency.ts

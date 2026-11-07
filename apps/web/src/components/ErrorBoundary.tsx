@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import { reportError } from '../lib/errorTracking';
 
 interface Props {
   children: ReactNode;
@@ -35,6 +36,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('Unhandled render error caught by ErrorBoundary:', error, info.componentStack);
+    reportError(error, { componentStack: info.componentStack });
   }
 
   handleReload = () => {

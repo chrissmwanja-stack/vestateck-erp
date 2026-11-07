@@ -3,6 +3,44 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -256,6 +294,7 @@ begin
   );
 
   perform set_config('ins.via_rpc', 'on', true);
+  update ins_policies set status = 'approved' where id = v_pol.id and status = 'draft';
   update ins_policies
      set status = 'active',
          commission_amount = v_comm,
@@ -400,7 +439,7 @@ begin
   insert into ins_insurers(tenant_id,code,name) values(v_ta,'ALPHA','Alpha') returning id into v_insr;
   c1:=ins_register_client('Reversal test client');
   p1:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date-10,current_date+355,5000000,1000000,10);
-  perform pg_temp.motor_cert(p1.id); p1:=ins_bind_policy(p1.id);
+  perform pg_temp.motor_cert(p1.id); p1:=pg_temp.approve_and_bind(p1.id);
   reset role;
   insert into accounting_periods(tenant_id,period_start,period_end,status) values(v_ta,current_date-10,current_date-10,'closed');
   -- Use the template's real control flag, not permissive test fixtures.
@@ -446,7 +485,7 @@ begin
   perform pg_temp.expect_error(format('select pg_temp.newclaim(%L,current_date,current_date,''Late claim'',0)',p1.id),'INS_POLICY_UNAVAILABLE','claim after reversal');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)',p1.id),'INS_RENEWAL_STATE','renewal after reversal');
   p_d:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10);
-  perform pg_temp.motor_cert(p_d.id); p_d:=ins_bind_policy(p_d.id);
+  perform pg_temp.motor_cert(p_d.id); p_d:=pg_temp.approve_and_bind(p_d.id);
   rev:=ins_reverse_policy(p_d.id,'Replacement requested',true,gen_random_uuid());
   reset role;
   perform pg_temp.assert((select status='draft' and journal_entry_id is null from ins_policies where id=rev.replacement_policy_id),'replacement stays draft');
@@ -455,13 +494,13 @@ begin
 
   -- Any claim and either direction of renewal chain blocks.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=ins_bind_policy(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   cl1:=pg_temp.newclaim(p_x.id,current_date,current_date,'Existing claim',0);
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Has a claim'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_CLAIM','claim blocker');
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=ins_bind_policy(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   p_ren:=ins_create_renewal_draft(p_x.id);
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Has a renewal'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_RENEWAL','renewal blocker');
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,0); perform pg_temp.motor_cert(p_x.id); p_x:=ins_bind_policy(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,0); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   rev:=ins_reverse_policy(p_x.id,'Zero commission correction',false,gen_random_uuid());
   perform pg_temp.assert(rev.accounting_treatment='none','zero commission represented explicitly');
   reset role;
@@ -477,7 +516,7 @@ begin
 
   -- Effective payment blocks, fully voided movement allows reversal.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,1000000,10); perform pg_temp.motor_cert(p_x.id); p_x:=ins_bind_policy(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,1000000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   reset role;
   select party_account_id into v_pcli from ins_clients where id=c1.id;
   select party_account_id into v_pins from ins_insurers where id=v_insr;
@@ -506,7 +545,7 @@ begin
 
   -- Reissue validation failure rolls back both notes and reversal row.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=ins_bind_policy(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   update ins_insurers set is_active=false where id=v_insr;
   reset role;
   cnt:=pg_temp.n_journals(v_ta);

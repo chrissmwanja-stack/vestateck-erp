@@ -27,6 +27,44 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 create function pg_temp.motor_cert(p_policy uuid) returns void
 language plpgsql as $$
@@ -212,13 +250,13 @@ begin
     v_client := cc.id;
     pa := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             50000000, 'UGX', 1000000, 10, v_branch, null, 'EP fleet', null);
-    perform pg_temp.motor_cert(pa.id); pa := ins_bind_policy(pa.id);
+    perform pg_temp.motor_cert(pa.id); pa := pg_temp.approve_and_bind(pa.id);
     pb := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             20000000, 'UGX', 400000, 10, v_branch, null, 'EP second', null);
-    perform pg_temp.motor_cert(pb.id); pb := ins_bind_policy(pb.id);
+    perform pg_temp.motor_cert(pb.id); pb := pg_temp.approve_and_bind(pb.id);
     pc := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
                             30000000, 'USD', 10000, 10, v_branch, null, 'EP foreign', null);
-    perform pg_temp.motor_cert(pc.id); pc := ins_bind_policy(pc.id);
+    perform pg_temp.motor_cert(pc.id); pc := pg_temp.approve_and_bind(pc.id);
   end;
   reset role;
   perform pg_temp.assert(pa.status = 'active' and pb.status = 'active' and pc.status = 'active',

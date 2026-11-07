@@ -41,8 +41,8 @@ vi.mock('../../db', () => ({
     return [];
   },
   table: (name: string) => {
-    interface Builder { name: string; select: () => Builder; eq: () => Builder; order: () => Builder }
-    const builder: Builder = { name, select: () => builder, eq: () => builder, order: () => builder };
+    interface Builder { name: string; select: () => Builder; eq: () => Builder; is: () => Builder; order: () => Builder }
+    const builder: Builder = { name, select: () => builder, eq: () => builder, is: () => builder, order: () => builder };
     return builder;
   },
 }));
@@ -72,17 +72,24 @@ describe('policy detail reversal access', () => {
 });
 
 describe('foreign-currency draft bind', () => {
-  it('binds a draft in another currency like any other, and says it binds at the approved inception-date rate', async () => {
+  it('tells a draft in another currency that it binds at the approved inception-date rate', async () => {
     canManage = true; status = 'draft'; currency = 'USD'; mount();
     await screen.findByText(/This draft is in USD, not the company currency \(UGX\)/);
     expect(screen.getByText(/at the approved rate for the inception date/)).toBeInTheDocument();
+    // A draft must be submitted and approved first (20261106180000); it cannot be bound directly.
+    expect(screen.queryByRole('button', { name: 'Bind policy' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeInTheDocument();
+  });
+
+  it('binds an approved policy in another currency like any other', async () => {
+    canManage = true; status = 'approved'; currency = 'USD'; mount();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Bind policy' })).toBeEnabled());
-    // The bind is no longer blocked by the currency; the server prices it at the rate.
+    // The bind is not blocked by the currency; the server prices it at the rate.
     expect(screen.getByRole('button', { name: 'Bind policy' }).getAttribute('title') ?? '').not.toContain('not the company currency');
   });
 
-  it('enables bind for a draft in the company currency once the configuration is reviewed', async () => {
-    canManage = true; status = 'draft'; currency = 'UGX'; mount();
+  it('enables bind for an approved policy in the company currency once the configuration is reviewed', async () => {
+    canManage = true; status = 'approved'; currency = 'UGX'; mount();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Bind policy' })).toBeEnabled());
     expect(screen.queryByText(/not the company currency/)).not.toBeInTheDocument();
   });

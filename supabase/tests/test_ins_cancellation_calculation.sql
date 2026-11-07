@@ -3,6 +3,44 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -108,9 +146,9 @@ begin
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
   p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  perform pg_temp.motor_cert(p.id); p:=ins_bind_policy(p.id);
+  perform pg_temp.motor_cert(p.id); p:=pg_temp.approve_and_bind(p.id);
   p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
-  perform pg_temp.motor_cert(p2.id); p2:=ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2:=pg_temp.approve_and_bind(p2.id);
   draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';
@@ -139,7 +177,7 @@ begin
     jsonb_set(charge_config,'{1,recipient_insurer_id}',to_jsonb(gen_random_uuid()::text))),'INS_CHARGE_RECIPIENT','charge recipient must participate');
   perform ins_set_policy_financial_configuration(draft.id,config,charge_config);
   perform pg_temp.expect_state(format('update ins_policy_insurer_shares set share_pct=1 where policy_id=%L',draft.id),'42501','no direct configuration DML');
-  perform pg_temp.motor_cert(draft.id); draft:=ins_bind_policy(draft.id);
+  perform pg_temp.motor_cert(draft.id); draft:=pg_temp.approve_and_bind(draft.id);
   reset role;
   select id into a from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=insurer;
   select id into b from ins_policy_insurer_shares where policy_id=draft.id and insurer_id=beta;

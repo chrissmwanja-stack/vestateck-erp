@@ -25,6 +25,44 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -125,13 +163,13 @@ begin
     c := ins_register_client('Prod client', 'corporate', null, null, null, 'low');
     p1 := ins_create_policy(c.id, v_insr, v_line, current_date - 30, current_date + 335,
                             10000000, 'UGX', 500000, 10, v_branch, null, 'Prod risk one', null);
-    perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
+    perform pg_temp.motor_cert(p1.id); p1 := pg_temp.approve_and_bind(p1.id);
     p2 := ins_create_policy(c.id, v_insr, v_line, current_date - 10, current_date + 355,
                             4000000, 'UGX', 200000, 10, null, (select id from ins_intermediaries where tenant_id = ta and status = 'active' limit 1) , 'Prod risk two', null);
-    perform pg_temp.motor_cert(p2.id); p2 := ins_bind_policy(p2.id);
+    perform pg_temp.motor_cert(p2.id); p2 := pg_temp.approve_and_bind(p2.id);
     p3 := ins_create_policy(c.id, v_insr, v_line, current_date - 5, current_date + 360,
                             999999, 'UGX', 99999, 0, null, null, 'To be reversed', null);
-    perform pg_temp.motor_cert(p3.id); p3 := ins_bind_policy(p3.id);
+    perform pg_temp.motor_cert(p3.id); p3 := pg_temp.approve_and_bind(p3.id);
   end;
   reset role;
   v_agent := p2.agent_id;

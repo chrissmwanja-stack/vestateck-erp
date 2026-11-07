@@ -19,6 +19,44 @@
 
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 -- Test fixture: a motor policy needs an issued certificate before it binds.
 -- No-op unless the caller manages insurance, the policy is a draft on the MOTOR line,
 -- and no certificate is attached yet.
@@ -269,8 +307,8 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.motor_cert(p1.id); p1 := ins_bind_policy(p1.id);
-  perform pg_temp.motor_cert(p0.id); p0 := ins_bind_policy(p0.id);
+  perform pg_temp.motor_cert(p1.id); p1 := pg_temp.approve_and_bind(p1.id);
+  perform pg_temp.motor_cert(p0.id); p0 := pg_temp.approve_and_bind(p0.id);
   reset role;
   perform pg_temp.assert(pg_temp.je_lines(p1.journal_entry_id) = 3 and pg_temp.je_bal(p1.journal_entry_id) = 0
                          and pg_temp.je_net(p1.journal_entry_id, g_ar) = 1000000
@@ -298,7 +336,7 @@ begin
   perform pg_temp.jwt(u_mgr_b);
   set local role authenticated;
   perform pg_temp.motor_cert(pb.id);
-  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', pb.id), 'INS_POSTING_RULE_MISSING',
+  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', pb.id), 'INS_POSTING_RULE_MISSING',
                                'binding without a commission_income rule');
   reset role;
   perform pg_temp.assert((select status from ins_policies where id = pb.id) = 'draft'
@@ -402,7 +440,7 @@ begin
   -- but this policy has not yet collected the commission portion of premium.
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.motor_cert(p2.id); p2 := ins_bind_policy(p2.id);
+  perform pg_temp.motor_cert(p2.id); p2 := pg_temp.approve_and_bind(p2.id);
   reset role;
   select id into e2 from ins_commission_entries where policy_id = p2.id;
   perform pg_temp.jwt(u_fin);

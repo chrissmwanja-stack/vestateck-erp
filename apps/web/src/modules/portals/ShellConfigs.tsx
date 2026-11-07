@@ -491,6 +491,12 @@ export const insuranceNodes: TreeNode[] = [
     to: "/insurance/renewals",
   },
   {
+    id: "ins-quotes",
+    label: "Quotes",
+    icon: <Description fontSize="small" />,
+    to: "/insurance/quotes",
+  },
+  {
     id: "ins-claims",
     label: "Claims",
     icon: <Gavel fontSize="small" />,

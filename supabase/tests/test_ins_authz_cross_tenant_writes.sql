@@ -85,6 +85,7 @@ begin
   values (ta, p.id, insurer, true, 100, 10, 'XW-POL-1', true) returning id into share_id;
   -- Claims need an active policy. Binding needs posting roles this test does not
   -- set up, and bind is covered by test_ins_core.sql, so the fixture marks it active.
+  update ins_policies set status = 'approved' where id = p.id and status = 'draft';
   update ins_policies
      set status = 'active', bound_at = now(),
          commission_amount = round(gross_premium * 10 / 100, 2),

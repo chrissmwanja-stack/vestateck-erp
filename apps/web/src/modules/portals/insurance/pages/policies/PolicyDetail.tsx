@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText,
-  DialogTitle, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography,
+  DialogTitle, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorText, rows, rpc, table, write } from '../../db';
@@ -31,6 +31,9 @@ const PolicyDetail = () => {
   const [financial, setFinancial] = useState<FinancialDetails | null>(null);
   const [financialDirty, setFinancialDirty] = useState(false);
   const [confirmBind, setConfirmBind] = useState(false);
+  const [decideOpen, setDecideOpen] = useState(false);
+  const [decideAction, setDecideAction] = useState<'approved' | 'rejected'>('approved');
+  const [decideNote, setDecideNote] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   // The company currency, from tenant_ledger_settings. A draft in another currency binds in
   // its own currency at the approved inception-date rate (A3 slice 3d-2); the banner below
@@ -82,6 +85,35 @@ const PolicyDetail = () => {
     } catch (e) {
       setError(errorText(e));
       setConfirmBind(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitForApproval = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc('ins_submit_policy_for_approval', { p_policy_id: id });
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decidePolicy = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await rpc('ins_decide_policy', { p_policy_id: id, p_decision: decideAction, p_note: decideNote || null });
+      setDecideOpen(false);
+      setDecideNote('');
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+      setDecideOpen(false);
     } finally {
       setBusy(false);
     }
@@ -143,7 +175,16 @@ const PolicyDetail = () => {
             {policy.status === 'draft' && (
               <Button variant="outlined" onClick={() => navigate(`/insurance/policies/${id}/edit`)} disabled={busy}>Edit draft</Button>
             )}
-            {canManage && policy.status === 'draft' && (
+            {policy.status === 'draft' && (
+              <Button variant="outlined" onClick={submitForApproval} disabled={busy}>Submit for approval</Button>
+            )}
+            {canManage && policy.status === 'pending_approval' && (
+              <>
+                <Button variant="contained" color="success" onClick={() => { setDecideAction('approved'); setDecideOpen(true); }} disabled={busy}>Approve</Button>
+                <Button variant="outlined" color="error" onClick={() => { setDecideAction('rejected'); setDecideOpen(true); }} disabled={busy}>Reject</Button>
+              </>
+            )}
+            {canManage && policy.status === 'approved' && (
               <Button variant="contained" color="primary" onClick={() => setConfirmBind(true)} disabled={bindBlocked} title={bindBlockedTitle}>Bind policy</Button>
             )}
             {canManage && policy.status === 'draft' && (
@@ -267,6 +308,19 @@ const PolicyDetail = () => {
         </Card>
       </Box>
 
+      <Dialog open={decideOpen} onClose={() => !busy && setDecideOpen(false)}>
+        <DialogTitle>{decideAction === 'approved' ? 'Approve' : 'Reject'} {policy.policy_no}?</DialogTitle>
+        <DialogContent>
+          <TextField label="Note (optional)" fullWidth multiline minRows={2} sx={{ mt: 1 }}
+            value={decideNote} onChange={(e) => setDecideNote(e.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDecideOpen(false)} disabled={busy}>Cancel</Button>
+          <Button variant="contained" color={decideAction === 'approved' ? 'success' : 'error'} onClick={decidePolicy} disabled={busy}>
+            {decideAction === 'approved' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={confirmBind} onClose={() => !busy && setConfirmBind(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Bind {policy.policy_no}?</DialogTitle>
         <DialogContent>

@@ -4,6 +4,44 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Approval-workflow fix (20261106230000): bind now requires status =
+-- 'approved', so tests go through submit -> approve -> bind.
+create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  p public.ins_policies;
+  v_tenant uuid;
+  v_claims text := current_setting('request.jwt.claims', true);
+  v_appr uuid;
+begin
+  -- Segregation of duties (ins_decide_policy): the submitter cannot approve
+  -- their own policy, so approval is done by a separate insurance manager of
+  -- the same tenant. One deterministic approver per tenant, created on demand.
+  select tenant_id into v_tenant from public.ins_policies where id = p_id;
+  v_appr := ('a9900000-0000-4000-8000-' || substr(replace(v_tenant::text, '-', ''), 1, 12))::uuid;
+
+  perform public.ins_submit_policy_for_approval(p_id);
+
+  insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+    values (v_appr, 'approver-' || v_appr || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+    on conflict (id) do nothing;
+  insert into public.app_users(id, tenant_id, name, email)
+    values (v_appr, v_tenant, 'Test policy approver', 'approver-' || v_appr || '@test.local')
+    on conflict (id) do nothing;
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select v_tenant, v_appr, 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                      where tenant_id = v_tenant and user_id = v_appr and module = 'insurance');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_appr, 'role', 'authenticated')::text, true);
+  perform public.ins_decide_policy(p_id, 'approved');
+  perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
+
+  p := public.ins_bind_policy(p_id);
+  return p;
+end $$;
+
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -124,13 +162,13 @@ begin
 
   -- Motor gate: no certificate, no bind. Nothing is posted.
   perform ins_link_policy_risk(p_no_cert.id, r_other);
-  perform pg_temp.expect_error(format('select ins_bind_policy(%L)', p_no_cert.id),
+  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p_no_cert.id),
     'INS_MOTOR_CERTIFICATE_REQUIRED', 'motor bind without certificate');
   select status into st from ins_policies where id = p_no_cert.id;
   perform pg_temp.assert(st = 'draft', 'failed motor bind leaves the policy in draft');
 
   -- Motor bind with a certificate succeeds and marks it used.
-  p := ins_bind_policy(p.id);
+  p := pg_temp.approve_and_bind(p.id);
   perform pg_temp.assert(p.status = 'active', 'motor policy with certificate binds');
   select status into st from ins_certificate_stock where serial_no = 'MC-0001' and tenant_id = ta;
   perform pg_temp.assert(st = 'used', 'certificate becomes used at bind');
@@ -140,7 +178,7 @@ begin
     'INS_CERTIFICATE_STATE', 'a used certificate cannot be voided');
 
   -- Non-motor policies are not gated.
-  p_prop := ins_bind_policy(p_prop.id);
+  p_prop := pg_temp.approve_and_bind(p_prop.id);
   perform pg_temp.assert(p_prop.status = 'active', 'property policy binds without a certificate');
 
   -- Cross-tenant: another tenant's manager cannot see or change this register.

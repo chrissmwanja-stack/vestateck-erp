@@ -856,6 +856,22 @@ begin
   perform ins_link_policy_risk(v_p1, v_risk_fleet);
   perform ins_attach_certificate(v_p1, 'MC-SEED-0001');
 
+  -- Bind requires an approved policy (20261106180000 + 20261106230000).
+  -- Segregation of duties: submit as the account manager (current claims),
+  -- approve as the insurance admin of THIS tenant (a different user), then bind
+  -- as the manager. Not the platform admin: ins_decide_policy filters on
+  -- get_my_tenant_id(), which for the platform admin is their own home tenant,
+  -- so the policy comes back INS_NOT_FOUND.
+  perform ins_submit_policy_for_approval(v_p1);
+  perform ins_submit_policy_for_approval(v_p2);
+  perform ins_submit_policy_for_approval(v_p3);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_u_admin, 'role', 'authenticated')::text, true);
+  perform ins_decide_policy(v_p1, 'approved');
+  perform ins_decide_policy(v_p2, 'approved');
+  perform ins_decide_policy(v_p3, 'approved');
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_u_mgr, 'role', 'authenticated')::text, true);
   perform ins_bind_policy(v_p1);
   perform ins_bind_policy(v_p2);
   perform ins_bind_policy(v_p3);
