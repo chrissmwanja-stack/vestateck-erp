@@ -250,8 +250,8 @@ jobs:
           supabase gen types typescript --local --schema public > /tmp/types.local.ts
           # Normalise CLI-build formatting noise: CRLF, the two comment lines and
           # __InternalSupabase stamp, redundant parentheses the helper types get
-          # in some builds, and trailing blank lines.
-          norm() { sed -e 's/\r$//' -e '/^  \/\/ Allows to automatically instantiate/d' -e '/^  \/\/ instead of createClient</d' -e '/__InternalSupabase/,/^  }$/d' -e 's/ extends (\([A-Za-z]*\) extends {$/ extends \1 extends {/' -e 's/^    : never) = never,$/    : never = never,/' "$1" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'; }
+          # in some builds, trailing blank lines, and a missing final newline.
+          norm() { sed -e 's/\r$//' -e '/^  \/\/ Allows to automatically instantiate/d' -e '/^  \/\/ instead of createClient</d' -e '/__InternalSupabase/,/^  }$/d' -e 's/ extends (\([A-Za-z]*\) extends {$/ extends \1 extends {/' -e 's/^    : never) = never,$/    : never = never,/' -e '$a\' "$1" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'; }
           if ! diff <(norm packages/shared/src/database.types.ts) <(norm /tmp/types.local.ts) > /tmp/types.diff; then
             echo "::warning::packages/shared/src/database.types.ts is out of date with the migrations. Run scripts/gen-types.ps1 and commit the result."
             head -300 /tmp/types.diff
