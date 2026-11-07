@@ -54,13 +54,10 @@ select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authentic
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
 from (select a1 as id from pg_temp.l_ids union all select a2 from pg_temp.l_ids) u;
 
-insert into app_users (id, tenant_id, name, email)
-select i.a1, i.ta, 'Admin One', 'l-' || i.a1 || '@test.local' from pg_temp.l_ids i
-union all select i.a2, i.ta, 'Admin Two', 'l-' || i.a2 || '@test.local' from pg_temp.l_ids i;
-
-insert into staff_roles (tenant_id, user_id, module, role)
-select ta, a1, 'finance', 'admin' from pg_temp.l_ids
-union all select ta, a2, 'finance', 'admin' from pg_temp.l_ids;
+-- Company admins (is_tenant_admin()); 'finance' is not an entitlable staff_roles module.
+insert into app_users (id, tenant_id, name, email, is_company_admin)
+select i.a1, i.ta, 'Admin One', 'l-' || i.a1 || '@test.local', true from pg_temp.l_ids i
+union all select i.a2, i.ta, 'Admin Two', 'l-' || i.a2 || '@test.local', true from pg_temp.l_ids i;
 
 -- a legal-review key definition
 insert into public.accounting_setting_definitions
