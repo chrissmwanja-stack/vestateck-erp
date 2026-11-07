@@ -21,9 +21,9 @@ create temp table pg_temp.g_ids as select gen_random_uuid() as ta, gen_random_uu
 insert into tenants (id, name) select ta, 'Gate A' from pg_temp.g_ids;
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token)
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated','authenticated','g-'||u.id||'@t.local', extensions.crypt('Tester123', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}',now(),now(),'',''
-from (select mgr as id from pg_temp.g_ids union all select adm) u;
-insert into app_users (id, tenant_id, name, email) select i.mgr, i.ta, 'Mgr','g-'||i.mgr||'@t.local' from pg_temp.g_ids i union all select i.adm, i.ta, 'Adm','g-'||i.adm||'@t.local' from pg_temp.g_ids i;
-insert into staff_roles (tenant_id, user_id, module, role) select ta, mgr, 'insurance','manager' from pg_temp.g_ids union all select ta, adm, 'finance','admin' from pg_temp.g_ids;
+from (select mgr as id from pg_temp.g_ids union all select adm from pg_temp.g_ids) u;
+-- Two company admins (is_tenant_admin()): one proposes, the other approves and reviews.
+insert into app_users (id, tenant_id, name, email, is_company_admin) select i.mgr, i.ta, 'Mgr','g-'||i.mgr||'@t.local', true from pg_temp.g_ids i union all select i.adm, i.ta, 'Adm','g-'||i.adm||'@t.local', true from pg_temp.g_ids i;
 
 do $$
 declare i pg_temp.g_ids; cid uuid;
@@ -43,8 +43,8 @@ begin
     'select public.acct_assert_reviewed(''ins.commission_recognition'')',
     'ACCT_LEGAL_UNREVIEWED', 'unreviewed legal key blocked');
 
-  -- after review -> passes
-  perform pg_temp.jwt(i.adm);
+  -- after review by someone other than the proposer -> passes
+  perform pg_temp.jwt(i.mgr);
   perform public.acct_setting_record_review(cid, 'Accountant', 'Memo 2026-11-07');
   perform pg_temp.assert(
     pg_temp.scalar('select public.acct_assert_reviewed(''ins.commission_recognition'')') = 'on_insurer_settlement',
