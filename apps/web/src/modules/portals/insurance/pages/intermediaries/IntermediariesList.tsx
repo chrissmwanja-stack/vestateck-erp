@@ -14,6 +14,8 @@ import {
   allowedStatusMoves,
   canVerify,
   changeNeedsReverification,
+  contactArgs,
+  intermediaryToForm,
   needsAppointment,
   needsLicence,
   needsParent,
@@ -30,6 +32,7 @@ const EMPTY: IntermediaryForm = {
   code: '', name: '', kind: 'business', category: 'independent_broker', parent_id: null,
   licence_ref: '', licence_authority: '', licence_valid_from: '', licence_valid_to: '',
   appointment_ref: '', authorisation_basis: '', authorisation_reference: '',
+  contact_email: '', contact_phone: '',
 };
 
 const STATUS_COLOR: Record<IntermediaryStatus, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
@@ -94,13 +97,7 @@ export default function IntermediariesList() {
     setEditing('new');
   };
   const openEdit = (i: Intermediary) => {
-    setForm({
-      code: i.code, name: i.name, kind: i.kind, category: i.category, parent_id: i.parent_id,
-      licence_ref: i.licence_ref ?? '', licence_authority: i.licence_authority ?? '',
-      licence_valid_from: i.licence_valid_from ?? '', licence_valid_to: i.licence_valid_to ?? '',
-      appointment_ref: i.appointment_ref ?? '', authorisation_basis: i.authorisation_basis ?? '',
-      authorisation_reference: i.authorisation_reference ?? '',
-    });
+    setForm(intermediaryToForm(i));
     setEditing(i);
   };
 
@@ -114,8 +111,7 @@ export default function IntermediariesList() {
         p_kind: form.kind,
         p_name: form.name.trim(),
         p_category: form.category,
-        p_contact_email: null,
-        p_contact_phone: null,
+        ...contactArgs(form),
         p_parent_id: form.parent_id,
         p_licence_ref: needsLicence(form.category) ? orNull(form.licence_ref) : null,
         p_licence_authority: needsLicence(form.category) ? orNull(form.licence_authority) : null,
@@ -189,13 +185,14 @@ export default function IntermediariesList() {
                 <TableCell>Parent</TableCell>
                 <TableCell>Licence</TableCell>
                 <TableCell>Appointment</TableCell>
+                <TableCell>Contact</TableCell>
                 <TableCell>Status</TableCell>
                 {canManage && <TableCell align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {all.length === 0 ? (
-                <EmptyRow colSpan={canManage ? 8 : 7} text="No intermediaries yet." />
+                <EmptyRow colSpan={canManage ? 9 : 8} text="No intermediaries yet." />
               ) : (
                 all.map((i) => {
                   const verifyState = canVerify(i, actorId);
@@ -210,6 +207,11 @@ export default function IntermediariesList() {
                         {i.licence_ref ? `${i.licence_ref} (${i.licence_authority ?? '-'}, to ${i.licence_valid_to ?? '-'})` : '-'}
                       </TableCell>
                       <TableCell>{i.appointment_ref ?? '-'}</TableCell>
+                      <TableCell>
+                        {i.contact_email || i.contact_phone
+                          ? [i.contact_email, i.contact_phone].filter(Boolean).join(' · ')
+                          : '-'}
+                      </TableCell>
                       <TableCell><Chip size="small" color={STATUS_COLOR[i.status]} label={STATUS_LABEL[i.status]} variant="outlined" /></TableCell>
                       {canManage && (
                         <TableCell align="right">
@@ -268,6 +270,10 @@ export default function IntermediariesList() {
                 <MenuItem value="business">Business</MenuItem>
                 <MenuItem value="individual">Individual</MenuItem>
               </TextField>
+            </Stack>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField label="Contact email" type="email" value={form.contact_email} onChange={(e) => set('contact_email', e.target.value)} fullWidth />
+              <TextField label="Contact phone" value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} fullWidth />
             </Stack>
             <TextField
               select label="Category" value={form.category}

@@ -19,6 +19,12 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Digits with an optional leading +, once spaces, dashes, dots and brackets are removed.
 const PHONE = /^\+?\d{7,15}$/;
 
+/** True for a plausible email address. Blank is the caller's concern. */
+export const isValidEmail = (value: string): boolean => EMAIL.test(value.trim());
+
+/** True for a plausible phone number (7 to 15 digits, optional +, common separators allowed). */
+export const isValidPhone = (value: string): boolean => PHONE.test(value.trim().replace(/[\s\-().]/g, ''));
+
 export function validateClientContact(form: ContactForm): ContactErrors {
   const errors: ContactErrors = {};
   const name = form.name.trim();

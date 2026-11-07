@@ -3,6 +3,8 @@ import {
   allowedStatusMoves,
   canVerify,
   changeNeedsReverification,
+  contactArgs,
+  intermediaryToForm,
   parentChoices,
   parentWouldLoop,
   saveProblems,
@@ -25,7 +27,8 @@ const base = (over: Partial<Intermediary> = {}): Intermediary => ({
 const form = (over: Partial<IntermediaryForm> = {}): IntermediaryForm => ({
   code: 'IB-1', name: 'Alpha', kind: 'business', category: 'independent_broker', parent_id: null,
   licence_ref: 'LIC-1', licence_authority: 'IRA', licence_valid_from: '', licence_valid_to: '2027-10-17',
-  appointment_ref: '', authorisation_basis: '', authorisation_reference: '', ...over,
+  appointment_ref: '', authorisation_basis: '', authorisation_reference: '',
+  contact_email: '', contact_phone: '', ...over,
 });
 
 describe('licence and appointment rules', () => {
@@ -142,5 +145,38 @@ describe('status moves', () => {
     expect(statusNeedsNote('suspended')).toBe(true);
     expect(statusNeedsNote('terminated')).toBe(true);
     expect(statusNeedsNote('active')).toBe(false);
+  });
+});
+
+describe('contact details', () => {
+  it('accepts blank contacts and valid ones', () => {
+    expect(saveProblems(form(), [], null, TODAY)).toEqual([]);
+    expect(saveProblems(form({ contact_email: 'agent@example.co.ug', contact_phone: '+256 700 000000' }), [], null, TODAY)).toEqual([]);
+  });
+
+  it('refuses a malformed email or phone number', () => {
+    expect(saveProblems(form({ contact_email: 'not-an-email' }), [], null, TODAY))
+      .toContain('Enter a valid contact email address, or leave it blank.');
+    expect(saveProblems(form({ contact_phone: '12ab' }), [], null, TODAY))
+      .toContain('Enter a valid contact phone number, for example +256 700 000000, or leave it blank.');
+  });
+
+  it('carries a stored contact into the edit form instead of dropping it', () => {
+    const stored = base({ contact_email: 'agent@example.co.ug', contact_phone: '+256700000000' });
+    const f = intermediaryToForm(stored);
+    expect(f.contact_email).toBe('agent@example.co.ug');
+    expect(f.contact_phone).toBe('+256700000000');
+    expect(contactArgs(f)).toEqual({ p_contact_email: 'agent@example.co.ug', p_contact_phone: '+256700000000' });
+  });
+
+  it('sends null only when the user cleared the field, and trims what it sends', () => {
+    expect(contactArgs({ contact_email: '  ', contact_phone: '' })).toEqual({ p_contact_email: null, p_contact_phone: null });
+    expect(contactArgs({ contact_email: ' a@b.co ', contact_phone: ' 0700000000 ' }))
+      .toEqual({ p_contact_email: 'a@b.co', p_contact_phone: '0700000000' });
+  });
+
+  it('a contact-only edit does not need re-verification', () => {
+    const before = base({ contact_email: 'old@example.com' });
+    expect(changeNeedsReverification(before, { ...before })).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import { isValidEmail, isValidPhone } from './clientContact';
+
 // Intermediary register rules (agents and sub-agents, slice 1: no money).
 //
 // These mirror the server checks in 20261017140000_ins_intermediaries.sql so the form
@@ -66,6 +68,8 @@ export interface IntermediaryForm {
   appointment_ref: string;
   authorisation_basis: string;
   authorisation_reference: string;
+  contact_email: string;
+  contact_phone: string;
 }
 
 const blank = (v: string | null | undefined): boolean => !v || v.trim() === '';
@@ -78,6 +82,12 @@ export function saveProblems(form: IntermediaryForm, parents: Intermediary[], se
   const problems: string[] = [];
   if (blank(form.code)) problems.push('Give the intermediary a reference code.');
   if (blank(form.name)) problems.push('Give the intermediary a name.');
+  if (!blank(form.contact_email) && !isValidEmail(form.contact_email)) {
+    problems.push('Enter a valid contact email address, or leave it blank.');
+  }
+  if (!blank(form.contact_phone) && !isValidPhone(form.contact_phone)) {
+    problems.push('Enter a valid contact phone number, for example +256 700 000000, or leave it blank.');
+  }
 
   if (needsLicence(form.category)) {
     if (blank(form.licence_ref) || blank(form.licence_authority) || blank(form.licence_valid_to)) {
@@ -115,6 +125,32 @@ export function saveProblems(form: IntermediaryForm, parents: Intermediary[], se
     }
   }
   return problems;
+}
+
+/** Starting form values for a stored intermediary, so an edit never drops a stored contact. */
+export function intermediaryToForm(i: Intermediary): IntermediaryForm {
+  return {
+    code: i.code, name: i.name, kind: i.kind, category: i.category, parent_id: i.parent_id,
+    licence_ref: i.licence_ref ?? '', licence_authority: i.licence_authority ?? '',
+    licence_valid_from: i.licence_valid_from ?? '', licence_valid_to: i.licence_valid_to ?? '',
+    appointment_ref: i.appointment_ref ?? '', authorisation_basis: i.authorisation_basis ?? '',
+    authorisation_reference: i.authorisation_reference ?? '',
+    contact_email: i.contact_email ?? '', contact_phone: i.contact_phone ?? '',
+  };
+}
+
+/**
+ * The contact arguments for ins_save_intermediary. The server writes whatever it is given,
+ * so the form must always send the current values: a blank field means the user cleared it.
+ */
+export function contactArgs(form: Pick<IntermediaryForm, 'contact_email' | 'contact_phone'>): {
+  p_contact_email: string | null;
+  p_contact_phone: string | null;
+} {
+  return {
+    p_contact_email: blank(form.contact_email) ? null : form.contact_email.trim(),
+    p_contact_phone: blank(form.contact_phone) ? null : form.contact_phone.trim(),
+  };
 }
 
 /**
