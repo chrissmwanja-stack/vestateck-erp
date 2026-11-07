@@ -18,6 +18,7 @@ interface DefinitionRow {
   label: string;
   description: string;
   allowed_values: string[];
+  implemented_values: string[];
   default_value: string;
   requires_legal_review: boolean;
 }
@@ -169,7 +170,7 @@ export default function AccountingSettingsAdmin() {
                         )}
                         <Button size="small" onClick={() => {
                           setPropose(d);
-                          setForm({ value: live?.value ?? d.default_value, effective_from: '', rationale: '' });
+                          setForm({ value: live?.value ?? d.default_value, effective_from: new Date().toISOString().slice(0, 10), rationale: '' });
                         }}>
                           {live ? 'Change…' : 'Set…'}
                         </Button>
@@ -194,9 +195,14 @@ export default function AccountingSettingsAdmin() {
             )}
             <TextField select label="Value" value={form.value} fullWidth
               onChange={(e) => setForm({ ...form, value: e.target.value })}>
-              {(propose?.allowed_values ?? []).map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+              {(propose?.allowed_values ?? []).map((v) => (
+                <MenuItem key={v} value={v} disabled={!(propose?.implemented_values ?? []).includes(v)}>
+                  {v}{(propose?.implemented_values ?? []).includes(v) ? '' : ' (planned — not yet implemented)'}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField label="Effective from" type="date" InputLabelProps={{ shrink: true }}
+              inputProps={{ min: new Date().toISOString().slice(0, 10) }}
               value={form.effective_from} fullWidth
               onChange={(e) => setForm({ ...form, effective_from: e.target.value })} />
             <TextField label="Rationale (required)" value={form.rationale} fullWidth multiline minRows={2}
