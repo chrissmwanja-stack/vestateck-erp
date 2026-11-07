@@ -5118,6 +5118,67 @@ export type Database = {
           },
         ]
       }
+      ins_claim_correspondence: {
+        Row: {
+          body: string | null
+          channel: string
+          claim_id: string
+          created_by: string | null
+          direction: string
+          id: string
+          occurred_at: string
+          reference: string | null
+          subject: string
+          tenant_id: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string
+          claim_id: string
+          created_by?: string | null
+          direction: string
+          id?: string
+          occurred_at?: string
+          reference?: string | null
+          subject: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string
+          claim_id?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          occurred_at?: string
+          reference?: string | null
+          subject?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_correspondence_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["tenant_id", "claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_correspondence_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_correspondence_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_documents: {
         Row: {
           claim_id: string
@@ -5920,6 +5981,48 @@ export type Database = {
           },
           {
             foreignKeyName: "ins_endorsement_clawbacks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_endorsement_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          endorsement_id: string
+          id: string
+          note: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          endorsement_id: string
+          id?: string
+          note: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          endorsement_id?: string
+          id?: string
+          note?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_endorsement_notes_endorsement_fk"
+            columns: ["tenant_id", "endorsement_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_endorsements"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_endorsement_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -17471,6 +17574,51 @@ export type Database = {
           p_width?: number
         }
         Returns: number
+      }
+      ins_log_claim_correspondence: {
+        Args: {
+          p_body?: string
+          p_channel?: string
+          p_claim_id: string
+          p_direction: string
+          p_reference?: string
+          p_subject: string
+        }
+        Returns: {
+          body: string | null
+          channel: string
+          claim_id: string
+          created_by: string | null
+          direction: string
+          id: string
+          occurred_at: string
+          reference: string | null
+          subject: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_correspondence"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_log_endorsement_note: {
+        Args: { p_endorsement_id: string; p_note: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          endorsement_id: string
+          id: string
+          note: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_endorsement_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_mark_renewal_notice_sent: {
         Args: { p_channel?: string; p_notice_id: string }
