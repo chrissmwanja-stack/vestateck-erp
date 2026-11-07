@@ -74,34 +74,52 @@ values ('ins.commission_recognition_test', 'Recognition', 'accounting choice',
 on conflict (key) do nothing;
 
 ---------------------------------------------------------------------
--- Scenarios (direct inserts go through the RPC guard, so use the
--- settings RPC if present, else insert with ins.via_rpc set)
+-- Scenarios. A new setting can only be inserted as an unreviewed draft
+-- (company_accounting_settings_guard), so reviews are recorded the way the
+-- app does it: acct_setting_propose, then acct_setting_record_review.
+-- The legal-review trigger sorts before the guard trigger, so it also fires
+-- for a direct update with acct.via_rpc on.
 ---------------------------------------------------------------------
 do $$
 declare
   i pg_temp.l_ids;
+  v_legal uuid;
+  v_plain uuid;
 begin
   select * into i from pg_temp.l_ids;
-  perform pg_temp.jwt(i.a1);
 
-  -- legal key: reviewed by the proposer is refused
+  -- Admin One proposes a legal-applicability key and a plain key.
+  perform pg_temp.jwt(i.a1);
+  v_legal := (select id from public.acct_setting_propose(
+    'ins.agent_commission_wht', 'applicable', current_date, 'legal test rationale'));
+  v_plain := (select id from public.acct_setting_propose(
+    'ins.commission_recognition_test', 'b', current_date, 'accounting choice rationale'));
+
+  -- legal key: the proposer cannot record the review
   perform pg_temp.expect_error(
-    format('set local ins.via_rpc = ''on''; insert into public.company_accounting_settings (tenant_id, setting_key, value, effective_from, rationale, review_status, reviewer_name, review_reference, reviewed_by, reviewed_at, created_by) values (%L, ''ins.agent_commission_wht'', ''applicable'', current_date, ''legal test rationale'', ''reviewed'', ''Admin One'', ''memo 1'', %L, now(), %L)', i.ta, i.a1, i.a1),
+    format('select * from public.acct_setting_record_review(%L, ''Admin One'', ''memo 1'')', v_legal),
     'ACCT_LEGAL_SELF_REVIEW', 'proposer reviews own legal key');
 
-  -- legal key: reviewed by someone else but no reference is refused
+  -- legal key: someone else, but no reference (the RPC itself refuses a blank one)
+  perform pg_temp.jwt(i.a2);
   perform pg_temp.expect_error(
-    format('set local ins.via_rpc = ''on''; insert into public.company_accounting_settings (tenant_id, setting_key, value, effective_from, rationale, review_status, reviewer_name, review_reference, reviewed_by, reviewed_at, created_by) values (%L, ''ins.agent_commission_wht'', ''applicable'', current_date, ''legal test rationale'', ''reviewed'', ''Admin Two'', '''', %L, now(), %L)', i.ta, i.a2, i.a1),
-    'ACCT_LEGAL_REFERENCE_REQUIRED', 'legal key reviewed without reference');
+    format('select * from public.acct_setting_record_review(%L, ''Admin Two'', '''')', v_legal),
+    'ACCT_SETTING_REVIEW_DETAILS', 'legal key reviewed without reference (RPC)');
+
+  -- legal key: the trigger itself refuses a blank reference on a direct update
+  perform pg_temp.expect_error(
+    format('set local acct.via_rpc = ''on''; update public.company_accounting_settings set review_status = ''reviewed'', reviewer_name = ''Admin Two'', review_reference = '''', reviewed_by = %L, reviewed_at = now() where id = %L', i.a2, v_legal),
+    'ACCT_LEGAL_REFERENCE_REQUIRED', 'legal key reviewed without reference (trigger)');
 
   -- legal key: different reviewer + reference is accepted
   perform pg_temp.assert(
-    pg_temp.scalar(format('set local ins.via_rpc = ''on''; insert into public.company_accounting_settings (tenant_id, setting_key, value, effective_from, rationale, review_status, reviewer_name, review_reference, reviewed_by, reviewed_at, created_by) values (%L, ''ins.agent_commission_wht'', ''applicable'', current_date, ''legal test rationale'', ''reviewed'', ''Admin Two'', ''Accountant memo 2026-11-07'', %L, now(), %L) returning review_status', i.ta, i.a2, i.a1)) = 'reviewed',
+    pg_temp.scalar(format('select review_status from public.acct_setting_record_review(%L, ''Admin Two'', ''Accountant memo 2026-11-07'')', v_legal)) = 'reviewed',
     'legal key accepted with proper review');
 
   -- non-legal key: self-review allowed
+  perform pg_temp.jwt(i.a1);
   perform pg_temp.assert(
-    pg_temp.scalar(format('set local ins.via_rpc = ''on''; insert into public.company_accounting_settings (tenant_id, setting_key, value, effective_from, rationale, review_status, reviewer_name, review_reference, reviewed_by, reviewed_at, created_by) values (%L, ''ins.commission_recognition_test'', ''b'', current_date, ''accounting choice rationale'', ''reviewed'', ''Admin One'', ''n/a'', %L, now(), %L) returning review_status', i.ta, i.a1, i.a1)) = 'reviewed',
+    pg_temp.scalar(format('select review_status from public.acct_setting_record_review(%L, ''Admin One'', ''n/a'')', v_plain)) = 'reviewed',
     'non-legal key may be self-reviewed');
 end $$;
 
