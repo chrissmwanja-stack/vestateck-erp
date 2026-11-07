@@ -9,6 +9,7 @@ import RequireTenantAdmin from '../components/RequireTenantAdmin';
 import CompanyAdminLayout from '../features/company-admin/CompanyAdminLayout';
 
 const ApprovalWorkflowAdmin = lazy(() => import('../features/admin/ApprovalWorkflowAdmin'));
+const AccountingSettingsAdmin = lazy(() => import('../features/admin/AccountingSettingsAdmin'));
 const CompanyAdminDashboard = lazy(() => import('../features/company-admin/CompanyAdminDashboard'));
 const CompanySetupChecklist = lazy(() => import('../features/team/CompanySetupChecklist'));
 const DepartmentsAdmin = lazy(() => import('../features/admin/DepartmentsAdmin'));
@@ -33,6 +34,7 @@ export const companyAdminRoutes = (
         <Route path="/company-admin/users/members" element={<TeamMembersAdmin />} />
         <Route path="/company-admin/users/invite" element={<InviteMember />} />
         <Route path="/company-admin/workflows/approvals" element={<ApprovalWorkflowAdmin />} />
+        <Route path="/company-admin/accounting-settings" element={<AccountingSettingsAdmin />} />
         <Route path="/company-admin/setup" element={<CompanySetupChecklist />} />
       </Route>
     </Route>
