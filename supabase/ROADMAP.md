@@ -4,6 +4,11 @@ Working plan from the 2026-09-21 full-repo audit (screens, RLS, tests).
 Ordered by priority; check items off as they land, one commit group per
 line where possible.
 
+> **Status note, 2026-11-07:** this is a dated log of the 2026-09-21 audit and is
+> not rewritten as the repo grows. Counts below were true on the day. Today: 8
+> e2e specs, 101 SQL test files, 190 migrations. Insurance work since then is
+> tracked in `docs/insurance-brokerage/ROADMAP.md`.
+
 ## Priority 1 — Security / RLS ✅ DONE (2026-09-21)
 
 - [x] Verify the README-flagged HR gaps (compensation, team members,

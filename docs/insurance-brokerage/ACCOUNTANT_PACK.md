@@ -212,9 +212,11 @@ Proposed, for the accountant to confirm.
 - **Recognition criteria.** A brokerage-managed claim stays "approved, pending settlement" until a manager records the insurer's written confirmation that it will pay the brokerage. The confirmation reference is required and stored on the claim history. Only then does the journal in section 5.4 post. Claims approved before `20261017110000` were accrued at approval and are treated as recognised.
 - **Segregation of duties.** The person who registered a claim cannot approve it. Recognition and payment are not restricted by this rule.
 - **Un-approval.** An approved claim can return to "assessing" with a reason, but only while nothing has been recognised and nothing has been paid. Nothing is reversed, because nothing was posted. After recognition or any payment, un-approval is refused.
-- **Not built:** withdrawal, overpayment and recovery of a recognised claim (accountant answer 22), and excess or deductible handling (answer 21).
+- **Not built:** withdrawal, overpayment and recovery of a recognised claim (accountant answer 22). Excess handling (answer 21) was built in `20261106210000` (see section 9).
 
-### 5.11 Foreign currency (Phase A3, in progress)
+### 5.11 Foreign currency (Phase A3, closed 21 October 2026)
+
+> **Update 7 November 2026:** the first-draft text below is superseded. Realised gain or loss, period-end revaluation, foreign-currency open items, settlements, bank reconciliation, policy bind, endorsements and claims are all built. See `ROADMAP.md` section 7 and `CURRENCY_REVIEW.md`, and section 9 below for what to review.
 
 Built so far, with no effect on any company that has no foreign-currency lines (every company is UGX today, and no module yet passes a currency to the posting gateway):
 
@@ -223,7 +225,7 @@ Built so far, with no effect on any company that has no foreign-currency lines (
 - **Void at the original rate** (`20261017140000`). A voided foreign journal reverses each line at its original currency and rate, so base amounts net to zero and a reversed rounding line stays flagged as rounding.
 - **Ledger view** (`20261017130000`). The general ledger view shows rate and base debit and credit.
 
-Not built: realised gain or loss at settlement, period-end revaluation at the closing rate, foreign-currency open items, settlements and bank reconciliation. The expected policy (transaction-date rate at recognition, closing rate for monetary items, differences to profit and loss, original rates never overwritten) is recorded in `ROADMAP.md` section 6 and is not yet implemented or signed off.
+Not built when this section was written (all since built, see the update above): realised gain or loss at settlement, period-end revaluation at the closing rate, foreign-currency open items, settlements and bank reconciliation. The expected policy (transaction-date rate at recognition, closing rate for monetary items, differences to profit and loss, original rates never overwritten) is recorded in `ROADMAP.md` section 6 and is not yet implemented or signed off.
 
 ## 6. Reporting
 
@@ -257,3 +259,14 @@ Accountant name: ______________________ Date: ____________ Signature: __________
 - Reversal rules and accounting: `POLICY_REVERSAL.md`.
 - Test evidence: `supabase/tests/test_ins_*.sql` (run in CI), including `test_ins_commission*.sql` and `test_ins_policy_reversal.sql`.
 - Local UAT data: the Pearl Risk Brokers Ltd (UAT) tenant in `supabase/seed.sql` section 6 holds bound policies and a claim for walk-through. It is local only and uses fictional data.
+
+## 9. Changes since 16 October 2026 (for review, not approved)
+
+Each item below is the software's current design and needs the accountant's confirmation. Details are in `ROADMAP.md` section 7 and the migrations named.
+
+- **Foreign currency, completed** (`20261017170000` to `20261021200000`): realised gain or loss at settlement and on credit notes, period-end revaluation to the closing rate with unrealised gain or loss (`fin_revalue_fx`), foreign-currency bank reconciliation, rates held to 8 decimals, no UGX column defaults. Account codes 4900, 4901, 5910, 5911 and 5900 are template defaults for the accountant to confirm.
+- **Endorsements** (`20261021220000`, `20261021230000`, `20261022100000`): additional premium bills the client and funds the insurer share; return premium raises a credit note capped at the original item's outstanding, with any excess raised as recovery items; commission clawbacks reduce the deferred pool first and the earned remainder reverses through commission income, recorded separately. Endorsement commission defaults to the original rate.
+- **Claim excess and documents** (`20261106210000`): four excess handling modes stored on the claim; excess is never brokerage income. **Reserve revisions** (`20261022090000`) keep a history of every reserve.
+- **Policy approval workflow** (`20261106180000` and repairs): binding requires an approved policy; segregation of duties applies to approval.
+- **Insurer statement reconciliation** (`20261106220000`): insurer-reported premium, claims and commission compared line by line with the brokerage's records. Read-only; it adjusts nothing.
+- **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Not yet built beyond staging and validation.

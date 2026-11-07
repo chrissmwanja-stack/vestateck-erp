@@ -147,7 +147,7 @@ Also shipped: `insurance` registered as a module (`20261008085228`), the BD docu
 - **10 (chart of accounts in seeding): closed.** The insurance template v0 (`20261008100625`) carried 18 `gl_account` and 18 `posting_rule` items; `20261011090000` adds account 2020 (Unearned Commission) and its rule, so the template now carries 19 of each.
 
 ### Seams not yet closed
-- **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** not started.
+- **14-17 (shared approval engine, generic notifications, document store, per-vertical shell):** partly built since this audit (checked 2026-11-07). A shared document store exists (`20261021100000`, used by insurance). Insurance writes to the platform `notifications` table with in-app links (`20261022110000`). Insurance runs its own approval workflows (policy, endorsement, cancellation) and there is no shared approval engine yet. A per-vertical shell is not started.
 - **Open decision:** whether `apply_template` into an existing tenant should leave `tenants.industry_template` unchanged. The only relabel today is in `seed_tenant_defaults` (first run).
 
 ### D4b-2 design (confirmed 2026-10-09)

@@ -36,6 +36,12 @@ verify_jwt = true
 [functions.generate-po]
 verify_jwt = true
 
+# Authenticates the caller itself (Authorization header -> auth.getUser) and
+# re-checks insurance access in the policy's tenant, like generate-po; the
+# gateway JWT check stays on as the first layer.
+[functions.generate-ins-doc]
+verify_jwt = true
+
 [functions.invite-user]
 verify_jwt = true
 

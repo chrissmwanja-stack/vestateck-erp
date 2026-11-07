@@ -99,6 +99,10 @@ npm run test:e2e:ui
 Traces, screenshots, and video are captured only on failure
 (`playwright-report/`, `test-results/` — gitignored).
 
+## Not covered yet
+
+- **Insurance Brokerage** has no Playwright spec. A first one (client → policy → approval → bind → premium receipt → remittance, and later the in-force import) is planned. It needs the Pearl Risk Brokers UAT tenant from `supabase/seed.sql` section 6 (`ins.manager@test.local`), and document generation cannot be covered while the CI stack does not serve edge functions.
+
 ## Notes on how these are written
 
 - Tests correlate a request/invoice/run across screens by a **unique
