@@ -135,8 +135,8 @@ select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i
 
 -- an existing policy number, to prove POLICY_EXISTS
 insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id,
-                          inception_date, expiry_date)
-select ta, 'EXIST-1', m.client_id, m.insurer_id, m.product_line_id, date '2026-01-01', date '2026-12-31'
+                          inception_date, expiry_date, currency)
+select ta, 'EXIST-1', m.client_id, m.insurer_id, m.product_line_id, date '2026-01-01', date '2026-12-31', 'UGX'
 from pg_temp.q_ids, pg_temp.q_master m;
 select set_config('ins.via_rpc', 'off', true);
 
