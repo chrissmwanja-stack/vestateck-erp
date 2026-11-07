@@ -179,7 +179,7 @@ export default function EditInvoice() {
         if (activeFilters.accountId) q = q.eq('vendor_account_id', activeFilters.accountId);
         const { data, error: qErr } = await q;
         if (qErr) throw qErr;
-        (data ?? []).forEach((r: any) => {
+        (data ?? []).forEach((r) => {
           const acct = embedOne(r.vendor_account);
           const org = embedOne(r.organization);
           results.push({
@@ -218,7 +218,7 @@ export default function EditInvoice() {
         if (activeFilters.accountId) q = q.eq('client_account_id', activeFilters.accountId);
         const { data, error: qErr } = await q;
         if (qErr) throw qErr;
-        (data ?? []).forEach((r: any) => {
+        (data ?? []).forEach((r) => {
           const acct = embedOne(r.client_account);
           const org = embedOne(r.organization);
           results.push({

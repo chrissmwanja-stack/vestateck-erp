@@ -50,7 +50,7 @@ interface PayrollRun {
 
 interface PayrollItem {
   id: string;
-  net_pay: number;
+  net_pay: number | null;
   employee_name: string;
   employee_no: string;
 }
@@ -85,7 +85,7 @@ function RunBreakdown({ runId }: { runId: string }) {
       .order('id')
       .then(({ data }) => {
         setItems(
-          ((data ?? []) as any[]).map((r) => ({
+          (data ?? []).map((r) => ({
             id: r.id,
             net_pay: r.net_pay,
             employee_name: r.hr_employees ? `${r.hr_employees.first_name} ${r.hr_employees.last_name}` : '—',
@@ -168,7 +168,7 @@ export default function PayrollDisbursement() {
         .select('payroll_run_id, net_pay')
         .in('payroll_run_id', rows.map((r) => r.id));
       const totals: Record<string, number> = {};
-      (itemRows ?? []).forEach((r: any) => {
+      (itemRows ?? []).forEach((r) => {
         totals[r.payroll_run_id] = (totals[r.payroll_run_id] ?? 0) + Number(r.net_pay);
       });
       setTotalsByRun(totals);
