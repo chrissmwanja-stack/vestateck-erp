@@ -52,7 +52,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
   'l-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-from (select a1 as id from pg_temp.l_ids union all select a2) u;
+from (select a1 as id from pg_temp.l_ids union all select a2 from pg_temp.l_ids) u;
 
 insert into app_users (id, tenant_id, name, email)
 select i.a1, i.ta, 'Admin One', 'l-' || i.a1 || '@test.local' from pg_temp.l_ids i
