@@ -28,12 +28,26 @@ create function pg_temp.expect_state(p_sql text, p_state text, p_label text)
 returns void language plpgsql as $$
 begin
   begin
+    -- Probe as the API role: the owner role bypasses RLS and would never be denied.
+    -- The SET LOCAL is undone with the subtransaction when the statement fails.
+    set local role authenticated;
     execute p_sql;
   exception when others then
     if sqlstate = p_state then return; end if;
     raise exception 'FAIL: % raised sqlstate % (%), expected %', p_label, sqlstate, sqlerrm, p_state;
   end;
+  reset role;
   raise exception 'FAIL: % succeeded but should have failed with sqlstate %', p_label, p_state;
+end $$;
+
+create function pg_temp.scalar_as_user(p_sql text) returns text
+language plpgsql as $$
+declare v text;
+begin
+  set local role authenticated;
+  execute p_sql into v;
+  reset role;
+  return v;
 end $$;
 
 create function pg_temp.assert(p_ok boolean, p_msg text)
@@ -73,7 +87,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
   'n-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-from (select mgr as id from pg_temp.n_ids union all select mem union all select mgr_b) u;
+from (select mgr as id from pg_temp.n_ids union all select mem from pg_temp.n_ids union all select mgr_b from pg_temp.n_ids) u;
 
 insert into app_users (id, tenant_id, name, email)
 select i.mgr, i.ta, 'N Manager A', 'n-' || i.mgr || '@test.local' from pg_temp.n_ids i
@@ -88,31 +102,59 @@ select ta, mgr, 'insurance', 'manager' from pg_temp.n_ids
 union all select ta, mem, 'insurance', 'member' from pg_temp.n_ids
 union all select tb, mgr_b, 'insurance', 'manager' from pg_temp.n_ids;
 
+select set_config('ins.via_rpc', 'on', true);  -- fixture clients start verified
 create temp table pg_temp.n_master as
 with ins as (
   insert into ins_insurers (tenant_id, code, name) select ta, 'NINS', 'N Insurer' from pg_temp.n_ids returning id
 ), line as (
   insert into ins_product_lines (tenant_id, code, name, class) select ta, 'GEN', 'General', 'general' from pg_temp.n_ids returning id
+), bdc as (
+  insert into bd_clients (tenant_id, name)
+  select ta, 'N Client' from pg_temp.n_ids returning id, tenant_id
 ), cli as (
-  insert into ins_clients (tenant_id, name, kyc_status) select ta, 'N Client', 'verified' from pg_temp.n_ids returning id
+  insert into ins_clients (tenant_id, client_id, client_type, kyc_status)
+  select tenant_id, id, 'corporate', 'verified' from bdc returning id
 )
 select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i, line l, cli c;
+select set_config('ins.via_rpc', 'off', true);
 
--- two active policies expiring soon in tenant A, one far-future, one in tenant B
+-- tenant B has its own master data (a policy may only reference its own tenant's records)
+select set_config('ins.via_rpc', 'on', true);  -- fixture clients start verified
+create temp table pg_temp.n_master_b as
+with ins as (
+  insert into ins_insurers (tenant_id, code, name) select tb, 'NINSB', 'N Insurer B' from pg_temp.n_ids returning id
+), line as (
+  insert into ins_product_lines (tenant_id, code, name, class) select tb, 'GENB', 'General B', 'general' from pg_temp.n_ids returning id
+), bdc as (
+  insert into bd_clients (tenant_id, name)
+  select tb, 'N Client B' from pg_temp.n_ids returning id, tenant_id
+), cli as (
+  insert into ins_clients (tenant_id, client_id, client_type, kyc_status)
+  select tenant_id, id, 'corporate', 'verified' from bdc returning id
+)
+select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i, line l, cli c;
+select set_config('ins.via_rpc', 'off', true);
+
+-- two active policies expiring soon in tenant A, one far-future, one in tenant B.
+-- Written directly (as the owner, through the RPC channel), so the bound stamps
+-- that ins_policies_bound_check demands for an active policy are supplied here.
+select set_config('ins.via_rpc', 'on', true);
 create temp table pg_temp.n_policies as
-with m as (select * from pg_temp.n_master), i as (select * from pg_temp.n_ids),
+with m as (select * from pg_temp.n_master), mb as (select * from pg_temp.n_master_b), i as (select * from pg_temp.n_ids),
 ins as (
-  insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date, gross_premium, currency)
-  select i.ta, 'POL-SOON-1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 300, current_date + 30, 100000, 'UGX' from m, i
+  insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date,
+                            gross_premium, currency, commission_amount, net_premium_to_insurer, bound_at)
+  select i.ta, 'POL-SOON-1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 300, current_date + 30, 100000, 'UGX', 10000, 90000, now() from m, i
   union all
-  select i.ta, 'POL-SOON-2', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 300, current_date + 60, 200000, 'UGX' from m, i
+  select i.ta, 'POL-SOON-2', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 300, current_date + 60, 200000, 'UGX', 20000, 180000, now() from m, i
   union all
-  select i.ta, 'POL-FAR', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 10, current_date + 300, 50000, 'UGX' from m, i
+  select i.ta, 'POL-FAR', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 10, current_date + 300, 50000, 'UGX', 5000, 45000, now() from m, i
   union all
-  select i.tb, 'POL-B', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 10, current_date + 20, 50000, 'UGX' from m, i
+  select i.tb, 'POL-B', mb.client_id, mb.insurer_id, mb.product_line_id, 'active', current_date - 10, current_date + 20, 50000, 'UGX', 5000, 45000, now() from mb, i
   returning id, policy_no
 )
 select id, policy_no from ins;
+select set_config('ins.via_rpc', 'off', true);
 
 ---------------------------------------------------------------------
 -- Scenarios
@@ -167,7 +209,7 @@ begin
     format('select public.ins_mark_renewal_notice_sent(%L)', n),
     'INS_NOTICE_NOT_FOUND', 'cross-tenant mark');
   perform pg_temp.assert(
-    pg_temp.scalar(format('select count(*)::text from public.ins_renewal_notices where id = %L', n)) = '0',
+    pg_temp.scalar_as_user(format('select count(*)::text from public.ins_renewal_notices where id = %L', n)) = '0',
     'cross-tenant select empty');
   perform pg_temp.assert(
     pg_temp.scalar(format('select count(*)::text from public.ins_renewal_notices where tenant_id = %L', i.ta)) = '2',

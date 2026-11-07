@@ -58,6 +58,7 @@ begin
   -- transaction, and a leaked 'on' would let the later direct-write probes
   -- through.
   perform set_config('ins.via_rpc', 'on', true);
+  update ins_policies set status = 'approved' where id = p_id and status = 'draft';
   update ins_policies set
     status = 'active',
     bound_at = coalesce(bound_at, now()),

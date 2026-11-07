@@ -294,6 +294,7 @@ begin
   );
 
   perform set_config('ins.via_rpc', 'on', true);
+  update ins_policies set status = 'approved' where id = v_pol.id and status = 'draft';
   update ins_policies
      set status = 'active',
          commission_amount = v_comm,

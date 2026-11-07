@@ -200,6 +200,7 @@ begin
   -- An active policy through the same channel bind uses (the bind's ledger
   -- behaviour is test_ins_core's subject; the stamps satisfy ins_policies_bound_check).
   perform pg_temp.via_on();
+  update ins_policies set status = 'approved' where id = p1.id and status = 'draft';
   update ins_policies
      set status = 'active', commission_amount = 31250, net_premium_to_insurer = 218750, bound_at = now()
    where id = p1.id;

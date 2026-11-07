@@ -83,6 +83,7 @@ begin
   -- Policy lists skip drafts, and claims/cash need a bound policy. Mark it active the
   -- way the write-test fixture does; binding itself is covered elsewhere.
   perform set_config('ins.via_rpc', 'on', true);
+  update ins_policies set status = 'approved' where id = p.id and status = 'draft';
   update ins_policies
      set status = 'active', bound_at = now(),
          commission_amount = round(gross_premium * 10 / 100, 2),

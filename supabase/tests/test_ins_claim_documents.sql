@@ -22,12 +22,44 @@ create function pg_temp.expect_state(p_sql text, p_state text, p_label text)
 returns void language plpgsql as $$
 begin
   begin
+    -- Probe as the API role: the owner role bypasses RLS and would never be denied.
+    -- The SET LOCAL is undone with the subtransaction when the statement fails.
+    set local role authenticated;
     execute p_sql;
   exception when others then
     if sqlstate = p_state then return; end if;
     raise exception 'FAIL: % raised sqlstate % (%), expected %', p_label, sqlstate, sqlerrm, p_state;
   end;
+  reset role;
   raise exception 'FAIL: % succeeded but should have failed with sqlstate %', p_label, p_state;
+end $$;
+
+create function pg_temp.expect_no_effect(p_sql text, p_label text)
+returns void language plpgsql as $$
+declare n bigint;
+begin
+  begin
+    set local role authenticated;
+    execute p_sql;
+    get diagnostics n = row_count;
+  exception when others then
+    if sqlstate = '42501' then return; end if;
+    raise exception 'FAIL: % raised % (%)', p_label, sqlstate, sqlerrm;
+  end;
+  reset role;
+  -- With RLS and no UPDATE/DELETE policy the statement is not an error: it
+  -- simply cannot see or change any row.
+  if n <> 0 then raise exception 'FAIL: % changed % row(s)', p_label, n; end if;
+end $$;
+
+create function pg_temp.scalar_as_user(p_sql text) returns text
+language plpgsql as $$
+declare v text;
+begin
+  set local role authenticated;
+  execute p_sql into v;
+  reset role;
+  return v;
 end $$;
 
 create function pg_temp.assert(p_ok boolean, p_msg text)
@@ -67,7 +99,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
   'c-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-from (select mgr as id from pg_temp.c_ids union all select mem union all select mgr_b) u;
+from (select mgr as id from pg_temp.c_ids union all select mem from pg_temp.c_ids union all select mgr_b from pg_temp.c_ids) u;
 
 insert into app_users (id, tenant_id, name, email)
 select i.mgr, i.ta, 'C Manager A', 'c-' || i.mgr || '@test.local' from pg_temp.c_ids i
@@ -82,26 +114,38 @@ select ta, mgr, 'insurance', 'manager' from pg_temp.c_ids
 union all select ta, mem, 'insurance', 'member' from pg_temp.c_ids
 union all select tb, mgr_b, 'insurance', 'manager' from pg_temp.c_ids;
 
+select set_config('ins.via_rpc', 'on', true);  -- fixture clients start verified
 create temp table pg_temp.c_master as
 with ins as (
   insert into ins_insurers (tenant_id, code, name) select ta, 'CINS', 'C Insurer' from pg_temp.c_ids returning id
 ), line as (
   insert into ins_product_lines (tenant_id, code, name, class) select ta, 'GEN', 'General', 'general' from pg_temp.c_ids returning id
+), bdc as (
+  insert into bd_clients (tenant_id, name)
+  select ta, 'C Client' from pg_temp.c_ids returning id, tenant_id
 ), cli as (
-  insert into ins_clients (tenant_id, name, kyc_status) select ta, 'C Client', 'verified' from pg_temp.c_ids returning id
+  insert into ins_clients (tenant_id, client_id, client_type, kyc_status)
+  select tenant_id, id, 'corporate', 'verified' from bdc returning id
 )
 select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i, line l, cli c;
+select set_config('ins.via_rpc', 'off', true);
 
+select set_config('ins.via_rpc', 'on', true);  -- fixture policy written directly
 create temp table pg_temp.c_claim as
 with m as (select * from pg_temp.c_master), i as (select * from pg_temp.c_ids),
 pol as (
-  insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date, gross_premium, currency)
-  select i.ta, 'POL-C1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 100, current_date + 265, 100000, 'UGX' from m, i
+  insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date,
+                            gross_premium, currency, commission_amount, net_premium_to_insurer, bound_at)
+  select i.ta, 'POL-C1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 100, current_date + 265,
+         100000, 'UGX', 10000, 90000, now() from m, i
   returning id
+), clm as (
+  insert into ins_claims (tenant_id, claim_no, policy_id, status, loss_date, notified_date, loss_description, reserve_amount)
+  select i.ta, 'CLM-C1', pol.id, 'assessing', current_date - 5, current_date - 4, 'Test loss', 50000 from pol, i
+  returning id as claim_id
 )
-insert into ins_claims (tenant_id, claim_no, policy_id, status, loss_date, notified_date, loss_description, reserve_amount)
-select i.ta, 'CLM-C1', pol.id, 'assessing', current_date - 5, current_date - 4, 'Test loss', 50000 from pol, i
-returning id as claim_id;
+select claim_id from clm;
+select set_config('ins.via_rpc', 'off', true);
 
 ---------------------------------------------------------------------
 -- Scenarios
@@ -166,7 +210,7 @@ begin
     format('select public.ins_set_claim_document(%L, ''police_report'', ''provided'')', cl),
     'INS_CLAIM_NOT_FOUND', 'cross-tenant doc write');
   perform pg_temp.assert(
-    pg_temp.scalar(format('select count(*)::text from public.ins_claim_documents where claim_id = %L', cl)) = '0',
+    pg_temp.scalar_as_user(format('select count(*)::text from public.ins_claim_documents where claim_id = %L', cl)) = '0',
     'cross-tenant select empty');
 end $$;
 

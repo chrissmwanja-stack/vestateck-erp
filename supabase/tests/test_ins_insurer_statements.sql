@@ -18,6 +18,16 @@ begin
   raise exception 'FAIL: % succeeded but should have failed with %', p_label, p_needle;
 end $$;
 
+create function pg_temp.scalar_as_user(p_sql text) returns text
+language plpgsql as $$
+declare v text;
+begin
+  set local role authenticated;
+  execute p_sql into v;
+  reset role;
+  return v;
+end $$;
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -55,7 +65,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
   's-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-from (select mgr as id from pg_temp.s_ids union all select mem union all select mgr_b) u;
+from (select mgr as id from pg_temp.s_ids union all select mem from pg_temp.s_ids union all select mgr_b from pg_temp.s_ids) u;
 
 insert into app_users (id, tenant_id, name, email)
 select i.mgr, i.ta, 'S Manager A', 's-' || i.mgr || '@test.local' from pg_temp.s_ids i
@@ -70,27 +80,43 @@ select ta, mgr, 'insurance', 'manager' from pg_temp.s_ids
 union all select ta, mem, 'insurance', 'member' from pg_temp.s_ids
 union all select tb, mgr_b, 'insurance', 'manager' from pg_temp.s_ids;
 
+select set_config('ins.via_rpc', 'on', true);  -- fixture clients start verified
 create temp table pg_temp.s_master as
 with ins as (
   insert into ins_insurers (tenant_id, code, name) select ta, 'SINS', 'S Insurer' from pg_temp.s_ids returning id
 ), line as (
   insert into ins_product_lines (tenant_id, code, name, class) select ta, 'GEN', 'General', 'general' from pg_temp.s_ids returning id
+), bdc as (
+  insert into bd_clients (tenant_id, name)
+  select ta, 'S Client' from pg_temp.s_ids returning id, tenant_id
 ), cli as (
-  insert into ins_clients (tenant_id, name, kyc_status) select ta, 'S Client', 'verified' from pg_temp.s_ids returning id
+  insert into ins_clients (tenant_id, client_id, client_type, kyc_status)
+  select tenant_id, id, 'corporate', 'verified' from bdc returning id
 )
 select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i, line l, cli c;
+select set_config('ins.via_rpc', 'off', true);
 
+select set_config('ins.via_rpc', 'on', true);  -- fixtures written directly as the owner
 create temp table pg_temp.s_policy as
-with m as (select * from pg_temp.s_master), i as (select * from pg_temp.s_ids)
-insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date, gross_premium, currency)
-select i.ta, 'POL-S1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 100, current_date + 265, 100000, 'UGX' from m, i
-returning id as policy_id;
+with m as (select * from pg_temp.s_master), i as (select * from pg_temp.s_ids),
+pol as (
+  insert into ins_policies (tenant_id, policy_no, client_id, insurer_id, product_line_id, status, inception_date, expiry_date,
+                            gross_premium, currency, commission_amount, net_premium_to_insurer, bound_at)
+  select i.ta, 'POL-S1', m.client_id, m.insurer_id, m.product_line_id, 'active', current_date - 100, current_date + 265,
+         100000, 'UGX', 10000, 90000, now() from m, i
+  returning id as policy_id
+)
+select policy_id from pol;
 
 create temp table pg_temp.s_claim as
-with p as (select * from pg_temp.s_policy), i as (select * from pg_temp.s_ids)
-insert into ins_claims (tenant_id, claim_no, policy_id, status, loss_date, notified_date, loss_description, paid_amount)
-select i.ta, 'CLM-S1', p.policy_id, 'settled', current_date - 5, current_date - 4, 'Test', 20000 from p, i
-returning id as claim_id;
+with p as (select * from pg_temp.s_policy), i as (select * from pg_temp.s_ids),
+clm as (
+  insert into ins_claims (tenant_id, claim_no, policy_id, status, loss_date, notified_date, loss_description, paid_amount)
+  select i.ta, 'CLM-S1', p.policy_id, 'settled', current_date - 5, current_date - 4, 'Test', 20000 from p, i
+  returning id as claim_id
+)
+select claim_id from clm;
+select set_config('ins.via_rpc', 'off', true);
 
 ---------------------------------------------------------------------
 -- Scenarios
@@ -109,6 +135,12 @@ begin
 
   -- member cannot record a statement (manager tier)
   perform pg_temp.jwt(i.mem);
+  perform pg_temp.expect_error(
+    format('select public.ins_record_insurer_statement(%L, ''ST-1'', current_date - 30, current_date, ''[]''::jsonb)', m.insurer_id),
+    'INS_ACCESS_DENIED', 'member cannot record a statement');
+
+  -- a manager is refused an empty statement
+  perform pg_temp.jwt(i.mgr);
   perform pg_temp.expect_error(
     format('select public.ins_record_insurer_statement(%L, ''ST-1'', current_date - 30, current_date, ''[]''::jsonb)', m.insurer_id),
     'INS_STATEMENT_NO_LINES', 'empty lines refused');
@@ -148,7 +180,7 @@ begin
     format('select public.ins_insurer_statement_reconciliation(%L)', stmt),
     'INS_STATEMENT_NOT_FOUND', 'cross-tenant reconcile');
   perform pg_temp.assert(
-    pg_temp.scalar(format('select count(*)::text from public.ins_insurer_statements where id = %L', stmt)) = '0',
+    pg_temp.scalar_as_user(format('select count(*)::text from public.ins_insurer_statements where id = %L', stmt)) = '0',
     'cross-tenant select empty');
 end $$;
 

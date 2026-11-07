@@ -518,7 +518,7 @@ begin
   perform pg_temp.jwt(u_mem);
   set local role authenticated;
   perform pg_temp.motor_cert(p1.id);
-  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p1.id), 'INS_FORBIDDEN', 'member binding a policy');
+  perform pg_temp.expect_error(format('select public.ins_bind_policy(%L)', p1.id), 'INS_FORBIDDEN', 'member binding a policy');
   reset role;
 
   v_j0 := pg_temp.n_bind_journals(v_ta);
@@ -992,12 +992,12 @@ begin
     not has_function_privilege('anon', 'public.ins_register_client(text,text,text,text,text,text)', 'execute')
     and not has_function_privilege('anon', 'public.ins_create_policy(uuid,uuid,uuid,date,date,numeric,text,numeric,numeric,text,text)', 'execute')
     and not has_function_privilege('anon', 'public.ins_create_renewal_draft(uuid)', 'execute')
-    and not has_function_privilege('anon', 'public.pg_temp.approve_and_bind(uuid)', 'execute')
+    and not has_function_privilege('anon', 'public.ins_bind_policy(uuid)', 'execute')
     and not has_function_privilege('anon', 'public.ins_create_claim(uuid,date,date,text,text,numeric)', 'execute')
     and not has_function_privilege('anon', 'public.ins_transition_claim(uuid,text,text,numeric)', 'execute'),
     'anon must not execute any insurance RPC');
   perform pg_temp.assert(
-    has_function_privilege('authenticated', 'public.pg_temp.approve_and_bind(uuid)', 'execute')
+    has_function_privilege('authenticated', 'public.ins_bind_policy(uuid)', 'execute')
     and not has_function_privilege('authenticated', 'public.ins_ensure_client_account(uuid)', 'execute')
     and not has_function_privilege('authenticated', 'public.ins_ensure_insurer_account(uuid)', 'execute'),
     'clients run the RPCs but not the internal party-account helpers');
@@ -1013,7 +1013,7 @@ begin
 
   set local role anon;
   perform pg_temp.expect_error('select count(*) from ins_policies', 'permission denied', 'anon reading policies');
-  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p_d.id), 'permission denied', 'anon binding a policy');
+  perform pg_temp.expect_error(format('select public.ins_bind_policy(%L)', p_d.id), 'permission denied', 'anon binding a policy');
   reset role;
 
   -- The audit trail is read-only for clients. The baseline's default privileges
@@ -1057,7 +1057,7 @@ begin
                          'tenant B reads nothing of tenant A');
   perform pg_temp.assert((select count(*) from ins_policies) = 1, 'tenant B sees only its own policy');
   perform pg_temp.motor_cert(p_d.id);
-  perform pg_temp.expect_state(format('select pg_temp.approve_and_bind(%L)', p_d.id), '42501', 'tenant B binding tenant A''s policy');
+  perform pg_temp.expect_state(format('select public.ins_bind_policy(%L)', p_d.id), '42501', 'tenant B binding tenant A''s policy');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)', p1.id), 'INS_NOT_FOUND', 'tenant B renewing tenant A''s policy');
   perform pg_temp.expect_error(format('select pg_temp.newclaim(%L, current_date - 5, current_date, ''Loss'', 0)', p1.id), 'INS_NOT_FOUND: policy', 'tenant B claiming on tenant A''s policy');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'')', cl_ren.id), 'INS_NOT_FOUND: claim', 'tenant B moving tenant A''s claim');
@@ -1077,7 +1077,7 @@ begin
                          and (select count(*) from ins_claim_events) = 0,
                          'a user with no insurance role reads nothing');
   perform pg_temp.motor_cert(p_d.id);
-  perform pg_temp.expect_error(format('select pg_temp.approve_and_bind(%L)', p_d.id), 'INS_FORBIDDEN', 'outsider binding');
+  perform pg_temp.expect_error(format('select public.ins_bind_policy(%L)', p_d.id), 'INS_FORBIDDEN', 'outsider binding');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)', p1.id), 'INS_FORBIDDEN', 'outsider renewing');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'')', cl_ren.id), 'INS_FORBIDDEN', 'outsider moving a claim');
   reset role;

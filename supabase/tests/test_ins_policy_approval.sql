@@ -61,7 +61,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated',
   'ap-' || u.id || '@test.local', extensions.crypt('Tester123', extensions.gen_salt('bf')),
   now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', ''
-from (select mgr as id from pg_temp.a_ids union all select mem union all select mgr2 union all select out union all select mgr_b) u;
+from (select mgr as id from pg_temp.a_ids union all select mem from pg_temp.a_ids union all select mgr2 from pg_temp.a_ids union all select out from pg_temp.a_ids union all select mgr_b from pg_temp.a_ids) u;
 
 insert into app_users (id, tenant_id, name, email)
 select i.mgr, i.ta, 'Manager A', 'ap-' || i.mgr || '@test.local' from pg_temp.a_ids i
@@ -79,6 +79,7 @@ union all select ta, mem, 'insurance', 'member' from pg_temp.a_ids
 union all select ta, mgr2, 'insurance', 'manager' from pg_temp.a_ids
 union all select tb, mgr_b, 'insurance', 'manager' from pg_temp.a_ids;
 
+select set_config('ins.via_rpc', 'on', true);  -- fixture clients start verified
 create temp table pg_temp.a_master as
 with ins as (
   insert into ins_insurers (tenant_id, code, name, is_active)
@@ -86,11 +87,15 @@ with ins as (
 ), line as (
   insert into ins_product_lines (tenant_id, code, name, class, is_active)
   select ta, 'GEN', 'General', 'general', true from pg_temp.a_ids returning id
+), bdc as (
+  insert into bd_clients (tenant_id, name)
+  select ta, 'A Client' from pg_temp.a_ids returning id, tenant_id
 ), cli as (
-  insert into ins_clients (tenant_id, name, kyc_status)
-  select ta, 'A Client', 'verified' from pg_temp.a_ids returning id
+  insert into ins_clients (tenant_id, client_id, client_type, kyc_status)
+  select tenant_id, id, 'corporate', 'verified' from bdc returning id
 )
 select i.id as insurer_id, l.id as product_line_id, c.id as client_id from ins i, line l, cli c;
+select set_config('ins.via_rpc', 'off', true);
 
 ---------------------------------------------------------------------
 -- Scenarios
@@ -151,9 +156,11 @@ begin
 
   -- now bind guard allows active (via RPC flag path is inside ins_bind_policy;
   -- here we only assert the trigger permits approved -> active)
+  perform set_config('ins.via_rpc', 'on', true);
   perform pg_temp.expect_error(
     format('update public.ins_policies set status = ''draft'' where id = %L', pol),
     'INS_STATUS_INVALID', 'approved cannot return to draft');
+  perform set_config('ins.via_rpc', 'off', true);
 
   -- rejection path: new policy, submit by mem, reject by mgr2 -> back to draft
   perform pg_temp.jwt(i.mem);
