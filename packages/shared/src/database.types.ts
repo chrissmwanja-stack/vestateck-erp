@@ -14366,6 +14366,10 @@ export type Database = {
       }
     }
     Functions: {
+      acct_assert_reviewed: {
+        Args: { p_key: string; p_on?: string }
+        Returns: string
+      }
       acct_get_policy_version: { Args: { p_on?: string }; Returns: number }
       acct_get_setting: {
         Args: { p_key: string; p_on?: string }

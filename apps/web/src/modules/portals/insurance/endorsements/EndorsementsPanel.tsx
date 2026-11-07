@@ -1,6 +1,7 @@
 // Endorsements on a policy: the propose dialog (insurance managers), the
 // endorsements list, and the Finance maker/checker controls. The money math is
 // server-side; this panel only shapes the request and shows the calculation.
+import EndorsementNotes from './EndorsementNotes';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,Button, Card, CardContent, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -42,6 +43,7 @@ export default function EndorsementsPanel({
   const [notice, setNotice] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [notesRow, setNotesRow] = useState<EndorsementRow | null>(null);
   const [effective, setEffective] = useState(today());
   const [terms, setTerms] = useState<EndorsementTermsDraft[]>([]);
   const [changes, setChanges] = useState<EndorsementChangesDraft>({ sum_insured: '', risk_description: '', notes: '' });
@@ -255,6 +257,9 @@ export default function EndorsementsPanel({
                     </TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button size="small" onClick={() => setNotesRow(notesRow?.id === row.id ? null : row)}>
+                          Notes
+                        </Button>
                         {canManage && isLive(row.status) && (
                           <Button size="small" onClick={() => setWithdrawRow(row)}>
                             Withdraw
@@ -289,6 +294,11 @@ export default function EndorsementsPanel({
                   </TableRow>
                 );
               })}
+              {notesRow && (
+                <TableRow><TableCell colSpan={6}>
+                  <EndorsementNotes endorsementId={notesRow.id} />
+                </TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
         )}

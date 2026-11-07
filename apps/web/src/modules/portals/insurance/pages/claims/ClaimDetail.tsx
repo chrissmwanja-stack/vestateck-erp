@@ -14,6 +14,7 @@ import {
 import type { Claim, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
 import ClaimPayments from './ClaimPayments';
+import ClaimDocuments from './ClaimDocuments';
 
 // Each transition the UI can offer and what it needs from the user.
 type Step = { to: ClaimStatus; label: string; needsAmount?: boolean; needsNote?: boolean; note: string };
@@ -196,7 +197,8 @@ export default function ClaimDetail() {
         </Grid>
       </Grid>
 
-      <ClaimPayments claim={claim} currency={currency} canManage={canManage} onChanged={load} />
+      <ClaimDocuments claimId={claim.id} />
+        <ClaimPayments claim={claim} currency={currency} canManage={canManage} onChanged={load} />
 
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Reserve history</Typography>
       <Card variant="outlined">
