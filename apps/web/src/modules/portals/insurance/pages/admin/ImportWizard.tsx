@@ -127,7 +127,8 @@ export default function ImportWizard() {
         {active === 1 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={validate}>Run validation</Button>}
         {active === 2 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={commit}>Commit policies</Button>}
         {active === 3 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={postOpening}>Post opening position</Button>}
-        {active === 4 && (
+        {/* >= 4: reconcile() advances to step 5 (all steps complete); the result table must stay on screen. */}
+        {active >= 4 && (
           <Stack spacing={2}>
             <Button variant="contained" disabled={busy || !batch} onClick={reconcile}>Run reconciliation</Button>
             <Table size="small">
