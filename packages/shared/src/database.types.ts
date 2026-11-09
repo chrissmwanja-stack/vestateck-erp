@@ -219,6 +219,7 @@ export type Database = {
           created_at: string
           default_value: string
           description: string
+          implemented_values: string[]
           key: string
           label: string
           requires_legal_review: boolean
@@ -228,6 +229,7 @@ export type Database = {
           created_at?: string
           default_value: string
           description: string
+          implemented_values?: string[]
           key: string
           label: string
           requires_legal_review?: boolean
@@ -237,6 +239,7 @@ export type Database = {
           created_at?: string
           default_value?: string
           description?: string
+          implemented_values?: string[]
           key?: string
           label?: string
           requires_legal_review?: boolean
@@ -6035,6 +6038,7 @@ export type Database = {
           accounting_policy_version: number
           committed_at: string | null
           committed_by: string | null
+          control_totals: Json
           created_at: string
           created_by: string | null
           cut_over_date: string
@@ -6050,6 +6054,7 @@ export type Database = {
           accounting_policy_version?: number
           committed_at?: string | null
           committed_by?: string | null
+          control_totals?: Json
           created_at?: string
           created_by?: string | null
           cut_over_date: string
@@ -6065,6 +6070,7 @@ export type Database = {
           accounting_policy_version?: number
           committed_at?: string | null
           committed_by?: string | null
+          control_totals?: Json
           created_at?: string
           created_by?: string | null
           cut_over_date?: string
@@ -6117,6 +6123,158 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ins_import_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_import_receipts: {
+        Row: {
+          amount: number
+          batch_id: string
+          created_at: string
+          id: string
+          policy_id: string
+          receipt_date: string
+          reference: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          batch_id: string
+          created_at?: string
+          id?: string
+          policy_id: string
+          receipt_date: string
+          reference?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          batch_id?: string
+          created_at?: string
+          id?: string
+          policy_id?: string
+          receipt_date?: string
+          reference?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_import_receipts_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "ins_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_import_receipts_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_receipts_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_import_receipts_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_receipts_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_receipts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_import_remittances: {
+        Row: {
+          amount: number
+          batch_id: string
+          created_at: string
+          id: string
+          policy_id: string
+          reference: string | null
+          remit_date: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          batch_id: string
+          created_at?: string
+          id?: string
+          policy_id: string
+          reference?: string | null
+          remit_date: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          batch_id?: string
+          created_at?: string
+          id?: string
+          policy_id?: string
+          reference?: string | null
+          remit_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_import_remittances_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "ins_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_import_remittances_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_remittances_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_import_remittances_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_remittances_policy_fk"
+            columns: ["tenant_id", "policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["tenant_id", "policy_id"]
+          },
+          {
+            foreignKeyName: "ins_import_remittances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -17476,6 +17634,7 @@ export type Database = {
           accounting_policy_version: number
           committed_at: string | null
           committed_by: string | null
+          control_totals: Json
           created_at: string
           created_by: string | null
           cut_over_date: string
@@ -17493,6 +17652,24 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_import_post_opening_position: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
+      ins_import_reconciliation: {
+        Args: { p_batch_id: string }
+        Returns: {
+          control_amount: number
+          currency: string
+          imported_amount: number
+          match: boolean
+          measure: string
+        }[]
+      }
+      ins_import_record_history: {
+        Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
+        Returns: Json
       }
       ins_import_save_profile: {
         Args: { p_mapping: Json; p_name: string }
