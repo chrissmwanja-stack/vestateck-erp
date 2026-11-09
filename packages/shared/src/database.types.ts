@@ -14636,6 +14636,7 @@ export type Database = {
         Args: { p_key: string; p_on?: string }
         Returns: Json
       }
+      acct_setting_min_effective_date: { Args: { p_key: string }; Returns: string }
       acct_policy_approve: {
         Args: { p_id: string }
         Returns: {

@@ -61,16 +61,16 @@ union all select i.a2, i.ta, 'Admin Two', 'l-' || i.a2 || '@test.local', true fr
 
 -- a legal-review key definition
 insert into public.accounting_setting_definitions
-  (key, label, description, allowed_values, default_value, requires_legal_review)
+  (key, label, description, allowed_values, implemented_values, default_value, requires_legal_review)
 values ('ins.agent_commission_wht', 'WHT on agent commission', 'legal applicability',
-        array['applicable','not_applicable'], 'applicable', true)
+        array['applicable','not_applicable'], array['applicable','not_applicable'], 'applicable', true)
 on conflict (key) do nothing;
 
 -- a non-legal key
 insert into public.accounting_setting_definitions
-  (key, label, description, allowed_values, default_value, requires_legal_review)
+  (key, label, description, allowed_values, implemented_values, default_value, requires_legal_review)
 values ('ins.commission_recognition_test', 'Recognition', 'accounting choice',
-        array['a','b'], 'a', false)
+        array['a','b'], array['a','b'], 'a', false)
 on conflict (key) do nothing;
 
 ---------------------------------------------------------------------

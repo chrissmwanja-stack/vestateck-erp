@@ -36,8 +36,20 @@ interface SettingRow {
   created_by: string;
 }
 
+// One entry of acct_settings_overview(): the value in force today, resolved by the server.
+interface OverviewRow {
+  key: string;
+  value: string;
+  source: 'configured' | 'default';
+  effective_from: string | null;
+  setting_id: string | null;
+  review_status: 'unreviewed' | 'reviewed';
+}
+
 export default function AccountingSettingsAdmin() {
   const [defs, setDefs] = useState<DefinitionRow[]>([]);
+  const [overview, setOverview] = useState<OverviewRow[]>([]);
+  const [minDate, setMinDate] = useState('');
   const [settings, setSettings] = useState<SettingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,15 +62,17 @@ export default function AccountingSettingsAdmin() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, s] = await Promise.all([
+      const [d, s, o] = await Promise.all([
         rows<DefinitionRow>(table('accounting_setting_definitions').select('*').order('key')),
         rows<SettingRow>(
           table('company_accounting_settings')
             .select('*')
             .order('setting_key').order('effective_from', { ascending: false })),
+        rpc<OverviewRow[]>('acct_settings_overview'),
       ]);
       setDefs(d);
       setSettings(s);
+      setOverview(o);
       setError(null);
     } catch (e) {
       setError(errorText(e));
@@ -69,8 +83,35 @@ export default function AccountingSettingsAdmin() {
 
   useEffect(() => { load(); }, [load]);
 
-  const liveFor = (key: string) =>
-    settings.find((s) => s.setting_key === key && s.status === 'approved');
+  // "In force" is decided by the server (acct_get_setting), never by the browser's clock:
+  // an approved choice dated in the future is scheduled, not live.
+  const liveFor = (key: string) => {
+    const o = overview.find((x) => x.key === key);
+    if (!o || o.source !== 'configured' || !o.setting_id) return undefined;
+    return settings.find((s) => s.id === o.setting_id);
+  };
+  const scheduledFor = (key: string) => {
+    const live = liveFor(key);
+    return settings
+      .filter((s) => s.setting_key === key && s.status === 'approved'
+        && s.id !== live?.id && (!live || s.effective_from > live.effective_from))
+      .sort((a, b) => a.effective_from.localeCompare(b.effective_from))[0];
+  };
+
+  // The earliest effective date the server will accept comes from the server too
+  // (after the previous approved choice and the latest posted journal entry).
+  const openPropose = async (d: DefinitionRow, live: SettingRow | undefined) => {
+    setError(null);
+    try {
+      const min = await rpc<string>('acct_setting_min_effective_date', { p_key: d.key });
+      const start = live && d.implemented_values.includes(live.value) ? live.value : d.default_value;
+      setMinDate(min);
+      setForm({ value: start, effective_from: min, rationale: '' });
+      setPropose(d);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
   const draftFor = (key: string) =>
     settings.find((s) => s.setting_key === key && s.status === 'draft');
 
@@ -142,6 +183,7 @@ export default function AccountingSettingsAdmin() {
               {defs.map((d) => {
                 const live = liveFor(d.key);
                 const draft = draftFor(d.key);
+                const next = scheduledFor(d.key);
                 return (
                   <TableRow key={d.key}>
                     <TableCell>
@@ -149,7 +191,14 @@ export default function AccountingSettingsAdmin() {
                       <Typography variant="caption" color="text.secondary">{d.description}</Typography>
                     </TableCell>
                     <TableCell>{live ? live.value : <em>default: {d.default_value}</em>}</TableCell>
-                    <TableCell>{live?.effective_from ?? '—'}</TableCell>
+                    <TableCell>
+                      {live?.effective_from ?? '—'}
+                      {next && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          then {next.value} from {next.effective_from}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip size="small"
                         label={live?.review_status ?? 'unreviewed'}
@@ -168,10 +217,7 @@ export default function AccountingSettingsAdmin() {
                         {live && live.review_status === 'unreviewed' && (
                           <Button size="small" onClick={() => setReview(live)}>Record review</Button>
                         )}
-                        <Button size="small" onClick={() => {
-                          setPropose(d);
-                          setForm({ value: live?.value ?? d.default_value, effective_from: new Date().toISOString().slice(0, 10), rationale: '' });
-                        }}>
+                        <Button size="small" onClick={() => openPropose(d, live)}>
                           {live ? 'Change…' : 'Set…'}
                         </Button>
                       </Stack>
@@ -202,7 +248,9 @@ export default function AccountingSettingsAdmin() {
               ))}
             </TextField>
             <TextField label="Effective from" type="date" InputLabelProps={{ shrink: true }}
-              inputProps={{ min: new Date().toISOString().slice(0, 10) }}
+              inputProps={{ min: minDate }}
+              helperText={`Earliest allowed: ${minDate} (after the previous choice and the last posted entry)`}
+              error={!!form.effective_from && form.effective_from < minDate}
               value={form.effective_from} fullWidth
               onChange={(e) => setForm({ ...form, effective_from: e.target.value })} />
             <TextField label="Rationale (required)" value={form.rationale} fullWidth multiline minRows={2}
@@ -211,7 +259,7 @@ export default function AccountingSettingsAdmin() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPropose(null)}>Cancel</Button>
-          <Button variant="contained" disabled={busy || !form.value || !form.effective_from || form.rationale.trim().length < 10}
+          <Button variant="contained" disabled={busy || !form.value || !form.effective_from || form.effective_from < minDate || form.rationale.trim().length < 10}
             onClick={submitPropose}>
             {busy ? 'Saving…' : 'Propose'}
           </Button>
