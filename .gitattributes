@@ -1,9 +1,5 @@
-﻿*.sh text eol=lf
+*.sh text eol=lf
 *.sql text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 packages/shared/src/database.types.ts text eol=lf
-supabase/migrations/*.sql text eol=lf
-supabase/migrations_archive/**/*.sql text eol=lfsupabase/migrations/*.sql text eol=lf
-supabase/migrations_archive/**/*.sql text eol=lf
-scripts/squash/*.sql text eol=lf
