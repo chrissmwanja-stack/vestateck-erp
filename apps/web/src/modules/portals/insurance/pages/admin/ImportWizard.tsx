@@ -8,13 +8,14 @@ import { useNavigate } from 'react-router-dom';
 import { parseCsv, type ParsedCsv } from '../../../../../lib/csvParser';
 import { parseXlsx } from '../../../../../lib/xlsxParser';
 import { useInsuranceAccess } from '../../access';
-import { errorText, rpc } from '../../db';
+import { errorText, rows, rpc, table } from '../../db';
 import { ErrorBanner, PageHeader } from '../../shared';
 
 // In-force portfolio import wizard (IN_FORCE_IMPORT.md build order step 4):
 // upload -> stage -> validate -> commit -> opening position -> reconcile.
 
 interface BatchRow { id: string; label: string; status: string; cut_over_date: string; error_count: number; }
+interface RowProblem { sheet: string; line: number; errors: { code: string; message: string }[]; }
 interface ReconRow { currency: string; measure: string; imported_amount: number; control_amount: number; match: boolean; }
 
 const STEPS = ['Upload & stage', 'Validate', 'Commit policies', 'Opening position', 'Reconcile'];
@@ -28,6 +29,7 @@ export default function ImportWizard() {
   const [batch, setBatch] = useState<BatchRow | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [recon, setRecon] = useState<ReconRow[]>([]);
+  const [problems, setProblems] = useState<RowProblem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,7 +73,18 @@ export default function ImportWizard() {
 
   const validate = () => run(async () => {
     if (!batch) throw new Error('No batch selected');
-    await rpc('ins_import_validate_batch', { p_batch_id: batch.id });
+    setProblems([]);
+    const report = await rpc<{ error_count: number }>('ins_import_validate_batch', { p_batch_id: batch.id });
+    if (report.error_count > 0) {
+      // The RPC records row errors and returns normally, so a refusal never
+      // happens here: stay on this step and show which rows failed.
+      setProblems(await rows<RowProblem>(
+        table('ins_import_rows').select('sheet,line,errors')
+          .eq('batch_id', batch.id).eq('status', 'error')
+          .order('sheet').order('line').limit(25)));
+      setBatch({ ...batch, status: 'staged', error_count: report.error_count });
+      throw new Error(`${report.error_count} row(s) failed validation. Fix the file and stage it again.`);
+    }
     setBatch({ ...batch, status: 'validated', error_count: 0 });
     setNotice('Validation passed.');
   }, 2);
@@ -124,7 +137,34 @@ export default function ImportWizard() {
             </Button>
           </Stack>
         )}
-        {active === 1 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={validate}>Run validation</Button>}
+        {active === 1 && (
+          <Stack spacing={2}>
+            <Button variant="contained" disabled={busy || !batch || !canManage} onClick={validate}>Run validation</Button>
+            {problems.length > 0 && (
+              <>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow><TableCell>Sheet</TableCell><TableCell>Line</TableCell><TableCell>Problem</TableCell></TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {problems.map((p) => (
+                      <TableRow key={p.sheet + p.line}>
+                        <TableCell>{p.sheet}</TableCell><TableCell>{p.line}</TableCell>
+                        <TableCell>{p.errors.map((e) => e.message).join('; ')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {(batch?.error_count ?? 0) > problems.length && (
+                  <Alert severity="info">Showing the first {problems.length} of {batch?.error_count} failing rows.</Alert>
+                )}
+                <Button onClick={() => { setProblems([]); setBatch(null); setError(null); setActive(0); }}>
+                  Back to upload
+                </Button>
+              </>
+            )}
+          </Stack>
+        )}
         {active === 2 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={commit}>Commit policies</Button>}
         {active === 3 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={postOpening}>Post opening position</Button>}
         {/* >= 4: reconcile() advances to step 5 (all steps complete); the result table must stay on screen. */}
