@@ -2,10 +2,10 @@ import { useCallback, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Step,
   StepLabel, Stepper, Table, TableBody, TableCell, TableHead, TableRow,
-  TextField, Typography,
+  TextField,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { parseCsv } from '../../../../../lib/csvParser';
+import { parseCsv, type ParsedCsv } from '../../../../../lib/csvParser';
 import { parseXlsx } from '../../../../../lib/xlsxParser';
 import { useInsuranceAccess } from '../../access';
 import { errorText, rpc } from '../../db';
@@ -49,14 +49,20 @@ export default function ImportWizard() {
     if (!file || !label || !cutOver) return;
     await run(async () => {
       const parsed = file.name.endsWith('.xlsx') ? await parseXlsx(file) : parseCsv(await file.text());
+      // A multi-sheet workbook parser may attach per-sheet rows; a CSV or a
+      // first-sheet-only parse has just `rows` (the policies sheet).
+      const sheets = (parsed as ParsedCsv & { sheets?: Record<string, Record<string, string>[]> }).sheets;
       const b = await rpc<BatchRow>('ins_import_create_batch', { p_label: label, p_cut_over_date: cutOver });
       setBatch(b);
       for (const sheet of ['policies', 'receipts', 'remittances', 'shares', 'control_totals']) {
-        const rows = parsed.sheets?.[sheet] ?? (sheet === 'policies' ? parsed.rows : []);
+        const rows = sheets?.[sheet] ?? (sheet === 'policies' ? parsed.rows : []);
         if (!rows.length) continue;
         await rpc('ins_import_stage_rows', {
           p_batch_id: b.id, p_sheet: sheet,
-          p_rows: rows.map((r, i) => ({ line: i + 1, raw: r })),
+          // ins_import_stage_rows takes the flat row objects and numbers the
+          // lines itself; wrapping them as {line, raw} buried every field one
+          // level down, so validation saw no legacy_policy_no etc.
+          p_rows: rows,
         });
       }
       setNotice(`Staged ${parsed.rows.length}+ rows into batch ${b.id.slice(0, 8)}.`);
@@ -97,7 +103,7 @@ export default function ImportWizard() {
       />
       <ErrorBanner message={error} />
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
-      <Stepper active={active} sx={{ mb: 3 }}>
+      <Stepper activeStep={active} sx={{ mb: 3 }}>
         {STEPS.map((s) => <Step key={s}><StepLabel>{s}</StepLabel></Step>)}
       </Stepper>
 
