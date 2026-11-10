@@ -104,6 +104,29 @@ reconstruction, not the original — see its own header note).
    follow-up is `20261016100000_ins_security_hardening_followup.sql`.
    *Proposed 16 October 2026 from that incident; confirm with the team.*
 
+## Checklist for every new migration
+
+The rules above say what goes into a migration. This is the order to work in
+before you push one. CI enforces every step, but a red CI is a slower way to
+learn it than doing it here.
+
+1. **Replay locally from scratch:** `npx supabase@2.114.0 db reset --yes`
+   (this applies every migration plus `seed.sql`, as CI does).
+2. **Run the policy check:** `./scripts/check-migration-policy.sh origin/main`.
+3. **Regenerate the types from the local stack, not from production:**
+   `.\scripts\gen-types.ps1 -Local`, and commit the result. Run it after step 1,
+   so the local database matches your migration. **Do not run it without
+   `-Local`**: that reads the live project, which does not have your migration
+   yet, so it silently writes the old types. CI regenerates from a fresh local
+   replay and fails the `db-shadow-replay` job on any difference. Skip this only
+   when the migration changes no table, column, view, enum or function signature
+   (a data-only or body-only change), and say so in the PR.
+4. **Run the SQL tests that touch what you changed**, and add one if you added
+   behaviour: `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/<file>.sql`.
+   A test must fail by `RAISE EXCEPTION`; a `NOTICE: FAIL` fails the CI scan too.
+5. **Check the web build:** `npm run build` (type errors from a changed
+   `database.types.ts` show up here, not in the SQL jobs).
+
 ## What this does not cover
 
 This policy is about what goes **into** new migrations. It does not

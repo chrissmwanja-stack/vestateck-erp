@@ -271,11 +271,27 @@ jobs:
       # against a linked/remote project).
       - name: Functional tests -- GL posting, period close, statutory deductions, bank reconciliation
         run: |
+          # pipefail is NOT on by default for `bash -e`; without it a psql
+          # failure piped into tee would be masked by tee's exit status.
+          set -o pipefail
+          : > /tmp/sql-tests.log
           for f in supabase/tests/*.sql; do
             echo "::group::$f"
-            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f "$f"
+            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/sql-tests.log
             echo "::endgroup::"
           done
+          # ON_ERROR_STOP only catches tests that RAISE EXCEPTION. A test that
+          # reports a failure as a plain NOTICE/WARNING (or whose own FAIL
+          # raise is swallowed by an `exception when others` handler that then
+          # prints it) would exit 0 and go green. Scan the captured output.
+          # Uppercase FAIL only: tests print "PASS: ..." / "FAIL: ..." and
+          # security_authorization's summary line uses lowercase "failed".
+          if grep -nE '(NOTICE|WARNING|INFO|LOG): +.*\bFAIL' /tmp/sql-tests.log > /tmp/sql-tests.fail; then
+            echo "::error::SQL tests printed FAIL without raising an exception:"
+            cat /tmp/sql-tests.fail
+            exit 1
+          fi
+          echo "SQL tests: $(grep -c 'NOTICE: *PASS' /tmp/sql-tests.log) PASS notices, no silent FAIL output."
 
   # Insurance concurrency races (risks-gaps #5): the scripts under
   # scripts/test-ins-*-concurrency.ts were previously manual-only. They
