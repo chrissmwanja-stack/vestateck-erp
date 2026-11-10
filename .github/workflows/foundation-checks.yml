@@ -62,6 +62,21 @@ jobs:
           chmod +x scripts/check-migration-policy.sh
           ./scripts/check-migration-policy.sh "${{ steps.base.outputs.ref }}"
 
+  # repo-hygiene: cheap, dependency-free checks on the repository itself. It
+  # exists because unresolved merge-conflict markers were committed to main
+  # twice (docs/insurance-brokerage/IN_FORCE_IMPORT.md, then
+  # packages/shared/src/database.types.ts) and nothing noticed. Kept separate
+  # from migration-policy, which stays narrow by design. Add it to the
+  # branch-protection required checks so a failure blocks the merge.
+  repo-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No unresolved merge-conflict markers
+        run: |
+          chmod +x scripts/check-conflict-markers.sh
+          ./scripts/check-conflict-markers.sh
+
   build:
     runs-on: ubuntu-latest
     steps:

@@ -30,8 +30,8 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       incremental migrations layered on top as work (48 files
-                       total incl. the baseline as of 2026-11-10; the count grows)
+                       incremental migrations layered on top as work (the count grows;
+                       see `ls supabase/migrations`, the baseline is the first file)
                        (supabase/migrations_archive/2026-11 holds the 172
                        pre-squash migrations, kept for history; see
                        supabase/SQUASH_RUNBOOK.md). Verified
@@ -160,10 +160,11 @@ PostgREST's root, which only proves the edge is up, not the database.
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
-`npm run test --workspace=apps/web` (Vitest) are the web checks — 141 test files
-as of 2026-11-10 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 111 SQL test files in `supabase/tests/`
-(as of 2026-11-10). Coverage
+`npm run test --workspace=apps/web` (Vitest) are the web checks. Vitest runs the test files under
+`apps/web/src` and `packages` (the `test` job in `foundation-checks.yml` shows
+the current passing count), and `db-shadow-replay` runs every SQL test file in
+`supabase/tests/`. Counts are left out on purpose: they went stale with almost
+every commit. Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
 Platform/Admin and Insurance Brokerage's database layer have the deepest SQL

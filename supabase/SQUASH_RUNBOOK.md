@@ -82,5 +82,5 @@ A branch cut before the squash that adds or edits migrations will conflict with 
 
 ## After
 
-- Update the migration counts in `README.md` and the "Last reviewed" line in `docs/README.md`.
+- Update the archived-migration count in `README.md` (the only count it still states) and the "Last reviewed" line in `docs/README.md`.
 - Run `npm run lint:any --workspace=apps/web` and the full CI once more on `main`.

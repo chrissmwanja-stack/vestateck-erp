@@ -23,6 +23,16 @@ against a real Supabase backend (no mocking):
   operating account. Amounts come from the dialog's "Current limit", not
   hard-coded. Four serial tests that depend on each other. It consumes its
   policy, so a second run on the same database needs `supabase db reset`.
+- **Insurance claim payment** (`insurance-claim-payment.spec.ts`) — seeded claim
+  SAV-CLM-0001, paid through the brokerage: an admin sets insurer SAV to
+  "Brokerage pays the client"; the registrant starts assessment but is not
+  offered Approve and a different admin approves; the receivable is recognised
+  with the insurer's written reference; "Pay client" stays disabled until money
+  is held, and the dialog refuses to pay out more than has been received; part
+  and then the rest is received and paid, the claim settles by itself, and is
+  closed. Note claims have no separate finance maker-checker: the segregation
+  control is on approval. Four serial tests; it consumes the claim, so a rerun
+  on the same database needs `supabase db reset`.
 - **Company Admin: departments and organizations** — the company admin
   creates/edits/deletes through the UI; HR and finance are stopped at the
   route guard; and direct API writes with a non-admin's own JWT are
@@ -110,7 +120,7 @@ Traces, screenshots, and video are captured only on failure
 
 ## Not covered yet
 
-- **Insurance Brokerage** has two specs: `insurance-import.spec.ts` (in-force import) and `insurance-cash-commission.spec.ts` (bind → receipt → remittance → commission). Still not covered: cancellation, claim payment with finance maker-checker, endorsements, independent bank reconciliation by the third finance user, and rejecting a request. Document generation cannot be covered while the CI stack does not serve edge functions.
+- **Insurance Brokerage** has three specs: `insurance-import.spec.ts` (in-force import), `insurance-cash-commission.spec.ts` (bind → receipt → remittance → commission) and `insurance-claim-payment.spec.ts` (claim paid through the brokerage). Still not covered: the insurer-pays-direct claim mode, voiding a payment, repudiation, cancellation, endorsements, independent bank reconciliation by the third finance user, and rejecting a cash request. Document generation cannot be covered while the CI stack does not serve edge functions.
 
 ## Notes on how these are written
 
