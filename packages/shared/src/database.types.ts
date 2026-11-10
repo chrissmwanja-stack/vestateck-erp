@@ -6033,7 +6033,12 @@ export type Database = {
           accounting_policy_version: number
           committed_at: string | null
           committed_by: string | null
+          control_override_at: string | null
+          control_override_by: string | null
+          control_override_diff: Json | null
+          control_override_reason: string | null
           control_totals: Json
+          control_totals_synced_at: string | null
           created_at: string
           created_by: string | null
           cut_over_date: string
@@ -6049,7 +6054,12 @@ export type Database = {
           accounting_policy_version?: number
           committed_at?: string | null
           committed_by?: string | null
+          control_override_at?: string | null
+          control_override_by?: string | null
+          control_override_diff?: Json | null
+          control_override_reason?: string | null
           control_totals?: Json
+          control_totals_synced_at?: string | null
           created_at?: string
           created_by?: string | null
           cut_over_date: string
@@ -6065,7 +6075,12 @@ export type Database = {
           accounting_policy_version?: number
           committed_at?: string | null
           committed_by?: string | null
+          control_override_at?: string | null
+          control_override_by?: string | null
+          control_override_diff?: Json | null
+          control_override_reason?: string | null
           control_totals?: Json
+          control_totals_synced_at?: string | null
           created_at?: string
           created_by?: string | null
           cut_over_date?: string
@@ -17627,13 +17642,28 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: Json
       }
+      ins_import_control_diff: { Args: { p_batch_id: string }; Returns: Json }
+      ins_import_control_rows: {
+        Args: { p_batch_id: string }
+        Returns: {
+          control_amount: number
+          currency: string
+          imported_amount: number
+          measure: string
+        }[]
+      }
       ins_import_create_batch: {
         Args: { p_cut_over_date: string; p_label: string }
         Returns: {
           accounting_policy_version: number
           committed_at: string | null
           committed_by: string | null
+          control_override_at: string | null
+          control_override_by: string | null
+          control_override_diff: Json | null
+          control_override_reason: string | null
           control_totals: Json
+          control_totals_synced_at: string | null
           created_at: string
           created_by: string | null
           cut_over_date: string
@@ -17663,6 +17693,14 @@ export type Database = {
         }
         Returns: string
       }
+      ins_import_override_control_totals: {
+        Args: { p_batch_id: string; p_reason: string }
+        Returns: Json
+      }
+      ins_import_pick_num: {
+        Args: { p_keys: string[]; p_raw: Json }
+        Returns: number
+      }
       ins_import_post_opening_position: {
         Args: { p_batch_id: string }
         Returns: Json
@@ -17674,23 +17712,19 @@ export type Database = {
       ins_import_reconciliation: {
         Args: { p_batch_id: string }
         Returns: {
-          control_amount: number | null
+          control_amount: number
           currency: string
           imported_amount: number
-          match: boolean | null
+          match: boolean
           measure: string
         }[]
       }
-      ins_import_override_control_totals: {
-        Args: { p_batch_id: string; p_reason: string }
+      ins_import_record_history: {
+        Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
         Returns: Json
       }
       ins_import_refresh_control_totals: {
         Args: { p_batch_id: string }
-        Returns: Json
-      }
-      ins_import_record_history: {
-        Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
         Returns: Json
       }
       ins_import_save_profile: {
@@ -17719,6 +17753,10 @@ export type Database = {
           p_sheet: string
         }
         Returns: number
+      }
+      ins_import_sync_control_totals: {
+        Args: { p_batch_id: string }
+        Returns: Json
       }
       ins_import_validate_batch: { Args: { p_batch_id: string }; Returns: Json }
       ins_insurer_commission_statement_data: {
