@@ -194,9 +194,12 @@ begin
   -- 1d. Chart of accounts and posting rules match the template item for item.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 28, 'expected 28 gl_accounts');
   perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 28, 'expected 28 gl_posting_rules');
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- one account and one rule per platform posting role, so the count moves
@@ -208,6 +211,9 @@ begin
                          = array_length(platform_gl_posting_roles(), 1),
     'expected one gl_posting_rule per posting role');
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -385,9 +391,12 @@ begin
   perform pg_temp.assert(not has_po_access(), 'finance user in an insurance tenant must not need or hold PO access');
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert((select count(*) from gl_accounts) = 28, 'finance user should read the 28-account chart');
   perform pg_temp.assert((select count(*) from gl_posting_rules) = 28, 'finance user should read the 28 posting rules');
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   perform pg_temp.assert((select count(*) from gl_accounts)
@@ -397,6 +406,9 @@ begin
                          = array_length(platform_gl_posting_roles(), 1),
     'finance user should read every posting rule');
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

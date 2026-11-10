@@ -34,8 +34,11 @@ begin
   select count(*) into n from gl_accounts where tenant_id = v_t;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   if n <> 28 then raise exception 'FAIL: UAT tenant GL accounts: expected 28, got %', n; end if;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   if n <> array_length(platform_gl_posting_roles(), 1) then
@@ -43,6 +46,9 @@ begin
       array_length(platform_gl_posting_roles(), 1), n;
   end if;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

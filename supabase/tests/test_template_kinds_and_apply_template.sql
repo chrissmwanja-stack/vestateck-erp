@@ -161,8 +161,11 @@ begin
     format('platform_gl_posting_roles() (%s) and the CHECK (%s literals) disagree', cardinality(platform_gl_posting_roles()), v_lits));
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert(cardinality(platform_gl_posting_roles()) = 28, 'expected 28 roles');
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- 13 existing + 8 insurance + fx_rounding + realised/unrealised gain and
@@ -173,6 +176,9 @@ begin
                          = cardinality(array(select distinct unnest(platform_gl_posting_roles()))),
     'posting roles are unique');
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

@@ -103,6 +103,10 @@ describe('ImportWizard reconciliation', () => {
     expect(screen.getByText('—')).toBeTruthy();
   });
 });
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 
 describe('ImportWizard multi-sheet staging', () => {
   // The canonical import is one workbook with a sheet per file. Until
@@ -196,3 +200,8 @@ describe('ImportWizard control totals before commit', () => {
     expect(call?.[1]).toMatchObject({ p_batch_id: 'b1234567-0000' });
   });
 });
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs

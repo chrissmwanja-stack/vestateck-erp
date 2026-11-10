@@ -334,8 +334,18 @@ begin
   perform pg_temp.jwt(o.mem);
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 10,
     'C9 a member can read the reconciliation (2 currencies x 5 measures)');
+=======
+  perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 8,
+    'C9 a member can read the reconciliation (2 currencies x 4 measures)');
+>>>>>>> theirs
+=======
+  perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 10,
+    'C9 a member can read the reconciliation (2 currencies x 5 measures)');
+>>>>>>> theirs
 =======
   perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 8,
     'C9 a member can read the reconciliation (2 currencies x 4 measures)');
