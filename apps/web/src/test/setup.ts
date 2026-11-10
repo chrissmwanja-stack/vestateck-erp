@@ -21,7 +21,9 @@ afterEach(() => {
 function installStorage(name: 'localStorage' | 'sessionStorage') {
   let usable = false;
   try {
-    usable = typeof (globalThis as any)[name]?.getItem === 'function';
+    usable =
+  typeof (globalThis as unknown as Record<string, { getItem?: unknown } | undefined>)[name]?.getItem ===
+  'function';
   } catch {
     usable = false;
   }

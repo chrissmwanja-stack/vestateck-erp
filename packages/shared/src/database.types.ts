@@ -17652,7 +17652,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_import_history_add: {
+        Args: {
+          p_amount: number
+          p_batch_id: string
+          p_date: string
+          p_kind: string
+          p_policy_id: string
+          p_reference: string
+        }
+        Returns: string
+      }
       ins_import_post_opening_position: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
+      ins_import_promote_history: {
         Args: { p_batch_id: string }
         Returns: Json
       }
