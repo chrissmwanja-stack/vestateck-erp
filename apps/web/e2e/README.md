@@ -23,8 +23,8 @@ against a real Supabase backend (no mocking):
   operating account. Amounts come from the dialog's "Current limit", not
   hard-coded. Four serial tests that depend on each other. It consumes its
   policy, so a second run on the same database needs `supabase db reset`.
-- **Insurance claim payment** (`insurance-claim-payment.spec.ts`) — seeded claim
-  SAV-CLM-0001, paid through the brokerage: an admin sets insurer SAV to
+- **Insurance claim payment** (`insurance-claim-payment.spec.ts`) — the seeded claim
+  (insurer reference SAV-CLM-0001; its claim number is generated), paid through the brokerage: an admin sets insurer SAV to
   "Brokerage pays the client"; the registrant starts assessment but is not
   offered Approve and a different admin approves; the receivable is recognised
   with the insurer's written reference; "Pay client" stays disabled until money

@@ -25,8 +25,9 @@ import { loginAs, logout, type TestAccountKey } from './utils/auth';
  *                 that part to the client
  *   4. settle     receive and pay the remainder; the claim settles; close it
  *
- * Fixture: seeded claim SAV-CLM-0001 on policy 1 (registered by ins.manager,
- * reserve UGX 3,500,000). We approve UGX 3,000,000. The tests run serially and
+ * Fixture: the seeded claim on policy 1 (registered by ins.manager, reserve
+ * UGX 3,500,000, insurer reference SAV-CLM-0001). Its claim NUMBER is generated
+ * by the database, so the spec finds it by insurer reference and reads the number. We approve UGX 3,000,000. The tests run serially and
  * depend on each other.
  *
  * RERUNS: the claim ends closed and cannot be replayed, so a second run on the
@@ -38,7 +39,11 @@ import { loginAs, logout, type TestAccountKey } from './utils/auth';
  * payment, repudiation, reserve revisions, and claim documents.
  */
 
-const CLAIM_NO = 'SAV-CLM-0001';
+// The seed passes 'SAV-CLM-0001' as the INSURER's claim reference (ins_create_claim's
+// p_insurer_claim_ref); the claim number itself is generated, and the list does not show
+// the insurer reference, so the row is picked by its loss description instead.
+const INSURER_REF = 'SAV-CLM-0001';
+const LOSS_DESCRIPTION = /Rear-end collision on Entebbe Road/;
 const APPROVED = '3000000';
 const FIRST_PART = '1000000';
 const OVER_HELD = '1000001';
@@ -51,6 +56,7 @@ const ERROR_ALERT =
 
 /** Shared across the serial tests: set when the claim is first opened. */
 let claimUrl = '';
+let claimNo = '';
 
 /** Waits for `target` to disappear; if it does not, reports the app's own error banner. */
 async function expectGone(page: Page, target: Locator, what: string, timeout = 15_000) {
@@ -72,7 +78,7 @@ async function switchUser(page: Page, key: TestAccountKey) {
 
 async function openClaim(page: Page) {
   await page.goto(claimUrl);
-  await expect(page.getByRole('heading', { name: CLAIM_NO })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: claimNo })).toBeVisible({ timeout: 30_000 });
 }
 
 /** The "label … value" row inside the Payment card. */
@@ -137,18 +143,22 @@ test.describe('Insurance claim paid through the brokerage: approve -> recognise 
     test.setTimeout(120_000);
     await loginAs(page, 'insManager');
     await page.goto('/insurance/claims');
-    await page.getByPlaceholder('Search claim no, policy, client, description or insurer ref').fill(CLAIM_NO);
-    const claimRow = page.getByRole('row', { name: new RegExp(CLAIM_NO) });
-    await expect(claimRow).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Search claim no, policy, client, description or insurer ref').fill(INSURER_REF);
+    const claimRow = page.getByRole('row', { name: LOSS_DESCRIPTION });
+    await expect(claimRow, `the seeded claim (insurer reference ${INSURER_REF}) should be in the open claims`).toBeVisible({ timeout: 30_000 });
+    claimNo = (await claimRow.getByRole('cell').first().innerText()).trim();
+    expect(claimNo, 'the first cell of the row is the generated claim number').toMatch(/\S/);
     await claimRow.click();
     await expect(page).toHaveURL(/\/insurance\/claims\/[0-9a-f-]{36}$/);
     claimUrl = page.url();
-    await expect(page.getByRole('heading', { name: CLAIM_NO })).toBeVisible();
+    await expect(page.getByRole('heading', { name: claimNo })).toBeVisible();
+    // The search matched on the insurer's reference, so the detail page must show it.
+    await expect(page.getByText(INSURER_REF, { exact: true })).toBeVisible();
 
     const startAssessment = page.getByRole('button', { name: 'Start assessment' });
     await expect(
       startAssessment,
-      `${CLAIM_NO} is not in its starting state. It was used by an earlier run: run \`supabase db reset\`.`,
+      `${claimNo} is not in its starting state. It was used by an earlier run: run \`supabase db reset\`.`,
     ).toBeVisible({ timeout: 15_000 });
 
     await test.step('the registrant starts assessment', async () => {
