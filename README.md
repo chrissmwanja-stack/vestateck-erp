@@ -30,10 +30,11 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       incremental migrations layered on top as work (190 files
-                       total incl. the baseline as of 2026-11-07; the count grows)
-                       (supabase/migrations_archive holds the 201
-                       pre-squash migrations, kept for history). Verified
+                       incremental migrations layered on top as work (45 files
+                       total incl. the baseline as of 2026-11-10; the count grows)
+                       (supabase/migrations_archive/2026-11 holds the 172
+                       pre-squash migrations, kept for history; see
+                       supabase/SQUASH_RUNBOOK.md). Verified
                        2026-09-16: replaying every tracked migration from an
                        empty database matched production's tables, function
                        signatures and bodies, and RLS policies (including
@@ -58,7 +59,7 @@ docs/                 Documentation index in docs/README.md. Insurance Brokerage
                        IN_FORCE_IMPORT.md (legacy portfolio import spec)
 PHASE0_COUPLING_AUDIT.md   Decision log for the shared-kernel and finance (D1-D4) work
 FOUNDATION_PLAYBOOK.md     Reconstruction of the foundation phases (see its own note)
-BULK_IMPORT_NOTES.md       Bulk-import file list and per-screen column specs
+docs/BULK_IMPORT_NOTES.md  Bulk-import file list and per-screen column specs
 ```
 
 ### Modules (`apps/web/src/modules/portals/`)
@@ -87,7 +88,7 @@ BULK_IMPORT_NOTES.md       Bulk-import file list and per-screen column specs
 3. Apply the migrations in `supabase/migrations/` to your Supabase project with
    the Supabase CLI (`supabase db push`, or `supabase start` for a local
    stack). `supabase/migrations/` holds a squashed baseline
-   (`20260819122921_squashed_baseline.sql`) followed by incremental migrations;
+   (`20261031235900_squashed_baseline.sql`) followed by incremental migrations;
    they apply in timestamp order. Do not apply `supabase/migrations_archive/` —
    it is the pre-squash history, kept for reference only. New migrations must
    pass `scripts/check-migration-policy.sh` (see
@@ -159,17 +160,17 @@ PostgREST's root, which only proves the edge is up, not the database.
 ## Testing & CI
 
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
-`npm run test --workspace=apps/web` (Vitest) are the web checks — 135 test files
-as of 2026-11-07 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 101 SQL test files in `supabase/tests/`, 38 of them
-for insurance (as of 2026-11-07). Coverage
+`npm run test --workspace=apps/web` (Vitest) are the web checks — 141 test files
+as of 2026-11-10 (see the `test` job in `foundation-checks.yml` for the
+current passing count), plus 108 SQL test files in `supabase/tests/`
+(as of 2026-11-10). Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
 Platform/Admin and Insurance Brokerage's database layer have the deepest SQL
 coverage; shallower modules (PMO, Machine Operation, Sustainability) have less.
 The Insurance Brokerage screens have unit tests for their pure logic and component
 tests for most pages (policy list, detail and new, cash panel, commission, quotes
-and others). There is no insurance Playwright spec yet.
+and others). The insurance in-force import has a Playwright spec (`insurance-import.spec.ts`); the main policy money flow does not yet.
 
 ### SQL tests
 
@@ -275,7 +276,7 @@ through the insurance flows.
   demo purposes.
 - Bulk-import tooling (Employees, Accounts, Equipment, Leads) shares one RFC4180 CSV parser
   and a reusable `BulkImportDialog` (validate → preview per-row errors → import full file →
-  per-row results). See `BULK_IMPORT_NOTES.md` for the file list and per-screen column specs.
+  per-row results). See `docs/BULK_IMPORT_NOTES.md` for the file list and per-screen column specs.
 - The Finance open-item subledger (`fin_open_items`, `fin_settlements`,
   `fin_allocations`, `fin_credit_notes`, `fin_credit_applications`, view
   `fin_open_item_balances`) is append-only: rows are never edited, a void posts a

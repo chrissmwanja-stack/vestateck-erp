@@ -29,3 +29,7 @@ apps/web/e2e/.auth/
 
 test-results/
 playwright-report/
+
+# squash leftovers
+fn-defs-*.txt
+squash-catalog-diff.txt

@@ -11,7 +11,8 @@ Last reviewed: 7 November 2026 against `main` at `04bf056` plus the unmerged in-
 | `supabase/ROADMAP.md` | Dated log of the 2026-09-21 repo audit follow-ups (not rewritten as the repo grows) |
 | `PHASE0_COUPLING_AUDIT.md` | Decision log for the shared-kernel and finance (D1 to D4) work |
 | `FOUNDATION_PLAYBOOK.md` | Reconstruction of the foundation phases (see its own note) |
-| `BULK_IMPORT_NOTES.md` | Bulk-import file list and per-screen column specs |
+| `docs/BULK_IMPORT_NOTES.md` | Bulk-import file list and per-screen column specs |
+| `supabase/SQUASH_RUNBOOK.md` | How to squash migrations into a new baseline and repair prod |
 | `apps/web/e2e/README.md` | Playwright specs, what they cover and what they do not |
 
 ## Insurance Brokerage (`docs/insurance-brokerage/`)
@@ -23,7 +24,7 @@ Last reviewed: 7 November 2026 against `main` at `04bf056` plus the unmerged in-
 | `ACCOUNTANT_PACK.md` | Treatments and ledger map for the accountant | Draft, **not signed off**; section 9 lists changes since 16 October |
 | `CURRENCY_REVIEW.md` | Currency touchpoint review (A3) | Closed 21 October |
 | `POLICY_REVERSAL.md` | Restricted reverse-and-reissue | Built; pending accounting acceptance |
-| `IN_FORCE_IMPORT.md` | Legacy portfolio import and opening balances | Spec; step 1 written, steps 2 to 5 not built |
+| `IN_FORCE_IMPORT.md` | Legacy portfolio import and opening balances | Built (steps 1 to 5: staging, commit, opening position, wizard, Playwright spec); pending accounting acceptance |
 
 ## Edge functions (`supabase/functions/`, config in `supabase/config.toml`)
 

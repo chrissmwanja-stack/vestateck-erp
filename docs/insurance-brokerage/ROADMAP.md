@@ -192,9 +192,9 @@ Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17
 11. Client merge and the account-per-client review.
 12. Insurer statement reconciliation.
 
-## 7b. Status snapshot (7 November 2026)
+## 7b. Status snapshot (7 November 2026; in-force import and e2e spec updated 10 November 2026)
 
-Checked against `main` at `04bf056` plus the unmerged in-force import step 1. "Built" means code and a test exist; none of it is accountant-approved.
+Checked against `main` at `04bf056` plus the unmerged in-force import step 1; the in-force import line below was re-checked against `main` at `a255cc8` on 10 November 2026. "Built" means code and a test exist; none of it is accountant-approved.
 
 | # | Gap | Status | Where |
 |---|---|---|---|
@@ -214,7 +214,7 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1. "B
 
 Also built outside the table: insurer statement reconciliation (`20261106220000`, entry screen still to improve), per-insurer remittance position (`20261106190000`), the operational hardening migrations of 6 and 7 November.
 
-Not started: the in-force portfolio import and opening balances (`IN_FORCE_IMPORT.md`; step 1 written), commission recognition at placement and per-insurer settlement mode (Phase B rest), period-close states, an insurance Playwright spec.
+Built since this snapshot: the in-force portfolio import and opening balances (`IN_FORCE_IMPORT.md`; all five steps, `20261107140000` to `20261109110000`) and its Playwright spec (`apps/web/e2e/insurance-import.spec.ts`). Not started: commission recognition at placement and per-insurer settlement mode (Phase B rest), period-close states, a Playwright spec for the main policy flow (client to policy to approval to bind to receipt to remittance).
 
 ## 8. Design defaults (change on request)
 

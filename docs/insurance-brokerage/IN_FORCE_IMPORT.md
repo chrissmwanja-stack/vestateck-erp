@@ -1,6 +1,6 @@
 # In-force portfolio import and opening balances
 
-Status: draft specification, 7 November 2026. **Option A chosen (7 Nov 2026).** Step 1 (staging, mapping profile, validation) is written in `20261107140000_ins_import_staging.sql` with `supabase/tests/test_ins_import_staging.sql`; it posts nothing. Steps 2 to 5 are not built. Treatments in section 3 are working decisions, not an accountant's sign-off (see `ROADMAP.md` section 9).
+Status: built, updated 10 November 2026 (originally a draft specification of 7 November). **Option A chosen (7 Nov 2026).** All five build steps exist: staging, mapping profile and validation (`20261107140000_ins_import_staging.sql`), policy commit (`20261107160000`), opening position and reconciliation (`20261108030000`, with prerequisites and fixes in `20261109090000`, `20261109100000`, `20261109110000`), the import wizard (`ImportWizard.tsx`) and the Playwright spec (`apps/web/e2e/insurance-import.spec.ts`). SQL tests: `test_ins_import_staging.sql`, `test_ins_import_commit.sql`. Treatments in section 3 are working decisions, not an accountant's sign-off (see `ROADMAP.md` section 9).
 
 Source: a spreadsheet exported from a legacy broker system. We have no sample yet, so section 2 defines our own canonical template. A mapping step (section 4, step 1) adapts the real export to it once we have headers.
 
