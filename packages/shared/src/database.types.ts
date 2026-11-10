@@ -17719,15 +17719,12 @@ export type Database = {
           measure: string
         }[]
       }
-<<<<<<< ours
-      ins_import_refresh_control_totals: {
-        Args: { p_batch_id: string }
-        Returns: Json
-      }
-=======
->>>>>>> theirs
       ins_import_record_history: {
         Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
+        Returns: Json
+      }
+      ins_import_refresh_control_totals: {
+        Args: { p_batch_id: string }
         Returns: Json
       }
       ins_import_save_profile: {
