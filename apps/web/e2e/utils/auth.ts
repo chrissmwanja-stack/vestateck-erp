@@ -29,6 +29,13 @@ export const TEST_ACCOUNTS = {
   // role and NO finance row (the persona the departments/organizations
   // ownership rules are written for).
   companyAdmin: { email: 'company.admin@test.local', role: 'Company Administrator' },
+  // Pearl Risk Brokers (UAT tenant, seed.sql section 6). The three finance users
+  // are separate people on purpose: maker, checker, and an independent bank
+  // reconciler. Insurance staff cannot post cash; finance cannot approve policies.
+  insAdmin: { email: 'ins.admin@test.local', role: 'Insurance Administrator' },
+  insManager: { email: 'ins.manager@test.local', role: 'Placement Manager' },
+  finMaker: { email: 'fin.maker@test.local', role: 'Accountant' },
+  finChecker: { email: 'fin.checker@test.local', role: 'Financial Controller' },
 } as const;
 
 export type TestAccountKey = keyof typeof TEST_ACCOUNTS;

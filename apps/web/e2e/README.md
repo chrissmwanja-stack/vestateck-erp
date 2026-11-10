@@ -14,6 +14,15 @@ against a real Supabase backend (no mocking):
 - **BD proposal approvals** — approves the seeded pending proposal
   (seed.sql section 4); safe to rerun (see the spec header for the
   pending-vs-already-approved branch).
+- **Insurance money flow** (`insurance-cash-commission.spec.ts`) — seeded draft
+  policy 4 (Ruth Namukasa): submitted by the manager, approved by a *different*
+  admin, bound; a finance maker prepares the premium receipt and a checker posts
+  it (the maker is never offered Approve on their own request); the checker then
+  prepares the insurer remittance and the maker posts it; paying the insurer in
+  full earns the commission, which an insurance manager transfers to the
+  operating account. Amounts come from the dialog's "Current limit", not
+  hard-coded. Four serial tests that depend on each other. It consumes its
+  policy, so a second run on the same database needs `supabase db reset`.
 - **Company Admin: departments and organizations** — the company admin
   creates/edits/deletes through the UI; HR and finance are stopped at the
   route guard; and direct API writes with a non-admin's own JWT are
@@ -101,7 +110,7 @@ Traces, screenshots, and video are captured only on failure
 
 ## Not covered yet
 
-- **Insurance Brokerage** has one Playwright spec, `insurance-import.spec.ts` (in-force import: upload, validate, commit, opening position, reconcile). The main policy flow (client → policy → approval → bind → premium receipt → remittance) is still planned. It needs the Pearl Risk Brokers UAT tenant from `supabase/seed.sql` section 6 (`ins.manager@test.local`), and document generation cannot be covered while the CI stack does not serve edge functions.
+- **Insurance Brokerage** has two specs: `insurance-import.spec.ts` (in-force import) and `insurance-cash-commission.spec.ts` (bind → receipt → remittance → commission). Still not covered: cancellation, claim payment with finance maker-checker, endorsements, independent bank reconciliation by the third finance user, and rejecting a request. Document generation cannot be covered while the CI stack does not serve edge functions.
 
 ## Notes on how these are written
 
