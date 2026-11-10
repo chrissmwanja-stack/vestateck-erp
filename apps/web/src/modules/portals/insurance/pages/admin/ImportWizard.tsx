@@ -16,7 +16,12 @@ import { ErrorBanner, PageHeader } from '../../shared';
 
 interface BatchRow { id: string; label: string; status: string; cut_over_date: string; error_count: number; }
 interface RowProblem { sheet: string; line: number; errors: { code: string; message: string }[]; }
-interface ReconRow { currency: string; measure: string; imported_amount: number; control_amount: number; match: boolean; }
+// control_amount / match are null when the batch's control_totals sheet did
+// not record that measure: "not recorded" is not the same as "differs".
+interface ReconRow {
+  currency: string; measure: string; imported_amount: number;
+  control_amount: number | null; match: boolean | null;
+}
 
 const STEPS = ['Upload & stage', 'Validate', 'Commit policies', 'Opening position', 'Reconcile'];
 
@@ -181,8 +186,12 @@ export default function ImportWizard() {
                   <TableRow key={r.currency + r.measure}>
                     <TableCell>{r.currency}</TableCell><TableCell>{r.measure}</TableCell>
                     <TableCell align="right">{r.imported_amount.toLocaleString()}</TableCell>
-                    <TableCell align="right">{r.control_amount.toLocaleString()}</TableCell>
-                    <TableCell><Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} /></TableCell>
+                    <TableCell align="right">{r.control_amount === null ? '—' : r.control_amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      {r.match === null
+                        ? <Chip size="small" label="not recorded" variant="outlined" />
+                        : <Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} />}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

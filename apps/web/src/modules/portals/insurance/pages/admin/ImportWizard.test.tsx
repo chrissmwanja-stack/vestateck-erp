@@ -72,3 +72,34 @@ describe('ImportWizard validation', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Run validation' })).toBeTruthy());
   });
 });
+
+describe('ImportWizard reconciliation', () => {
+  // The reconciliation returns null for a measure the batch's control_totals
+  // sheet never recorded. Rendering that as a difference would report a
+  // mismatch on a perfect batch, which is exactly what the SQL report used to
+  // do; "not recorded" has to stay visibly distinct from "DIFF".
+  it('separates match, difference and not-recorded', async () => {
+    mockRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'ins_import_create_batch') return { id: 'b1234567-0000', label: 'Legacy book', status: 'staged', cut_over_date: '2026-10-31', error_count: 0 };
+      if (fn === 'ins_import_validate_batch') return { error_count: 0 };
+      if (fn === 'ins_import_post_opening_position') return { already_posted: false, journal_entry_id: 'je-000000' };
+      if (fn === 'ins_import_reconciliation') return [
+        { currency: 'UGX', measure: 'gross_premium', imported_amount: 1000, control_amount: 1000, match: true },
+        { currency: 'UGX', measure: 'commission', imported_amount: 100, control_amount: 125, match: false },
+        { currency: 'UGX', measure: 'remittances_to_date', imported_amount: 0, control_amount: null, match: null },
+      ];
+      return null;
+    });
+
+    const user = await stageAndOpenValidation();
+    await user.click(await screen.findByRole('button', { name: 'Commit policies' }));
+    await user.click(await screen.findByRole('button', { name: 'Post opening position' }));
+    await user.click(await screen.findByRole('button', { name: 'Run reconciliation' }));
+
+    expect(await screen.findByText('match')).toBeTruthy();
+    expect(screen.getByText('DIFF')).toBeTruthy();
+    expect(screen.getByText('not recorded')).toBeTruthy();
+    // a not-recorded measure shows no control figure at all
+    expect(screen.getByText('—')).toBeTruthy();
+  });
+});
