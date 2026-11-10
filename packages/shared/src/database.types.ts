@@ -17712,12 +17712,20 @@ export type Database = {
       ins_import_reconciliation: {
         Args: { p_batch_id: string }
         Returns: {
-          control_amount: number
+          control_amount: number | null
           currency: string
           imported_amount: number
-          match: boolean
+          match: boolean | null
           measure: string
         }[]
+      }
+      ins_import_override_control_totals: {
+        Args: { p_batch_id: string; p_reason: string }
+        Returns: Json
+      }
+      ins_import_refresh_control_totals: {
+        Args: { p_batch_id: string }
+        Returns: Json
       }
       ins_import_record_history: {
         Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
