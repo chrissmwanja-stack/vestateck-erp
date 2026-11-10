@@ -30,7 +30,7 @@ apps/web             React + Vite + TypeScript + MUI frontend
 supabase/migrations   SQL schema and RLS policies — a single squashed baseline
                        (tenants, departments, users, workflow, requests,
                        approvals, and every module through mid-Aug 2026) plus
-                       incremental migrations layered on top as work (45 files
+                       incremental migrations layered on top as work (48 files
                        total incl. the baseline as of 2026-11-10; the count grows)
                        (supabase/migrations_archive/2026-11 holds the 172
                        pre-squash migrations, kept for history; see
@@ -162,7 +162,7 @@ PostgREST's root, which only proves the edge is up, not the database.
 `npm run build --workspace=apps/web` (`tsc -b && vite build`) and
 `npm run test --workspace=apps/web` (Vitest) are the web checks — 141 test files
 as of 2026-11-10 (see the `test` job in `foundation-checks.yml` for the
-current passing count), plus 108 SQL test files in `supabase/tests/`
+current passing count), plus 111 SQL test files in `supabase/tests/`
 (as of 2026-11-10). Coverage
 is concentrated where it matters most: Procurement, Finance/GL (including the
 open-item subledger, credit notes and reconciliation), IT Support,
