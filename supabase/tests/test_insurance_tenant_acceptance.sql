@@ -193,9 +193,12 @@ begin
 
   -- 1d. Chart of accounts and posting rules match the template item for item.
 <<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins) = 28, 'expected 28 gl_accounts');
   perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins) = 28, 'expected 28 gl_posting_rules');
 =======
+=======
+>>>>>>> theirs
   -- one account and one rule per platform posting role, so the count moves
   -- with the role list instead of being restated here
   perform pg_temp.assert((select count(*) from gl_accounts where tenant_id = t_ins)
@@ -204,6 +207,9 @@ begin
   perform pg_temp.assert((select count(*) from gl_posting_rules where tenant_id = t_ins)
                          = array_length(platform_gl_posting_roles(), 1),
     'expected one gl_posting_rule per posting role');
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
   select string_agg(i.name, ', ') into v_bad from industry_template_items i
@@ -378,15 +384,21 @@ begin
   perform pg_temp.assert(is_finance_team_member(), 'finance user should be a finance team member');
   perform pg_temp.assert(not has_po_access(), 'finance user in an insurance tenant must not need or hold PO access');
 <<<<<<< ours
+<<<<<<< ours
   perform pg_temp.assert((select count(*) from gl_accounts) = 28, 'finance user should read the 28-account chart');
   perform pg_temp.assert((select count(*) from gl_posting_rules) = 28, 'finance user should read the 28 posting rules');
 =======
+=======
+>>>>>>> theirs
   perform pg_temp.assert((select count(*) from gl_accounts)
                          = array_length(platform_gl_posting_roles(), 1),
     'finance user should read the whole chart');
   perform pg_temp.assert((select count(*) from gl_posting_rules)
                          = array_length(platform_gl_posting_roles(), 1),
     'finance user should read every posting rule');
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   perform pg_temp.assert(not can_access_client_master(), 'finance-only user must not reach the client master');
 end $$;

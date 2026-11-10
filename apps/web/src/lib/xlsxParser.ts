@@ -2,24 +2,23 @@ import * as XLSX from "xlsx";
 import type { ParsedCsv } from "./csvParser";
 
 /**
- * Parses the first sheet of an Excel workbook (.xlsx/.xls) into the same
- * { headers, rows, rowLineNumbers } shape parseCsv() produces, so
- * BulkImportDialog can validate/import rows from either format with no
- * format-specific branching beyond picking which parser to call.
+ * Parses an Excel workbook (.xlsx/.xls).
+ *
+ * `headers`/`rows`/`rowLineNumbers` describe the FIRST sheet, which is what
+ * every single-sheet bulk import (BulkImportDialog) expects. `sheets` carries
+ * every sheet in the workbook, keyed by lowercased sheet name, because the
+ * in-force import (IN_FORCE_IMPORT.md) is a multi-sheet workbook: policies,
+ * receipts, remittances, shares and control_totals. Before this, a workbook
+ * looked like its first sheet and the other four were unreachable, so the
+ * import wizard could never stage the history or the control totals the
+ * opening position is computed from.
  */
-export async function parseXlsx(file: File): Promise<ParsedCsv> {
-  const buffer = await file.arrayBuffer();
-  // cellDates: true -> date-formatted cells come back as JS Date objects
-  // instead of raw Excel serial numbers (e.g. 45362). Without this, a hire
-  // date cell formatted as a date in the spreadsheet is read as its
-  // underlying day-count integer and stringified verbatim below.
-  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+export interface ParsedWorkbook extends ParsedCsv {
+  /** Every sheet keyed by lowercased/trimmed sheet name. */
+  sheets: Record<string, Record<string, string>[]>;
+}
 
-  const firstSheetName = workbook.SheetNames[0];
-  if (!firstSheetName) {
-    return { headers: [], rows: [], rowLineNumbers: [] };
-  }
-  const sheet = workbook.Sheets[firstSheetName];
+function sheetToRows(sheet: XLSX.WorkSheet): ParsedCsv {
 
   // header: 1 -> array-of-arrays instead of array-of-objects, so headers are
   // read exactly like the CSV parser reads them (lowercased/trimmed below),
@@ -66,4 +65,27 @@ export async function parseXlsx(file: File): Promise<ParsedCsv> {
   });
 
   return { headers, rows, rowLineNumbers };
+}
+
+export async function parseXlsx(file: File): Promise<ParsedWorkbook> {
+  const buffer = await file.arrayBuffer();
+  // cellDates: true -> date-formatted cells come back as JS Date objects
+  // instead of raw Excel serial numbers (e.g. 45362). Without this, a hire
+  // date cell formatted as a date in the spreadsheet is read as its
+  // underlying day-count integer and stringified verbatim in sheetToRows.
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) {
+    return { headers: [], rows: [], rowLineNumbers: [], sheets: {} };
+  }
+
+  const sheets: Record<string, Record<string, string>[]> = {};
+  for (const name of workbook.SheetNames) {
+    // Workbook sheet names are the customer's ("Policies", "Control Totals"),
+    // so they are normalised the same way headers are.
+    sheets[name.trim().toLowerCase()] = sheetToRows(workbook.Sheets[name]).rows;
+  }
+
+  return { ...sheetToRows(workbook.Sheets[firstSheetName]), sheets };
 }

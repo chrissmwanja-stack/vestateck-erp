@@ -1,12 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Step,
   StepLabel, Stepper, Table, TableBody, TableCell, TableHead, TableRow,
   TextField,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { parseCsv, type ParsedCsv } from '../../../../../lib/csvParser';
-import { parseXlsx } from '../../../../../lib/xlsxParser';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { parseCsv } from '../../../../../lib/csvParser';
+import { parseXlsx, type ParsedWorkbook } from '../../../../../lib/xlsxParser';
 import { useInsuranceAccess } from '../../access';
 import { errorText, rows, rpc, table } from '../../db';
 import { ErrorBanner, PageHeader } from '../../shared';
@@ -25,8 +25,37 @@ interface ReconRow {
 
 const STEPS = ['Upload & stage', 'Validate', 'Commit policies', 'Opening position', 'Reconcile'];
 
+// One table, shown twice: on the commit step (where the gate fires) and on the
+// reconcile step. Three states per row, because they are three different
+// facts: agrees, disagrees, or was never recorded.
+function ReconTable({ rows }: { rows: ReconRow[] }) {
+  return (
+    <Table size="small">
+      <TableHead>
+        <TableRow><TableCell>Currency</TableCell><TableCell>Measure</TableCell>
+          <TableCell align="right">Imported</TableCell><TableCell align="right">Control</TableCell><TableCell>Match</TableCell></TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((r) => (
+          <TableRow key={r.currency + r.measure}>
+            <TableCell>{r.currency}</TableCell><TableCell>{r.measure}</TableCell>
+            <TableCell align="right">{r.imported_amount.toLocaleString()}</TableCell>
+            <TableCell align="right">{r.control_amount === null ? '—' : r.control_amount.toLocaleString()}</TableCell>
+            <TableCell>
+              {r.match === null
+                ? <Chip size="small" label="not recorded" variant="outlined" />
+                : <Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} />}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export default function ImportWizard() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { canManage } = useInsuranceAccess();
   const [active, setActive] = useState(0);
   const [label, setLabel] = useState('');
@@ -34,10 +63,44 @@ export default function ImportWizard() {
   const [batch, setBatch] = useState<BatchRow | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [recon, setRecon] = useState<ReconRow[]>([]);
+  const [reason, setReason] = useState('');
   const [problems, setProblems] = useState<RowProblem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // The person who approves a difference is, by rule, someone other than the
+  // uploader (INS_IMPORT_CONTROL_OVERRIDE_SELF), and they are on another
+  // machine with no state from this tab. The batch id therefore goes in the
+  // URL when a batch is created, and opening that URL puts the wizard back on
+  // the step the batch's status implies.
+  const resumeId = params.get('batch');
+  useEffect(() => {
+    if (!resumeId || batch) return;
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
+    (async () => {
+      try {
+        const found = await rows<BatchRow>(table('ins_import_batches')
+          .select('id,label,status,cut_over_date,error_count')
+          .eq('id', resumeId).limit(1));
+        const b = found[0];
+        if (cancelled) return;
+        if (!b) throw new Error('That batch does not exist in this company.');
+        setBatch(b);
+        setLabel(b.label);
+        setCutOver(b.cut_over_date);
+        setActive(b.status === 'committed' ? 3 : b.status === 'validated' ? 2 : 1);
+        setNotice(`Opened batch ${b.id.slice(0, 8)} (${b.status}).`);
+      } catch (e) {
+        if (!cancelled) setError(errorText(e));
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [resumeId, batch]);
 
   const run = useCallback(async (fn: () => Promise<unknown>, next: number) => {
     setBusy(true);
@@ -55,12 +118,15 @@ export default function ImportWizard() {
   const upload = async () => {
     if (!file || !label || !cutOver) return;
     await run(async () => {
-      const parsed = file.name.endsWith('.xlsx') ? await parseXlsx(file) : parseCsv(await file.text());
-      // A multi-sheet workbook parser may attach per-sheet rows; a CSV or a
-      // first-sheet-only parse has just `rows` (the policies sheet).
-      const sheets = (parsed as ParsedCsv & { sheets?: Record<string, Record<string, string>[]> }).sheets;
+      const parsed = file.name.endsWith('.xlsx')
+        ? await parseXlsx(file)
+        : parseCsv(await file.text());
+      // The canonical import is one workbook with a sheet per file. A CSV (or
+      // a first-sheet-only parse) has just `rows`, which is the policies sheet.
+      const sheets = 'sheets' in parsed ? (parsed as ParsedWorkbook).sheets : undefined;
       const b = await rpc<BatchRow>('ins_import_create_batch', { p_label: label, p_cut_over_date: cutOver });
       setBatch(b);
+      setParams({ batch: b.id }, { replace: true });
       for (const sheet of ['policies', 'receipts', 'remittances', 'shares', 'control_totals']) {
         const rows = sheets?.[sheet] ?? (sheet === 'policies' ? parsed.rows : []);
         if (!rows.length) continue;
@@ -94,12 +160,39 @@ export default function ImportWizard() {
     setNotice('Validation passed.');
   }, 2);
 
+  const loadRecon = async (batchId: string) => {
+    const r = await rpc<ReconRow[]>('ins_import_reconciliation', { p_batch_id: batchId });
+    setRecon(r);
+    return r;
+  };
+
+  // Choosing a reason is the reviewer's job, not the uploader's; the server
+  // refuses the uploader (INS_IMPORT_CONTROL_OVERRIDE_SELF), so the UI only
+  // has to ask for the explanation and show what comes back.
+  const approve = () => run(async () => {
+    if (!batch) throw new Error('No batch selected');
+    const r = await rpc<{ approved_differences: { currency: string; measure: string }[] }>(
+      'ins_import_override_control_totals', { p_batch_id: batch.id, p_reason: reason });
+    setNotice(`Approved ${r.approved_differences.length} difference(s). The commit can go ahead.`);
+    setReason('');
+  }, 2);
+
   const commit = () => run(async () => {
     if (!batch) throw new Error('No batch selected');
     await rpc('ins_import_commit_policies', { p_batch_id: batch.id });
     setBatch({ ...batch, status: 'committed' });
-    setNotice('Policies committed (version 1, no bind journal).');
+    setNotice('Policies committed (version 1, with their payment history).');
   }, 3);
+
+  const checkTotals = () => run(async () => {
+    if (!batch) throw new Error('No batch selected');
+    const r = await loadRecon(batch.id);
+    const diff = r.filter((x) => x.match === false).length;
+    const missing = r.filter((x) => x.match === null).length;
+    setNotice(diff === 0
+      ? `Control totals agree${missing ? ` (${missing} measure(s) not recorded)` : ''}.`
+      : `${diff} measure(s) disagree with the recorded control totals.`);
+  }, 2);
 
   const postOpening = () => run(async () => {
     if (!batch) throw new Error('No batch selected');
@@ -110,8 +203,10 @@ export default function ImportWizard() {
 
   const reconcile = () => run(async () => {
     if (!batch) throw new Error('No batch selected');
-    setRecon(await rpc<ReconRow[]>('ins_import_reconciliation', { p_batch_id: batch.id }));
+    await loadRecon(batch.id);
   }, 5);
+
+  const differences = recon.filter((r) => r.match === false);
 
   return (
     <Box>
@@ -170,32 +265,49 @@ export default function ImportWizard() {
             )}
           </Stack>
         )}
-        {active === 2 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={commit}>Commit policies</Button>}
+        {active === 2 && (
+          <Stack spacing={2}>
+            <Button variant="outlined" disabled={busy || !batch} onClick={checkTotals}>
+              Compare with control totals
+            </Button>
+            {recon.length > 0 && <ReconTable rows={recon} />}
+            {differences.length > 0 && (
+              <Alert severity="warning">
+                The recorded control totals disagree with the staged book on{' '}
+                {differences.length} measure(s). The commit is refused until either the
+                totals or the book are corrected, or someone other than the uploader
+                approves the difference.
+              </Alert>
+            )}
+            {differences.length > 0 && (
+              <Stack spacing={1}>
+                <TextField
+                  label="Why do the totals differ?"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  helperText="At least 10 characters. Recorded against the batch with your name."
+                  fullWidth
+                />
+                <Button
+                  variant="outlined"
+                  disabled={busy || !canManage || reason.trim().length < 10}
+                  onClick={approve}
+                >
+                  Approve difference
+                </Button>
+              </Stack>
+            )}
+            <Button variant="contained" disabled={busy || !batch || !canManage} onClick={commit}>
+              Commit policies
+            </Button>
+          </Stack>
+        )}
         {active === 3 && <Button variant="contained" disabled={busy || !batch || !canManage} onClick={postOpening}>Post opening position</Button>}
         {/* >= 4: reconcile() advances to step 5 (all steps complete); the result table must stay on screen. */}
         {active >= 4 && (
           <Stack spacing={2}>
             <Button variant="contained" disabled={busy || !batch} onClick={reconcile}>Run reconciliation</Button>
-            <Table size="small">
-              <TableHead>
-                <TableRow><TableCell>Currency</TableCell><TableCell>Measure</TableCell>
-                  <TableCell align="right">Imported</TableCell><TableCell align="right">Control</TableCell><TableCell>Match</TableCell></TableRow>
-              </TableHead>
-              <TableBody>
-                {recon.map((r) => (
-                  <TableRow key={r.currency + r.measure}>
-                    <TableCell>{r.currency}</TableCell><TableCell>{r.measure}</TableCell>
-                    <TableCell align="right">{r.imported_amount.toLocaleString()}</TableCell>
-                    <TableCell align="right">{r.control_amount === null ? '—' : r.control_amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {r.match === null
-                        ? <Chip size="small" label="not recorded" variant="outlined" />
-                        : <Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} />}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReconTable rows={recon} />
             <Button onClick={() => navigate('/insurance/reports')}>Back to reports</Button>
           </Stack>
         )}
