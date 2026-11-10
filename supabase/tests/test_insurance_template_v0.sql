@@ -7,7 +7,7 @@
 --   2. Modules are exactly hr, insurance, it, legal and are active and
 --      entitlable in the registry.
 --   3. 8 departments, no workflow stages, no feature flags.
---   4. 27 GL accounts and 27 posting rules; account payloads are valid; every
+--   4. 28 GL accounts and 28 posting rules; account payloads are valid; every
 --      rule points at an account in the template; the rules cover exactly
 --      platform_gl_posting_roles() (all 13 existing roles incl. the required
 --      ones, plus the 5 insurance roles); no two roles share an account.
