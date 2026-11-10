@@ -307,34 +307,7 @@ export default function ImportWizard() {
         {active >= 4 && (
           <Stack spacing={2}>
             <Button variant="contained" disabled={busy || !batch} onClick={reconcile}>Run reconciliation</Button>
-<<<<<<< ours
-<<<<<<< ours
             <ReconTable rows={recon} />
-=======
-            <Table size="small">
-              <TableHead>
-                <TableRow><TableCell>Currency</TableCell><TableCell>Measure</TableCell>
-                  <TableCell align="right">Imported</TableCell><TableCell align="right">Control</TableCell><TableCell>Match</TableCell></TableRow>
-              </TableHead>
-              <TableBody>
-                {recon.map((r) => (
-                  <TableRow key={r.currency + r.measure}>
-                    <TableCell>{r.currency}</TableCell><TableCell>{r.measure}</TableCell>
-                    <TableCell align="right">{r.imported_amount.toLocaleString()}</TableCell>
-                    <TableCell align="right">{r.control_amount === null ? '—' : r.control_amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {r.match === null
-                        ? <Chip size="small" label="not recorded" variant="outlined" />
-                        : <Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} />}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
->>>>>>> theirs
-=======
-            <ReconTable rows={recon} />
->>>>>>> theirs
             <Button onClick={() => navigate('/insurance/reports')}>Back to reports</Button>
           </Stack>
         )}

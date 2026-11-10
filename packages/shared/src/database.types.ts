@@ -17719,20 +17719,12 @@ export type Database = {
           measure: string
         }[]
       }
-      ins_import_override_control_totals: {
-        Args: { p_batch_id: string; p_reason: string }
-        Returns: Json
-      }
       ins_import_refresh_control_totals: {
         Args: { p_batch_id: string }
         Returns: Json
       }
       ins_import_record_history: {
         Args: { p_batch_id: string; p_receipts: Json; p_remittances: Json }
-        Returns: Json
-      }
-      ins_import_refresh_control_totals: {
-        Args: { p_batch_id: string }
         Returns: Json
       }
       ins_import_save_profile: {

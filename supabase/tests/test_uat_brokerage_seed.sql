@@ -32,26 +32,10 @@ begin
   -- the expected count follows platform_gl_posting_roles() rather than a
   -- literal that has to be edited whenever a role is added
   select count(*) into n from gl_accounts where tenant_id = v_t;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-  if n <> 28 then raise exception 'FAIL: UAT tenant GL accounts: expected 28, got %', n; end if;
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
   if n <> array_length(platform_gl_posting_roles(), 1) then
     raise exception 'FAIL: UAT tenant GL accounts: expected one per posting role (%), got %',
       array_length(platform_gl_posting_roles(), 1), n;
   end if;
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 
   select count(*) into n from app_users where tenant_id = v_t;
   if n <> 6 then raise exception 'FAIL: UAT tenant users: expected 6, got %', n; end if;
