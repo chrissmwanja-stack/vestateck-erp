@@ -73,7 +73,7 @@ Per-policy time-apportioned earned amounts can still be computed and shown on th
 
    It returns a dry-run report per row and per batch.
 4. **Commit RPC (policies).** One transaction. Creates policies as `active` flagged with the batch ID and `migrated_at`, using a marker like `ins.binding_policy` so the guards allow it. It skips the approval workflow and certificate checks. It posts no bind journal. Failure rolls back the whole batch.
-5. **Opening journals.** One balanced journal per batch and currency, dated at the cut-over date:
+5. **Opening journals.** One balanced journal per batch, dated at the cut-over date, with its lines split by currency (the journal's balance check is then satisfied currency by currency, so no FX rounding line is involved):
    - client receivable open items per policy, carrying the original bound date so ageing works
    - insurer payable open items per policy and share
    - unearned commission, per policy, as `ins_commission_entries` (status `deferred`; for Option A only policies whose insurer net is not yet fully paid)
@@ -81,6 +81,8 @@ Per-policy time-apportioned earned amounts can still be computed and shown on th
    - the offset to an `opening_balance_clearing` account, which must net to zero after commit
 
    Receipts and remittances are written to history tables only and posted nowhere.
+
+   *As built (10 Nov 2026, `20261110120000_ins_import_opening_from_history.sql`).* Legs 1-3 are live and computed from the imported payment history rather than the policy header: receivable is billed minus receipts, payable is each share's net premium minus the remittances allocated to it, and commission is earned (to `retained_earnings`, account 3200) for any share fully remitted at cut-over, deferred otherwise. `journal_entries_source_unique` allows one opening entry per batch, so a batch containing several currencies posts one journal with per-currency lines, not one journal per currency. Remittances are recorded against the policy, so they are allocated across a co-insured policy's shares in proportion to each share's payable, the last share taking the rounding remainder; per-insurer remittance detail in the template would remove the approximation. Leg 4 (bank balances from control totals) is **not built**: without it the client-money float sits in `opening_balance_clearing` instead of being cleared to the bank, which is why the clearing account does not yet net to zero. Leg 5's sign convention is therefore: clearing carries receipts minus remittances per currency.
 6. **Reconciliation.** Commit is refused unless the staged totals match `control_totals` per currency, or each difference is explained and approved by someone other than the uploader. After commit, a report compares open items by account, the opening journal and the legacy totals, and lists the per-policy earned and unearned split.
 7. **UI.** Upload, map, validate (error table with downloadable rejects), enter control totals, review reconciliation, commit. Replaces nothing in `BulkImportDialog`; reuses `csvParser` and `xlsxParser`.
 

@@ -43,9 +43,14 @@ begin
     raise exception 'FAIL: v0 ships no workflow stages or feature flags';
   end if;
 
-  if (select count(*) from industry_template_items where template_key = 'insurance' and kind = 'gl_account') <> 27
-     or (select count(*) from industry_template_items where template_key = 'insurance' and kind = 'posting_rule') <> 27 then
-    raise exception 'FAIL: expected 27 accounts and 27 posting rules';
+  -- One account and one rule per platform posting role: compare against the
+  -- role list itself so the count cannot drift when a role is added.
+  if (select count(*) from industry_template_items where template_key = 'insurance' and kind = 'gl_account')
+     <> array_length(platform_gl_posting_roles(), 1)
+     or (select count(*) from industry_template_items where template_key = 'insurance' and kind = 'posting_rule')
+     <> array_length(platform_gl_posting_roles(), 1) then
+    raise exception 'FAIL: expected one account and one posting rule per posting role (%)',
+      array_length(platform_gl_posting_roles(), 1);
   end if;
 
   -- Account payloads: name present, type valid, control flag boolean when present.
@@ -65,7 +70,9 @@ begin
                         and a.name = r.payload ->> 'account_code');
   if v_bad is not null then raise exception 'FAIL: posting rules pointing nowhere: %', v_bad; end if;
 
-  -- Rules cover exactly the platform's 27 roles (13 existing, incl. all required, + 8 insurance, + fx_rounding, + realised gain and loss, + unrealised gain and loss, + opening_balance_clearing).
+  -- Rules cover exactly the platform's posting roles (the 13 existing, + 8 insurance,
+  -- + fx_rounding, + realised and unrealised gain and loss, + opening_balance_clearing,
+  -- + retained_earnings).
   select array_agg(name order by name) into v_roles from industry_template_items
    where template_key = 'insurance' and kind = 'posting_rule';
   if v_roles is distinct from (select array_agg(r order by r) from unnest(platform_gl_posting_roles()) r) then
@@ -74,7 +81,9 @@ begin
 
   -- No two rules share an account (one role per account in this chart).
   if (select count(distinct payload ->> 'account_code') from industry_template_items
-       where template_key = 'insurance' and kind = 'posting_rule') <> 27 then
+       where template_key = 'insurance' and kind = 'posting_rule')
+     <> (select count(*) from industry_template_items
+          where template_key = 'insurance' and kind = 'posting_rule') then
     raise exception 'FAIL: two roles share an account';
   end if;
 
