@@ -95,6 +95,12 @@ async function bookWorkbook(policyNo: string, controlOverrides: Record<string, s
       receipts: RECEIPT,
       remittances: REMITTANCE,
       client_money: RECEIPT - REMITTANCE,
+      // Reported after posting, never part of the commit gate: receivable is
+      // billed less received, payable is net premium less remitted, and the
+      // commission is deferred because the insurer net is not fully remitted.
+      receivables: GROSS - RECEIPT,
+      payables: GROSS - COMMISSION - REMITTANCE,
+      unearned_commission: COMMISSION,
       ...controlOverrides,
     }],
   });
@@ -156,6 +162,12 @@ test.describe('Insurance in-force import wizard', () => {
       // client_money is the leg-4 measure: receipts less remittances per
       // currency, checked against the balance the reviewer recorded.
       await expect(page.getByRole('cell', { name: 'client_money', exact: true })).toBeVisible();
+      // The post-posting report: journal, open items and legacy totals agree
+      // on the three measures the commit gate cannot see.
+      await expect(page.getByRole('cell', { name: 'receivables', exact: true })).toBeVisible();
+      await expect(page.getByRole('cell', { name: 'payables', exact: true })).toBeVisible();
+      await expect(page.getByRole('cell', { name: 'unearned_commission', exact: true })).toBeVisible();
+      await expect(page.getByText(/agree on receivables, payables and unearned commission/)).toBeVisible();
       await expect(page.getByText('DIFF')).toHaveCount(0);
     });
   });

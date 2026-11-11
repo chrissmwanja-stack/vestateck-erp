@@ -23,6 +23,15 @@ interface ReconRow {
   control_amount: number | null; match: boolean | null;
 }
 
+// The post-posting report (ins_import_opening_report): what the opening journal
+// posted, what the sub-ledger holds, and what the legacy ledger said. Nothing
+// here gates anything; it is for a reviewer to read and explain.
+interface OpeningRow {
+  currency: string; measure: string; posted_amount: number;
+  open_item_amount: number | null; control_amount: number | null;
+  match: boolean | null; subledger_match: boolean | null;
+}
+
 const STEPS = ['Upload & stage', 'Validate', 'Commit policies', 'Opening position', 'Reconcile'];
 
 // One table, shown twice: on the commit step (where the gate fires) and on the
@@ -53,6 +62,43 @@ function ReconTable({ rows }: { rows: ReconRow[] }) {
   );
 }
 
+// null means "nothing to compare" (not recorded, or no sub-ledger for that
+// measure), which is a different fact from "differs".
+function OpeningReportTable({ rows }: { rows: OpeningRow[] }) {
+  return (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell>Currency</TableCell><TableCell>Measure</TableCell>
+          <TableCell align="right">Posted</TableCell><TableCell align="right">Open items</TableCell>
+          <TableCell align="right">Legacy</TableCell>
+          <TableCell>Posted vs legacy</TableCell><TableCell>Posted vs open items</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((r) => (
+          <TableRow key={r.currency + r.measure}>
+            <TableCell>{r.currency}</TableCell><TableCell>{r.measure}</TableCell>
+            <TableCell align="right">{r.posted_amount.toLocaleString()}</TableCell>
+            <TableCell align="right">{r.open_item_amount === null ? '—' : r.open_item_amount.toLocaleString()}</TableCell>
+            <TableCell align="right">{r.control_amount === null ? '—' : r.control_amount.toLocaleString()}</TableCell>
+            <TableCell>
+              {r.match === null
+                ? <Chip size="small" label="not recorded" variant="outlined" />
+                : <Chip size="small" label={r.match ? 'match' : 'DIFF'} color={r.match ? 'success' : 'error'} />}
+            </TableCell>
+            <TableCell>
+              {r.subledger_match === null
+                ? <Chip size="small" label="n/a" variant="outlined" />
+                : <Chip size="small" label={r.subledger_match ? 'match' : 'DIFF'} color={r.subledger_match ? 'success' : 'error'} />}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 export default function ImportWizard() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -63,6 +109,7 @@ export default function ImportWizard() {
   const [batch, setBatch] = useState<BatchRow | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [recon, setRecon] = useState<ReconRow[]>([]);
+  const [opening, setOpening] = useState<OpeningRow[]>([]);
   const [reason, setReason] = useState('');
   const [problems, setProblems] = useState<RowProblem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -204,9 +251,13 @@ export default function ImportWizard() {
   const reconcile = () => run(async () => {
     if (!batch) throw new Error('No batch selected');
     await loadRecon(batch.id);
+    // Receivables, payables and unearned commission only exist once the
+    // opening position is posted, so they are reported here and do not gate.
+    setOpening(await rpc<OpeningRow[]>('ins_import_opening_report', { p_batch_id: batch.id }));
   }, 5);
 
   const differences = recon.filter((r) => r.match === false);
+  const openingDiffs = opening.filter((r) => r.match === false || r.subledger_match === false);
 
   return (
     <Box>
@@ -308,6 +359,18 @@ export default function ImportWizard() {
           <Stack spacing={2}>
             <Button variant="contained" disabled={busy || !batch} onClick={reconcile}>Run reconciliation</Button>
             <ReconTable rows={recon} />
+            {opening.length > 0 && (
+              <>
+                <Alert severity={openingDiffs.length === 0 ? 'success' : 'warning'}>
+                  {openingDiffs.length === 0
+                    ? 'The opening journal, the open items and the legacy ledger agree on receivables, payables and unearned commission.'
+                    : `${openingDiffs.length} line(s) differ. These measures are reported after posting and do not block anything: ` +
+                      'explain each difference to whoever signs off the migration. A legacy unearned-commission figure can differ by design, ' +
+                      'because commission is recognised when the insurer is settled, not over time.'}
+                </Alert>
+                <OpeningReportTable rows={opening} />
+              </>
+            )}
             <Button onClick={() => navigate('/insurance/reports')}>Back to reports</Button>
           </Stack>
         )}

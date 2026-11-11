@@ -17693,6 +17693,18 @@ export type Database = {
         }
         Returns: string
       }
+      ins_import_opening_report: {
+        Args: { p_batch_id: string }
+        Returns: {
+          control_amount: number
+          currency: string
+          match: boolean
+          measure: string
+          open_item_amount: number
+          posted_amount: number
+          subledger_match: boolean
+        }[]
+      }
       ins_import_override_control_totals: {
         Args: { p_batch_id: string; p_reason: string }
         Returns: Json
