@@ -89,6 +89,7 @@ async function bookWorkbook(policyNo: string, controlOverrides: Record<string, s
     remittances: [{ legacy_policy_no: policyNo, remit_date: today, amount: REMITTANCE }],
     control_totals: [{
       currency: 'UGX',
+      policy_count: 1,
       gross_premium: GROSS,
       commission: COMMISSION,
       receipts: RECEIPT,
@@ -134,7 +135,7 @@ test.describe('Insurance in-force import wizard', () => {
       // difference here is the regression the old COALESCE(control, 0)
       // comparison produced on a perfect batch.
       const rows = page.locator('tbody tr').filter({ hasText: 'UGX' });
-      await expect(rows).toHaveCount(5); // 4 money measures + client money
+      await expect(rows).toHaveCount(6); // policy count + 4 money measures + client money
       await expect(page.getByText('DIFF')).toHaveCount(0);
       await expect(page.getByText('not recorded')).toHaveCount(0);
     });

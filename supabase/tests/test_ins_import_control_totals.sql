@@ -15,6 +15,13 @@
 --   C8  approving when nothing differs, or without a reason, is refused
 --   C9  access: members can read the reconciliation, cannot approve; another
 --       tenant sees nothing
+--   C10 a currency in the control sheet but not in the book is a difference
+--       (the "we lost a whole currency" case), blocks commit, and can only
+--       be approved by a second person
+--   C11 policy_count is compared: a dropped or duplicated row blocks commit
+--
+-- C10/C11 also guard the migration order: 20261110190000 redefines
+-- ins_import_control_rows, so 20261111090000 re-applies the fixes after it.
 --
 -- Run against a fresh local stack only (`supabase db reset`). One
 -- transaction, ROLLBACK at the end; any RAISE EXCEPTION fails the run.
@@ -148,7 +155,7 @@ select set_config('fx.via_rpc', 'off', true);
 do $$
 declare
   o    pg_temp.c_ids;
-  b1   uuid; b2   uuid; b3   uuid; b4   uuid; b5   uuid; b6   uuid;
+  b1   uuid; b2   uuid; b3   uuid; b4   uuid; b5   uuid; b6   uuid; b7   uuid; b8   uuid; b9   uuid;
   r    jsonb;
   n    integer;
 begin
@@ -332,8 +339,8 @@ begin
   -- C9. Access
   -------------------------------------------------------------------
   perform pg_temp.jwt(o.mem);
-  perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 10,
-    'C9 a member can read the reconciliation (2 currencies x 5 measures)');
+  perform pg_temp.assert((select count(*) from public.ins_import_reconciliation(b1)) = 12,
+    'C9 a member can read the reconciliation (2 currencies x 6 measures)');
   perform pg_temp.expect_error(
     format($q$select public.ins_import_override_control_totals(%L, 'member should not approve')$q$, b6),
     'INS_ACCESS_DENIED', 'C9 a member cannot approve a difference');
@@ -344,6 +351,106 @@ begin
 
   perform pg_temp.jwt(o.mgr);
   raise notice 'PASS: C9 access to totals is insurance-wide read, manager-only write';
+
+  -------------------------------------------------------------------
+  -- C10. A currency in the control sheet but not in the book
+  -------------------------------------------------------------------
+  perform pg_temp.jwt(o.mgr);
+  select id into b7 from public.ins_import_create_batch('C10 missing currency', current_date);
+  perform public.ins_import_stage_rows(b7, 'policies', $j$[
+    {"legacy_policy_no":"C10-P1","client_name":"Control Client","insurer":"CTLINS1","product_line":"GEN",
+     "inception_date":"2026-01-01","expiry_date":"2026-12-31","currency":"UGX",
+     "gross_premium":"1000","commission_rate_pct":"10"}]$j$::jsonb);
+  perform public.ins_import_stage_rows(b7, 'control_totals', $j$[
+    {"currency":"UGX","policy_count":"1","gross_premium":"1000","commission":"100"},
+    {"currency":"EUR","gross_premium":"5,000,000","policy_count":"3"}]$j$::jsonb);
+  r := public.ins_import_validate_batch(b7);
+  perform pg_temp.assert((r ->> 'error_count')::int = 0,
+    'C10 a control row for a currency with no policies is format-valid: ' || r::text);
+
+  perform pg_temp.assert(pg_temp.recon(b7, 'EUR', 'gross_premium') = '0|5000000|false',
+    'C10 the missing currency is a difference, not an absent row: ' || coalesce(pg_temp.recon(b7, 'EUR', 'gross_premium'), 'no row'));
+  perform pg_temp.assert(pg_temp.recon(b7, 'EUR', 'policy_count') = '0|3|false',
+    'C10 the missing currency also differs on policy count');
+  perform pg_temp.assert(pg_temp.recon(b7, 'EUR', 'commission') = '0|null|null',
+    'C10 a measure the sheet did not record for it is "not recorded", not a difference');
+  perform pg_temp.assert(pg_temp.recon(b7, 'UGX', 'gross_premium') = '1000|1000|true',
+    'C10 the currency that is in the book still matches');
+  perform pg_temp.assert(
+    exists (select 1 from jsonb_array_elements(public.ins_import_control_diff(b7)) d
+             where d ->> 'currency' = 'EUR' and d ->> 'measure' = 'gross_premium'),
+    'C10 the missing currency appears in the difference the commit gate reads');
+
+  perform pg_temp.expect_error(format('select public.ins_import_commit_policies(%L)', b7),
+    'INS_IMPORT_CONTROL_MISMATCH', 'C10 a lost currency blocks commit');
+  perform pg_temp.expect_error(format('select public.ins_import_commit_policies(%L)', b7),
+    'EUR', 'C10 and the refusal names the currency');
+  perform pg_temp.assert((select status from ins_import_batches where id = b7) = 'validated',
+    'C10 the refused batch stays validated');
+  perform pg_temp.assert(not exists (select 1 from ins_policies where import_batch_id = b7),
+    'C10 the refused commit created no policies');
+
+  perform pg_temp.expect_error(
+    format($q$select public.ins_import_override_control_totals(%L, 'I know the EUR book is missing')$q$, b7),
+    'INS_IMPORT_CONTROL_OVERRIDE_SELF', 'C10 the uploader cannot approve a lost currency');
+  perform pg_temp.jwt(o.mgr2);
+  r := public.ins_import_override_control_totals(b7, 'EUR book is held by the Nairobi office and loaded separately');
+  perform pg_temp.assert(
+    exists (select 1 from jsonb_array_elements(r -> 'approved_differences') d where d ->> 'currency' = 'EUR'),
+    'C10 the approval records the missing currency: ' || r::text);
+  perform pg_temp.jwt(o.mgr);
+  perform public.ins_import_commit_policies(b7);
+  perform pg_temp.assert((select status from ins_import_batches where id = b7) = 'committed',
+    'C10 the approved batch commits');
+  perform pg_temp.assert(pg_temp.recon(b7, 'EUR', 'gross_premium') = '0|5000000|false',
+    'C10 after commit the lost currency is still reported as a difference');
+  raise notice 'PASS: C10 a currency present only in the control sheet is a difference and gates the commit';
+
+  -------------------------------------------------------------------
+  -- C11. policy_count catches dropped and duplicated rows
+  -------------------------------------------------------------------
+  select id into b8 from public.ins_import_create_batch('C11 policy count', current_date);
+  perform public.ins_import_stage_rows(b8, 'policies', $j$[
+    {"legacy_policy_no":"C11-P1","client_name":"Control Client","insurer":"CTLINS1","product_line":"GEN",
+     "inception_date":"2026-01-01","expiry_date":"2026-12-31","currency":"UGX",
+     "gross_premium":"400","commission_rate_pct":"10"},
+    {"legacy_policy_no":"C11-P2","client_name":"Control Client","insurer":"CTLINS1","product_line":"GEN",
+     "inception_date":"2026-01-01","expiry_date":"2026-12-31","currency":"UGX",
+     "gross_premium":"600","commission_rate_pct":"10"}]$j$::jsonb);
+  -- money agrees exactly; only the count says a row went missing
+  perform public.ins_import_stage_rows(b8, 'control_totals', $j$[
+    {"currency":"UGX","policy_count":"3","gross_premium":"1000","commission":"100"}]$j$::jsonb);
+  perform public.ins_import_validate_batch(b8);
+  perform pg_temp.assert(pg_temp.recon(b8, 'UGX', 'policy_count') = '2|3|false',
+    'C11 the count differs: ' || coalesce(pg_temp.recon(b8, 'UGX', 'policy_count'), 'no row'));
+  perform pg_temp.assert(pg_temp.recon(b8, 'UGX', 'gross_premium') = '1000|1000|true',
+    'C11 the premium matches, which is why the count is the only signal');
+  perform pg_temp.expect_error(format('select public.ins_import_commit_policies(%L)', b8),
+    'INS_IMPORT_CONTROL_MISMATCH', 'C11 a count difference blocks commit');
+
+  -- corrected sheet: the count now agrees and the commit goes through
+  perform public.ins_import_stage_rows(b8, 'control_totals', $j$[
+    {"currency":"UGX","policy_count":"2","gross_premium":"1000","commission":"100"}]$j$::jsonb, true);
+  perform public.ins_import_validate_batch(b8);
+  perform pg_temp.assert(pg_temp.recon(b8, 'UGX', 'policy_count') = '2|2|true',
+    'C11 an agreeing count matches');
+  perform public.ins_import_commit_policies(b8);
+  perform pg_temp.assert(pg_temp.recon(b8, 'UGX', 'policy_count') = '2|2|true',
+    'C11 after commit the count is the batch''s own ins_policies rows');
+
+  -- a sheet that does not record a count says nothing about it
+  select id into b9 from public.ins_import_create_batch('C11 count not recorded', current_date);
+  perform public.ins_import_stage_rows(b9, 'policies', $j$[
+    {"legacy_policy_no":"C11-P3","client_name":"Control Client","insurer":"CTLINS1","product_line":"GEN",
+     "inception_date":"2026-01-01","expiry_date":"2026-12-31","currency":"UGX",
+     "gross_premium":"300","commission_rate_pct":"10"}]$j$::jsonb);
+  perform public.ins_import_stage_rows(b9, 'control_totals', $j$[
+    {"currency":"UGX","gross_premium":"300"}]$j$::jsonb);
+  perform public.ins_import_validate_batch(b9);
+  perform pg_temp.assert(pg_temp.recon(b9, 'UGX', 'policy_count') = '1|null|null',
+    'C11 an unrecorded count is "not recorded", never a difference');
+  perform public.ins_import_commit_policies(b9);
+  raise notice 'PASS: C11 a dropped or duplicated row is caught by policy_count';
 end $$;
 
 -- Catalog: the internals stay internal, the three entry points are reachable.
