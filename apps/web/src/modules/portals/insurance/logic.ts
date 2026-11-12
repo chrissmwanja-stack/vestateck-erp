@@ -33,6 +33,26 @@ export function canUnapproveClaim(
   return canManage && claim.status === 'approved' && !claim.recognised_at && claim.paid_amount === 0;
 }
 
+/**
+ * Whether the detail page offers a given next step to this user.
+ *
+ * Un-approval (approved -> assessing) has its own rule: manager only, and only
+ * before the receivable is recognised and before anything is paid. It must not
+ * apply to Start assessment (notified -> assessing), which is an ordinary step:
+ * routing every move to `assessing` through the un-approval rule hid the
+ * button on every freshly notified claim.
+ */
+export function isClaimStepOffered(
+  claim: { status: ClaimStatus; recognised_at?: string | null; paid_amount: number },
+  to: ClaimStatus,
+  opts: { canManage: boolean; approvalBlocked: boolean },
+): boolean {
+  if (to === 'approved' && opts.approvalBlocked) return false;
+  if (claim.status === 'approved' && to === 'assessing') return canUnapproveClaim(claim, opts.canManage);
+  // Decisions are manager/admin only on the server; hide them for members.
+  return !CLAIM_DECISION_STATUSES.includes(to) || opts.canManage;
+}
+
 export function nextClaimStatuses(from: ClaimStatus): ClaimStatus[] {
   return CLAIM_TRANSITIONS[from] ?? [];
 }

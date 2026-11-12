@@ -104,6 +104,57 @@ describe('ImportWizard reconciliation', () => {
   });
 });
 
+describe('ImportWizard opening report', () => {
+  // receivables / payables / unearned commission cannot gate the commit, so the
+  // last step shows them as a report: three figures per line, two comparisons,
+  // and a plain statement that nothing here blocks anything.
+  it('shows the opening report under the reconciliation and says it blocks nothing', async () => {
+    mockRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'ins_import_create_batch') return { id: 'b1234567-0000', label: 'Legacy book', status: 'staged', cut_over_date: '2026-10-31', error_count: 0 };
+      if (fn === 'ins_import_validate_batch') return { error_count: 0 };
+      if (fn === 'ins_import_post_opening_position') return { already_posted: false, journal_entry_id: 'je-000000' };
+      if (fn === 'ins_import_reconciliation') return [
+        { currency: 'UGX', measure: 'gross_premium', imported_amount: 1000, control_amount: 1000, match: true },
+      ];
+      if (fn === 'ins_import_opening_report') return [
+        { currency: 'UGX', measure: 'receivables', posted_amount: 350000, open_item_amount: 350000, control_amount: 360000, match: false, subledger_match: true },
+        { currency: 'UGX', measure: 'unearned_commission', posted_amount: 100000, open_item_amount: null, control_amount: null, match: null, subledger_match: null },
+      ];
+      return null;
+    });
+
+    const user = await stageAndOpenValidation();
+    await user.click(await screen.findByRole('button', { name: 'Commit policies' }));
+    await user.click(await screen.findByRole('button', { name: 'Post opening position' }));
+    await user.click(await screen.findByRole('button', { name: 'Run reconciliation' }));
+
+    expect(await screen.findByText('receivables')).toBeTruthy();
+    expect(screen.getByText('unearned_commission')).toBeTruthy();
+    // one difference (posted vs legacy receivables), reported as a warning
+    expect(screen.getByText('DIFF')).toBeTruthy();
+    expect(screen.getByText(/do not block anything/)).toBeTruthy();
+    // no sub-ledger for unearned commission, and nothing recorded for it
+    expect(screen.getByText('n/a')).toBeTruthy();
+    expect(screen.getByText('not recorded')).toBeTruthy();
+  });
+
+  it('does not crash when the report comes back empty', async () => {
+    mockRpc.mockImplementation(async (fn: string) => {
+      if (fn === 'ins_import_create_batch') return { id: 'b1234567-0000', label: 'Legacy book', status: 'staged', cut_over_date: '2026-10-31', error_count: 0 };
+      if (fn === 'ins_import_validate_batch') return { error_count: 0 };
+      if (fn === 'ins_import_post_opening_position') return { already_posted: false, journal_entry_id: 'je-000000' };
+      if (fn === 'ins_import_reconciliation') return [];
+      return null; // ins_import_opening_report answers nothing at all
+    });
+    const user = await stageAndOpenValidation();
+    await user.click(await screen.findByRole('button', { name: 'Commit policies' }));
+    await user.click(await screen.findByRole('button', { name: 'Post opening position' }));
+    await user.click(await screen.findByRole('button', { name: 'Run reconciliation' }));
+    expect(await screen.findByRole('button', { name: 'Back to reports' })).toBeTruthy();
+    expect(screen.queryByText(/do not block anything/)).toBeNull();
+  });
+});
+
 describe('ImportWizard multi-sheet staging', () => {
   // The canonical import is one workbook with a sheet per file. Until
   // parseXlsx returned every sheet, the wizard could only ever stage the

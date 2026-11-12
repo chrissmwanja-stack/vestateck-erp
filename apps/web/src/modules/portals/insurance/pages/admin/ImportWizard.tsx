@@ -253,7 +253,7 @@ export default function ImportWizard() {
     await loadRecon(batch.id);
     // Receivables, payables and unearned commission only exist once the
     // opening position is posted, so they are reported here and do not gate.
-    setOpening(await rpc<OpeningRow[]>('ins_import_opening_report', { p_batch_id: batch.id }));
+    setOpening((await rpc<OpeningRow[] | null>('ins_import_opening_report', { p_batch_id: batch.id })) ?? []);
   }, 5);
 
   const differences = recon.filter((r) => r.match === false);

@@ -158,7 +158,7 @@ test.describe('Insurance claim paid through the brokerage: approve -> recognise 
     const startAssessment = page.getByRole('button', { name: 'Start assessment' });
     await expect(
       startAssessment,
-      `${claimNo} is not in its starting state. It was used by an earlier run: run \`supabase db reset\`.`,
+      `Start assessment should be offered on the freshly seeded claim ${claimNo}. If the button is missing, check the claim's status on the page first (a claim used by an earlier local run needs \`supabase db reset\`), then the step rule in isClaimStepOffered.`,
     ).toBeVisible({ timeout: 15_000 });
 
     await test.step('the registrant starts assessment', async () => {

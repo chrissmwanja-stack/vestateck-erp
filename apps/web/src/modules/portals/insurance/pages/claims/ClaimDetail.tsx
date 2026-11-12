@@ -8,7 +8,7 @@ import { supabase } from '../../../../../lib/supabaseClient';
 import { errorText, rows, rpc, table } from '../../db';
 import { useInsuranceAccess } from '../../access';
 import {
-  canUnapproveClaim, CLAIM_DECISION_STATUSES, CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, isReserveRevisable, nextClaimStatuses,
+  CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, isClaimStepOffered, isReserveRevisable, nextClaimStatuses,
   reserveDelta, validateReserveRevision,
 } from '../../logic';
 import type { Claim, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
@@ -132,10 +132,7 @@ export default function ClaimDetail() {
   const available = nextClaimStatuses(claim.status).filter((to) => {
     const s = STEPS[`${claim.status}_${to}`];
     if (!s) return false;
-    if (to === 'approved' && approvalBlocked) return false;
-    if (to === 'assessing') return canUnapproveClaim(claim, canManage);
-    // Decisions are manager/admin only on the server; hide them for members.
-    return !CLAIM_DECISION_STATUSES.includes(to) || canManage;
+    return isClaimStepOffered(claim, to, { canManage, approvalBlocked });
   });
   const sumInsured = claim.ins_policies?.sum_insured ?? 0;
   const amountNum = Number(amount);

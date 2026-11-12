@@ -5,6 +5,7 @@ import {
   canUnapproveClaim,
   claimRemainingToPay,
   isClaimApprovalBlockedFor,
+  isClaimStepOffered,
   commissionSplit,
   daysBetween,
   formatMoney,
@@ -56,6 +57,31 @@ describe('claim lifecycle (mirrors ins_transition_claim)', () => {
     expect(canUnapproveClaim({ ...base, recognised_at: '2026-10-17T10:00:00Z' }, true)).toBe(false);
     expect(canUnapproveClaim({ ...base, paid_amount: 100 }, true)).toBe(false);
     expect(canUnapproveClaim({ ...base, status: 'assessing' }, true)).toBe(false);
+  });
+
+  // Regression: every move to `assessing` used to be routed through the
+  // un-approval rule, so "Start assessment" was never offered on a notified claim.
+  it('offers Start assessment on a notified claim to a member and to a manager', () => {
+    const notified = { status: 'notified' as const, recognised_at: null, paid_amount: 0 };
+    expect(isClaimStepOffered(notified, 'assessing', { canManage: false, approvalBlocked: false })).toBe(true);
+    expect(isClaimStepOffered(notified, 'assessing', { canManage: true, approvalBlocked: false })).toBe(true);
+  });
+
+  it('still applies the un-approval rule to approved -> assessing', () => {
+    const approved = { status: 'approved' as const, recognised_at: null, paid_amount: 0 };
+    expect(isClaimStepOffered(approved, 'assessing', { canManage: true, approvalBlocked: false })).toBe(true);
+    expect(isClaimStepOffered(approved, 'assessing', { canManage: false, approvalBlocked: false })).toBe(false);
+    expect(isClaimStepOffered({ ...approved, paid_amount: 100 }, 'assessing', { canManage: true, approvalBlocked: false })).toBe(false);
+    expect(isClaimStepOffered({ ...approved, recognised_at: '2026-10-17T10:00:00Z' }, 'assessing', { canManage: true, approvalBlocked: false })).toBe(false);
+  });
+
+  it('keeps decisions for managers and hides approval from the registrant', () => {
+    const assessing = { status: 'assessing' as const, recognised_at: null, paid_amount: 0 };
+    expect(isClaimStepOffered(assessing, 'approved', { canManage: true, approvalBlocked: false })).toBe(true);
+    expect(isClaimStepOffered(assessing, 'approved', { canManage: false, approvalBlocked: false })).toBe(false);
+    expect(isClaimStepOffered(assessing, 'approved', { canManage: true, approvalBlocked: true })).toBe(false);
+    expect(isClaimStepOffered(assessing, 'repudiated', { canManage: false, approvalBlocked: false })).toBe(false);
+    expect(isClaimStepOffered(assessing, 'repudiated', { canManage: true, approvalBlocked: false })).toBe(true);
   });
 
   it('treats only notified, assessing and approved as open', () => {
