@@ -81,8 +81,18 @@ async function openClaim(page: Page) {
   await expect(page.getByRole('heading', { name: claimNo })).toBeVisible({ timeout: 30_000 });
 }
 
-/** The "label … value" row inside the Payment card. */
-const line = (page: Page, label: string) => page.getByText(label, { exact: true }).locator('xpath=..');
+/**
+ * The "label … value" row inside the Payment card.
+ *
+ * Scoped to that card on purpose: the claim page also has an "Amounts" card
+ * (ClaimDetail) that repeats some labels, "Paid to the client" among them, so
+ * an unscoped text lookup matches two elements and fails in strict mode. The
+ * Payment card is the sibling right after the "Payment" heading.
+ */
+const paymentCard = (page: Page) =>
+  page.getByRole('heading', { name: 'Payment', exact: true }).locator('xpath=following-sibling::*[1]');
+const line = (page: Page, label: string) =>
+  paymentCard(page).getByText(label, { exact: true }).locator('xpath=..');
 
 async function pickFirstBank(page: Page, dialog: Locator) {
   await dialog.getByLabel('Client-money bank account').click();
