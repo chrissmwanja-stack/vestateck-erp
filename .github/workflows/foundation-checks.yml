@@ -234,23 +234,73 @@ jobs:
           fi
           echo "Tenant FK audit clean -- no BASE TABLE with an unconstrained tenant_id column."
 
+      # RLS coverage audit. The baseline gives anon/authenticated full DML on
+      # every public table, so RLS is the only barrier. FAILS when a public
+      # table has RLS disabled (NO-RLS) or RLS on with no policy (NO-POLICY).
+      # Tables where `anon` holds write privileges are printed as a notice.
+      - name: Audit RLS coverage on public tables
+        run: |
+          OUT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -F '|' -f supabase/scripts/audit_rls_coverage.sql)
+          echo "table|rls_enabled|policies|anon_write|risk"
+          echo "$OUT"
+          BAD=$(echo "$OUT" | grep -E '\|(NO-RLS|NO-POLICY)$' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Public tables without RLS, or with RLS but no policy (add an explicit deny policy for internal tables):"
+            echo "$BAD"
+            exit 1
+          fi
+          ANON=$(echo "$OUT" | grep -c '|t|[A-Z-]*$' || true)
+          echo "::notice::RLS coverage audit: every public table has RLS and a policy. $ANON tables grant write privileges to anon (RLS-gated; TRUNCATE is not)."
+
       # SECURITY DEFINER exposure audit (28 Sep 2026 review, priority 3).
       # Prints every client-executable definer function with a risk label
-      # and FAILS on CRITICAL: takes a tenant id, mutates data, and its body
-      # never consults an identity/tenant/permission helper. HIGH/REVIEW rows
-      # are printed for triage but do not fail the build.
+      # and FAILS on CRITICAL (takes a tenant id, mutates data, and its body
+      # never consults an identity/tenant/permission helper) and on
+      # ANON-EXPOSED (an unauthenticated caller can EXECUTE it and it is not
+      # on the allowlist in the audit script). HIGH/REVIEW rows are printed
+      # for triage but do not fail the build.
       - name: Audit SECURITY DEFINER function exposure
         run: |
           OUT=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -F '|' -f supabase/scripts/audit_security_definer.sql)
           echo "function|args|anon_exec|auth_exec|mutates|takes_tenant_id|has_guard|trigger_fn|risk"
           echo "$OUT"
-          CRITICAL=$(echo "$OUT" | grep '|CRITICAL$' || true)
+          CRITICAL=$(echo "$OUT" | grep -E '\|(CRITICAL|ANON-EXPOSED)$' || true)
           if [ -n "$CRITICAL" ]; then
-            echo "::error::Client-executable SECURITY DEFINER functions with a tenant parameter, mutations and no authorization guard:"
+            echo "::error::SECURITY DEFINER functions that are anon-executable (add REVOKE ... FROM public, anon) or take a tenant id, mutate and have no authorization guard:"
             echo "$CRITICAL"
             exit 1
           fi
-          echo "SECURITY DEFINER audit: no CRITICAL exposures."
+          echo "SECURITY DEFINER audit: no CRITICAL or ANON-EXPOSED functions."
+
+      # Security catalog snapshot: grants, view options (security_invoker), RLS
+      # flags, search_path pins and default privileges, diffed against
+      # supabase/catalog-snapshots/security-catalog.txt. The squash was verified
+      # for tables, function bodies and policies but not these, and 15 views
+      # lost security_invoker unnoticed (fixed by 20261106130000). Any
+      # migration that changes one of these facts now shows up as a diff and
+      # must update the snapshot in the same PR:
+      #   scripts/catalog-snapshot.sh <db-url> --update
+      # Until a snapshot is committed this step only warns (exit 2) and the next
+      # step uploads the generated file as an artifact to commit. Generate the
+      # committed file from CI's artifact, not a different local CLI version.
+      - name: Check security catalog snapshot (grants, view options, RLS flags)
+        run: |
+          chmod +x scripts/catalog-snapshot.sh
+          rc=0
+          scripts/catalog-snapshot.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" --check || rc=$?
+          if [ "$rc" -eq 2 ]; then
+            echo "::warning::No committed security catalog snapshot yet. Download the 'security-catalog-snapshot' artifact from this run, commit it as supabase/catalog-snapshots/security-catalog.txt, and this step starts enforcing."
+            exit 0
+          fi
+          exit "$rc"
+
+      - name: Upload generated security catalog
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-catalog-snapshot
+          path: /tmp/security-catalog.txt
+          if-no-files-found: ignore
 
       # Generated types must match the migrations (12 Oct 2026 analysis, F4/F9).
       # The insurance client checks table and RPC names against

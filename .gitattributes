@@ -3,3 +3,4 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 packages/shared/src/database.types.ts text eol=lf
+supabase/catalog-snapshots/*.txt text eol=lf

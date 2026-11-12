@@ -9,7 +9,11 @@
 -- client-executable definer function that takes a tenant id, is not a
 -- read-only getter, and whose body never consults get_my_tenant_id(),
 -- effective_user_id(), auth.uid(), is_platform_admin() or another permission
--- helper. Everything else is printed for review, not failed.
+-- helper. It also FAILS on risk = 'ANON-EXPOSED': any non-trigger definer
+-- function that `anon` (an unauthenticated caller) can EXECUTE and that is not
+-- in the allowlist below. Postgres grants EXECUTE to PUBLIC on every new
+-- function unless the migration revokes it, so a forgotten REVOKE shows up
+-- here instead of in production. Everything else is printed for review.
 --
 -- Signals (all heuristic, from pg_proc.prosrc):
 --   takes_tenant_id : an argument named like *tenant_id*
@@ -32,9 +36,11 @@ with fn as (
   where n.nspname = 'public'
     and p.prosecdef
     and p.prokind = 'f'
-), allow(proname) as (
+), allow(proname, args) as (
   -- Intentionally public / pure helpers. Keep this list tiny and justified.
-  values ('health_check'), ('get_platform_branding'), ('keepalive_ping')
+  -- Matched on name AND argument list, so a new overload of an allowlisted
+  -- name is not silently allowed.
+  values ('health_check', ''), ('get_platform_branding', ''), ('keepalive_ping', '')
 ), known_open(proname) as (
   -- Confirmed gaps that cannot be fixed by a simple REVOKE and are tracked
   -- separately. Listed so CI stays green while they stay VISIBLE in the
@@ -53,10 +59,11 @@ select proname as function,
        has_guard,
        trigger_fn,
        case
-         when proname in (select proname from allow) then 'INTENDED'
+         when (proname, args) in (select proname, args from allow) then 'INTENDED'
          when proname in (select proname from known_open) then 'KNOWN-OPEN'
          when not (anon_exec or auth_exec) then 'INTERNAL'
          when trigger_fn then 'LOW (trigger fn)'
+         when anon_exec then 'ANON-EXPOSED'
          when takes_tenant_id and mutates and not has_guard then 'CRITICAL'
          when takes_tenant_id and not has_guard then 'HIGH'
          when mutates and not has_guard then 'HIGH'
@@ -65,7 +72,8 @@ select proname as function,
 from fn
 where anon_exec or auth_exec
 order by case
-           when takes_tenant_id and mutates and not has_guard and not trigger_fn and proname not in (select proname from allow) and proname not in (select proname from known_open) then 0
+           when anon_exec and not trigger_fn and (proname, args) not in (select proname, args from allow) then 0
+           when takes_tenant_id and mutates and not has_guard and not trigger_fn and (proname, args) not in (select proname, args from allow) and proname not in (select proname from known_open) then 0
            when (takes_tenant_id or mutates) and not has_guard and not trigger_fn then 1
            else 2
          end,
