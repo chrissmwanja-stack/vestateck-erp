@@ -37,15 +37,21 @@ begin
   if n <> 1 then raise exception 'authenticated lost SELECT on tenants (DML must be kept)'; end if;
   raise notice 'PASS: authenticated keeps SELECT on tenants';
 
-  -- 3. Default privileges: nothing for anon, no TRUNCATE for authenticated.
+  -- 3. Default privileges of the role that creates our tables (migrations run
+  --    as postgres): nothing for anon, no TRUNCATE/REFERENCES/TRIGGER for
+  --    authenticated. Deliberately scoped to that one role. On Supabase's own
+  --    stack other platform roles (e.g. supabase_admin) carry default
+  --    privileges of their own for objects THEY create; this migration cannot
+  --    and should not change those, and they never apply to our tables.
   select count(*) into n
   from pg_default_acl d, lateral aclexplode(d.defaclacl) a
   where d.defaclnamespace = 'public'::regnamespace
+    and d.defaclrole = 'postgres'::regrole
     and d.defaclobjtype in ('r','S')
     and ((a.grantee = 'anon'::regrole)
       or (a.grantee = 'authenticated'::regrole and a.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER')));
-  if n > 0 then raise exception 'default privileges would still grant anon/authenticated excess rights on new tables (% entries)', n; end if;
-  raise notice 'PASS: default privileges grant anon nothing and authenticated no TRUNCATE/REFERENCES/TRIGGER';
+  if n > 0 then raise exception 'postgres default privileges would still grant anon/authenticated excess rights on new tables (% entries)', n; end if;
+  raise notice 'PASS: postgres default privileges grant anon nothing and authenticated no TRUNCATE/REFERENCES/TRIGGER';
 
   -- 4. A table created from now on inherits that: anon gets nothing.
   create table public.zz_anon_probe (id int);
