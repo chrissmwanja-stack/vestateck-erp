@@ -52,6 +52,16 @@ export class FakeSupabase {
     error: null,
   };
   inviteArgs: Array<{ email: string; options: unknown }> = [];
+  /** Lines drawn onto the page by the pdf-lib stub (generate-po, generate-ins-doc). */
+  pdfLines: string[] = [];
+  pdfBytes: Uint8Array = new TextEncoder().encode('%PDF-fake');
+  storageCalls: Array<{ bucket: string; op: 'upload' | 'createSignedUrl' | 'remove'; args: unknown[] }> = [];
+  uploadResult: { error: DbError | null } = { error: null };
+  signedResult: { data: { signedUrl: string } | null; error: DbError | null } = {
+    data: { signedUrl: 'https://signed.test/doc.pdf' },
+    error: null,
+  };
+  removeResult: { error: DbError | null } = { error: null };
   private scripts = new Map<string, Responder[]>();
 
   /** Script the answer for a query, e.g. on('app_users.select', {data: {...}}). Pass several to queue. */
@@ -140,40 +150,85 @@ export class FakeSupabase {
         },
       },
       from,
-      rpc: (name: string, args: unknown) =>
-        Promise.resolve(
-          self.resolve({ client: kind, authorization, table: name, op: 'rpc', payload: args, filters: [] }),
-        ),
+      storage: {
+        from: (bucket: string) => ({
+          upload: (...args: unknown[]) => {
+            self.storageCalls.push({ bucket, op: 'upload', args });
+            return Promise.resolve(self.uploadResult);
+          },
+          createSignedUrl: (...args: unknown[]) => {
+            self.storageCalls.push({ bucket, op: 'createSignedUrl', args });
+            return Promise.resolve(self.signedResult);
+          },
+          remove: (...args: unknown[]) => {
+            self.storageCalls.push({ bucket, op: 'remove', args });
+            return Promise.resolve(self.removeResult);
+          },
+        }),
+      },
+      // Lazy like the real builder: the call is recorded when awaited (or .single() is called).
+      rpc: (name: string, args?: unknown) => {
+        const settle = () =>
+          self.resolve({ client: kind, authorization, table: name, op: 'rpc', payload: args, filters: [] });
+        return {
+          single: () => Promise.resolve(settle()),
+          then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>
+            Promise.resolve(settle()).then(onFulfilled, onRejected),
+        };
+      },
     };
   }
 }
 
 // Static import map: vite must see each path to transform it.
-const loaders: Record<string, () => Promise<unknown>> = {
+const loaders: Record<string, () => Promise<Record<string, unknown>>> = {
   'accept-invite': () => import('../accept-invite/index'),
   'bootstrap-admin': () => import('../bootstrap-admin/index'),
   'create-tenant': () => import('../create-tenant/index'),
   'invite-user': () => import('../invite-user/index'),
+  'resend-invite': () => import('../resend-invite/index'),
+  'generate-po': () => import('../generate-po/index'),
+  'generate-ins-doc': () => import('../generate-ins-doc/index'),
+  'send-operator-digest': () => import('../send-operator-digest/index'),
   cors: () => import('../_shared/cors'),
 };
 
+export type FunctionName =
+  | 'accept-invite'
+  | 'bootstrap-admin'
+  | 'create-tenant'
+  | 'invite-user'
+  | 'resend-invite'
+  | 'generate-po'
+  | 'generate-ins-doc'
+  | 'send-operator-digest';
+
 type Handler = (req: Request) => Response | Promise<Response>;
 
-/** Fresh-import a function with the given env; returns the handler it registered with serve(). */
-export async function loadHandler(
-  name: 'accept-invite' | 'bootstrap-admin' | 'create-tenant' | 'invite-user',
+/** Fresh-import a function with the given env; returns its handler and its module exports. */
+export async function loadFn(
+  name: FunctionName,
   fake: FakeSupabase,
   env: Record<string, string | undefined> = {},
-): Promise<Handler> {
+): Promise<{ handler: Handler; mod: Record<string, unknown> }> {
   const merged = { ...ENV, ...env };
   const g = globalThis as Record<string, unknown>;
   g.Deno = { env: { get: (k: string) => merged[k] } };
   g.__edge = { fake, handler: undefined };
   vi.resetModules();
-  await loaders[name]();
+  const mod = await loaders[name]();
   const handler = (g.__edge as { handler?: Handler }).handler;
   if (!handler) throw new Error(`${name} did not register a handler with serve()`);
-  return handler;
+  return { handler, mod };
+}
+
+/** Fresh-import a function with the given env; returns the handler it registered with serve(). */
+export async function loadHandler(
+  name: FunctionName,
+  fake: FakeSupabase,
+  env: Record<string, string | undefined> = {},
+): Promise<Handler> {
+  return (await loadFn(name, fake, env)).handler;
 }
 
 /** Import the shared CORS helper with a given ALLOWED_ORIGINS (it reads env at module load). */
