@@ -129,6 +129,14 @@ gives `authenticated` full DML. A migration's `grant select` therefore does not
 make a table read-only: RLS is the barrier, and a table with only a SELECT
 policy (e.g. `ins_claim_events`) is read-only because of that policy alone.
 
+Since migration `20261112090000`, `anon` holds no privilege on any table, view or
+sequence in `public`, and `authenticated` no longer holds `TRUNCATE`, `REFERENCES`
+or `TRIGGER` (RLS cannot police `TRUNCATE`). Before that, `anon` could not read
+tenant data only because it lacks `EXECUTE` on `get_my_tenant_id()`, which is not
+a barrier anyone should rely on. `supabase/tests/test_anon_and_excess_table_privileges.sql`
+fails if `anon` ever regains table access, and `MIGRATION_POLICY.md` rule 10 requires
+every new policy to name its role with `TO`.
+
 As of 2026-09-16, the financial-write `SECURITY DEFINER` functions
 (`post_journal_entry`, `import_bank_statement_lines`, and others) are no longer
 `EXECUTE`-able by `anon` (unauthenticated) — Postgres's default grant-to-PUBLIC

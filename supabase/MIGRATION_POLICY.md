@@ -104,6 +104,16 @@ reconstruction, not the original — see its own header note).
    follow-up is `20261016100000_ins_security_hardening_followup.sql`.
    *Proposed 16 October 2026 from that incident; confirm with the team.*
 
+10. **Every new `CREATE POLICY` names its role with `TO`.** A policy with
+    no `TO` clause applies to `PUBLIC`, which includes `anon`. Write
+    `to authenticated` (or `to service_role`, etc.) explicitly. The
+    existing policies in the squashed baseline predate this rule and are
+    not rewritten: since `20261112090000` `anon` holds no table privilege,
+    so they cannot reach `anon` in practice. `scripts/check-migration-policy.sh`
+    enforces this on new migration files, and
+    `supabase/tests/test_anon_and_excess_table_privileges.sql` fails if `anon`
+    ever regains table access.
+
 ## Checklist for every new migration
 
 The rules above say what goes into a migration. This is the order to work in

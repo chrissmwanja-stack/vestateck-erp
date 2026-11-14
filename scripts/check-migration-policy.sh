@@ -61,6 +61,20 @@ for f in $NEW_MIGRATIONS; do
     FAIL=1
   fi
 
+  # Every new CREATE POLICY must name its role (rule 10). Without a TO clause a
+  # policy applies to PUBLIC, i.e. also to `anon`. Flatten the file to one line,
+  # cut each statement at its first USING / WITH CHECK (so a " to " inside an
+  # expression cannot satisfy the check), and require a TO clause before that.
+  BAD_POLICIES=$(echo "$CODE" | tr '\n' ' ' \
+    | grep -oiE 'create[[:space:]]+policy[^;]*;' \
+    | sed -E 's/[[:space:]](using|with[[:space:]]+check)[[:space:](].*$//I' \
+    | grep -viE '[[:space:]]to[[:space:]]+[a-z_"]' || true)
+  if [ -n "$BAD_POLICIES" ]; then
+    echo "FAIL: $f has CREATE POLICY without a TO <role> clause (it would apply to PUBLIC, including anon). Add 'to authenticated'. (MIGRATION_POLICY.md, rule 10)"
+    echo "$BAD_POLICIES" | sed 's/^/        /' | cut -c1-160
+    FAIL=1
+  fi
+
   # Filename check, not content -- a Studio/db-dump remote_schema file
   # is identified by how it was generated, not by any single SQL
   # pattern inside it. The three pre-existing dumps are grandfathered
