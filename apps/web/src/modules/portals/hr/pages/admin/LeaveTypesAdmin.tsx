@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface LeaveType {
@@ -15,6 +16,7 @@ interface LeaveType {
 }
 
 export default function LeaveTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [types, setTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,14 +24,15 @@ export default function LeaveTypesAdmin() {
   const [editing, setEditing] = useState<LeaveType | null>(null);
   const [form, setForm] = useState({ name: "", description: "", days_per_year: 21, is_active: true });
 
-  const fetchTypes = async () => {
+  const fetchTypes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("hr_leave_types").select("*").order("name");
-    if (data) setTypes(data as LeaveType[]);
+    const { data, error } = await supabase.from("hr_leave_types").select("*").order("name");
+    if (error) showError("Could not load leave types.");
+    else if (data) setTypes(data as LeaveType[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchTypes(); }, []);
+  useEffect(() => { fetchTypes(); }, [fetchTypes]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", days_per_year: 21, is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: LeaveType) => { setEditing(t); setForm({ name: t.name, description: t.description || "", days_per_year: t.days_per_year, is_active: t.is_active }); setOpen(true); };

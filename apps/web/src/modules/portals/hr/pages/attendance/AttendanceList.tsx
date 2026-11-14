@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Employee { id: string; first_name: string; last_name: string; }
@@ -57,7 +58,8 @@ export default function AttendanceList() {
     if (!form.attendance_date) { setError("Date is required."); return; }
     if (form.check_in && form.check_out && form.check_in >= form.check_out) { setError("Check-out must be after check-in."); return; }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("hr_employees").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("hr_employees").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "AttendanceList.tenantLookup" });
     const tenant_id = tenantData?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
     const payload: any = {
       employee_id: form.employee_id,

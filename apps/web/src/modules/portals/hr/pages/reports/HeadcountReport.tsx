@@ -1,21 +1,24 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Grid } from "@mui/material";
 import { Download, FileDownload } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
 interface Agg { name: string; count: number; active: number; onLeave: number; }
 
 export default function HeadcountReport() {
+  const { showError } = useToast();
   const [byDept, setByDept] = useState<Agg[]>([]);
   const [byPosition, setByPosition] = useState<Agg[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState({ total: 0, active: 0 });
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("hr_employees").select("employment_status, is_active, departments(name), hr_positions(title)").limit(500);
+    const { data, error } = await supabase.from("hr_employees").select("employment_status, is_active, departments(name), hr_positions(title)").limit(500);
+    if (error) { showError("Could not load the headcount report."); setLoading(false); return; }
     const employees = (data as any[]) || [];
 
     const deptMap: Record<string, Agg> = {};
@@ -41,9 +44,9 @@ export default function HeadcountReport() {
     setByPosition(Object.values(posMap).sort((a, b) => b.count - a.count));
     setTotal({ total: employees.length, active: employees.filter((e: any) => e.is_active).length });
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const deptChart = useMemo(() => byDept.slice(0, 8).map(d => ({ name: d.name.length > 14 ? d.name.slice(0,14)+'…' : d.name, Total: d.count, Active: d.active })), [byDept]);
   const posChart = useMemo(() => byPosition.slice(0, 8).map(p => ({ name: p.name.length > 14 ? p.name.slice(0,14)+'…' : p.name, Total: p.count, Active: p.active })), [byPosition]);

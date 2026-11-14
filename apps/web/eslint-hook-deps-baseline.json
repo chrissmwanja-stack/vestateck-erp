@@ -1,6 +1,6 @@
 {
   "_comment": "Per-file counts of react-hooks/exhaustive-deps. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
-  "total": 20,
+  "total": 19,
   "files": {
     "src/features/admin/PlatformHealthSection.tsx": 1,
     "src/features/financial/InsurancePremiumCash.tsx": 1,
@@ -12,7 +12,6 @@
     "src/modules/portals/business-development/pages/proposals/ProposalApprovals.tsx": 1,
     "src/modules/portals/business-development/pages/proposals/ProposalsList.tsx": 1,
     "src/modules/portals/business-development/pages/tenders/TendersList.tsx": 1,
-    "src/modules/portals/hr/pages/reports/AttendanceReport.tsx": 1,
     "src/modules/portals/insurance/cancellation/CancellationCashPanel.tsx": 1,
     "src/modules/portals/insurance/cancellation/PolicyCancellationPanel.tsx": 1,
     "src/modules/portals/insurance/pages/policies/PendingApprovalsPanel.tsx": 1,

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Job { id: string; title: string; }
@@ -20,6 +21,7 @@ interface Application {
 const emptyForm = { job_posting_id: "", candidate_name: "", email: "", phone: "", stage: "applied" };
 
 export default function ApplicationsList() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [apps, setApps] = useState<Application[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -44,8 +46,9 @@ export default function ApplicationsList() {
     if (jobsRes.data) setJobs(jobsRes.data as Job[]);
     // Also fetch closed jobs for edit dropdown if editing references one
     if (editing?.job_posting_id) {
-      const { data: closed } = await supabase.from("hr_job_postings").select("id, title").eq("id", editing.job_posting_id).single();
-      if (closed && !jobs.find(j => j.id === closed.id)) setJobs(prev => [...prev, closed as Job]);
+      const { data: closed, error: loadError } = await supabase.from("hr_job_postings").select("id, title").eq("id", editing.job_posting_id).single();
+      if (loadError && loadError.code !== "PGRST116") showError("Could not load the job posting for this application.");
+      else if (closed && !jobs.find(j => j.id === closed.id)) setJobs(prev => [...prev, closed as Job]);
     }
     setLoading(false);
   };
@@ -65,8 +68,9 @@ export default function ApplicationsList() {
     setError(null);
     // ensure job is in dropdown even if closed
     if (row.job_posting_id && !jobs.find(j => j.id === row.job_posting_id)) {
-      const { data } = await supabase.from("hr_job_postings").select("id, title").eq("id", row.job_posting_id).single();
-      if (data) setJobs(prev => [...prev, data as Job]);
+      const { data, error: loadError } = await supabase.from("hr_job_postings").select("id, title").eq("id", row.job_posting_id).single();
+      if (loadError && loadError.code !== "PGRST116") showError("Could not load the job posting for this application.");
+      else if (data) setJobs(prev => [...prev, data as Job]);
     }
     setOpen(true);
   };

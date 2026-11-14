@@ -1,22 +1,24 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, Grid } from "@mui/material";
 import { Download, FileDownload } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 
 interface Attendance { id: string; status: string; attendance_date: string; hr_employees?: { first_name: string; last_name: string; departments?: { name: string } | null } | null; }
 
 export default function AttendanceReport() {
+  const { showError } = useToast();
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     const start = `${dateFilter}-01`;
     const end = `${dateFilter}-31`;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("hr_attendance")
       .select("*, hr_employees(first_name, last_name, departments(name))")
       .gte("attendance_date", start)
@@ -24,7 +26,10 @@ export default function AttendanceReport() {
       .order("attendance_date", { ascending: false })
       .limit(500);
 
-    if (data) {
+    if (error) {
+      showError("Could not load the attendance report.");
+      setAttendance([]);
+    } else if (data) {
       const normalized = (data as any[]).map((row) => {
         const empRaw = Array.isArray(row.hr_employees) ? row.hr_employees[0] ?? null : row.hr_employees ?? null;
         const emp = empRaw
@@ -39,9 +44,9 @@ export default function AttendanceReport() {
       setAttendance(normalized as Attendance[]);
     }
     setLoading(false);
-  };
+  }, [dateFilter, showError]);
 
-  useEffect(() => { fetchReport(); }, [dateFilter]);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const stats = useMemo(() => ({
     total: attendance.length,

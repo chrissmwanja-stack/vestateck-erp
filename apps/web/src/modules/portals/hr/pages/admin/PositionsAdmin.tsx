@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress, Alert, Stack } from "@mui/material";
 import { Add, Edit, Delete, UploadFile } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
@@ -54,6 +55,7 @@ function parsePositionsCsv(text: string): ParsedRow[] {
 }
 
 export default function PositionsAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,14 +69,15 @@ export default function PositionsAdmin() {
   const [importResult, setImportResult] = useState<{ created: number; skipped: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const fetchPositions = async () => {
+  const fetchPositions = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("hr_positions").select("*").order("title");
-    if (data) setPositions(data as Position[]);
+    const { data, error } = await supabase.from("hr_positions").select("*").order("title");
+    if (error) showError("Could not load positions.");
+    else if (data) setPositions(data as Position[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchPositions(); }, []);
+  useEffect(() => { fetchPositions(); }, [fetchPositions]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ title: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (p: Position) => { setEditing(p); setForm({ title: p.title, description: p.description || "", is_active: p.is_active }); setOpen(true); };

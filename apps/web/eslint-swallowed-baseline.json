@@ -1,6 +1,6 @@
 {
   "_comment": "Per-file counts of local/supabase-no-swallowed-error. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
-  "total": 53,
+  "total": 46,
   "files": {
     "src/modules/portals/business-development/pages/admin/LeadStatusesAdmin.tsx": 2,
     "src/modules/portals/business-development/pages/admin/OpportunityStagesAdmin.tsx": 1,
@@ -20,12 +20,6 @@
     "src/modules/portals/business-development/pages/reports/WinLossReport.tsx": 1,
     "src/modules/portals/business-development/pages/tenders/NewTender.tsx": 1,
     "src/modules/portals/business-development/pages/tenders/TenderTracking.tsx": 1,
-    "src/modules/portals/hr/pages/admin/LeaveTypesAdmin.tsx": 1,
-    "src/modules/portals/hr/pages/admin/PositionsAdmin.tsx": 1,
-    "src/modules/portals/hr/pages/attendance/AttendanceList.tsx": 1,
-    "src/modules/portals/hr/pages/recruitment/ApplicationsList.tsx": 2,
-    "src/modules/portals/hr/pages/reports/AttendanceReport.tsx": 1,
-    "src/modules/portals/hr/pages/reports/HeadcountReport.tsx": 1,
     "src/modules/portals/law-compliance/pages/admin/CaseTypesAdmin.tsx": 1,
     "src/modules/portals/law-compliance/pages/admin/ContractTypesAdmin.tsx": 1,
     "src/modules/portals/law-compliance/pages/cases/NewCase.tsx": 2,
