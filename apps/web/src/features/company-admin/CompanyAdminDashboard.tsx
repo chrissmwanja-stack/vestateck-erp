@@ -57,8 +57,8 @@ export default function CompanyAdminDashboard() {
   const load = useCallback(async () => {
     setFailedAll(false);
     // Impersonation-aware: resolves to the company being viewed-as.
-    const { data: tenantId } = await supabase.rpc('get_my_tenant_id');
-    if (!tenantId) {
+    const { data: tenantId, error: tenantError } = await supabase.rpc('get_my_tenant_id');
+    if (tenantError || !tenantId) {
       setFailedAll(true);
       setSnapshot(null);
       return;

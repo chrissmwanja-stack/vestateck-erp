@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
 import { hasForeignLines, ledgerTotals } from './ledgerBase';
+import { useToast } from '../../lib/toastContext';
 
 interface GlAccountOption {
   id: string;
@@ -48,6 +49,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function GeneralLedger() {
   const [accounts, setAccounts] = useState<GlAccountOption[]>([]);
+  const { showError } = useToast();
   const [accountId, setAccountId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -56,9 +58,10 @@ export default function GeneralLedger() {
   const [error, setError] = useState<string | null>(null);
 
   const loadAccounts = useCallback(async () => {
-    const { data } = await supabase.from('gl_accounts').select('id, account_code, name').order('account_code');
+    const { data, error } = await supabase.from('gl_accounts').select('id, account_code, name').order('account_code');
+    if (error) { showError('Could not load the account list.'); return; }
     setAccounts((data ?? []) as GlAccountOption[]);
-  }, []);
+  }, [showError]);
 
   const loadLedger = useCallback(async () => {
     setLoading(true);

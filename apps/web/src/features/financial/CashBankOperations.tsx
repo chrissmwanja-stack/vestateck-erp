@@ -25,6 +25,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
 import { resolveTenantId } from '../../lib/ResolveTenantId';
 import type { Database } from '@erp-platform/shared';
+import { useToast } from '../../lib/toastContext';
 
 type ReferenceType = 'supplier_invoice' | 'expenditure_slip' | 'receivable_invoice' | 'payroll_run';
 type PublicTableName = keyof Database['public']['Tables'];
@@ -94,6 +95,7 @@ function embedOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export default function CashBankOperations() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters);
   const [rows, setRows] = useState<CashBankTransactionRow[]>([]);
@@ -150,7 +152,8 @@ export default function CashBankOperations() {
         (Object.keys(idsByType) as ReferenceType[]).map(async (refType) => {
           const cfg = REFERENCE_TABLES[refType];
           const ids = Array.from(idsByType[refType]);
-          const { data: refRows } = await supabase.from(cfg.table).select(`id, ${cfg.numberField}`).in('id', ids);
+          const { data: refRows, error: refRowsError } = await supabase.from(cfg.table).select(`id, ${cfg.numberField}`).in('id', ids);
+          if (refRowsError) { showError('Could not load some reference numbers.'); return; }
           (refRows ?? []).forEach((r: any) => {
             labelEntries.push([`${refType}:${r.id}`, r[cfg.numberField]]);
           });
@@ -162,7 +165,7 @@ export default function CashBankOperations() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     runSearch(emptyFilters);

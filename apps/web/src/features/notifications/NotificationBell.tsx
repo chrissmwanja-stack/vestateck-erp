@@ -13,6 +13,7 @@ import {
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { useToast } from "../../lib/toastContext";
 
 interface Notification {
   id: string;
@@ -29,6 +30,7 @@ interface Notification {
 
 export default function NotificationBell({ userId }: { userId: string }) {
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -89,11 +91,16 @@ export default function NotificationBell({ userId }: { userId: string }) {
         n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n
       )
     );
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("id", notification.id)
       .eq("recipient_id", userId);
+    if (error) {
+      // Put the item back to unread so the badge matches what the server has.
+      setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read_at: null } : n)));
+      showError("Could not mark the notification as read.");
+    }
   };
 
   // Marks the notification read and, when it carries an in-app path, goes there.
@@ -107,11 +114,15 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   // IMPROVEMENT: mark all read
   const markAllAsRead = async () => {
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("recipient_id", userId)
       .is("read_at", null);
+    if (error) {
+      showError("Could not mark all notifications as read.");
+      return;
+    }
     setNotifications((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: new Date().toISOString() })));
   };
 

@@ -1,7 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import ImpersonationBanner from './ImpersonationBanner';
+import type { ReactElement } from 'react';
+import { ToastProvider } from '../../lib/toastContext';
+
+// The screens under test surface failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // Mounted app-wide in TopNav. get_my_tenant_id() already resolves to the
 // impersonated tenant server-side for every RLS check, so this banner is
@@ -108,5 +115,24 @@ describe('ImpersonationBanner', () => {
     // Full reload rather than in-app routing, so every screen re-fetches
     // under the real tenant context instead of reconciling stale state.
     expect(window.location.href).toBe('/admin/companies');
+  });
+
+  it('stays on the page and shows an error when ending the session fails', async () => {
+    mockRpc.mockImplementation((fnName: string) => {
+      if (fnName === 'get_active_impersonation') {
+        return Promise.resolve({ data: ACTIVE, error: null });
+      }
+      return Promise.resolve({ data: null, error: { message: 'boom' } }); // end_impersonation
+    });
+    const user = userEvent.setup();
+
+    render(<ImpersonationBanner />);
+    await screen.findByText('Acme Ltd');
+
+    await user.click(screen.getByRole('button', { name: /exit/i }));
+
+    expect(await screen.findByText(/could not end the impersonation session/i)).toBeInTheDocument();
+    // Still impersonating, so it must not pretend otherwise by redirecting.
+    expect(window.location.href).toBe('');
   });
 });

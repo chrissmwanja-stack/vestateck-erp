@@ -92,11 +92,11 @@ export default function PurchasingDashboard() {
 
       // For approval queue count, try RPC, fallback to open count
       let approvalCount = 0;
-      try {
-        const { data: queueData } = await supabase.rpc("get_my_approval_queue");
-        approvalCount = (queueData as any[])?.length || 0;
-      } catch {
+      const { data: queueData, error: queueError } = await supabase.rpc("get_my_approval_queue");
+      if (queueError) {
         approvalCount = openRequestsRes.count || 0;
+      } else {
+        approvalCount = (queueData as any[])?.length || 0;
       }
 
       setStats({

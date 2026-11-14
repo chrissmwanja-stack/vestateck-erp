@@ -1,7 +1,14 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import DelegationManager from './DelegationManager';
+import type { ReactElement } from 'react';
+import { ToastProvider } from '../../lib/toastContext';
+
+// The screens under test surface failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // A delegate's authority is capped at what the delegator personally holds,
 // so the client-side logic worth pinning down here (the grant_delegation

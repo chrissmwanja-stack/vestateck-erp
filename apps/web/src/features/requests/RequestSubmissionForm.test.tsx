@@ -1,7 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import RequestSubmissionForm from './RequestSubmissionForm';
+import type { ReactElement } from 'react';
+import { ToastProvider } from '../../lib/toastContext';
+
+// The screens under test surface failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // This is the first screen in the procurement happy path (Request ->
 // Offer Entry -> Approval -> PO) and has real client-side logic worth

@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { supabase } from "../../lib/supabaseClient";
+import { useToast } from '../../lib/toastContext';
 
 interface Colleague {
   id: string;
@@ -57,6 +58,7 @@ export default function DelegationManager({ userId }: { userId: string }) {
   const [received, setReceived] = useState<Delegation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { showError } = useToast();
   const [submitting, setSubmitting] = useState(false);
 
   // form state
@@ -101,16 +103,18 @@ export default function DelegationManager({ userId }: { userId: string }) {
     if (assignErr) {
       // Embedded select can fail if the FK relationship isn't set up for
       // PostgREST embedding — fall back to two flat queries.
-      const { data: aa } = await supabase
+      const { data: aa, error: aaError } = await supabase
         .from("approval_assignments")
         .select("workflow_stage_id")
         .eq("user_id", userId);
+      if (aaError) { showError('Could not load your approval stages.'); }
       const stageIds = (aa ?? []).map((r) => r.workflow_stage_id);
       if (stageIds.length > 0) {
-        const { data: stages } = await supabase
+        const { data: stages, error: stagesError } = await supabase
           .from("workflow_stages")
           .select("id, name")
           .in("id", stageIds);
+        if (stagesError) { showError('Could not load your approval stages.'); }
         setMyStages((stages ?? []) as Stage[]);
       } else {
         setMyStages([]);
@@ -128,20 +132,22 @@ export default function DelegationManager({ userId }: { userId: string }) {
       setMyStages(stages);
     }
 
-    const { data: grantedRows } = await supabase
+    const { data: grantedRows, error: grantedRowsError } = await supabase
       .from("approval_delegations")
       .select("*")
       .eq("delegator_user_id", userId)
       .order("created_at", { ascending: false });
+    if (grantedRowsError) { showError('Could not load delegations you granted.'); }
     setGranted((grantedRows ?? []) as Delegation[]);
 
-    const { data: receivedRows } = await supabase
+    const { data: receivedRows, error: receivedRowsError } = await supabase
       .from("approval_delegations")
       .select("*")
       .eq("delegate_user_id", userId)
       .order("created_at", { ascending: false });
+    if (receivedRowsError) { showError('Could not load delegations you received.'); }
     setReceived((receivedRows ?? []) as Delegation[]);
-  }, [userId]);
+  }, [userId, showError]);
 
   useEffect(() => {
     loadAll();

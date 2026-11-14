@@ -28,6 +28,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { describeBlockedReason, friendlyPlatformError, usePlatformAdminSession } from './usePlatformAdminSession';
 import { lastSeenLabel, teamWarnings, type DirectoryUser, type PlatformAdminRow } from './usersDirectory';
+import { useToast } from '../../lib/toastContext';
 
 // /admin/team -- who can operate this console.
 //
@@ -272,6 +273,7 @@ function GrantDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { showError } = useToast();
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<Candidate[]>([]);
   const [searching, setSearching] = useState(false);
@@ -301,9 +303,10 @@ function GrantDialog({
     let cancelled = false;
     setSearching(true);
     const id = window.setTimeout(async () => {
-      const { data } = await supabase.rpc('platform_users_directory', { p_search: q, p_limit: 20 });
+      const { data, error } = await supabase.rpc('platform_users_directory', { p_search: q, p_limit: 20 });
       if (cancelled) return;
       setSearching(false);
+      if (error) { showError('Could not search users.'); return; }
       const list = ((data ?? []) as DirectoryUser[])
         .filter((u) => !u.is_platform_admin && !existingIds.includes(u.user_id))
         .map((u) => ({
@@ -319,7 +322,7 @@ function GrantDialog({
       cancelled = true;
       window.clearTimeout(id);
     };
-  }, [query, open, existingIds]);
+  }, [query, open, existingIds, showError]);
 
   const trimmed = reason.trim();
   const tooShort = trimmed.length < MIN_REASON;

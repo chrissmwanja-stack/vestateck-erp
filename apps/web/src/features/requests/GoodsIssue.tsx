@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, LocalShipping as LocalShippingIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 // Digitized YMI.GNL.AMB.FRM.002 (Ambar Çıkış Formu / Goods Issue Form):
 // project, warehouse, voucher no, itemized lines (SAP material no, cost
@@ -91,6 +92,7 @@ export default function GoodsIssue() {
   const [costCenters, setCostCenters] = useState<CostCenterOption[]>([]);
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
 
+  const { showError } = useToast();
   const [warehouseId, setWarehouseId] = useState('');
   const [projectLabel, setProjectLabel] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
@@ -107,11 +109,12 @@ export default function GoodsIssue() {
 
   const loadRecent = useCallback(async () => {
     setRecentLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('goods_issues')
       .select('id, voucher_no, project_label, issue_date, warehouse:warehouse_id(name), goods_issue_items(id)')
       .order('created_at', { ascending: false })
       .limit(10);
+    if (error) { showError('Could not load recent goods issues.'); }
     setRecent(
       ((data ?? []) as any[]).map((r) => ({
         id: r.id,
@@ -123,7 +126,7 @@ export default function GoodsIssue() {
       }))
     );
     setRecentLoading(false);
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     supabase.from('warehouses').select('id, name, code, project_label').eq('is_active', true).order('name')

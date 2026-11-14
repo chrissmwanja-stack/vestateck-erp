@@ -58,6 +58,7 @@ import ImpersonationReasonDialog from './ImpersonationReasonDialog';
 import { describeBlockedReason, usePlatformAdminSession } from './usePlatformAdminSession';
 import { renewalsDue, type RenewalDue, type RenewalRow } from './renewals';
 import type { FunnelRow, ModuleUsageRow, QuietRow, StalledRow, TrialRow } from './platformHealth';
+import { useToast } from '../../lib/toastContext';
 
 interface PlatformStats {
   totals: {
@@ -137,6 +138,7 @@ function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; la
 }
 
 export default function PlatformDashboard() {
+  const { showError } = useToast();
   const navigate = useNavigate();
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,11 +154,12 @@ export default function PlatformDashboard() {
   // tenants table (platform admins have a SELECT policy). Cheap -- one
   // row per customer company.
   const loadRenewals = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tenants')
       .select('id, name, plan, subscription_status, renews_at, trial_ends_at');
+    if (error) { showError('Could not load tenant renewals.'); return; }
     setRenewals(renewalsDue((data ?? []) as RenewalRow[]));
-  }, []);
+  }, [showError]);
 
   const load = useCallback(async () => {
     setLoading(true);

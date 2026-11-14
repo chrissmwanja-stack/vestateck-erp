@@ -27,6 +27,7 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 // Local, matching the pattern in ProcurementInfo.tsx / MaterialLookupsAdmin.tsx
 // rather than a shared hook -- each screen owns this small check.
@@ -96,13 +97,14 @@ const statusColor: Record<LineItemStatus['receipt_status'], 'default' | 'warning
 
 function ReceiptsList({ lineItemId, refreshKey }: { lineItemId: string; refreshKey: number }) {
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const { showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const isFinance = useFinanceAccess();
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('line_item_receipts')
       .select(
         'id, received_qty, received_at, note, voucher_no, approved_at, ' +
@@ -110,6 +112,7 @@ function ReceiptsList({ lineItemId, refreshKey }: { lineItemId: string; refreshK
       )
       .eq('line_item_id', lineItemId)
       .order('received_at', { ascending: false });
+    if (error) { showError('Could not load receipts.'); }
     setReceipts(
       ((data ?? []) as any[]).map((r) => ({
         id: r.id,
@@ -123,7 +126,7 @@ function ReceiptsList({ lineItemId, refreshKey }: { lineItemId: string; refreshK
       }))
     );
     setLoading(false);
-  }, [lineItemId]);
+  }, [lineItemId, showError]);
 
   useEffect(() => {
     load();

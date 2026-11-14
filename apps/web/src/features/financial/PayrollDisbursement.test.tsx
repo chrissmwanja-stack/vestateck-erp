@@ -1,9 +1,16 @@
 
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryLog } from '../../test/queryChain';
 import PayrollDisbursement from './PayrollDisbursement';
+import type { ReactElement } from 'react';
+import { ToastProvider } from '../../lib/toastContext';
+
+// The screens under test surface failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // PayrollDisbursement is the Finance end of the HR -> PM -> Finance payroll
 // flow: it records the cash/bank payment for an HR-approved run. Client-side

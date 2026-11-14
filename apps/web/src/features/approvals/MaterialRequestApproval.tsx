@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { CheckCircle as CheckIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 // Gate matches every other Purchasing & Logistics admin screen: am_i_finance()
 // wraps has_po_access(), the same check the approve/reject RPCs enforce
@@ -69,6 +70,7 @@ const ITEM_SELECT = `
 `;
 
 export default function MaterialRequestApproval() {
+  const { showError } = useToast();
   const hasAccess = usePoAccess();
 
   const [batches, setBatches] = useState<PendingBatch[]>([]);
@@ -115,12 +117,13 @@ export default function MaterialRequestApproval() {
   const refreshAfterDecision = async () => {
     await loadBatches();
     if (selectedBatch) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('material_request_items')
         .select(ITEM_SELECT)
         .eq('batch_id', selectedBatch.batch_id)
         .eq('status', 'pending')
         .order('created_at');
+      if (error) { showError('Could not reload the remaining request items.'); return; }
       const remaining = (data ?? []) as unknown as RequestItem[];
       setItems(remaining);
       if (remaining.length === 0) setSelectedBatch(null);

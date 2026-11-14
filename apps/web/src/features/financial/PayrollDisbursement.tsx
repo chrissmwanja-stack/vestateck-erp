@@ -29,6 +29,7 @@ import {
   Payments as PaymentsIcon,
 } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 function useFinanceAccess() {
   const [isFinance, setIsFinance] = useState<boolean | null>(null);
@@ -132,6 +133,7 @@ function RunBreakdown({ runId }: { runId: string }) {
 }
 
 export default function PayrollDisbursement() {
+  const { showError } = useToast();
   const isFinance = useFinanceAccess();
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [totalsByRun, setTotalsByRun] = useState<Record<string, number>>({});
@@ -163,19 +165,23 @@ export default function PayrollDisbursement() {
     setRuns(rows);
 
     if (rows.length > 0) {
-      const { data: itemRows } = await supabase
+      const { data: itemRows, error: itemRowsError } = await supabase
         .from('hr_payroll_items')
         .select('payroll_run_id, net_pay')
         .in('payroll_run_id', rows.map((r) => r.id));
-      const totals: Record<string, number> = {};
-      (itemRows ?? []).forEach((r) => {
-        totals[r.payroll_run_id] = (totals[r.payroll_run_id] ?? 0) + Number(r.net_pay);
-      });
-      setTotalsByRun(totals);
+      if (itemRowsError) {
+        showError('Could not load payroll totals.');
+      } else {
+        const totals: Record<string, number> = {};
+        (itemRows ?? []).forEach((r) => {
+          totals[r.payroll_run_id] = (totals[r.payroll_run_id] ?? 0) + Number(r.net_pay);
+        });
+        setTotalsByRun(totals);
+      }
     }
 
     setLoading(false);
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     load();

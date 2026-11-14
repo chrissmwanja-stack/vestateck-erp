@@ -25,6 +25,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 interface QuickLink {
   label: string;
@@ -63,6 +64,7 @@ export default function FinancialDashboard() {
     totalReceivable: 0,
   });
   const [recentInvoices, setRecentInvoices] = useState<any[]>([]);
+  const { showError } = useToast();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,11 +99,12 @@ export default function FinancialDashboard() {
       ]);
 
       // Fetch recent supplier invoices for table
-      const { data: recent } = await supabase
+      const { data: recent, error: recentError } = await supabase
         .from("supplier_invoices")
         .select("id, invoice_number, amount_incl_vat, created_at, accounts:vendor_account_id (name)")
         .order("created_at", { ascending: false })
         .limit(5);
+      if (recentError) { showError('Could not load recent supplier invoices.'); }
 
       const supplierInvoices = supplierPoCount.count || supplierPoRes.count || 0;
       const supplierInvoicesNonPo = supplierNonPoCount.count || supplierNonPoRes.count || 0;
@@ -137,7 +140,7 @@ export default function FinancialDashboard() {
     };
 
     fetchDashboard();
-  }, []);
+  }, [showError]);
 
   if (loading) {
     return (

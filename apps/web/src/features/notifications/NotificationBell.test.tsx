@@ -1,11 +1,19 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import NotificationBell from './NotificationBell';
+import type { ReactElement } from 'react';
+import { ToastProvider } from '../../lib/toastContext';
+
+// The screens under test surface failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 let items: Record<string, unknown>[] = [];
 const updates: Record<string, unknown>[] = [];
+let updateError: { message: string } | null = null;
 
 vi.mock('../../lib/supabaseClient', () => {
   const selectChain = () => {
@@ -18,8 +26,8 @@ vi.mock('../../lib/supabaseClient', () => {
     updates.push(patch);
     const chain: Record<string, unknown> = {};
     chain.eq = vi.fn(() => chain);
-    chain.is = vi.fn(() => Promise.resolve({ error: null }));
-    (chain as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve({ error: null });
+    chain.is = vi.fn(() => Promise.resolve({ error: updateError }));
+    (chain as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve({ error: updateError });
     return chain;
   };
   const channel = { on: vi.fn(() => channel), subscribe: vi.fn(() => channel) };
@@ -52,6 +60,7 @@ function mount() {
 
 beforeEach(() => {
   updates.length = 0;
+  updateError = null;
   items = [
     note({ id: 'n1', title: 'Claim approved: CLM-1', link_path: '/insurance/claims/c1' }),
     note({ id: 'n2', title: 'Leave approved' }),
@@ -73,5 +82,13 @@ describe('notification bell', () => {
     await userEvent.click(await screen.findByText('Leave approved'));
     expect(screen.getByTestId('where').textContent).toBe('/start');
     await waitFor(() => expect(updates.some((u) => 'read_at' in u)).toBe(true));
+  });
+
+  it('tells the user when marking a notification read fails', async () => {
+    updateError = { message: 'rls denied' };
+    mount();
+    await userEvent.click(screen.getByLabelText('notifications'));
+    await userEvent.click(await screen.findByText('Leave approved'));
+    expect(await screen.findByText('Could not mark the notification as read.')).toBeInTheDocument();
   });
 });

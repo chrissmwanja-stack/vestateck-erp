@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, CircularProgress, Typography } from '@mui/material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 interface ActiveImpersonation {
   tenant_id: string;
@@ -23,6 +24,7 @@ interface ActiveImpersonation {
 // linger in a "viewing as" state the server has already stopped honouring.
 export default function ImpersonationBanner() {
   const [active, setActive] = useState<ActiveImpersonation | null | 'loading'>('loading');
+  const { showError } = useToast();
   const [ending, setEnding] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -50,12 +52,18 @@ export default function ImpersonationBanner() {
 
   const handleExit = useCallback(async () => {
     setEnding(true);
-    await supabase.rpc('end_impersonation');
+    const { error } = await supabase.rpc('end_impersonation');
     setEnding(false);
+    if (error) {
+      // Still impersonating: reloading now would drop the user on the admin
+      // console while the session is in fact still open.
+      showError('Could not end the impersonation session. Please try again.');
+      return;
+    }
     // Full reload so every screen re-fetches under the real tenant
     // context rather than trying to reconcile stale impersonated state.
     window.location.href = '/admin/companies';
-  }, []);
+  }, [showError]);
 
   const expiresMs = active && active !== 'loading' && active.expires_at ? Date.parse(active.expires_at) : null;
   const remainingMin = expiresMs ? Math.max(0, Math.round((expiresMs - now) / 60_000)) : null;

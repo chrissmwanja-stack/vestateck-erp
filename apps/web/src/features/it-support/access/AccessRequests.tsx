@@ -82,7 +82,8 @@ export default function AccessRequests() {
   const init = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data: itSupportFlag } = await supabase.rpc('is_it_support');
+    const { data: itSupportFlag, error: itSupportError } = await supabase.rpc('is_it_support');
+    if (itSupportError) setError(itSupportError.message);
     setIsItSupport(Boolean(itSupportFlag));
     await loadMine();
     if (itSupportFlag) await loadQueue('pending');

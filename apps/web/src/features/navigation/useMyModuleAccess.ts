@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { reportError } from "../../lib/errorTracking";
 import type { ModuleAccessState } from "./types";
 
 // Fetches the current user's own staff_roles modules, intersected with
@@ -40,12 +41,14 @@ export function useMyModuleAccess() {
           });
         return;
       }
-      const { data: appUser } = await supabase
+      const { data: appUser, error: appUserError } = await supabase
         .from("app_users")
         .select("tenant_id, is_platform_admin, is_company_admin")
         .eq("id", userId)
         .maybeSingle();
       if (cancelled) return;
+      // No access (fail closed) either way, but a failed lookup is worth knowing about.
+      if (appUserError) reportError(appUserError, { where: "useMyModuleAccess.app_users" });
       if (!appUser) {
         setState({
           isPlatformAdmin: false,
@@ -71,8 +74,9 @@ export function useMyModuleAccess() {
         // to know: platform-only mode (console only), company-level "View
         // as" (bypass: show every portal), or user-level "View as" (show
         // exactly that user's portals)?
-        const { data: impRows } = await supabase.rpc("get_active_impersonation");
+        const { data: impRows, error: impError } = await supabase.rpc("get_active_impersonation");
         if (cancelled) return;
+        if (impError) reportError(impError, { where: "useMyModuleAccess.get_active_impersonation" });
         const imp = Array.isArray(impRows) ? impRows[0] : impRows;
         if (!imp || !imp.impersonated_user_id) {
           // has_module_role() (and can_access_finance()) treat a platform

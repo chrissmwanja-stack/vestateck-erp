@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
+import { useToast } from '../../lib/toastContext';
 
 interface QuickLink {
   label: string;
@@ -69,6 +70,7 @@ interface RecentTicket {
 
 export default function ItSupportDashboard() {
   const { session } = useAuth();
+  const { showError } = useToast();
   const [stats, setStats] = useState<Stats>({ open: 0, inProgress: 0, pending: 0, resolved: 0, myTickets: 0, approvalsPending: 0, slaBreaching: 0, total: 0 });
   const [recent, setRecent] = useState<RecentTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,11 +80,13 @@ export default function ItSupportDashboard() {
       setLoading(true);
       
       // Try to fetch from it_tickets, with fallback to 0 if table doesn't exist or RLS blocks
-      const { data: tickets, count } = await supabase
+      const { data: tickets, count, error: ticketsError } = await supabase
         .from("it_tickets")
         .select("id, ticket_no, title, status, priority, requester_id, sla_due_at, created_at", { count: "exact" })
         .order("created_at", { ascending: false })
         .limit(50);
+      // Still falls back to an empty list, but tells the user the zeros are not real.
+      if (ticketsError) showError('Could not load IT tickets. The figures below may be incomplete.');
 
       const list = (tickets as any[]) || [];
 
@@ -132,7 +136,7 @@ export default function ItSupportDashboard() {
     };
 
     fetchDashboard();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, showError]);
 
   const getStatusColor = (status: string) => {
     if (status === 'open') return 'primary';

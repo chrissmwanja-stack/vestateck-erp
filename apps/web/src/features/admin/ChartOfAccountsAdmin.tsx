@@ -27,6 +27,7 @@ import type { Database } from '@erp-platform/shared';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
 import { resolveTenantId } from '../../lib/ResolveTenantId';
+import { useToast } from '../../lib/toastContext';
 
 type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
 type GlAccountInsert = Database['public']['Tables']['gl_accounts']['Insert'];
@@ -114,6 +115,7 @@ const OPTIONAL_ROLES: { key: OptionalRole; label: string }[] = [...WHT_ROLES, ..
 const ALL_ROLES: { key: RequiredRole | OptionalRole; label: string }[] = [...REQUIRED_ROLES, ...OPTIONAL_ROLES];
 
 export default function ChartOfAccountsAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [rows, setRows] = useState<GlAccountRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,12 +156,13 @@ export default function ChartOfAccountsAdmin() {
   }, []);
 
   const loadPostingRules = useCallback(async () => {
-    const { data } = await supabase.from('gl_posting_rules').select('account_role, gl_account_id');
+    const { data, error } = await supabase.from('gl_posting_rules').select('account_role, gl_account_id');
+    if (error) { showError('Could not load the posting rules.'); return; }
     const rows = (data ?? []) as Pick<PostingRuleRow, 'account_role' | 'gl_account_id'>[];
     const map = Object.fromEntries(rows.map((r) => [r.account_role, r.gl_account_id]));
     setPostingRules(map);
     setControlForm(Object.fromEntries(ALL_ROLES.map((f) => [f.key, map[f.key] ?? ''])));
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadAccounts();

@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { Close, Add } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { useToast } from '../../lib/toastContext';
 
 type ProblemStatus = 'open' | 'investigating' | 'resolved' | 'closed';
 type Priority = 'low' | 'medium' | 'high' | 'urgent';
@@ -64,6 +65,7 @@ const statusColor: Record<ProblemStatus, 'default' | 'warning' | 'success' | 'in
 // one problem, since the same underlying issue can surface differently.
 export default function ProblemManagement() {
   const [problems, setProblems] = useState<Problem[]>([]);
+  const { showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,7 +164,8 @@ export default function ProblemManagement() {
       return;
     }
     setTicketToLink(null);
-    const { data: linked } = await supabase.rpc('get_problem_tickets', { p_problem_id: detail.id });
+    const { data: linked, error: linkedError } = await supabase.rpc('get_problem_tickets', { p_problem_id: detail.id });
+    if (linkedError) { showError('Could not load the linked tickets.'); return; }
     setLinkedTickets((linked as TicketRow[]) ?? []);
   };
 

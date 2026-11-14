@@ -26,6 +26,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '../../lib/supabaseClient';
 import type { CostCenter, Department, MaterialCatalogItem } from '@erp-platform/shared';
+import { useToast } from '../../lib/toastContext';
 
 // Simplified version without Excel, with UGX main currency
 const headerSchema = z.object({
@@ -108,6 +109,7 @@ function useMaterialCatalog() {
 // department so the first row can default to it. Same app_users lookup
 // pattern NewTicket.tsx already uses for it_tickets.department_id.
 function useDepartmentDefault() {
+  const { showError } = useToast();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [defaultDepartment, setDefaultDepartment] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,11 +127,12 @@ function useDepartmentDefault() {
 
       const authUser = userData?.user;
       if (authUser) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('app_users')
           .select('department_id')
           .eq('id', authUser.id)
           .single();
+        if (profileError && !cancelled) showError('Could not load your department.');
         if (!cancelled && profile?.department_id) {
           setDefaultDepartment(deptList.find((d) => d.id === profile.department_id) ?? null);
         }
@@ -137,7 +140,7 @@ function useDepartmentDefault() {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [showError]);
 
   return { departments, defaultDepartment, loading };
 }
