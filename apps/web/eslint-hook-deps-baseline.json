@@ -1,0 +1,26 @@
+{
+  "_comment": "Per-file counts of react-hooks/exhaustive-deps. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
+  "total": 20,
+  "files": {
+    "src/features/admin/PlatformHealthSection.tsx": 1,
+    "src/features/financial/InsurancePremiumCash.tsx": 1,
+    "src/features/requests/RequestSubmissionForm.tsx": 1,
+    "src/lib/themeModeContext.tsx": 1,
+    "src/modules/portals/business-development/pages/leads/LeadsList.tsx": 1,
+    "src/modules/portals/business-development/pages/leads/NewLead.tsx": 1,
+    "src/modules/portals/business-development/pages/opportunities/NewOpportunity.tsx": 1,
+    "src/modules/portals/business-development/pages/proposals/ProposalApprovals.tsx": 1,
+    "src/modules/portals/business-development/pages/proposals/ProposalsList.tsx": 1,
+    "src/modules/portals/business-development/pages/tenders/TendersList.tsx": 1,
+    "src/modules/portals/hr/pages/reports/AttendanceReport.tsx": 1,
+    "src/modules/portals/insurance/cancellation/CancellationCashPanel.tsx": 1,
+    "src/modules/portals/insurance/cancellation/PolicyCancellationPanel.tsx": 1,
+    "src/modules/portals/insurance/pages/policies/PendingApprovalsPanel.tsx": 1,
+    "src/modules/portals/insurance/pages/policies/PolicyCashPanel.tsx": 1,
+    "src/modules/portals/law-compliance/pages/cases/CasesList.tsx": 1,
+    "src/modules/portals/law-compliance/pages/contracts/ContractDetail.tsx": 1,
+    "src/modules/portals/law-compliance/pages/contracts/ContractsList.tsx": 1,
+    "src/modules/portals/pmo/pages/tasks/TasksList.tsx": 1,
+    "src/modules/portals/sustainability/pages/reports/SustainabilityReport.tsx": 1
+  }
+}

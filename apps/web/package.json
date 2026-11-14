@@ -12,8 +12,12 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "lint:any": "node ../../scripts/check-any-ratchet.mjs",
-    "lint:any:baseline": "node ../../scripts/check-any-ratchet.mjs --update"
+    "lint:any": "node ../../scripts/check-lint-ratchet.mjs any",
+    "lint:dialogs": "node ../../scripts/check-lint-ratchet.mjs dialogs",
+    "lint:swallowed": "node ../../scripts/check-lint-ratchet.mjs swallowed",
+    "lint:hook-deps": "node ../../scripts/check-lint-ratchet.mjs hook-deps",
+    "lint:ratchet": "node ../../scripts/check-lint-ratchet.mjs",
+    "lint:ratchet:baseline": "node ../../scripts/check-lint-ratchet.mjs --update"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",
@@ -46,6 +50,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^25.0.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.36.0",

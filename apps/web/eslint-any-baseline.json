@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-file counts of @typescript-eslint/no-explicit-any. A ratchet: it may only go down. See scripts/check-any-ratchet.mjs.",
+  "_comment": "Per-file counts of @typescript-eslint/no-explicit-any. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
   "total": 522,
   "files": {
     "src/components/bulk-import/BulkImportDialog.tsx": 3,
