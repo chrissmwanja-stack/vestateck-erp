@@ -3,6 +3,7 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBod
 import { Add, Visibility } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 
 interface Project {
   id: string;
@@ -18,6 +19,7 @@ interface Project {
 }
 
 export default function ProjectsList() {
+  const { showError } = useToast();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,13 @@ export default function ProjectsList() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("pmo_projects").select("*, pmo_project_categories(name)").order("created_at", { ascending: false });
-      if (data) setProjects(data as Project[]);
+      const { data, error } = await supabase.from("pmo_projects").select("*, pmo_project_categories(name)").order("created_at", { ascending: false });
+      if (error) showError("Could not load projects.");
+      else if (data) setProjects(data as Project[]);
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const getStatusColor = (s: string) => {
     if (s === 'in_progress') return 'primary';

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert, Autocomplete, Snackbar } from "@mui/material";
 import { AccessTime, Add, Edit } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 import LogTimeDialog from "./LogTimeDialog";
 
@@ -23,6 +25,7 @@ interface Project { id: string; name: string; }
 interface TaskType { id: string; name: string; }
 
 export default function TasksList() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -103,7 +106,8 @@ export default function TasksList() {
       due_date: t.due_date ?? "",
       completion_percent: String(t.completion_percent ?? 0),
     });
-    const { data: depRows } = await supabase.from("pmo_task_dependencies").select("predecessor_task_id").eq("successor_task_id", t.id);
+    const { data: depRows, error: depError } = await supabase.from("pmo_task_dependencies").select("predecessor_task_id").eq("successor_task_id", t.id);
+    if (depError) showError("Could not load this task's dependencies.");
     const predecessorIds = ((depRows as { predecessor_task_id: string }[]) ?? []).map((r) => r.predecessor_task_id);
     setDependsOn(predecessorIds);
     setDependsOnOriginal(predecessorIds);
@@ -159,7 +163,8 @@ export default function TasksList() {
         }
       }
       if (toAdd.length > 0) {
-        const { data: projectRow } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+        const { data: projectRow, error: tenantError } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+        if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "TasksList.dependencyTenantLookup" });
         if (!projectRow?.tenant_id) {
           setSaving(false);
           setError("Task saved, but dependencies weren't updated: couldn't resolve the project's tenant.");
@@ -194,7 +199,8 @@ export default function TasksList() {
     // tenant_id has no direct column on the form -- read it off the
     // parent project (same tenant scoping used by ResourceAllocation.tsx),
     // and default assignee_id to the signed-in user like other module forms.
-    const { data: projectRow } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+    const { data: projectRow, error: tenantError } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "TasksList.tenantLookup" });
 
     const payload: any = {
       project_id: form.project_id,

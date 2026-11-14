@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, TextField, Typography, MenuItem, Grid, Alert, InputAdornment, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ContractType { id: string; name: string; }
 
 export default function NewContract() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
   const [types, setTypes] = useState<ContractType[]>([]);
@@ -29,12 +32,13 @@ export default function NewContract() {
   useEffect(() => {
     const fetchTypes = async () => {
       setLoading(true);
-      const { data } = await supabase.from("law_contract_types").select("id, name").eq("is_active", true).order("name");
-      if (data) setTypes(data as ContractType[]);
+      const { data, error: loadError } = await supabase.from("law_contract_types").select("id, name").eq("is_active", true).order("name");
+      if (loadError) showError("Could not load contract types.");
+      else if (data) setTypes(data as ContractType[]);
       setLoading(false);
     };
     fetchTypes();
-  }, []);
+  }, [showError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +49,8 @@ export default function NewContract() {
       return;
     }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("law_contract_types").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("law_contract_types").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "NewContract.tenantLookup" });
     const tenant_id = tenantData?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
 
     const payload: any = {

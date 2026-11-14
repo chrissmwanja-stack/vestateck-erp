@@ -31,6 +31,7 @@ import {
 } from "@mui/material";
 import { ArrowBack, Edit, Delete, Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 import LogTimeDialog from "../tasks/LogTimeDialog";
 import ProjectBudgetPanel from "./ProjectBudgetPanel";
@@ -164,8 +165,9 @@ export default function ProjectDetail() {
   // Approver-tier visibility (the RPC enforces it again server-side)
   useEffect(() => {
     const check = async () => {
-      const { data } = await supabase.rpc("has_module_role", { p_module: "pmo", p_roles: ["admin", "manager"] });
-      setCanApprove(data === true);
+      const { data, error } = await supabase.rpc("has_module_role", { p_module: "pmo", p_roles: ["admin", "manager"] });
+      if (error) reportError(error, { source: "ProjectDetail.hasModuleRole" });
+      setCanApprove(!error && data === true);
     };
     check();
   }, []);
@@ -262,7 +264,8 @@ export default function ProjectDetail() {
     setAllocSaving(true);
     setAllocError(null);
     // tenant_id via existing project or dummy
-    const { data: projTenant } = await supabase.from("pmo_projects").select("tenant_id").eq("id", id).single();
+    const { data: projTenant, error: tenantError } = await supabase.from("pmo_projects").select("tenant_id").eq("id", id).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "ProjectDetail.tenantLookup" });
     const tenant_id = (projTenant as any)?.tenant_id;
     const payload: any = {
       project_id: id,

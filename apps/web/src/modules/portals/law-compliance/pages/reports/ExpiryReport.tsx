@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -16,23 +17,25 @@ interface Contract {
 }
 
 export default function ExpiryReport() {
+  const { showError } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("law_contracts")
       .select("*, law_contract_types(name)")
       .eq("status", "active")
       .not("end_date", "is", null)
       .order("end_date", { ascending: true });
 
-    if (data) setContracts(data as Contract[]);
+    if (error) showError("Could not load the contract expiry report.");
+    else if (data) setContracts(data as Contract[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const getDaysLeft = (end: string | null) => {
     if (!end) return null;

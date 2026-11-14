@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Compliance {
@@ -21,6 +22,7 @@ interface Compliance {
 interface StaffOption { id: string; name: string; }
 
 export default function ComplianceRegister() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [items, setItems] = useState<Compliance[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -29,22 +31,24 @@ export default function ComplianceRegister() {
   const [editing, setEditing] = useState<Compliance | null>(null);
   const [form, setForm] = useState({ title: "", regulation: "", status: "pending", due_date: "", owner_id: "" });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("law_compliance_register")
       .select("*, owner:app_users!law_compliance_register_owner_id_fkey(id, name)")
       .order("due_date", { ascending: true, nullsFirst: false });
-    if (data) setItems(data as unknown as Compliance[]);
+    if (error) showError("Could not load the compliance register.");
+    else if (data) setItems(data as unknown as Compliance[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  const fetchStaff = async () => {
-    const { data } = await supabase.from("app_users").select("id, name").order("name");
-    if (data) setStaff(data as StaffOption[]);
-  };
+  const fetchStaff = useCallback(async () => {
+    const { data, error } = await supabase.from("app_users").select("id, name").order("name");
+    if (error) showError("Could not load the staff list.");
+    else if (data) setStaff(data as StaffOption[]);
+  }, [showError]);
 
-  useEffect(() => { fetchData(); fetchStaff(); }, []);
+  useEffect(() => { fetchData(); fetchStaff(); }, [fetchData, fetchStaff]);
 
   const handleOpenNew = () => {
     setEditing(null);

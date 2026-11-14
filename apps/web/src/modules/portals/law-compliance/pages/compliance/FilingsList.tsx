@@ -7,6 +7,7 @@ import {
 } from "@mui/material";
 import { Add, History, MoreVert } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Filing {
@@ -45,6 +46,7 @@ const NEXT_STATES: Record<Filing["status"], { to: Filing["status"]; label: strin
 };
 
 export default function FilingsList() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [filings, setFilings] = useState<Filing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,12 +119,13 @@ export default function FilingsList() {
     setHistoryFor(filing);
     setEvents([]);
     setEventsLoading(true);
-    const { data } = await supabase
+    const { data, error: loadError } = await supabase
       .from("law_filing_events")
       .select("id, status, note, created_at, app_users(name)")
       .eq("filing_id", filing.id)
       .order("created_at", { ascending: false });
-    if (data) {
+    if (loadError) showError("Could not load the filing history.");
+    else if (data) {
       setEvents(data.map((e: any) => ({
         ...e,
         app_users: Array.isArray(e.app_users) ? e.app_users[0] ?? null : e.app_users ?? null,

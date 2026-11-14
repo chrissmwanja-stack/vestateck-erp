@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   Alert, Box, Breadcrumbs, Button, Card, CardContent, Chip, CircularProgress,
@@ -7,6 +7,8 @@ import {
 } from "@mui/material";
 import { ArrowBack } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ContractRecord {
@@ -34,6 +36,7 @@ interface DecisionRow {
 }
 
 export default function ContractDetail() {
+  const { showError } = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -49,7 +52,7 @@ export default function ContractDetail() {
   const [notes, setNotes] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     const { data, error } = await supabase.from("law_contracts").select("*, law_contract_types(name)").eq("id", id).single();
@@ -61,12 +64,13 @@ export default function ContractDetail() {
         law_contract_types: Array.isArray(data.law_contract_types) ? data.law_contract_types[0] ?? null : data.law_contract_types ?? null,
       };
       setRecord(normalized as ContractRecord);
-      const { data: history } = await supabase
+      const { data: history, error: historyError } = await supabase
         .from("law_contract_decisions")
         .select("id, decision, notes, created_at, app_users(name)")
         .eq("contract_id", id)
         .order("created_at", { ascending: false });
-      if (history) {
+      if (historyError) showError("Could not load the decision history.");
+      else if (history) {
         setDecisions(history.map((h: any) => ({
           ...h,
           app_users: Array.isArray(h.app_users) ? h.app_users[0] ?? null : h.app_users ?? null,
@@ -74,17 +78,18 @@ export default function ContractDetail() {
       }
     }
     setLoading(false);
-  };
+  }, [id, showError]);
 
-  useEffect(() => { fetchAll(); }, [id]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // Approver-tier check via the same helper RLS/RPCs use; if it errors or
   // returns false the Approve/Reject buttons stay hidden (the RPC would
   // refuse them anyway, but hidden is better UX than erroring).
   useEffect(() => {
     const check = async () => {
-      const { data } = await supabase.rpc("has_module_role", { p_module: "legal", p_roles: ["admin", "manager"] });
-      setCanApprove(data === true);
+      const { data, error } = await supabase.rpc("has_module_role", { p_module: "legal", p_roles: ["admin", "manager"] });
+      if (error) reportError(error, { source: "ContractDetail.hasModuleRole" });
+      setCanApprove(!error && data === true);
     };
     check();
   }, []);

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, TextField, MenuItem, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Alert } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
+import { reportError } from "../../../../../lib/errorTracking";
 
 interface Milestone {
   id: string;
@@ -14,6 +16,7 @@ interface Milestone {
 interface Project { id: string; name: string; }
 
 export default function MilestonesList() {
+  const { showError } = useToast();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,19 +25,21 @@ export default function MilestonesList() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ project_id: "", title: "", status: "pending", due_date: "", completion_percent: "0" });
 
-  const fetchMilestones = async () => {
+  const fetchMilestones = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("pmo_milestones").select("*, pmo_projects(name)").order("due_date", { ascending: true });
-    if (data) setMilestones(data as Milestone[]);
+    const { data, error: loadError } = await supabase.from("pmo_milestones").select("*, pmo_projects(name)").order("due_date", { ascending: true });
+    if (loadError) showError("Could not load milestones.");
+    else if (data) setMilestones(data as Milestone[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  const fetchProjects = async () => {
-    const { data } = await supabase.from("pmo_projects").select("id, name").order("name");
-    if (data) setProjects(data as Project[]);
-  };
+  const fetchProjects = useCallback(async () => {
+    const { data, error: loadError } = await supabase.from("pmo_projects").select("id, name").order("name");
+    if (loadError) showError("Could not load projects.");
+    else if (data) setProjects(data as Project[]);
+  }, [showError]);
 
-  useEffect(() => { fetchMilestones(); fetchProjects(); }, []);
+  useEffect(() => { fetchMilestones(); fetchProjects(); }, [fetchMilestones, fetchProjects]);
 
   const resetForm = () => setForm({ project_id: "", title: "", status: "pending", due_date: "", completion_percent: "0" });
 
@@ -46,7 +51,8 @@ export default function MilestonesList() {
 
     // tenant_id has no direct column on the form -- read it off the
     // parent project, same pattern TasksList.tsx uses.
-    const { data: projectRow } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+    const { data: projectRow, error: tenantError } = await supabase.from("pmo_projects").select("tenant_id").eq("id", form.project_id).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "MilestonesList.tenantLookup" });
 
     const payload: any = {
       project_id: form.project_id,

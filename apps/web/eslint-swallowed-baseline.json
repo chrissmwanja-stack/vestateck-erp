@@ -1,6 +1,6 @@
 {
   "_comment": "Per-file counts of local/supabase-no-swallowed-error. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
-  "total": 46,
+  "total": 20,
   "files": {
     "src/modules/portals/business-development/pages/admin/LeadStatusesAdmin.tsx": 2,
     "src/modules/portals/business-development/pages/admin/OpportunityStagesAdmin.tsx": 1,
@@ -19,22 +19,6 @@
     "src/modules/portals/business-development/pages/reports/RevenueForecast.tsx": 1,
     "src/modules/portals/business-development/pages/reports/WinLossReport.tsx": 1,
     "src/modules/portals/business-development/pages/tenders/NewTender.tsx": 1,
-    "src/modules/portals/business-development/pages/tenders/TenderTracking.tsx": 1,
-    "src/modules/portals/law-compliance/pages/admin/CaseTypesAdmin.tsx": 1,
-    "src/modules/portals/law-compliance/pages/admin/ContractTypesAdmin.tsx": 1,
-    "src/modules/portals/law-compliance/pages/cases/NewCase.tsx": 2,
-    "src/modules/portals/law-compliance/pages/compliance/ComplianceRegister.tsx": 2,
-    "src/modules/portals/law-compliance/pages/compliance/FilingsList.tsx": 1,
-    "src/modules/portals/law-compliance/pages/contracts/ContractDetail.tsx": 2,
-    "src/modules/portals/law-compliance/pages/contracts/NewContract.tsx": 2,
-    "src/modules/portals/law-compliance/pages/reports/CaseStatusReport.tsx": 1,
-    "src/modules/portals/law-compliance/pages/reports/ExpiryReport.tsx": 1,
-    "src/modules/portals/pmo/pages/admin/ProjectCategoriesAdmin.tsx": 1,
-    "src/modules/portals/pmo/pages/admin/TaskTypesAdmin.tsx": 1,
-    "src/modules/portals/pmo/pages/projects/NewProject.tsx": 2,
-    "src/modules/portals/pmo/pages/projects/ProjectDetail.tsx": 2,
-    "src/modules/portals/pmo/pages/projects/ProjectsList.tsx": 1,
-    "src/modules/portals/pmo/pages/tasks/MilestonesList.tsx": 3,
-    "src/modules/portals/pmo/pages/tasks/TasksList.tsx": 3
+    "src/modules/portals/business-development/pages/tenders/TenderTracking.tsx": 1
   }
 }

@@ -1,7 +1,14 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import TasksList from './TasksList';
+import { ToastProvider } from '../../../../../lib/toastContext';
+
+// TasksList surfaces failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // TasksList touches four tables (pmo_tasks, pmo_projects, pmo_task_types,
 // pmo_task_dependencies) with a different select/order/eq chain shape per

@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface CaseType { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; }
 
 export default function CaseTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [types, setTypes] = useState<CaseType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,13 +16,14 @@ export default function CaseTypesAdmin() {
   const [editing, setEditing] = useState<CaseType | null>(null);
   const [form, setForm] = useState({ name: "", description: "", is_active: true });
 
-  const fetchTypes = async () => {
+  const fetchTypes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("law_case_types").select("*").order("name");
-    if (data) setTypes(data as CaseType[]);
+    const { data, error } = await supabase.from("law_case_types").select("*").order("name");
+    if (error) showError("Could not load case types.");
+    else if (data) setTypes(data as CaseType[]);
     setLoading(false);
-  };
-  useEffect(() => { fetchTypes(); }, []);
+  }, [showError]);
+  useEffect(() => { fetchTypes(); }, [fetchTypes]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: CaseType) => { setEditing(t); setForm({ name: t.name, description: t.description || "", is_active: t.is_active }); setOpen(true); };

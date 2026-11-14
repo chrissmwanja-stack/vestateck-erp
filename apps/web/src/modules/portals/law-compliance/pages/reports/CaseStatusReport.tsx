@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 
@@ -23,13 +24,15 @@ interface Agg {
 const COLORS = ["#1976d2", "#ed6c02", "#2e7d32", "#9c27b0", "#d32f2f", "#0288d1", "#ef6c00", "#6a1b9a"];
 
 export default function CaseStatusReport() {
+  const { showError } = useToast();
   const [byType, setByType] = useState<Agg[]>([]);
   const [totals, setTotals] = useState({ open: 0, inProgress: 0, closed: 0, onHold: 0, total: 0 });
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("law_cases").select("id, status, law_case_types(name)");
+    const { data, error } = await supabase.from("law_cases").select("id, status, law_case_types(name)");
+    if (error) { showError("Could not load the case status report."); setLoading(false); return; }
     const cases: CaseItem[] = (data || []).map((row: any) => ({
      id: row.id,
      status: row.status,
@@ -52,9 +55,9 @@ export default function CaseStatusReport() {
     setByType(Object.values(map).sort((a, b) => b.total - a.total));
     setTotals({ open, inProgress, closed, onHold, total: cases.length });
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExportExcel = () => {
     const rows = byType.map(b => ({ type: b.type, open: b.open, inProgress: b.inProgress, closed: b.closed, onHold: b.onHold, total: b.total }));
