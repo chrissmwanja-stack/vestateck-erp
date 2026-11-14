@@ -54,7 +54,7 @@ export default defineConfig({
         test: {
           name: 'lib',
           environment: 'node',
-          include: ['src/lib/**/*.test.ts', 'src/features/**/*.test.ts', 'src/components/**/*.test.ts', 'src/modules/**/*.test.ts'],
+          include: ['src/lib/**/*.test.ts', 'src/features/**/*.test.ts', 'src/components/**/*.test.ts', 'src/modules/**/*.test.ts', '../../api/**/*.test.ts'],
         },
       },
       {

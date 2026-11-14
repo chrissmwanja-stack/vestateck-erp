@@ -1,42 +1,45 @@
 // CSP violation report collector (gap #2).
-// Vercel function at /api/csp-report. Logs every report; wire the Vercel
-// log drain to your alerting (e.g. Better Stack / Datadog) to get signal.
-// Rate-limited in-memory per instance to avoid log flooding.
+// Vercel function at /api/csp-report. Logs every accepted report; wire the
+// Vercel log drain to your alerting (e.g. Better Stack / Datadog) to get signal.
+//
+// Public by design (browsers POST here). Two limits, both bounded in memory:
+//   1. per client IP, so one source cannot flood the logs, and
+//   2. per distinct violation, so a real bug does not log thousands of copies.
+// The violation key is attacker-controlled, so it is truncated and the limiter
+// caps how many distinct keys it will track.
 
-interface Req { method?: string; body?: unknown; }
+import { bodyTooLarge, clean, clientIp, createLimiter, type GuardReq } from './_lib/guard';
+
 interface Res {
   status(code: number): Res;
   json(body: unknown): void;
   end(): void;
 }
 
-const recent = new Map<string, number>();
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 50;
+const perIp = createLimiter({ windowMs: 60_000, max: 100 });
+const perViolation = createLimiter({ windowMs: 60_000, max: 50 });
 
-function allow(key: string): boolean {
-  const now = Date.now();
-  const n = (recent.get(key) ?? 0) + 1;
-  recent.set(key, n);
-  const windowStart = recent.get(key + ':w') ?? now;
-  if (now - windowStart > WINDOW_MS) {
-    recent.set(key + ':w', now);
-    recent.set(key, 1);
-    return true;
-  }
-  recent.set(key + ':w', windowStart);
-  return n <= MAX_PER_WINDOW;
-}
-
-export default function handler(req: Req, res: Res) {
+export default function handler(req: GuardReq, res: Res) {
   if (req.method !== 'POST') {
     res.status(405).json({ ok: false });
     return;
   }
+  if (bodyTooLarge(req)) {
+    res.status(413).json({ ok: false });
+    return;
+  }
   const body = req.body as Record<string, unknown> | undefined;
-  const report = (body?.['csp-report'] ?? body) as Record<string, unknown> | undefined;
-  const key = `${String(report?.['document-uri'] ?? '')}|${String(report?.['violated-directive'] ?? '')}|${String(report?.['blocked-uri'] ?? '')}`;
-  if (allow(key)) {
+  const raw = (body?.['csp-report'] ?? body) as Record<string, unknown> | undefined;
+  const report = {
+    'document-uri': clean(raw?.['document-uri'], 300),
+    'violated-directive': clean(raw?.['violated-directive'], 100),
+    'effective-directive': clean(raw?.['effective-directive'], 100),
+    'blocked-uri': clean(raw?.['blocked-uri'], 300),
+    'source-file': clean(raw?.['source-file'], 300),
+    'line-number': clean(raw?.['line-number'], 10),
+  };
+  const key = `${report['document-uri'] ?? ''}|${report['violated-directive'] ?? ''}|${report['blocked-uri'] ?? ''}`;
+  if (perIp.allow(clientIp(req)) && perViolation.allow(key)) {
     console.warn('[csp-report]', JSON.stringify(report));
   }
   // Always 204: reporters must not learn anything from the response.

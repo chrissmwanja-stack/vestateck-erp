@@ -27,6 +27,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { escapeHtml, loadBranding, renderEmail, sendEmail, type Branding } from '../_shared/branding.ts';
+import { secretsMatch } from '../_shared/secrets.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -105,22 +106,6 @@ export function renderDigest(b: Branding, row: DigestRow, summary: string): { su
     footerNote: `Period ${new Date(row.period_start).toUTCString()} to ${new Date(row.period_end).toUTCString()}. Manage recipients under Admin > Settings > Notifications.`,
   });
   return { subject, html };
-}
-
-// Constant-time string comparison so response timing does not leak how many
-// leading characters of the secret a caller guessed correctly. Hashing first
-// gives both sides a fixed length, so length differences do not leak either.
-async function secretsMatch(provided: string, expected: string): Promise<boolean> {
-  const enc = new TextEncoder();
-  const [a, b] = await Promise.all([
-    crypto.subtle.digest('SHA-256', enc.encode(provided)),
-    crypto.subtle.digest('SHA-256', enc.encode(expected)),
-  ]);
-  const x = new Uint8Array(a);
-  const y = new Uint8Array(b);
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
-  return diff === 0;
 }
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
