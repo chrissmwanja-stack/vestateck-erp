@@ -34,10 +34,13 @@ export interface TreeNode {
   //   po            -> has_po_access(): the authority tier that can write
   //                    material catalog / classification rows (enforced
   //                    by RequireRpcAccess rpc="has_po_access").
+  //   leave-decider -> can_decide_leave(): HR admin/manager, the company
+  //                    admin, or anyone who is some employee's line manager
+  //                    (enforced by RequireRpcAccess rpc="can_decide_leave").
   // Nav visibility only -- mirrors requiredModule but checked against
   // access.canAccessFinance / access.isCompanyAdmin / access.hasPoAccess
   // instead of access.modules. See useMyModuleAccess below.
-  requiredAccess?: "finance" | "company-admin" | "po";
+  requiredAccess?: "finance" | "company-admin" | "po" | "leave-decider";
   // Role gate on top of requiredModule -- for a node inside a single-module
   // portal (e.g. bd), the module checked is that portal's requiredModule;
   // for a node that also sets its own requiredModule (mixed portals like
@@ -73,7 +76,7 @@ export interface Portal {
   // Platform Administration portal to platform admins -- the switcher
   // used to show it to everyone (routes rejected non-platform users with
   // a "not allowed" screen); hiding it keeps nav and guards in lockstep.
-  requiredAccess?: "finance" | "company-admin" | "platform";
+  requiredAccess?: "finance" | "company-admin" | "platform" | "leave-decider";
 }
 
 export interface ModuleAccessState {
@@ -109,4 +112,10 @@ export interface ModuleAccessState {
   // company (they administer it through View-as), never in console-only
   // mode.
   isCompanyAdmin: boolean;
+  // can_decide_leave() for the nav subject: may decide leave requests (HR
+  // admin/manager, company admin, or a line manager). Backs the "My Team"
+  // portal, which offers Leave Approvals to deciders who have no HR role and
+  // so cannot see the Human Resources portal. Mirrors
+  // RequireRpcAccess rpc="can_decide_leave" exactly.
+  canDecideLeave: boolean;
 }

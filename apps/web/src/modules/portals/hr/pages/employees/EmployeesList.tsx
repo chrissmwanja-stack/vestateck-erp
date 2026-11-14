@@ -39,6 +39,8 @@ interface Employee {
   phone: string | null;
   department_id: string | null;
   position_id: string | null;
+  manager_id: string | null;
+  hire_date: string | null;
   employment_status: string;
   is_active: boolean;
   created_at: string;
@@ -64,6 +66,7 @@ export default function EmployeesList() {
     phone: "",
     department_id: "",
     position_id: "",
+    manager_id: "",
     employment_status: "active",
     hire_date: "",
     is_active: true,
@@ -99,7 +102,7 @@ export default function EmployeesList() {
 
   const handleOpenNew = () => {
     setEditing(null);
-    setForm({ first_name: "", last_name: "", email: "", phone: "", department_id: "", position_id: "", employment_status: "active", hire_date: "", is_active: true });
+    setForm({ first_name: "", last_name: "", email: "", phone: "", department_id: "", position_id: "", manager_id: "", employment_status: "active", hire_date: "", is_active: true });
     setOpen(true);
   };
 
@@ -112,8 +115,11 @@ export default function EmployeesList() {
       phone: e.phone || "",
       department_id: e.department_id || "",
       position_id: e.position_id || "",
+      manager_id: e.manager_id || "",
       employment_status: e.employment_status,
-      hire_date: "",
+      // Round-trip the stored hire date: the update below always sends it, so
+      // an empty field here would silently clear it on every edit.
+      hire_date: e.hire_date || "",
       is_active: e.is_active,
     });
     setOpen(true);
@@ -146,6 +152,7 @@ export default function EmployeesList() {
       phone: form.phone.trim() || null,
       department_id: form.department_id || null,
       position_id: form.position_id || null,
+      manager_id: form.manager_id || null,
       employment_status: form.employment_status,
       hire_date: form.hire_date || null,
       is_active: form.is_active,
@@ -168,6 +175,32 @@ export default function EmployeesList() {
     const { error } = await supabase.from("hr_employees").delete().eq("id", id);
     if (error) alert(`Cannot delete: ${error.message}`); else fetchData();
   };
+
+  // "Reports to" is the line manager: since 20261114100000_hr_leave_deciders.sql
+  // they can decide this employee's leave requests, so only HR admins and
+  // managers may change it (hr_employees_update). An employee cannot report to
+  // themselves or to anyone in their own downline, so those are not offered;
+  // the current manager is always kept in the list, even if no longer active,
+  // so the select never shows a value it has no option for.
+  const downlineOf = (rootId: string): Set<string> => {
+    const out = new Set<string>();
+    const queue = [rootId];
+    while (queue.length > 0) {
+      const id = queue.shift() as string;
+      for (const e of employees) {
+        if (e.manager_id === id && !out.has(e.id)) {
+          out.add(e.id);
+          queue.push(e.id);
+        }
+      }
+    }
+    return out;
+  };
+  const excludedManagerIds = editing ? new Set([editing.id, ...downlineOf(editing.id)]) : new Set<string>();
+  const managerOptions = employees.filter(
+    (e) => !excludedManagerIds.has(e.id) && (e.is_active || e.id === form.manager_id),
+  );
+  const employeeNameById = new Map(employees.map((e) => [e.id, `${e.first_name} ${e.last_name}`]));
 
   // employee_no is trigger-generated (generate_hr_employee_no) -- never set it from CSV.
   const bulkImportConfig: BulkImportConfig = {
@@ -226,6 +259,7 @@ export default function EmployeesList() {
                 <TableCell>Email</TableCell>
                 <TableCell>Department</TableCell>
                 <TableCell>Position</TableCell>
+                <TableCell>Reports to</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -233,7 +267,7 @@ export default function EmployeesList() {
             </TableHead>
             <TableBody>
               {employees.length === 0 ? (
-                <TableRow><TableCell colSpan={8} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No employees yet. Create first employee — needs Position lookup you just built.</Typography></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} sx={{ textAlign: "center", py: 5 }}><Typography color="text.secondary">No employees yet. Create first employee — needs Position lookup you just built.</Typography></TableCell></TableRow>
               ) : (
                 employees.map(e => (
                   <TableRow key={e.id} hover>
@@ -242,6 +276,7 @@ export default function EmployeesList() {
                     <TableCell><Typography variant="body2">{e.email}</Typography><Typography variant="caption" color="text.secondary">{e.phone || ""}</Typography></TableCell>
                     <TableCell>{e.departments?.name || "-"}</TableCell>
                     <TableCell><Chip label={e.hr_positions?.title || "-"} size="small" variant="outlined" /></TableCell>
+                    <TableCell>{(e.manager_id && employeeNameById.get(e.manager_id)) || "-"}</TableCell>
                     <TableCell><Chip label={e.employment_status} size="small" color={e.employment_status === 'active' ? 'success' : e.employment_status === 'on_leave' ? 'warning' : 'default'} sx={{ textTransform: "capitalize" }} /></TableCell>
                     <TableCell><Chip label={e.is_active ? "Active" : "Inactive"} size="small" color={e.is_active ? "success" : "default"} /></TableCell>
                     <TableCell align="right">
@@ -279,6 +314,17 @@ export default function EmployeesList() {
               </TextField>
             </Grid>
           </Grid>
+          <TextField
+            select
+            label="Reports to"
+            value={form.manager_id}
+            onChange={e => setForm({ ...form, manager_id: e.target.value })}
+            fullWidth
+            helperText="Line manager. They can approve or reject this employee's leave requests."
+          >
+            <MenuItem value="">-- None --</MenuItem>
+            {managerOptions.map(m => <MenuItem key={m.id} value={m.id}>{m.first_name} {m.last_name}</MenuItem>)}
+          </TextField>
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <TextField select label="Employment Status" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })} fullWidth>

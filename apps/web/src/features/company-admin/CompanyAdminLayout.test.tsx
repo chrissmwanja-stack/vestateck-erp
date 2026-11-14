@@ -24,6 +24,7 @@ function accessFor(modules: string[], overrides: Partial<ModuleAccessState> = {}
     isImpersonating: false,
     canAccessFinance: true,
     hasPoAccess: false,
+    canDecideLeave: false,
     isCompanyAdmin: true,
     ...overrides,
   };

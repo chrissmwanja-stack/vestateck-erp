@@ -38,6 +38,7 @@ export function useMyModuleAccess() {
             canAccessFinance: false,
             isCompanyAdmin: false,
             hasPoAccess: false,
+            canDecideLeave: false,
           });
         return;
       }
@@ -59,6 +60,7 @@ export function useMyModuleAccess() {
           canAccessFinance: false,
           isCompanyAdmin: false,
           hasPoAccess: false,
+          canDecideLeave: false,
         });
         return;
       }
@@ -97,17 +99,21 @@ export function useMyModuleAccess() {
             // has_po_access() grants platform admins an automatic bypass,
             // mirror that so po-gated nav stays visible in View-as.
             hasPoAccess: true,
+            canDecideLeave: true,
           });
           return;
         }
         subjectUserId = imp.impersonated_user_id;
         subjectTenantId = imp.tenant_id;
       }
-      const [{ data: roles }, { data: entitlements }, { data: financeAccess }, { data: poAccess }, { data: subjectUser }] = await Promise.all([
+      const [{ data: roles }, { data: entitlements }, { data: financeAccess }, { data: poAccess }, { data: leaveDecider }, { data: subjectUser }] = await Promise.all([
         supabase.from("staff_roles").select("module, role").eq("user_id", subjectUserId).eq("tenant_id", subjectTenantId),
         supabase.from("tenant_modules").select("module").eq("tenant_id", subjectTenantId),
         supabase.rpc("can_access_finance"),
         supabase.rpc("has_po_access"),
+        // Nav only: can_decide_leave() also resolves through effective_user_id(),
+        // so while viewing as a user this is that user's answer.
+        supabase.rpc("can_decide_leave"),
         // The nav subject's own company-admin flag. Reuse the caller's row
         // (already fetched) unless we're viewing as a specific user.
         subjectUserId === userId
@@ -136,6 +142,7 @@ export function useMyModuleAccess() {
         canAccessFinance: Boolean(financeAccess),
         isCompanyAdmin: Boolean(subjectUser?.is_company_admin),
         hasPoAccess: Boolean(poAccess),
+        canDecideLeave: Boolean(leaveDecider),
       });
     };
 

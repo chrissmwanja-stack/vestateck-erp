@@ -50,7 +50,7 @@ interface TreeNode {
   // copy just needs the field to exist so node literals here can set it and
   // stay structurally assignable to ModuleTree's TreeNode[].
   requiredRoles?: readonly string[];
-  requiredAccess?: "finance" | "company-admin" | "po";
+  requiredAccess?: "finance" | "company-admin" | "po" | "leave-decider";
 }
 
 // Law and Compliance - modeled on MAKS Legal module
@@ -134,7 +134,7 @@ export const hrNodes: TreeNode[] = [
     children: [
       { id: "attendance", label: "Attendance", icon: <FactCheck fontSize="small" />, to: "/hr/attendance" },
       { id: "leave-requests", label: "Leave Requests", icon: <AssignmentTurnedIn fontSize="small" />, to: "/hr/leaves" },
-      { id: "leave-approvals", label: "Leave Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/hr/leaves/approvals" },
+      { id: "leave-approvals", label: "Leave Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/hr/leaves/approvals", requiredAccess: "leave-decider" },
     ],
   },
   {

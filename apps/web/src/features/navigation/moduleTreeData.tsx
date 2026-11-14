@@ -369,6 +369,20 @@ export const portals: Portal[] = [
     nodes: [{ id: "my-approvals-home", label: "My Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/my-approvals" }],
   },
   {
+    // Leave Approvals for deciders who cannot see the Human Resources portal:
+    // the company admin or a line manager with no HR role. can_decide_leave()
+    // is true for them, but the whole HR portal is gated on the hr module, so
+    // without this entry they would have no way to reach the screen. People
+    // who do have the HR module get Leave Approvals inside that portal and are
+    // not shown this one (see visiblePortals.ts). The route is guarded by
+    // RequireRpcAccess rpc="can_decide_leave" in routes/hrRoutes.tsx.
+    id: "my-team",
+    label: "My Team",
+    icon: <Groups fontSize="small" />,
+    nodes: [{ id: "my-team-leave-approvals", label: "Leave Approvals", icon: <AssignmentTurnedIn fontSize="small" />, to: "/hr/leaves/approvals" }],
+    requiredAccess: "leave-decider",
+  },
+  {
     // Company Administration -- layer 2 of the admin model: the tenant's
     // own governance (organization, users & access, workflows). Whole
     // portal gated to the company admin (or a platform admin via View-as);

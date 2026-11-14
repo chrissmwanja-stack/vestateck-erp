@@ -37,7 +37,6 @@ export const hrRoutes = (
       <Route path="/hr/org-chart" element={<OrgChart />} />
       <Route path="/hr/attendance" element={<AttendanceList />} />
       <Route path="/hr/leaves" element={<LeaveRequestsList />} />
-      <Route path="/hr/leaves/approvals" element={<LeaveRequestsList />} />
       <Route path="/hr/recruitment/jobs" element={<JobPostingsList />} />
       <Route path="/hr/recruitment/applications" element={<ApplicationsList />} />
       <Route path="/hr/payroll" element={<PayrollList />} />
@@ -53,6 +52,17 @@ export const hrRoutes = (
       <Route path="/hr/admin/leave-types" element={<LeaveTypesAdmin />} />
       <Route path="/hr/admin/team-members" element={<HrTeamMembersAdmin />} />
       <Route path="/hr/admin/payroll-approvers" element={<PayrollApproversAdmin />} />
+    </Route>
+
+    {/* Leave approvals: deliberately NOT behind RequireModule
+        module="hr". Since 20261114100000_hr_leave_deciders.sql the
+        company admin and an employee's line manager can decide leave
+        too, and neither needs an HR role, so the screen is keyed to
+        can_decide_leave() (HR admin/manager, company admin, or anyone
+        who is some employee's line manager). /hr/leaves, the full list,
+        stays HR-gated. */}
+    <Route element={<RequireRpcAccess rpc="can_decide_leave" />}>
+      <Route path="/hr/leaves/approvals" element={<LeaveRequestsList />} />
     </Route>
 
     {/* Payroll approvals: deliberately NOT behind RequireModule

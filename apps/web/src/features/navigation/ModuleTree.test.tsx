@@ -15,6 +15,7 @@ let mockModuleAccess: ModuleAccessState = {
   canAccessFinance: false,
   isCompanyAdmin: false,
   hasPoAccess: false,
+  canDecideLeave: false,
 };
 vi.mock('./useMyModuleAccess', () => ({
   useMyModuleAccess: () => mockModuleAccess,
@@ -60,6 +61,7 @@ function accessFor(role: string | null, opts: { isPlatformAdmin?: boolean; canAc
     canAccessFinance: !!opts.canAccessFinance,
     isCompanyAdmin: false,
     hasPoAccess: false,
+    canDecideLeave: false,
   };
 }
 
@@ -123,6 +125,7 @@ describe('finance nav gating (requiredAccess: "finance")', () => {
     canAccessFinance: !!opts.canAccessFinance,
     isCompanyAdmin: false,
     hasPoAccess: !!opts.hasPoAccess,
+    canDecideLeave: false,
   });
 
   it('tags the whole financial-management portal with requiredAccess: "finance"', () => {
@@ -268,6 +271,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
     canAccessFinance: false,
     isCompanyAdmin: !!opts.isCompanyAdmin,
     hasPoAccess: false,
+    canDecideLeave: false,
   });
 
   it('tags the whole company-admin portal with requiredAccess: "company-admin"', () => {
@@ -310,6 +314,7 @@ describe('company-admin nav gating (requiredAccess: "company-admin")', () => {
         canAccessFinance: false,
         isCompanyAdmin,
         hasPoAccess: false,
+        canDecideLeave: false,
       };
       render(
         <MemoryRouter>
@@ -367,6 +372,7 @@ describe('platform-admin portal visibility', () => {
       canAccessFinance: false,
       isCompanyAdmin: false,
       hasPoAccess: false,
+      canDecideLeave: false,
     };
 
     const cases = [

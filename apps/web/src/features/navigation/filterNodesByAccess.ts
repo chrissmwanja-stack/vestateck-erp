@@ -29,6 +29,7 @@ export function filterNodesByAccess(
     if (n.requiredAccess === "finance" && !access.isPlatformAdmin && !access.canAccessFinance) return false;
     if (n.requiredAccess === "company-admin" && !access.isPlatformAdmin && !access.isCompanyAdmin) return false;
     if (n.requiredAccess === "po" && !access.isPlatformAdmin && !access.hasPoAccess) return false;
+    if (n.requiredAccess === "leave-decider" && !access.isPlatformAdmin && !access.canDecideLeave) return false;
     if (n.requiredRoles && !access.isPlatformAdmin) {
       const myRoles = (m && access.rolesByModule.get(m)) || new Set<string>();
       if (!n.requiredRoles.some((r) => myRoles.has(r))) return false;

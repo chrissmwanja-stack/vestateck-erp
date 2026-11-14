@@ -15045,6 +15045,7 @@ export type Database = {
       can_access_finance: { Args: never; Returns: boolean }
       can_access_insurance: { Args: never; Returns: boolean }
       can_act_on_stage: { Args: { check_stage_id: string }; Returns: boolean }
+      can_decide_leave: { Args: never; Returns: boolean }
       can_manage_client_master: { Args: never; Returns: boolean }
       can_manage_insurance: { Args: never; Returns: boolean }
       can_manage_po_handoff: {

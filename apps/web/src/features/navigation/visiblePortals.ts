@@ -16,6 +16,13 @@ export function visiblePortalsFor(access: ModuleAccessState | null, portals: Por
     return portals.filter((p) => p.id === "platform-admin");
   }
   return portals.filter((p) => {
+    // "My Team" exists for deciders who cannot see the Human Resources portal
+    // (company admin or line manager with no HR role). Anyone with the HR
+    // module already has Leave Approvals there, and a platform admin viewing
+    // as a company has the HR portal too, so neither is offered a second copy.
+    if (p.requiredAccess === "leave-decider") {
+      return !access.isPlatformAdmin && access.canDecideLeave && !access.modules.has("hr");
+    }
     if (access.isPlatformAdmin) return true;
     if (p.requiredModule && !access.modules.has(p.requiredModule)) return false;
     if (p.requiredAccess === "finance" && !access.canAccessFinance) return false;
