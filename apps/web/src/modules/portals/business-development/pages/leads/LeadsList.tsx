@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -27,6 +27,7 @@ import {
 import { Add, Search, Edit, Visibility, TrendingUp } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 
 interface Lead {
   id: string;
@@ -50,6 +51,7 @@ interface Source {
 }
 
 export default function LeadsList() {
+  const { showError } = useToast();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
@@ -74,10 +76,11 @@ export default function LeadsList() {
     notes: "",
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: srcData } = await supabase.from("bd_lead_sources").select("id, name").eq("is_active", true).order("name");
-    if (srcData) setSources(srcData as Source[]);
+    const { data: srcData, error: srcError } = await supabase.from("bd_lead_sources").select("id, name").eq("is_active", true).order("name");
+    if (srcError) showError("Could not load lead sources.");
+    else if (srcData) setSources(srcData as Source[]);
 
     let query = supabase
       .from("bd_leads")
@@ -88,12 +91,12 @@ export default function LeadsList() {
     if (sourceFilter !== "all") query = query.eq("source_id", sourceFilter);
 
     const { data, error } = await query;
-    if (error) console.error(error);
+    if (error) showError("Could not load leads.");
     else setLeads(data as Lead[]);
     setLoading(false);
-  };
+  }, [statusFilter, sourceFilter, showError]);
 
-  useEffect(() => { fetchData(); }, [statusFilter, sourceFilter]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = leads.filter(l => {
     if (!search) return true;

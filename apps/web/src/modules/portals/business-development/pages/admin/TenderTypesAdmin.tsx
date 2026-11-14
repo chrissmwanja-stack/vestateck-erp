@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface TenderType { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; }
 
 export default function TenderTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [list, setList] = useState<TenderType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,13 +17,14 @@ export default function TenderTypesAdmin() {
   const [editing, setEditing] = useState<TenderType | null>(null);
   const [form, setForm] = useState({ name: "", description: "", is_active: true });
 
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_tender_types").select("*").order("name");
-    if (data) setList(data as TenderType[]);
+    const { data, error } = await supabase.from("bd_tender_types").select("*").order("name");
+    if (error) showError("Could not load tender types.");
+    else if (data) setList(data as TenderType[]);
     setLoading(false);
-  };
-  useEffect(() => { fetch(); }, []);
+  }, [showError]);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: TenderType) => { setEditing(t); setForm({ name: t.name, description: t.description || "", is_active: t.is_active }); setOpen(true); };

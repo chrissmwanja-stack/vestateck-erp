@@ -3,6 +3,7 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBod
 import { TrendingUp, Download } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 interface Lead {
@@ -17,6 +18,7 @@ interface Lead {
 }
 
 export default function QualifiedLeads() {
+  const { showError } = useToast();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +26,9 @@ export default function QualifiedLeads() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("bd_leads").select("*, bd_lead_sources(name)").eq("status", "qualified").order("created_at", { ascending: false });
-      if (data) {
+      const { data, error } = await supabase.from("bd_leads").select("*, bd_lead_sources(name)").eq("status", "qualified").order("created_at", { ascending: false });
+      if (error) showError("Could not load qualified leads.");
+      else if (data) {
         const normalized = (data as any[]).map((l: any) => ({
           ...l,
           bd_lead_sources: Array.isArray(l.bd_lead_sources) ? l.bd_lead_sources[0] ?? null : l.bd_lead_sources ?? null,
@@ -35,7 +38,7 @@ export default function QualifiedLeads() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const handleExportExcel = () => {
     const rows = leads.map(l => ({ lead_no: l.lead_no, company: l.company_name, contact: l.contact_name, source: l.bd_lead_sources?.name || "-", value: l.estimated_value ? Number(l.estimated_value) : 0, currency: l.currency, created: new Date(l.created_at).toLocaleDateString() }));

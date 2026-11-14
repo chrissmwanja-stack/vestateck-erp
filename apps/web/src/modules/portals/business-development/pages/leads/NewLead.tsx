@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface LeadSource {
@@ -81,7 +82,8 @@ export default function NewLead() {
 
     // Get tenant_id from first source or session - adjust to your actual tenant logic
     // Your MaterialLookupsAdmin fetches appUser to get tenant_id, do same here if needed
-    const { data: existing } = await supabase.from("bd_lead_sources").select("tenant_id").limit(1).single();
+    const { data: existing, error: tenantError } = await supabase.from("bd_lead_sources").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "NewLead.tenantLookup" });
     const tenant_id = existing?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
 
     const payload: any = {

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
@@ -13,16 +14,18 @@ interface Opp {
 }
 
 export default function WinLossReport() {
+  const { showError } = useToast();
   const [stats, setStats] = useState({ total: 0, won: 0, lost: 0, winRate: 0, wonValue: 0, lostValue: 0 });
   const [byCategory, setByCategory] = useState<{ category: string; won: number; lost: number; winRate: number; wonValue: number; lostValue: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("bd_opportunities")
       .select("*, bd_clients(bd_client_categories(name))")
       .in("stage", ["closed_won", "closed_lost"]);
+    if (error) { showError("Could not load the win/loss report."); setLoading(false); return; }
 
     const opps = ((data as any[]) || []).map((o: any) => ({
       ...o,
@@ -61,9 +64,9 @@ export default function WinLossReport() {
     }));
     setByCategory(byCat);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExportExcel = () => {
     const rows = byCategory.map(c => ({ category: c.category, won: c.won, lost: c.lost, winRate: Number(c.winRate.toFixed(1)), wonValue: c.wonValue, lostValue: c.lostValue }));

@@ -1,8 +1,15 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import OpportunityStagesAdmin from './OpportunityStagesAdmin';
 import { mockSupabaseTable } from '../../../../../test/lookupAdminHarness';
+import { ToastProvider } from '../../../../../lib/toastContext';
+
+// OpportunityStagesAdmin surfaces failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // Most complex of the BD lookup-admin family: stages carry a
 // probability_default that drives the Pipeline Board's weighted

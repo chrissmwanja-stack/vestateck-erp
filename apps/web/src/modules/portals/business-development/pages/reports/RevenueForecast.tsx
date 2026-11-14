@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Chip, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend, Line, ComposedChart } from "recharts";
 
@@ -22,17 +23,19 @@ interface MonthAgg {
 }
 
 export default function RevenueForecast() {
+  const { showError } = useToast();
   const [months, setMonths] = useState<MonthAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [totals, setTotals] = useState({ raw: 0, weighted: 0, count: 0 });
 
-  const fetchForecast = async () => {
+  const fetchForecast = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("bd_opportunities")
       .select("estimated_value, probability, expected_close_date, stage, currency")
       .not("expected_close_date", "is", null)
       .neq("stage", "closed_lost");
+    if (error) { showError("Could not load the revenue forecast."); setLoading(false); return; }
 
     const opps = (data as Opp[]) || [];
 
@@ -55,9 +58,9 @@ export default function RevenueForecast() {
       count: opps.length,
     });
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchForecast(); }, []);
+  useEffect(() => { fetchForecast(); }, [fetchForecast]);
 
   const handleExportExcel = () => {
     const rows = months.map(m => ({ month: m.month, count: m.count, raw: m.raw, weighted: m.weighted, confidence: m.raw ? Number(((m.weighted/m.raw)*100).toFixed(1)) : 0 }));

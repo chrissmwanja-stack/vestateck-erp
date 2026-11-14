@@ -1,8 +1,15 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ProposalStatusesAdmin from './ProposalStatusesAdmin';
 import { mockSupabaseTable } from '../../../../../test/lookupAdminHarness';
+import { ToastProvider } from '../../../../../lib/toastContext';
+
+// ProposalStatusesAdmin surfaces failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // Same enum-status shape as LeadStatusesAdmin, on bd_proposal_statuses,
 // but an 8-entry seed set instead of 6 -- worth pinning the exact

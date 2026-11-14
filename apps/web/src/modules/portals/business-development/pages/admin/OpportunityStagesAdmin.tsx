@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, DragIndicator } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
@@ -50,6 +51,7 @@ const STAGE_OPTIONS: { value: OpportunityStageEnum; label: string; defaultProb: 
 ];
 
 export default function OpportunityStagesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [stages, setStages] = useState<OpportunityStage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,8 +169,9 @@ export default function OpportunityStagesAdmin() {
   const handleSeedDefaults = async () => {
     const tenantResult = await resolveTenantId(session);
     if (!tenantResult.ok) { alert(tenantResult.error); return; }
+    let failed = 0;
     for (const [idx, opt] of STAGE_OPTIONS.entries()) {
-      await supabase.from("bd_opportunity_stages").insert({
+      const { error } = await supabase.from("bd_opportunity_stages").insert({
         stage: opt.value,
         label: opt.label,
         order_index: idx,
@@ -177,7 +180,9 @@ export default function OpportunityStagesAdmin() {
         is_active: true,
         tenant_id: tenantResult.tenantId,
       });
+      if (error) failed += 1;
     }
+    if (failed) showError(`Could not add ${failed} of ${STAGE_OPTIONS.length} default stages.`);
     seedRefetchTimer.current = setTimeout(fetchStages, 1000);
   };
 

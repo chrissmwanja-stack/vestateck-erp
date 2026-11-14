@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, TextField, Typography, MenuItem, Grid, Alert, InputAdornment, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Client { id: string; name: string; }
@@ -49,7 +50,8 @@ export default function NewTender() {
     setSuccess(null);
     if (!form.title.trim()) { setError("Title is required."); return; }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("bd_clients").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("bd_clients").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "NewTender.tenantLookup" });
     const tenant_id = tenantData?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
 
     const payload: any = {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
@@ -41,6 +42,7 @@ const STATUS_OPTIONS: { value: ProposalStatusEnum; label: string; color: string 
 ];
 
 export default function ProposalStatusesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [list, setList] = useState<ProposalStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,13 +50,14 @@ export default function ProposalStatusesAdmin() {
   const [editing, setEditing] = useState<ProposalStatus | null>(null);
   const [form, setForm] = useState<{ status: ProposalStatusEnum; label: string; color: string; order_index: number; is_active: boolean }>({ status: 'draft', label: 'Draft', color: '#bdbdbd', order_index: 0, is_active: true });
 
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_proposal_statuses").select("*").order("order_index");
-    if (data) setList(data as ProposalStatus[]);
+    const { data, error } = await supabase.from("bd_proposal_statuses").select("*").order("order_index");
+    if (error) showError("Could not load proposal statuses.");
+    else if (data) setList(data as ProposalStatus[]);
     setLoading(false);
-  };
-  useEffect(() => { fetch(); }, []);
+  }, [showError]);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ status: 'draft', label: 'Draft', color: '#bdbdbd', order_index: list.length, is_active: true }); setOpen(true); };
   const handleOpenEdit = (s: ProposalStatus) => { setEditing(s); setForm({ status: s.status, label: s.label, color: s.color, order_index: s.order_index, is_active: s.is_active }); setOpen(true); };
@@ -83,9 +86,12 @@ export default function ProposalStatusesAdmin() {
   const handleSeedDefaults = async () => {
     const tenantResult = await resolveTenantId(session);
     if (!tenantResult.ok) { alert(tenantResult.error); return; }
+    let failed = 0;
     for (const [idx, opt] of STATUS_OPTIONS.entries()) {
-      await supabase.from("bd_proposal_statuses").insert({ status: opt.value, label: opt.label, color: opt.color, order_index: idx, is_active: true, tenant_id: tenantResult.tenantId });
+      const { error } = await supabase.from("bd_proposal_statuses").insert({ status: opt.value, label: opt.label, color: opt.color, order_index: idx, is_active: true, tenant_id: tenantResult.tenantId });
+      if (error) failed += 1;
     }
+    if (failed) showError(`Could not add ${failed} of ${STATUS_OPTIONS.length} default statuses.`);
     setTimeout(fetch, 1000);
   };
 

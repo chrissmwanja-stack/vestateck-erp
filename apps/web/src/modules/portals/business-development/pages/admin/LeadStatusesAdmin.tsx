@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
@@ -18,6 +19,7 @@ const STATUS_OPTS: { value: LeadStatusEnum; label: string; color: string; order:
 ];
 
 export default function LeadStatusesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [list, setList] = useState<LeadStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,13 +27,14 @@ export default function LeadStatusesAdmin() {
   const [editing, setEditing] = useState<LeadStatus | null>(null);
   const [form, setForm] = useState<{ status: LeadStatusEnum; label: string; color: string; order_index: number; is_active: boolean }>({ status: 'new', label: 'New', color: '#90caf9', order_index: 0, is_active: true });
 
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_lead_statuses").select("*").order("order_index");
-    if (data) setList(data as LeadStatus[]);
+    const { data, error } = await supabase.from("bd_lead_statuses").select("*").order("order_index");
+    if (error) showError("Could not load lead statuses.");
+    else if (data) setList(data as LeadStatus[]);
     setLoading(false);
-  };
-  useEffect(() => { fetch(); }, []);
+  }, [showError]);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ status: 'new', label: 'New', color: '#90caf9', order_index: list.length, is_active: true }); setOpen(true); };
   const handleOpenEdit = (s: LeadStatus) => { setEditing(s); setForm({ status: s.status, label: s.label, color: s.color, order_index: s.order_index, is_active: s.is_active }); setOpen(true); };
@@ -60,9 +63,12 @@ export default function LeadStatusesAdmin() {
   const handleSeedDefaults = async () => {
     const tenantResult = await resolveTenantId(session);
     if (!tenantResult.ok) { alert(tenantResult.error); return; }
+    let failed = 0;
     for (const opt of STATUS_OPTS) {
-      await supabase.from("bd_lead_statuses").insert({ status: opt.value, label: opt.label, color: opt.color, order_index: opt.order, is_active: true, tenant_id: tenantResult.tenantId });
+      const { error } = await supabase.from("bd_lead_statuses").insert({ status: opt.value, label: opt.label, color: opt.color, order_index: opt.order, is_active: true, tenant_id: tenantResult.tenantId });
+      if (error) failed += 1;
     }
+    if (failed) showError(`Could not add ${failed} of ${STATUS_OPTS.length} default statuses.`);
     setTimeout(fetch, 1000);
   };
 

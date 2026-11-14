@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ProposalTemplate {
@@ -103,7 +104,8 @@ export default function ProposalTemplates() {
       const { data: { user } } = await supabase.auth.getUser();
       let tenant_id = (session?.user?.user_metadata as any)?.tenant_id;
       if (user && !tenant_id) {
-        const { data: profile } = await supabase.from("app_users").select("tenant_id").eq("id", user.id).single();
+        const { data: profile, error: profileError } = await supabase.from("app_users").select("tenant_id").eq("id", user.id).single();
+        if (profileError && profileError.code !== "PGRST116") reportError(profileError, { source: "ProposalTemplates.tenantLookup" });
         tenant_id = profile?.tenant_id;
       }
       const payload: any = {

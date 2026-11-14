@@ -1,24 +1,5 @@
 {
   "_comment": "Per-file counts of local/supabase-no-swallowed-error. A ratchet: it may only go down. See scripts/check-lint-ratchet.mjs.",
-  "total": 20,
-  "files": {
-    "src/modules/portals/business-development/pages/admin/LeadStatusesAdmin.tsx": 2,
-    "src/modules/portals/business-development/pages/admin/OpportunityStagesAdmin.tsx": 1,
-    "src/modules/portals/business-development/pages/admin/ProposalStatusesAdmin.tsx": 2,
-    "src/modules/portals/business-development/pages/admin/ProposalTypesAdmin.tsx": 1,
-    "src/modules/portals/business-development/pages/admin/TenderTypesAdmin.tsx": 1,
-    "src/modules/portals/business-development/pages/leads/LeadsList.tsx": 1,
-    "src/modules/portals/business-development/pages/leads/NewLead.tsx": 1,
-    "src/modules/portals/business-development/pages/leads/QualifiedLeads.tsx": 1,
-    "src/modules/portals/business-development/pages/opportunities/NewOpportunity.tsx": 1,
-    "src/modules/portals/business-development/pages/proposals/NewProposal.tsx": 1,
-    "src/modules/portals/business-development/pages/proposals/ProposalTemplates.tsx": 1,
-    "src/modules/portals/business-development/pages/proposals/ProposalTracking.tsx": 1,
-    "src/modules/portals/business-development/pages/reports/LeadSourceReport.tsx": 1,
-    "src/modules/portals/business-development/pages/reports/ProposalStatusReport.tsx": 1,
-    "src/modules/portals/business-development/pages/reports/RevenueForecast.tsx": 1,
-    "src/modules/portals/business-development/pages/reports/WinLossReport.tsx": 1,
-    "src/modules/portals/business-development/pages/tenders/NewTender.tsx": 1,
-    "src/modules/portals/business-development/pages/tenders/TenderTracking.tsx": 1
-  }
+  "total": 0,
+  "files": {}
 }

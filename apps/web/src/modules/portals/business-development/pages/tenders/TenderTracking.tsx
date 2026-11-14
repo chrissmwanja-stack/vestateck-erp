@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 interface Tender { id: string; tender_no: string; title: string; status: string; submission_deadline: string | null; bd_clients?: { name: string } | null; }
 
 export default function TenderTracking() {
+  const { showError } = useToast();
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("bd_tenders").select("*, bd_clients(name)").order("submission_deadline", { ascending: true }).limit(200);
-      if (data) {
+      const { data, error } = await supabase.from("bd_tenders").select("*, bd_clients(name)").order("submission_deadline", { ascending: true }).limit(200);
+      if (error) showError("Could not load tenders.");
+      else if (data) {
         const normalized = (data as any[]).map((t: any) => ({
           ...t,
           bd_clients: Array.isArray(t.bd_clients) ? t.bd_clients[0] ?? null : t.bd_clients ?? null,
@@ -24,7 +27,7 @@ export default function TenderTracking() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const getDaysLeft = (deadline: string | null) => {
     if (!deadline) return null;

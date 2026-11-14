@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 const STATUS_ORDER = ["draft", "in_review", "pending_approval", "approved", "sent", "accepted"];
 
 export default function ProposalTracking() {
+  const { showError } = useToast();
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("bd_proposals").select("proposal_no, title, status, created_at, updated_at, bd_clients(name)").order("updated_at", { ascending: false }).limit(200);
-      if (data) {
+      const { data, error } = await supabase.from("bd_proposals").select("proposal_no, title, status, created_at, updated_at, bd_clients(name)").order("updated_at", { ascending: false }).limit(200);
+      if (error) showError("Could not load proposals.");
+      else if (data) {
         const normalized = (data as any[]).map((p: any) => ({
           ...p,
           bd_clients: Array.isArray(p.bd_clients) ? p.bd_clients[0] ?? null : p.bd_clients ?? null,
@@ -24,7 +27,7 @@ export default function ProposalTracking() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const getProgress = (status: string) => {
     const idx = STATUS_ORDER.indexOf(status);

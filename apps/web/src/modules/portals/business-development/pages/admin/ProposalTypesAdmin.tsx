@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, Chip, CircularProgress } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { resolveTenantId } from "../../../../../lib/ResolveTenantId";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface ProposalType { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; created_at: string; }
 
 export default function ProposalTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [types, setTypes] = useState<ProposalType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,13 +17,14 @@ export default function ProposalTypesAdmin() {
   const [editing, setEditing] = useState<ProposalType | null>(null);
   const [form, setForm] = useState({ name: "", description: "", is_active: true });
 
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_proposal_types").select("*").order("name");
-    if (data) setTypes(data as ProposalType[]);
+    const { data, error } = await supabase.from("bd_proposal_types").select("*").order("name");
+    if (error) showError("Could not load proposal types.");
+    else if (data) setTypes(data as ProposalType[]);
     setLoading(false);
-  };
-  useEffect(() => { fetch(); }, []);
+  }, [showError]);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: ProposalType) => { setEditing(t); setForm({ name: t.name, description: t.description || "", is_active: t.is_active }); setOpen(true); };

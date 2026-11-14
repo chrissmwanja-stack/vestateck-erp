@@ -1,8 +1,15 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import LeadStatusesAdmin from './LeadStatusesAdmin';
 import { mockSupabaseTable } from '../../../../../test/lookupAdminHarness';
+import { ToastProvider } from '../../../../../lib/toastContext';
+
+// LeadStatusesAdmin surfaces failed requests through useToast(), which needs the provider.
+const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, { wrapper: ToastProvider, ...options });
 
 // Enum-backed status lookup on bd_lead_statuses -- unlike the plain
 // name/description admin pages, the "Label" field here has a fallback

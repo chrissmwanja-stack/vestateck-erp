@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 
@@ -27,12 +28,14 @@ interface SourceAgg {
 const COLORS = ["#1976d2", "#2e7d32", "#ed6c02", "#9c27b0", "#00838f", "#6d4c41", "#455a64", "#c2185b"];
 
 export default function LeadSourceReport() {
+  const { showError } = useToast();
   const [aggs, setAggs] = useState<SourceAgg[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_leads").select("*, bd_lead_sources(name)");
+    const { data, error } = await supabase.from("bd_leads").select("*, bd_lead_sources(name)");
+    if (error) { showError("Could not load the lead source report."); setLoading(false); return; }
     const leads = ((data as any[]) || []).map((l: any) => ({
       ...l,
       bd_lead_sources: Array.isArray(l.bd_lead_sources) ? l.bd_lead_sources[0] ?? null : l.bd_lead_sources ?? null,
@@ -63,9 +66,9 @@ export default function LeadSourceReport() {
     result.sort((a, b) => b.count - a.count);
     setAggs(result);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExportExcel = () => {
     const rows = aggs.map(a => ({ source: a.source_name, count: a.count, totalValue: a.totalValue, qualified: a.qualified, converted: a.converted, conversionRate: Number(a.conversionRate.toFixed(1)) }));

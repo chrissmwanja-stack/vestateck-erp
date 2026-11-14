@@ -1,19 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 
 const COLORS = ["#1976d2", "#ed6c02", "#2e7d32", "#9c27b0", "#d32f2f", "#00838f", "#5d4037", "#455a64"];
 
 export default function ProposalStatusReport() {
+  const { showError } = useToast();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("bd_proposals").select("status, total_value, created_at, updated_at");
+    const { data, error } = await supabase.from("bd_proposals").select("status, total_value, created_at, updated_at");
+    if (error) { showError("Could not load the proposal status report."); setLoading(false); return; }
     const proposals = (data as any[]) || [];
     const map: Record<string, { count: number; totalValue: number; totalDays: number }> = {};
     proposals.forEach(p => {
@@ -35,9 +38,9 @@ export default function ProposalStatusReport() {
     result.sort((a,b) => b.count - a.count);
     setRows(result);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchReport(); }, []);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const handleExportExcel = () => {
     const r = rows.map(a => ({ status: a.label, count: a.count, totalValue: a.totalValue, avgValue: Number(a.avgValue.toFixed(0)), avgDays: Number(a.avgDays.toFixed(1)) }));
