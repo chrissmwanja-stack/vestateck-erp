@@ -1,5 +1,30 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
+
+// The edge functions import from https://deno.land and https://esm.sh, which
+// vite-node hands straight to Node's loader (it rejects https: URLs) before any
+// alias can apply. Rewrite those two specifiers to local stubs while the source
+// is still plain text.
+function denoUrlStubs(): Plugin {
+  const toPath = (rel: string) => fileURLToPath(new URL(rel, import.meta.url)).replace(/\\/g, '/');
+  const stubs: Record<string, string> = {
+    'https://deno.land/std@0.224.0/http/server.ts': toPath('../../supabase/functions/__tests__/stubs/deno-serve.ts'),
+    'https://esm.sh/@supabase/supabase-js@2.45.0': toPath('../../supabase/functions/__tests__/stubs/supabase-js.ts'),
+  };
+  return {
+    name: 'edge-deno-url-stubs',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.replace(/\\/g, '/').includes('/supabase/functions/')) return null;
+      let out = code;
+      for (const [url, stub] of Object.entries(stubs)) {
+        out = out.split(`'${url}'`).join(JSON.stringify(stub)).split(`"${url}"`).join(JSON.stringify(stub));
+      }
+      return out === code ? null : { code: out, map: null };
+    },
+  };
+}
 
 // Two projects, split by environment:
 //
@@ -44,6 +69,21 @@ export default defineConfig({
           // hang-detector meaningful without punting on loaded dev boxes.
           testTimeout: 30000,
           hookTimeout: 30000,
+        },
+      },
+      // - "edge" (plain Node): the Supabase edge functions in
+      //   supabase/functions. They are written for Deno (URL imports,
+      //   Deno.env, top-level serve()), so the two URL imports are rewritten
+      //   to stubs (see denoUrlStubs above) and each function is driven through the handler it
+      //   registers, against a scriptable fake client. See
+      //   supabase/functions/__tests__/harness.ts. Runs in the same
+      //   `npm run test` CI job as everything else; no Deno needed.
+      {
+        plugins: [denoUrlStubs()],
+        test: {
+          name: 'edge',
+          environment: 'node',
+          include: ['../../supabase/functions/**/*.test.ts'],
         },
       },
     ],
