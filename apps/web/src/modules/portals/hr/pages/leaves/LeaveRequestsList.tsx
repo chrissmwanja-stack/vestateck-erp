@@ -5,7 +5,7 @@ import { Add } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
 
-interface Employee { id: string; first_name: string; last_name: string; }
+interface Employee { id: string; first_name: string; last_name: string; user_id: string | null; }
 interface LeaveType { id: string; name: string; days_per_year: number; }
 interface LeaveRequest {
   id: string;
@@ -36,7 +36,7 @@ export default function LeaveRequestsList() {
     setLoading(true);
     const [leavesRes, empRes, typesRes] = await Promise.all([
       supabase.from("hr_leave_requests").select("*, hr_employees(first_name, last_name), hr_leave_types(name)").order("created_at", { ascending: false }),
-      supabase.from("hr_employees").select("id, first_name, last_name").eq("is_active", true).order("first_name"),
+      supabase.from("hr_employees").select("id, first_name, last_name, user_id").eq("is_active", true).order("first_name"),
       supabase.from("hr_leave_types").select("id, name, days_per_year").eq("is_active", true).order("name"),
     ]);
     if (leavesRes.data) setLeaves(leavesRes.data as LeaveRequest[]);
@@ -103,6 +103,11 @@ export default function LeaveRequestsList() {
     if (!error) fetchData();
   };
 
+  // You cannot decide your own leave request; the database enforces this too
+  // (hr_leave_requests update policy), so hide the actions instead of letting
+  // them fail without a message.
+  const myEmployeeIds = new Set(employees.filter(e => e.user_id && e.user_id === session?.user?.id).map(e => e.id));
+
   const getStatusColor = (s: string) => {
     if (s === 'approved') return 'success';
     if (s === 'rejected') return 'error';
@@ -117,7 +122,7 @@ export default function LeaveRequestsList() {
   // Default the view to pending-only there so the nav item actually shows
   // what needs a decision, instead of the identical full list at
   // /hr/leaves. The New Leave Request action stays available either way --
-  // an approver may also need to log one on someone's behalf.
+  // HR admins and managers can log a request on someone's behalf.
   const visibleLeaves = isApprovalsRoute ? leaves.filter((l) => l.status === "pending") : leaves;
 
   return (
@@ -163,7 +168,10 @@ export default function LeaveRequestsList() {
                     <TableCell><Chip label={l.status} size="small" color={getStatusColor(l.status) as any} sx={{ textTransform: "capitalize" }} /></TableCell>
                     <TableCell><Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.reason || "-"}</Typography></TableCell>
                     <TableCell align="right">
-                      {l.status === "pending" && (
+                      {l.status === "pending" && myEmployeeIds.has(l.employee_id) && (
+                        <Typography variant="caption" color="text.secondary">Needs another approver</Typography>
+                      )}
+                      {l.status === "pending" && !myEmployeeIds.has(l.employee_id) && (
                         <>
                           <Button size="small" color="success" variant="contained" sx={{ mr: 0.5, minWidth: 0, px: 1 }} onClick={() => handleDecision(l.id, 'approved')}>Approve</Button>
                           <Button size="small" color="error" variant="outlined" sx={{ minWidth: 0, px: 1 }} onClick={() => handleDecision(l.id, 'rejected')}>Reject</Button>
