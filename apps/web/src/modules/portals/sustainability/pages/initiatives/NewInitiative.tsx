@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, TextField, Typography, MenuItem, Grid, Alert, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Category { id: string; name: string; }
 
 export default function NewInitiative() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -29,18 +32,20 @@ export default function NewInitiative() {
   useEffect(() => {
     const fetchCats = async () => {
       setLoading(true);
-      const { data } = await supabase.from("sustainability_initiative_categories").select("id, name").eq("is_active", true).order("name");
-      if (data) setCategories(data as Category[]);
+      const { data, error: loadError } = await supabase.from("sustainability_initiative_categories").select("id, name").eq("is_active", true).order("name");
+      if (loadError) showError("Could not load initiative categories.");
+      else if (data) setCategories(data as Category[]);
       setLoading(false);
     };
     fetchCats();
-  }, []);
+  }, [showError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) { setError("Title required"); return; }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("sustainability_initiative_categories").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("sustainability_initiative_categories").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "NewInitiative.tenantLookup" });
     const tenant_id = tenantData?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
 
     const payload: any = {

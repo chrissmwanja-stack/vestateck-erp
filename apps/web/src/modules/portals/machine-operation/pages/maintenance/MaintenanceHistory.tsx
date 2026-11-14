@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 
 export default function MaintenanceHistory() {
+  const { showError } = useToast();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("maintenance_requests").select("*, machines(name, machine_no)").eq("status", "completed").order("updated_at", { ascending: false }).limit(300);
-    if (data) {
+    const { data, error } = await supabase.from("maintenance_requests").select("*, machines(name, machine_no)").eq("status", "completed").order("updated_at", { ascending: false }).limit(300);
+    if (error) showError("Could not load maintenance history.");
+    else if (data) {
       const normalized = (data as any[]).map((r: any) => ({
         ...r,
         machines: Array.isArray(r.machines) ? r.machines[0] ?? null : r.machines ?? null,
@@ -19,8 +22,8 @@ export default function MaintenanceHistory() {
       setHistory(normalized);
     }
     setLoading(false);
-  };
-  useEffect(() => { fetchData(); }, []);
+  }, [showError]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleExportExcel = () => {
     const rows = history.map(h => ({ machine: h.machines ? `${h.machines.machine_no} - ${h.machines.name}` : h.machine_id, type: h.type, completed_date: h.updated_at ? new Date(h.updated_at).toLocaleDateString() : "-", status: h.status, description: h.description || "-" }));

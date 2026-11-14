@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 interface Category { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; }
 export default function InitiativeCategoriesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [cats, setCats] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState({ name: "", description: "", is_active: true });
-  const fetchCats = async () => { setLoading(true); const { data } = await supabase.from("sustainability_initiative_categories").select("*").order("name"); if (data) setCats(data as Category[]); setLoading(false); };
-  useEffect(() => { fetchCats(); }, []);
+  const fetchCats = useCallback(async () => { setLoading(true); const { data, error } = await supabase.from("sustainability_initiative_categories").select("*").order("name"); if (error) showError("Could not load initiative categories."); else if (data) setCats(data as Category[]); setLoading(false); }, [showError]);
+  useEffect(() => { fetchCats(); }, [fetchCats]);
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (c: Category) => { setEditing(c); setForm({ name: c.name, description: c.description || "", is_active: c.is_active }); setOpen(true); };
   const handleSave = async () => {

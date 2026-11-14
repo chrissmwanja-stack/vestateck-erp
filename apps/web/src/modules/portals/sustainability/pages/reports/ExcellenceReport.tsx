@@ -2,24 +2,27 @@ import { useEffect, useState, useMemo } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Grid } from "@mui/material";
 import { FileDownload, Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as ReTooltip } from "recharts";
 
 const COLORS = ["#2e7d32", "#1976d2", "#ed6c02", "#9e9e9e"];
 
 export default function ExcellenceReport() {
+  const { showError } = useToast();
   const [initiatives, setInitiatives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("sustainability_initiatives").select("status, target_value, current_value").limit(500);
-      if (data) setInitiatives(data);
+      const { data, error } = await supabase.from("sustainability_initiatives").select("status, target_value, current_value").limit(500);
+      if (error) showError("Could not load the sustainability report.");
+      else if (data) setInitiatives(data);
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const stats = useMemo(() => ({
     total: initiatives.length,

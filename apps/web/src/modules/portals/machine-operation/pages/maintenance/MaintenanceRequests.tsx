@@ -7,6 +7,7 @@ import {
 } from "@mui/material";
 import { Add, Build, CheckCircle, Delete, Edit, History } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 
 interface Machine { id: string; name: string; machine_no: string; }
 interface MaintenanceType { id: string; name: string; }
@@ -39,6 +40,7 @@ interface MaintenanceEvent {
 const emptyForm = { machine_id: "", type: "", description: "", scheduled_date: "", assigned_to: "" };
 
 export default function MaintenanceRequests() {
+  const { showError } = useToast();
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [types, setTypes] = useState<MaintenanceType[]>([]);
@@ -162,12 +164,13 @@ export default function MaintenanceRequests() {
     setHistoryFor(row);
     setEvents([]);
     setEventsLoading(true);
-    const { data } = await supabase
+    const { data, error: loadError } = await supabase
       .from("machine_maintenance_events")
       .select("id, status, note, actual_cost, created_at, app_users(name)")
       .eq("request_id", row.id)
       .order("created_at", { ascending: false });
-    if (data) {
+    if (loadError) showError("Could not load the request history.");
+    else if (data) {
       setEvents(data.map((e: any) => ({ ...e, app_users: Array.isArray(e.app_users) ? e.app_users[0] ?? null : e.app_users ?? null })) as MaintenanceEvent[]);
     }
     setEventsLoading(false);

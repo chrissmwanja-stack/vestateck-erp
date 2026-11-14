@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Machine { id: string; name: string; machine_no: string; }
@@ -46,7 +47,8 @@ export default function EquipmentAssignments() {
     setError(null);
     if (!form.machine_id) { setError("Select a machine."); return; }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("machines").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("machines").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "EquipmentAssignments.tenantLookup" });
     const tenant_id = (tenantData as any)?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
     const payload: any = {
       machine_id: form.machine_id,

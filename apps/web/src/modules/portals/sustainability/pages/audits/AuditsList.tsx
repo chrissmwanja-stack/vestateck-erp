@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Audit {
@@ -18,6 +19,7 @@ interface Audit {
 const emptyForm = { title: "", type: "", status: "scheduled", audit_date: "", findings: "" };
 
 export default function AuditsList() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,14 +29,15 @@ export default function AuditsList() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAudits = async () => {
+  const fetchAudits = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("sustainability_audits").select("*").order("audit_date", { ascending: false }).limit(200);
-    if (data) setAudits(data as Audit[]);
+    const { data, error: loadError } = await supabase.from("sustainability_audits").select("*").order("audit_date", { ascending: false }).limit(200);
+    if (loadError) showError("Could not load audits.");
+    else if (data) setAudits(data as Audit[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchAudits(); }, []);
+  useEffect(() => { fetchAudits(); }, [fetchAudits]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(null); setOpen(true); };
   const openEdit = (row: Audit) => { setEditing(row); setForm({ title: row.title, type: row.type || "", status: row.status, audit_date: row.audit_date || "", findings: row.findings || "" }); setError(null); setOpen(true); };

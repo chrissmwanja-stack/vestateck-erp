@@ -2,17 +2,20 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, LinearProgress, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
 export default function UtilizationReport() {
+  const { showError } = useToast();
   const [report, setReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data: logs } = await supabase.from("operation_logs").select("machine_id, hours_used, machines(name, machine_no)").limit(1000);
+      const { data: logs, error } = await supabase.from("operation_logs").select("machine_id, hours_used, machines(name, machine_no)").limit(1000);
+      if (error) { showError("Could not load the utilization report."); setLoading(false); return; }
       const map: Record<string, { name: string; machine_no: string; hours: number; count: number }> = {};
       (logs as any[] || []).forEach((log: any) => {
         const machine = Array.isArray(log.machines) ? log.machines[0] : log.machines;
@@ -30,7 +33,7 @@ export default function UtilizationReport() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const handleExportExcel = () => {
     const rows = report.map(r => ({ machine: `${r.machine_no} - ${r.name}`, logs: r.count, hours: Number(r.hours.toFixed(1)), utilization: Number(r.utilization.toFixed(1)) }));

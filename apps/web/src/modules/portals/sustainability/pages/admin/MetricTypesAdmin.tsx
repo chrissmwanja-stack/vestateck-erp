@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 interface MetricType { id: string; tenant_id: string; name: string; unit: string; type: string; is_active: boolean; }
 export default function MetricTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [types, setTypes] = useState<MetricType[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MetricType | null>(null);
   const [form, setForm] = useState({ name: "", unit: "", type: "carbon", is_active: true });
-  const fetchTypes = async () => { setLoading(true); const { data } = await supabase.from("sustainability_metric_types").select("*").order("name"); if (data) setTypes(data as MetricType[]); setLoading(false); };
-  useEffect(() => { fetchTypes(); }, []);
+  const fetchTypes = useCallback(async () => { setLoading(true); const { data, error } = await supabase.from("sustainability_metric_types").select("*").order("name"); if (error) showError("Could not load metric types."); else if (data) setTypes(data as MetricType[]); setLoading(false); }, [showError]);
+  useEffect(() => { fetchTypes(); }, [fetchTypes]);
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", unit: "", type: "carbon", is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: MetricType) => { setEditing(t); setForm({ name: t.name, unit: t.unit, type: t.type, is_active: t.is_active }); setOpen(true); };
   const handleSave = async () => {

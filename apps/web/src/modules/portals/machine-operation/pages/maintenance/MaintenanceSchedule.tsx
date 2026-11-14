@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, IconButton, Tooltip, Alert } from "@mui/material";
 import { CheckCircle } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 
 export default function MaintenanceSchedule() {
+  const { showError } = useToast();
   const [schedule, setSchedule] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("maintenance_requests").select("*, machines(name, machine_no)").eq("status", "scheduled").order("scheduled_date", { ascending: true }).limit(200);
-    if (data) {
+    const { data, error } = await supabase.from("maintenance_requests").select("*, machines(name, machine_no)").eq("status", "scheduled").order("scheduled_date", { ascending: true }).limit(200);
+    if (error) showError("Could not load the maintenance schedule.");
+    else if (data) {
       const normalized = (data as any[]).map((r: any) => ({
         ...r,
         machines: Array.isArray(r.machines) ? r.machines[0] ?? null : r.machines ?? null,
@@ -18,14 +21,14 @@ export default function MaintenanceSchedule() {
       setSchedule(normalized);
     }
     setLoading(false);
-  };
+  }, [showError]);
   useEffect(() => {
     // Fire-and-forget: notify requesters/assignees about open requests whose
     // scheduled_date has passed (idempotent via overdue_notified_at). Runs for
     // machine_operation members; returns 0 silently for everyone else.
     supabase.rpc("machine_maintenance_overdue_sweep").then(() => { /* intentionally ignored */ });
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const markInProgress = async (row: any) => {
     // Route through the workflow RPC so the audit event + notifications are

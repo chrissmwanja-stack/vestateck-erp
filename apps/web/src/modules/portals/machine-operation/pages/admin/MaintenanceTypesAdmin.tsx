@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface MaintenanceType { id: string; tenant_id: string; name: string; description: string | null; is_active: boolean; }
 
 export default function MaintenanceTypesAdmin() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [types, setTypes] = useState<MaintenanceType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,13 +16,14 @@ export default function MaintenanceTypesAdmin() {
   const [editing, setEditing] = useState<MaintenanceType | null>(null);
   const [form, setForm] = useState({ name: "", description: "", is_active: true });
 
-  const fetchTypes = async () => {
+  const fetchTypes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("maintenance_types").select("*").order("name");
-    if (data) setTypes(data as MaintenanceType[]);
+    const { data, error } = await supabase.from("maintenance_types").select("*").order("name");
+    if (error) showError("Could not load maintenance types.");
+    else if (data) setTypes(data as MaintenanceType[]);
     setLoading(false);
-  };
-  useEffect(() => { fetchTypes(); }, []);
+  }, [showError]);
+  useEffect(() => { fetchTypes(); }, [fetchTypes]);
 
   const handleOpenNew = () => { setEditing(null); setForm({ name: "", description: "", is_active: true }); setOpen(true); };
   const handleOpenEdit = (t: MaintenanceType) => { setEditing(t); setForm({ name: t.name, description: t.description || "", is_active: t.is_active }); setOpen(true); };

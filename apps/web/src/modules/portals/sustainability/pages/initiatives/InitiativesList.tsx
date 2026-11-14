@@ -3,6 +3,7 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogA
 import { Add, Edit, Delete, FileDownload, Download } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from "../../../../../lib/reportExport";
 import type { Tables, TablesInsert } from "@erp-platform/shared";
 
@@ -95,7 +96,8 @@ export default function InitiativesList() {
     let res;
     if (editing) res = await supabase.from("sustainability_initiatives").update(payload).eq("id", editing.id);
     else {
-      const { data: tenantData } = await supabase.from("sustainability_initiative_categories").select("tenant_id").limit(1).single();
+      const { data: tenantData, error: tenantError } = await supabase.from("sustainability_initiative_categories").select("tenant_id").limit(1).single();
+      if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "InitiativesList.tenantLookup" });
       const tenant_id = tenantData?.tenant_id || initiatives[0]?.tenant_id;
       if (tenant_id) payload.tenant_id = tenant_id;
       // tenant_id is only absent when no tenant could be found; the database then decides, as before.

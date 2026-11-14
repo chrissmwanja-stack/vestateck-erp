@@ -2,17 +2,20 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow, Typography, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
 
 export default function DowntimeReport() {
+  const { showError } = useToast();
   const [report, setReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase.from("maintenance_requests").select("machine_id, type, status, created_at, updated_at, machines(name, machine_no)").eq("type", "corrective").order("created_at", { ascending: false }).limit(500);
+      const { data, error } = await supabase.from("maintenance_requests").select("machine_id, type, status, created_at, updated_at, machines(name, machine_no)").eq("type", "corrective").order("created_at", { ascending: false }).limit(500);
+      if (error) { showError("Could not load the downtime report."); setLoading(false); return; }
       const map: Record<string, { name: string; machine_no: string; breakdowns: number; totalDowntimeHours: number }> = {};
       (data as any[] || []).forEach((req: any) => {
         const machine = Array.isArray(req.machines) ? req.machines[0] : req.machines;
@@ -33,7 +36,7 @@ export default function DowntimeReport() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [showError]);
 
   const handleExportExcel = () => {
     const rows = report.map(r => ({ machine: `${r.machine_no} - ${r.name}`, breakdowns: r.breakdowns, downtime: Number(r.totalDowntimeHours.toFixed(1)), mttr: Number(r.mttr.toFixed(1)), mtbf: Number(r.mtbf.toFixed(1)) }));

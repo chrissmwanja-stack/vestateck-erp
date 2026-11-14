@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { useToast } from "../../../../../lib/toastContext";
 import { useAuth } from "../../../../../lib/authContext";
 
 interface Certification {
@@ -18,6 +19,7 @@ interface Certification {
 const emptyForm = { name: "", standard: "", issue_date: "", expiry_date: "", status: "valid" };
 
 export default function CertificationsList() {
+  const { showError } = useToast();
   const { session } = useAuth();
   const [certs, setCerts] = useState<Certification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,14 +29,15 @@ export default function CertificationsList() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCerts = async () => {
+  const fetchCerts = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("sustainability_certifications").select("*").order("expiry_date", { ascending: true }).limit(200);
-    if (data) setCerts(data as Certification[]);
+    const { data, error: loadError } = await supabase.from("sustainability_certifications").select("*").order("expiry_date", { ascending: true }).limit(200);
+    if (loadError) showError("Could not load certifications.");
+    else if (data) setCerts(data as Certification[]);
     setLoading(false);
-  };
+  }, [showError]);
 
-  useEffect(() => { fetchCerts(); }, []);
+  useEffect(() => { fetchCerts(); }, [fetchCerts]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(null); setOpen(true); };
   const openEdit = (row: Certification) => { setEditing(row); setForm({ name: row.name, standard: row.standard || "", issue_date: row.issue_date || "", expiry_date: row.expiry_date || "", status: row.status }); setError(null); setOpen(true); };

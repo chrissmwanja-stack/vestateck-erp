@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
+import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
 
 const emptyForm = { machine_id: "", log_date: new Date().toISOString().slice(0, 10), fuel_liters: "", cost: "", notes: "" };
@@ -61,7 +62,8 @@ export default function FuelLogs() {
     const liters = parseFloat(form.fuel_liters);
     if (isNaN(liters) || liters <= 0) { setError("Liters must be >0."); return; }
     setSaving(true);
-    const { data: tenantData } = await supabase.from("machines").select("tenant_id").limit(1).single();
+    const { data: tenantData, error: tenantError } = await supabase.from("machines").select("tenant_id").limit(1).single();
+    if (tenantError && tenantError.code !== "PGRST116") reportError(tenantError, { source: "FuelLogs.tenantLookup" });
     const tenant_id = (tenantData as any)?.tenant_id || (session?.user?.user_metadata as any)?.tenant_id;
     const payload: any = {
       machine_id: form.machine_id,
