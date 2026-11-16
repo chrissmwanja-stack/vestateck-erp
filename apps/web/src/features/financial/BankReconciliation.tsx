@@ -1,192 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { useState } from 'react';
+import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, Paper, Stack, TextField, Typography } from '@mui/material';
 import { AccountBalance as AccountBalanceIcon, Sync as SyncIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
+import { db } from './bank-reconciliation/db';
+import type { BookSource } from './bank-reconciliation/types';
+import { monthAgo, today } from './bank-reconciliation/utils';
+import { useFinanceAccess } from './bank-reconciliation/useFinanceAccess';
+import { useReconciliationData } from './bank-reconciliation/useReconciliationData';
+import { PositionPanel } from './bank-reconciliation/PositionPanel';
+import { StatementTable } from './bank-reconciliation/StatementTable';
+import { SettlementsTable } from './bank-reconciliation/SettlementsTable';
+import { TransferSidesTable } from './bank-reconciliation/TransferSidesTable';
+import { CashTransactionsTable } from './bank-reconciliation/CashTransactionsTable';
+import { VarianceReport } from './bank-reconciliation/VarianceReport';
+import { ImportStatementDialog } from './bank-reconciliation/ImportStatementDialog';
 
-// The D4d-1 objects (settlement matching, double-entry view, position
-// function, fin_bank_accounts) are not in the generated database.types.ts
-// yet, so calls that touch them go through this untyped handle. Once the
-// types are regenerated these can move back to `supabase`.
-const db = supabase as unknown as SupabaseClient;
-
-function useFinanceAccess() {
-  const [isFinance, setIsFinance] = useState<boolean | null>(null);
-  useEffect(() => {
-    supabase.rpc('is_finance_team_member', { p_role: 'finance' }).then(({ data, error }) =>
-      setIsFinance(error ? false : Boolean(data))
-    );
-  }, []);
-  return isFinance;
-}
-
-interface StatementLine {
-  id: string;
-  statement_date: string;
-  description: string | null;
-  reference: string | null;
-  amount: number;
-  currency: string;
-}
-
-interface CashBankTxn {
-  id: string;
-  transaction_date: string;
-  transaction_type: 'payment' | 'receipt';
-  amount: number;
-  currency: string;
-  description: string | null;
-  reference_type: string;
-}
-
-interface SettlementRow {
-  id: string;
-  settlement_no: string | null;
-  direction: 'in' | 'out';
-  amount: number;
-  currency: string;
-  settlement_date: string;
-  reference: string | null;
-  notes: string | null;
-}
-
-// One side of a posted commission transfer that has no reconciliation row yet.
-// A transfer touches two banks, so the same transfer can appear on either
-// account's screen (as money out of client money, or money into operating).
-interface TransferSideRow {
-  id: string;
-  transfer_no: string;
-  side: 'from' | 'to';
-  signed: number;
-  currency: string;
-  transfer_date: string;
-  notes: string | null;
-}
-
-interface CommissionTransferRow {
-  id: string;
-  transfer_no: string;
-  from_bank_account_id: string;
-  to_bank_account_id: string;
-  transfer_date: string;
-  amount: number;
-  currency: string;
-  notes: string | null;
-}
-
-interface BankAccountRow {
-  id: string;
-  name: string;
-  currency: string;
-}
-
-interface DoubleEntryRow {
-  statement_line_id: string;
-}
-
-interface PositionRow {
-  line_order: number;
-  component: string;
-  label: string;
-  amount: number | null;
-}
-
-interface VarianceRow {
-  reconciliation_id: string;
-  match_type: string;
-  variance: number;
-  matched_at: string;
-  statement_date: string;
-  statement_description: string | null;
-  statement_amount: number;
-  transaction_date: string;
-  transaction_description: string | null;
-  transaction_amount: number;
-  transaction_type: string;
-  source?: string | null;
-}
-
-type BookSource = 'cash' | 'settlement' | 'transfer';
-interface BookSelection {
-  source: BookSource;
-  id: string;
-}
-
-// Matching looks up to this many days either side of the statement date
-// (fin_bank_line_candidates), so the book-side lists reach that far past
-// the statement window or a candidate just outside it would be invisible.
-const MATCH_WINDOW_DAYS = 5;
-
-const today = () => new Date().toISOString().slice(0, 10);
-const monthAgo = () => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 10);
-};
-const shiftDate = (iso: string, days: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
-const fmt = (n: number | null | undefined) => (n == null ? '—' : Number(n).toLocaleString());
-
-// Minimal CSV parser -- no external dependency. Handles a header row
-// plus simple quoted fields (a bank export with a comma inside a
-// quoted description). Doesn't attempt full RFC 4180 edge cases
-// (escaped quotes within quotes) -- good enough for a bank statement
-// export, and the import RPC validates required fields regardless.
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return [];
-  const splitLine = (line: string) => {
-    const cells: string[] = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        cells.push(cur.trim());
-        cur = '';
-      } else {
-        cur += ch;
-      }
-    }
-    cells.push(cur.trim());
-    return cells;
-  };
-  const headers = splitLine(lines[0]).map((h) => h.toLowerCase());
-  return lines.slice(1).map((line) => {
-    const cells = splitLine(line);
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => (row[h] = cells[i] ?? ''));
-    return row;
-  });
-}
+// Bank reconciliation screen: pick a bank account and window, then match each
+// unmatched statement line against a posted settlement, a commission transfer
+// or a legacy cash/bank transaction -- automatically where amount and date
+// line up, by hand otherwise. This file owns the form state and the match /
+// auto-match / unmatch actions; reads live in useReconciliationData and the
+// tables in ./bank-reconciliation/.
 
 export default function BankReconciliation() {
   const isFinance = useFinanceAccess();
@@ -194,232 +28,32 @@ export default function BankReconciliation() {
   const [dateFrom, setDateFrom] = useState(monthAgo());
   const [dateTo, setDateTo] = useState(today());
 
-  const [registry, setRegistry] = useState<BankAccountRow[]>([]);
-  const [registryLoaded, setRegistryLoaded] = useState(false);
+  const {
+    registry,
+    registryLoaded,
+    resolvedAccount,
+    statementLines,
+    cashTxns,
+    settlements,
+    transferSides,
+    doubleEntryLineIds,
+    position,
+    positionError,
+    variances,
+    loading,
+    error,
+    setError,
+    selectedStatementLine,
+    setSelectedStatementLine,
+    selectedBook,
+    setSelectedBook,
+    load,
+  } = useReconciliationData(bankAccount, dateFrom, dateTo);
 
-  const [statementLines, setStatementLines] = useState<StatementLine[]>([]);
-  const [cashTxns, setCashTxns] = useState<CashBankTxn[]>([]);
-  const [settlements, setSettlements] = useState<SettlementRow[]>([]);
-  const [transferSides, setTransferSides] = useState<TransferSideRow[]>([]);
-  const [doubleEntryLineIds, setDoubleEntryLineIds] = useState<Set<string>>(new Set());
-  const [position, setPosition] = useState<PositionRow[] | null>(null);
-  const [positionError, setPositionError] = useState<string | null>(null);
-  const [variances, setVariances] = useState<VarianceRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-
-  const [selectedStatementLine, setSelectedStatementLine] = useState<string | null>(null);
-  const [selectedBook, setSelectedBook] = useState<BookSelection | null>(null);
   const [matching, setMatching] = useState(false);
   const [autoMatching, setAutoMatching] = useState(false);
-
   const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-
-  // Statement lines and legacy cash/bank transactions identify the bank
-  // by name; settlements and the position summary need the registry id.
-  const resolvedAccount = useMemo(
-    () => registry.find((a) => a.name === bankAccount.trim()) ?? null,
-    [registry, bankAccount]
-  );
-  const resolvedAccountId = resolvedAccount?.id ?? null;
-
-  useEffect(() => {
-    let cancelled = false;
-    db.from('fin_bank_accounts')
-      .select('id, name, currency')
-      .eq('is_active', true)
-      .order('name')
-      .then(({ data }) => {
-        if (cancelled) return;
-        setRegistry((data ?? []) as BankAccountRow[]);
-        setRegistryLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const load = useCallback(async () => {
-    const account = bankAccount.trim();
-    if (!account) {
-      setStatementLines([]);
-      setCashTxns([]);
-      setSettlements([]);
-      setTransferSides([]);
-      setDoubleEntryLineIds(new Set());
-      setPosition(null);
-      setPositionError(null);
-      setVariances([]);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
-    const bookFrom = shiftDate(dateFrom, -MATCH_WINDOW_DAYS);
-    const bookTo = shiftDate(dateTo, MATCH_WINDOW_DAYS);
-
-    const settlementsQuery = resolvedAccountId
-      ? db
-          .from('fin_settlements')
-          .select('id, settlement_no, direction, amount, currency, settlement_date, reference, notes')
-          .eq('bank_account_id', resolvedAccountId)
-          .eq('status', 'posted')
-          .gte('settlement_date', bookFrom)
-          .lte('settlement_date', bookTo)
-          .order('settlement_date')
-      : Promise.resolve({ data: [] as SettlementRow[], error: null });
-
-    // Commission transfers are read by account in JS below: the table is
-    // tenant-scoped by RLS and small, and filtering on either bank column
-    // would need an OR the other lists do not.
-    const transfersQuery = resolvedAccountId
-      ? db
-          .from('ins_commission_transfers')
-          .select('id, transfer_no, from_bank_account_id, to_bank_account_id, transfer_date, amount, currency, notes')
-          .eq('status', 'posted')
-          .gte('transfer_date', bookFrom)
-          .lte('transfer_date', bookTo)
-          .order('transfer_date')
-      : Promise.resolve({ data: [] as CommissionTransferRow[], error: null });
-
-    const positionQuery = resolvedAccountId
-      ? db.rpc('fin_bank_reconciliation_position', { p_bank_account_id: resolvedAccountId, p_as_of: dateTo })
-      : Promise.resolve({ data: null, error: null });
-
-    const [
-      { data: lines, error: lineErr },
-      { data: txns, error: txnErr },
-      { data: varRows, error: varErr },
-      { data: settleRows, error: settleErr },
-      { data: transferRows, error: transferErr },
-      { data: doubleRows, error: doubleErr },
-      { data: posRows, error: posErr },
-    ] = await Promise.all([
-      supabase
-        .from('v_bank_statement_unmatched')
-        .select('id, statement_date, description, reference, amount, currency')
-        .eq('bank_account', account)
-        .gte('statement_date', dateFrom)
-        .lte('statement_date', dateTo)
-        .order('statement_date'),
-      supabase
-        .from('v_cash_bank_unmatched')
-        .select('id, transaction_date, transaction_type, amount, currency, description, reference_type')
-        .eq('bank_account', account)
-        .gte('transaction_date', bookFrom)
-        .lte('transaction_date', bookTo)
-        .order('transaction_date'),
-      supabase
-        .from('v_bank_reconciliation_variance')
-        .select('*')
-        .eq('bank_account', account)
-        .order('matched_at', { ascending: false }),
-      settlementsQuery,
-      transfersQuery,
-      db.from('v_bank_possible_double_entries').select('statement_line_id').eq('bank_account', account),
-      positionQuery,
-    ]);
-
-    // Settlements that already have a reconciliation row are not
-    // candidates; the list shows only the ones still open.
-    let openSettlements: SettlementRow[] = [];
-    let reconErr: string | null = null;
-    const settleList = (settleRows ?? []) as SettlementRow[];
-    if (!settleErr && settleList.length > 0) {
-      const { data: reconRows, error: rErr } = await db
-        .from('bank_reconciliations')
-        .select('settlement_id')
-        .in(
-          'settlement_id',
-          settleList.map((s) => s.id)
-        );
-      if (rErr) {
-        reconErr = rErr.message;
-      } else {
-        const reconciled = new Set((reconRows ?? []).map((r: { settlement_id: string }) => r.settlement_id));
-        openSettlements = settleList.filter((s) => !reconciled.has(s.id));
-      }
-    }
-
-    // Keep only the side of each transfer that belongs to this bank, and drop
-    // sides that already have a reconciliation row.
-    let openTransferSides: TransferSideRow[] = [];
-    let transferReconErr: string | null = null;
-    const transferList = ((transferRows ?? []) as CommissionTransferRow[]).filter(
-      (t) => t.from_bank_account_id === resolvedAccountId || t.to_bank_account_id === resolvedAccountId
-    );
-    if (!transferErr && transferList.length > 0) {
-      const { data: tReconRows, error: tErr } = await db
-        .from('bank_reconciliations')
-        .select('commission_transfer_id, transfer_side')
-        .in(
-          'commission_transfer_id',
-          transferList.map((t) => t.id)
-        );
-      if (tErr) {
-        transferReconErr = tErr.message;
-      } else {
-        const done = new Set(
-          (tReconRows ?? []).map(
-            (r: { commission_transfer_id: string; transfer_side: string }) => `${r.commission_transfer_id}:${r.transfer_side}`
-          )
-        );
-        openTransferSides = transferList
-          .map((t): TransferSideRow => {
-            const side = t.from_bank_account_id === resolvedAccountId ? 'from' : 'to';
-            return {
-              id: t.id,
-              transfer_no: t.transfer_no,
-              side,
-              signed: side === 'to' ? Number(t.amount) : -Number(t.amount),
-              currency: t.currency,
-              transfer_date: t.transfer_date,
-              notes: t.notes,
-            };
-          })
-          .filter((t) => !done.has(`${t.id}:${t.side}`));
-      }
-    }
-
-    const firstError = lineErr ?? txnErr ?? varErr ?? settleErr ?? transferErr ?? doubleErr;
-    if (firstError || reconErr || transferReconErr) {
-      setError(firstError?.message ?? reconErr ?? transferReconErr ?? 'Could not load reconciliation data.');
-    } else {
-      setStatementLines((lines ?? []) as StatementLine[]);
-      setCashTxns((txns ?? []) as CashBankTxn[]);
-      setSettlements(openSettlements);
-      setTransferSides(openTransferSides);
-      setVariances((varRows ?? []) as unknown as VarianceRow[]);
-      const lineIds = new Set(((lines ?? []) as StatementLine[]).map((l) => l.id));
-      setDoubleEntryLineIds(
-        new Set(
-          ((doubleRows ?? []) as DoubleEntryRow[]).map((r) => r.statement_line_id).filter((id) => lineIds.has(id))
-        )
-      );
-    }
-
-    // The position summary has its own error slot: a GL or permission
-    // problem there should not hide the lines the user came to match.
-    if (posErr) {
-      setPosition(null);
-      setPositionError(posErr.message ?? 'Could not load the reconciliation position.');
-    } else {
-      setPosition(posRows ? ((posRows as PositionRow[]).slice().sort((a, b) => a.line_order - b.line_order)) : null);
-      setPositionError(null);
-    }
-
-    setSelectedStatementLine(null);
-    setSelectedBook(null);
-    setLoading(false);
-  }, [bankAccount, dateFrom, dateTo, resolvedAccountId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const selectedLine = statementLines.find((l) => l.id === selectedStatementLine) ?? null;
 
@@ -482,51 +116,10 @@ export default function BankReconciliation() {
     load();
   }
 
-  async function handleImport() {
-    if (!bankAccount.trim()) {
-      setImportError('Enter a bank account above before importing.');
-      return;
-    }
-    const rows = parseCsv(importText);
-    if (rows.length === 0) {
-      setImportError('Paste CSV with a header row: statement_date, description, reference, amount[, currency]');
-      return;
-    }
-    const payload = rows.map((r) => ({
-      statement_date: r.statement_date || r.date,
-      description: r.description || null,
-      reference: r.reference || null,
-      amount: Number(r.amount),
-      currency: r.currency || undefined,
-    }));
-    if (payload.some((p) => !p.statement_date || Number.isNaN(p.amount))) {
-      setImportError('Every row needs a statement_date and a numeric amount.');
-      return;
-    }
-
-    setImporting(true);
-    setImportError(null);
-    const { error: err } = await supabase.rpc('import_bank_statement_lines', {
-      p_bank_account: bankAccount.trim(),
-      p_lines: payload,
-    });
-    setImporting(false);
-    if (err) {
-      setImportError(err.message ?? 'Import failed.');
-      return;
-    }
+  function handleImported(count: number) {
     setImportOpen(false);
-    setImportText('');
-    setInfo(`Imported ${payload.length} statement line${payload.length === 1 ? '' : 's'}.`);
+    setInfo(`Imported ${count} statement line${count === 1 ? '' : 's'}.`);
     load();
-  }
-
-  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImportText(String(reader.result ?? ''));
-    reader.readAsText(file);
   }
 
   const isSelected = (source: BookSource, id: string) => selectedBook?.source === source && selectedBook.id === id;
@@ -536,7 +129,6 @@ export default function BankReconciliation() {
   // window when the match is made.
   const amountMatchesLine = (signed: number) => selectedLine != null && Number(selectedLine.amount) === signed;
 
-  const unexplained = position?.find((p) => p.component === 'unexplained_difference')?.amount ?? null;
   const account = bankAccount.trim();
 
   return (
@@ -590,7 +182,7 @@ export default function BankReconciliation() {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
-          <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => { setImportError(null); setImportOpen(true); }}>
+          <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
             Import Statement
           </Button>
           <Button
@@ -603,7 +195,6 @@ export default function BankReconciliation() {
           </Button>
         </Stack>
       </Paper>
-
       {!account ? (
         <Alert severity="info">Enter a bank account to load its unmatched statement lines and book entries.</Alert>
       ) : loading ? (
@@ -619,51 +210,7 @@ export default function BankReconciliation() {
             </Alert>
           )}
 
-          {resolvedAccount && (
-            <Paper sx={{ p: 2, mb: 2 }} data-testid="position-panel">
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                Reconciliation Position — as of {dateTo}
-              </Typography>
-              {positionError ? (
-                <Alert severity="warning">{positionError}</Alert>
-              ) : position ? (
-                <>
-                  <Table size="small">
-                    <TableBody>
-                      {position
-                        .filter((p) => p.component !== 'unexplained_difference')
-                        .map((p) => (
-                          <TableRow key={p.component}>
-                            <TableCell sx={{ fontWeight: p.component === 'expected_statement_balance' ? 600 : 400 }}>
-                              {p.label}
-                            </TableCell>
-                            <TableCell align="right" sx={{ fontWeight: p.component === 'expected_statement_balance' ? 600 : 400 }}>
-                              {fmt(p.amount)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                    Statement lines carry no balance, so compare the expected closing balance with the closing balance
-                    printed on the bank statement.
-                  </Typography>
-                  {unexplained != null && (
-                    <Alert severity={Number(unexplained) === 0 ? 'success' : 'warning'} sx={{ mt: 1.5 }}>
-                      Unexplained difference: <strong>{fmt(unexplained)}</strong>. This is GL movement on the bank's
-                      ledger account that reconciliation cannot see (manual journals, opening balances, or bank
-                      transactions posted to a different GL account). It is not netted into the expected balance above.
-                    </Alert>
-                  )}
-                  {resolvedAccount && position.some((p) => p.component === 'gl_balance' && p.amount == null) && (
-                    <Alert severity="info" sx={{ mt: 1.5 }}>
-                      This bank account has no GL account linked, so the GL-based lines are blank.
-                    </Alert>
-                  )}
-                </>
-              ) : null}
-            </Paper>
-          )}
+          {resolvedAccount && <PositionPanel position={position} positionError={positionError} dateTo={dateTo} />}
 
           {doubleEntryLineIds.size > 0 && (
             <Alert severity="warning" sx={{ mb: 2 }} data-testid="double-entry-alert">
@@ -674,219 +221,38 @@ export default function BankReconciliation() {
           )}
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            <TableContainer component={Paper} sx={{ flex: 1 }}>
-              <Box sx={{ p: 1.5, pb: 0 }}>
-                <Typography variant="subtitle2">Statement — Unmatched ({statementLines.length})</Typography>
-              </Box>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell />
-                    <TableCell>Date</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {statementLines.map((l) => (
-                    <TableRow
-                      key={l.id}
-                      hover
-                      selected={selectedStatementLine === l.id}
-                      onClick={() => setSelectedStatementLine(l.id === selectedStatementLine ? null : l.id)}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell padding="checkbox">
-                        <Chip size="small" label={selectedStatementLine === l.id ? 'Selected' : ''} sx={{ visibility: selectedStatementLine === l.id ? 'visible' : 'hidden' }} color="primary" />
-                      </TableCell>
-                      <TableCell>{l.statement_date}</TableCell>
-                      <TableCell>
-                        {l.description ?? '—'}
-                        {l.reference && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Ref: {l.reference}
-                          </Typography>
-                        )}
-                        {doubleEntryLineIds.has(l.id) && (
-                          <Chip size="small" color="warning" label="Possible double entry" sx={{ mt: 0.5 }} />
-                        )}
-                      </TableCell>
-                      <TableCell align="right">{fmt(l.amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {statementLines.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                        Nothing unmatched in this window.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <StatementTable
+              statementLines={statementLines}
+              selectedStatementLine={selectedStatementLine}
+              setSelectedStatementLine={setSelectedStatementLine}
+              doubleEntryLineIds={doubleEntryLineIds}
+            />
 
             <Stack spacing={2} sx={{ flex: 1 }}>
               {resolvedAccount && (
-                <TableContainer component={Paper}>
-                  <Box sx={{ p: 1.5, pb: 0 }}>
-                    <Typography variant="subtitle2">Book — Open Settlements ({settlements.length})</Typography>
-                  </Box>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell />
-                        <TableCell>Date</TableCell>
-                        <TableCell>Settlement</TableCell>
-                        <TableCell align="right">Amount</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {settlements.map((s) => {
-                        const signed = s.direction === 'in' ? Number(s.amount) : -Number(s.amount);
-                        return (
-                          <TableRow
-                            key={s.id}
-                            hover
-                            selected={isSelected('settlement', s.id)}
-                            onClick={() => toggleBook('settlement', s.id)}
-                            sx={{ cursor: 'pointer' }}
-                          >
-                            <TableCell padding="checkbox">
-                              <Chip size="small" label={isSelected('settlement', s.id) ? 'Selected' : ''} sx={{ visibility: isSelected('settlement', s.id) ? 'visible' : 'hidden' }} color="primary" />
-                            </TableCell>
-                            <TableCell>{s.settlement_date}</TableCell>
-                            <TableCell>
-                              {s.settlement_no ?? '—'}
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {s.direction === 'in' ? 'Money in' : 'Money out'}
-                                {s.reference ? ` · Ref: ${s.reference}` : ''}
-                              </Typography>
-                              {amountMatchesLine(signed) && (
-                                <Chip size="small" variant="outlined" color="success" label="Amount matches" sx={{ mt: 0.5 }} />
-                              )}
-                            </TableCell>
-                            <TableCell align="right">
-                              {signed.toLocaleString()}
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {s.currency}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {settlements.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                            No open settlements near this window.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <SettlementsTable
+                  settlements={settlements}
+                  isSelected={isSelected}
+                  toggleBook={toggleBook}
+                  amountMatchesLine={amountMatchesLine}
+                />
               )}
 
               {resolvedAccount && transferSides.length > 0 && (
-                <TableContainer component={Paper} data-testid="transfer-sides-table">
-                  <Box sx={{ p: 1.5, pb: 0 }}>
-                    <Typography variant="subtitle2">Book — Open Commission Transfers ({transferSides.length})</Typography>
-                  </Box>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell />
-                        <TableCell>Date</TableCell>
-                        <TableCell>Transfer</TableCell>
-                        <TableCell align="right">Amount</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {transferSides.map((t) => (
-                        <TableRow
-                          key={`${t.id}:${t.side}`}
-                          hover
-                          selected={isSelected('transfer', t.id)}
-                          onClick={() => toggleBook('transfer', t.id)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <TableCell padding="checkbox">
-                            <Chip size="small" label={isSelected('transfer', t.id) ? 'Selected' : ''} sx={{ visibility: isSelected('transfer', t.id) ? 'visible' : 'hidden' }} color="primary" />
-                          </TableCell>
-                          <TableCell>{t.transfer_date}</TableCell>
-                          <TableCell>
-                            {t.transfer_no}
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {t.side === 'from' ? 'Out of this account' : 'Into this account'}
-                              {t.notes ? ` · ${t.notes}` : ''}
-                            </Typography>
-                            {amountMatchesLine(t.signed) && (
-                              <Chip size="small" variant="outlined" color="success" label="Amount matches" sx={{ mt: 0.5 }} />
-                            )}
-                          </TableCell>
-                          <TableCell align="right">
-                            {t.signed.toLocaleString()}
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {t.currency}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <TransferSidesTable
+                  transferSides={transferSides}
+                  isSelected={isSelected}
+                  toggleBook={toggleBook}
+                  amountMatchesLine={amountMatchesLine}
+                />
               )}
 
-              <TableContainer component={Paper}>
-                <Box sx={{ p: 1.5, pb: 0 }}>
-                  <Typography variant="subtitle2">Book — Cash/Bank Transactions ({cashTxns.length})</Typography>
-                </Box>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell />
-                      <TableCell>Date</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell align="right">Amount</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {cashTxns.map((t) => {
-                      const signed = t.transaction_type === 'receipt' ? Number(t.amount) : -Number(t.amount);
-                      return (
-                        <TableRow
-                          key={t.id}
-                          hover
-                          selected={isSelected('cash', t.id)}
-                          onClick={() => toggleBook('cash', t.id)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <TableCell padding="checkbox">
-                            <Chip size="small" label={isSelected('cash', t.id) ? 'Selected' : ''} sx={{ visibility: isSelected('cash', t.id) ? 'visible' : 'hidden' }} color="primary" />
-                          </TableCell>
-                          <TableCell>{t.transaction_date}</TableCell>
-                          <TableCell>
-                            {t.description ?? '—'}
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {t.reference_type.replace('_', ' ')}
-                            </Typography>
-                            {amountMatchesLine(signed) && (
-                              <Chip size="small" variant="outlined" color="success" label="Amount matches" sx={{ mt: 0.5 }} />
-                            )}
-                          </TableCell>
-                          <TableCell align="right">{signed.toLocaleString()}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {cashTxns.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                          Nothing unmatched in this window.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <CashTransactionsTable
+                cashTxns={cashTxns}
+                isSelected={isSelected}
+                toggleBook={toggleBook}
+                amountMatchesLine={amountMatchesLine}
+              />
             </Stack>
           </Stack>
 
@@ -902,95 +268,16 @@ export default function BankReconciliation() {
 
           <Divider sx={{ mb: 2 }} />
 
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Variance Report — Force-Matched Pairs ({variances.length})
-          </Typography>
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Statement</TableCell>
-                  <TableCell align="right">Statement Amt</TableCell>
-                  <TableCell>Book entry</TableCell>
-                  <TableCell align="right">Book Amt</TableCell>
-                  <TableCell align="right">Variance</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {variances.map((v) => (
-                  <TableRow key={v.reconciliation_id}>
-                    <TableCell>
-                      {v.statement_date} — {v.statement_description ?? '—'}
-                    </TableCell>
-                    <TableCell align="right">{fmt(v.statement_amount)}</TableCell>
-                    <TableCell>
-                      {v.transaction_date} — {v.transaction_description ?? '—'}
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {v.source === 'settlement'
-                          ? 'Settlement'
-                          : v.source === 'commission_transfer'
-                            ? 'Commission transfer'
-                            : 'Cash/bank transaction'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{fmt(v.transaction_amount)}</TableCell>
-                    <TableCell align="right">
-                      <Typography color={Number(v.variance) === 0 ? 'text.primary' : 'error'} fontWeight={600}>
-                        {fmt(v.variance)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button size="small" onClick={() => handleUnmatch(v.reconciliation_id)}>
-                        Undo
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {variances.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                      No force-matched pairs with a variance for this account.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <VarianceReport variances={variances} onUnmatch={handleUnmatch} />
         </>
       )}
 
-      <Dialog open={importOpen} onClose={() => !importing && setImportOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Import Bank Statement — {bankAccount || '(enter a bank account first)'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Upload a CSV or paste rows below. Expected columns: <code>statement_date, description, reference, amount</code>{' '}
-              (positive = money in, negative = money out). <code>currency</code> is optional and defaults to UGX.
-            </Typography>
-            <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
-              Choose CSV File
-              <input type="file" accept=".csv,text/csv" hidden onChange={handleFilePick} />
-            </Button>
-            <TextField
-              label="CSV contents"
-              multiline
-              minRows={8}
-              fullWidth
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder={'statement_date,description,reference,amount\n2026-09-06,SALARY PYMT,REF001,-1674500'}
-            />
-            {importError && <Alert severity="error">{importError}</Alert>}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setImportOpen(false)} disabled={importing}>Cancel</Button>
-          <Button variant="contained" onClick={handleImport} disabled={importing}>
-            {importing ? 'Importing…' : 'Import'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ImportStatementDialog
+        open={importOpen}
+        bankAccount={bankAccount}
+        onClose={() => setImportOpen(false)}
+        onImported={handleImported}
+      />
     </Box>
   );
 }
