@@ -23,7 +23,9 @@ export interface AccountCategoryOption {
 
 export type Source = "supplier" | "receivable";
 
-export function useInvoiceLookups() {
+const messageOf = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+
+export function useInvoiceLookups(onError: (message: string) => void) {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [loadingCostCenters, setLoadingCostCenters] = useState(false);
 
@@ -43,12 +45,12 @@ export function useInvoiceLookups() {
       const { data, error } = await supabase.from("cost_centers").select("id, tenant_id, name, project_code, budget_amount, created_at").order("name");
       if (error) throw error;
       setCostCenters(data ?? []);
-    } catch {
-      // handled by caller via saveError
+    } catch (e) {
+      onError(messageOf(e, 'Failed to load cost centers'));
     } finally {
       setLoadingCostCenters(false);
     }
-  }, []);
+  }, [onError]);
 
   const loadOrganizations = useCallback(async () => {
     setLoadingOrganizations(true);
@@ -56,20 +58,22 @@ export function useInvoiceLookups() {
       const { data, error } = await supabase.from("organizations").select("id, company_code, site_name").eq("is_active", true).order("company_code").order("site_name");
       if (error) throw error;
       setOrganizations(data ?? []);
+    } catch (e) {
+      onError(messageOf(e, 'Failed to load organizations'));
     } finally {
       setLoadingOrganizations(false);
     }
-  }, []);
+  }, [onError]);
 
   const loadAccountCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase.from("account_categories").select("id, code, name").eq("is_active", true).order("name");
       if (error) throw error;
       setAccountCategories(data ?? []);
-    } catch {
-      // ignore
+    } catch (e) {
+      onError(messageOf(e, 'Failed to load account categories'));
     }
-  }, []);
+  }, [onError]);
 
   const loadSearchAccounts = useCallback(async () => {
     setLoadingSearchAccounts(true);
@@ -77,10 +81,12 @@ export function useInvoiceLookups() {
       const { data, error } = await supabase.from("accounts").select("id, account_code, name, category_id").eq("is_active", true).order("name");
       if (error) throw error;
       setSearchAccounts(data ?? []);
+    } catch (e) {
+      onError(messageOf(e, 'Failed to load accounts'));
     } finally {
       setLoadingSearchAccounts(false);
     }
-  }, []);
+  }, [onError]);
 
   const loadAccountsFor = useCallback(async (source: Source) => {
     setLoadingAccounts(true);
@@ -94,10 +100,12 @@ export function useInvoiceLookups() {
         .order("name");
       if (error) throw error;
       setAccounts(data ?? []);
+    } catch (e) {
+      onError(messageOf(e, 'Failed to load accounts'));
     } finally {
       setLoadingAccounts(false);
     }
-  }, []);
+  }, [onError]);
 
   useEffect(() => {
     loadCostCenters();
