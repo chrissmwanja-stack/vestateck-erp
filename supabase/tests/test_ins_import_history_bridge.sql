@@ -83,6 +83,11 @@ create function pg_temp.wizard_batch(p_label text, p_sheets jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_id uuid; v_rep jsonb; v_commit jsonb; k text;
 begin
+  -- Fixture: each scenario below is a fresh cut-over for the same company, so
+  -- lift the one-opening-per-company gate before creating the batch. The gate
+  -- itself is covered by test_ins_opening_acceptance_gate.sql.
+  update public.tenants set ins_opening_posted_at = null, ins_opening_reopened_at = now()
+   where id = public.get_my_tenant_id();
   select id into v_id from public.ins_import_create_batch(p_label, current_date);
   for k in select jsonb_object_keys(p_sheets) loop
     perform public.ins_import_stage_rows(v_id, k, p_sheets -> k);

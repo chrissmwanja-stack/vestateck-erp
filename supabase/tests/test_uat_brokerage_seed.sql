@@ -72,12 +72,40 @@ begin
   reset role;
   if n <> 4 then raise exception 'FAIL: UAT account manager sees % policies, expected 4', n; end if;
 
-  -- Regulatory values are drafts only: marked UNVERIFIED, never approved by the seed.
+  -- Regulatory values are drafts only: never approved by the seed.
   select count(*) into n from regulatory_parameters where tenant_id = v_t and status = 'draft';
-  if n <> 4 then raise exception 'FAIL: UAT regulatory drafts: expected 4, got %', n; end if;
+  if n <> 6 then raise exception 'FAIL: UAT regulatory drafts: expected 6, got %', n; end if;
+
+  -- Every seeded value must be honest about how far it has been checked. Four are
+  -- still UNVERIFIED guesses from the roadmap. The two withholding-tax rows were
+  -- confirmed by the company accountant (s.134 rate, s.139(aa) character), and
+  -- must say so -- a row claiming to be verified without that being true is worse
+  -- than one admitting it is a guess.
   select count(*) into n from regulatory_parameters
-   where tenant_id = v_t and (status <> 'draft' or source_ref not like 'UNVERIFIED:%');
-  if n <> 0 then raise exception 'FAIL: UAT regulatory seed rows must be unverified drafts (found %)', n; end if;
+   where tenant_id = v_t and parameter_key not like 'tax.wht_agent_commission_%'
+     and (status <> 'draft' or source_ref not like 'UNVERIFIED:%');
+  if n <> 0 then raise exception 'FAIL: unconfirmed regulatory rows must stay unverified drafts (found %)', n; end if;
+
+  -- Three rows: the rate, and the two character windows.
+  select count(*) into n from regulatory_parameters
+   where tenant_id = v_t and parameter_key like 'tax.wht_agent_commission_%';
+  if n <> 3 then raise exception 'FAIL: accountant-confirmed WHT rows: expected 3, got %', n; end if;
+
+  -- None of them may be anything but a verified draft.
+  select count(*) into n from regulatory_parameters
+   where tenant_id = v_t and parameter_key like 'tax.wht_agent_commission_%'
+     and (status <> 'draft' or source_ref not like 'VERIFIED:%');
+  if n <> 0 then raise exception 'FAIL: WHT rows must be verified drafts, not approved or unverified (found %)', n; end if;
+
+  -- Rate and character must each cover the whole time since the tax applied,
+  -- with no gap: a payment date landing in a hole would be refused at the till.
+  select count(*) into n from regulatory_parameters
+   where tenant_id = v_t and parameter_key = 'tax.wht_agent_commission_is_final';
+  if n <> 2 then raise exception 'FAIL: expected two character windows, got %', n; end if;
+  select count(*) into n from regulatory_parameters
+   where tenant_id = v_t and parameter_key = 'tax.wht_agent_commission_is_final'
+     and value_text not in ('true', 'false');
+  if n <> 0 then raise exception 'FAIL: character must be true or false (found %)', n; end if;
 
   raise notice 'PASS: UAT brokerage seed is complete';
 end $$;
