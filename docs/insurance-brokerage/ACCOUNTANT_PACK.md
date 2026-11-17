@@ -57,7 +57,30 @@ From `ANALYSIS.md` section 7. Questions 2, 5 and 6 are decided (section 3 above)
 1. **Gross-up (open).** Should gross premium go to AR (1100) at bind, as now? Or should client money go straight to the premium trust (1020) when received? The current bind books to 1100. Cash collection into 1020 and remittance out of it are not in the bind journal.
 2. **Commission timing (decided in part).** The current design earns commission at bind into 2020, with recognition on insurer settlement. Confirm this, or say whether commission receivable (1110) should be used at bind instead.
 3. **Net-of-commission (open).** Does the insurer remit only the net, so the broker never pays the gross on? The current design assumes yes.
-4. **Account names and VAT/WHT (partly open).** Confirm the template names, and whether broker fees (4100) and any VAT or WHT apply.
+4. **Account names and VAT/WHT (VAT and the brokerage-fee treatment decided; template names still open).** Confirm the template names. On broker fees (4100), see the clarification below.
+
+**Broker fees: VAT and withholding (clarified 17 November 2026).** Genuine
+insurance brokerage fees charged to clients are treated as **VAT-exempt**. The
+VAT Act (Cap 344), Schedule 3, includes brokerage within insurance services, and
+insurance services are exempt supplies. Separate non-brokerage services must be
+classified independently and may attract standard-rated VAT, so a fee carries an
+explicit classification (`insurance_brokerage` or `other_taxable_service`) and
+the second requires a stated reason. The standard rate is held in governance as
+`tax.vat_standard_rate_percent` for the taxable categories and is never the
+default for a brokerage fee. Until 17 November 2026 every broker fee was charged
+18% VAT, which is now understood to have been wrong; fees already invoiced keep
+their VAT because that output tax has been declared.
+
+Client withholding tax is **not** automatically applied at the insurance-agent
+commission rate. Incoming WHT must be assessed against sections 129 and 136 of
+the Income Tax Act, including payer status, the nature of the fee and the
+applicable exemptions, and section 129 also has a regular-compliance exception
+for the payer. Being VAT-exempt does not settle the withholding question:
+whether a client-paid brokerage fee is a professional fee under s.129 needs
+accountant confirmation before production activation, and the rate is seeded
+unapproved for that reason. Withheld tax is an asset (`wht_receivable`, 1210),
+never a reduction of revenue and never a liability of the brokerage.
+
 5. **Corrections (decided for v1).** A bound policy cannot be edited. Corrections use a reversing journal, described in section 6.
 
 ## 5. Event treatments

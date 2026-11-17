@@ -906,6 +906,21 @@ begin
      'draft', v_u_admin),
     (v_t, 'retention.policy_years', 10, null, date '2017-01-01',
      'UNVERIFIED: Insurance Act s.106, ten-year record retention. Not verified.',
+     'draft', v_u_admin),
+    -- Standard VAT rate, for the taxable fee categories only. Insurance
+    -- brokerage fees are exempt under Schedule 3 of the VAT Act (brokerage is
+    -- included in insurance services), so this rate is NOT the default for a
+    -- broker fee and must not be applied to one.
+    (v_t, 'tax.vat_standard_rate_percent', 18, null, date '2020-07-01',
+     'UNVERIFIED: Uganda VAT Act standard rate, 18%. Accountant to confirm the current rate and any change in the VAT Amendment Act 2026, which takes effect 1 July 2026.',
+     'draft', v_u_admin),
+    -- Whether a client-paid insurance brokerage fee is a PROFESSIONAL FEE under
+    -- Income Tax Act s.129 (6%), and so withheld by the client, is not settled.
+    -- Being VAT-exempt does not answer it: exemption and withholding are
+    -- independent. The row is seeded as an unapproved draft so that nothing can
+    -- withhold at 6% by accident, and the source reference says so.
+    (v_t, 'tax.wht_client_fee_percent', 6, null, date '2020-07-01',
+     'UNVERIFIED: Income Tax Act s.129 / s.136 provide 6% withholding on professional fees and services to designated agents. Accountant to confirm whether a client-paid insurance brokerage fee falls under s.129, and whether s.129''s regular-compliance exemption applies to a given client. Do not approve until answered.',
      'draft', v_u_admin);
 
   -- The CHARACTER of the agent commission withholding, which is a different

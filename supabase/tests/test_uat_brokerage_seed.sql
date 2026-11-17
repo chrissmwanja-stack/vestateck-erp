@@ -74,7 +74,7 @@ begin
 
   -- Regulatory values are drafts only: never approved by the seed.
   select count(*) into n from regulatory_parameters where tenant_id = v_t and status = 'draft';
-  if n <> 6 then raise exception 'FAIL: UAT regulatory drafts: expected 6, got %', n; end if;
+  if n <> 8 then raise exception 'FAIL: UAT regulatory drafts: expected 8, got %', n; end if;
 
   -- Every seeded value must be honest about how far it has been checked. Four are
   -- still UNVERIFIED guesses from the roadmap. The two withholding-tax rows were
