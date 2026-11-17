@@ -1,13 +1,20 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import TrialBalance from './TrialBalance';
 
-// TrialBalance reads currency off the URL (?ccy=USD, defaulting to UGX),
-// queries v_trial_balance filtered by that currency, and sums debit/credit/
-// balance across the returned rows for a totals row. This pins down: the
-// currency defaulting/switching, the totals arithmetic, and that a query
-// error degrades to the empty state rather than throwing.
+// TrialBalance reads currency off the URL (?ccy=USD, defaulting to UGX) and an
+// optional as-at date (?asOf=YYYY-MM-DD, defaulting to today), calls
+// fin_trial_balance(p_as_of) filtered by that currency, and sums
+// debit/credit/balance across the returned rows for a totals row. This pins
+// down: the currency defaulting/switching, the as-at defaulting and override,
+// the totals arithmetic, and that a query error degrades to the empty state
+// rather than throwing.
+//
+// The reproducibility guarantee itself (same as-at date => same figures, with
+// later postings and later voids ignored) is asserted in SQL, where it belongs:
+// supabase/tests/test_fin_as_at_reporting.sql.
 
 const ROW_UGX_1 = {
   account_id: 'a1',
@@ -44,7 +51,6 @@ const ROW_USD_1 = {
 
 function makeThenable(data: unknown, error: unknown = null) {
   const builder: any = {
-    select: () => builder,
     eq: (...args: unknown[]) => {
       calls.eq.push(args);
       return builder;
@@ -55,31 +61,36 @@ function makeThenable(data: unknown, error: unknown = null) {
   return builder;
 }
 
-let calls: { eq: unknown[][] };
-let mockFromRef: ReturnType<typeof setup>['mockFrom'];
+let calls: { eq: unknown[][]; rpc: unknown[][] };
+let mockRpcRef: ReturnType<typeof setup>['mockRpc'];
 
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
-    from: (...args: [string]) => mockFromRef(...args),
+    rpc: (...args: [string, Record<string, unknown>]) => mockRpcRef(...args),
   },
 }));
 
 function setup(opts: { rows?: unknown[]; error?: { message: string } | null } = {}) {
   const { rows = [ROW_UGX_1, ROW_UGX_2], error = null } = opts;
-  calls = { eq: [] };
+  calls = { eq: [], rpc: [] };
 
-  const mockFrom = vi.fn((table: string) => {
-    if (table === 'v_trial_balance') {
+  const mockRpc = vi.fn((fn: string, args: Record<string, unknown>) => {
+    calls.rpc.push([fn, args]);
+    if (fn === 'fin_trial_balance') {
       return makeThenable(rows, error);
     }
-    throw new Error(`setup: no handler for table "${table}"`);
+    throw new Error(`setup: no handler for rpc "${fn}"`);
   });
 
-  return { mockFrom };
+  return { mockRpc };
 }
 
 function activate(setupResult: ReturnType<typeof setup>) {
-  mockFromRef = setupResult.mockFrom;
+  mockRpcRef = setupResult.mockRpc;
+}
+
+function isoToday(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function renderScreen(initialEntry = '/trial-balance') {
@@ -104,6 +115,8 @@ describe('TrialBalance', () => {
     expect(await screen.findByText('Cash')).toBeInTheDocument();
     expect(screen.getByText('Accounts Payable')).toBeInTheDocument();
     expect(calls.eq).toContainEqual(['currency', 'UGX']);
+    expect(calls.rpc[0][0]).toBe('fin_trial_balance');
+    expect(calls.rpc[0][1]).toEqual({ p_as_of: isoToday() });
     expect(screen.getByText('Trial Balance')).toBeInTheDocument();
   });
 
@@ -149,5 +162,45 @@ describe('TrialBalance', () => {
     renderScreen();
 
     expect(await screen.findByText('No accounts with activity in UGX.')).toBeInTheDocument();
+  });
+});
+describe('TrialBalance as-at reporting', () => {
+  it('asks for the trial balance as at the date in the URL', async () => {
+    const result = setup();
+    activate(result);
+
+    renderScreen('/trial-balance?asOf=2027-12-31');
+
+    await waitFor(() => expect(screen.getByText('Cash')).toBeInTheDocument());
+    expect(calls.rpc[0][1]).toEqual({ p_as_of: '2027-12-31' });
+  });
+
+  it('re-queries when the as-at date is changed, so a past date can be reviewed', async () => {
+    const result = setup();
+    activate(result);
+
+    renderScreen('/trial-balance?asOf=2027-12-31');
+    await waitFor(() => expect(screen.getByText('Cash')).toBeInTheDocument());
+    expect(calls.rpc).toHaveLength(1);
+
+    const field = screen.getByLabelText('As at');
+    await userEvent.clear(field);
+    await userEvent.type(field, '2027-06-30');
+
+    // A date input fires a change per keystroke, so assert on the settled
+    // result rather than an exact call count.
+    await waitFor(() =>
+      expect(calls.rpc[calls.rpc.length - 1][1]).toEqual({ p_as_of: '2027-06-30' })
+    );
+    expect(calls.rpc.length).toBeGreaterThan(1);
+  });
+
+  it('shows the as-at date so a printed report cannot be mistaken for today', async () => {
+    const result = setup();
+    activate(result);
+
+    renderScreen('/trial-balance?asOf=2027-12-31');
+    await waitFor(() => expect(screen.getByText('Cash')).toBeInTheDocument());
+    expect(screen.getByLabelText('As at')).toHaveValue('2027-12-31');
   });
 });

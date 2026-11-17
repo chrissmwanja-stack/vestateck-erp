@@ -22,7 +22,12 @@ const BASE = {
   trial_ends_at: null,
 };
 
-beforeEach(() => mockRpc.mockReset());
+// Braces matter: `() => mockRpc.mockReset()` returns the mock, and Vitest treats
+// a function returned from beforeEach as a teardown hook, so it runs the mock a
+// second time after the test.
+beforeEach(() => {
+  mockRpc.mockReset();
+});
 
 describe('TenantAccessBanner', () => {
   it('renders nothing for a healthy, paid company', async () => {

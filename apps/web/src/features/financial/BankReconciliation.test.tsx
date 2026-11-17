@@ -29,8 +29,21 @@ const SETTLEMENT_OPEN = {
   settlement_date: '2026-10-01',
   reference: null,
   notes: null,
+  subledger_only: false,
+  funding_transaction_id: null,
 };
 const SETTLEMENT_RECONCILED = { ...SETTLEMENT_OPEN, id: 'set-done', settlement_no: 'STL-0002' };
+// A procurement settlement: allocation only, its GL entry came from the
+// cash/bank transaction named by funding_transaction_id.
+const SETTLEMENT_PROCUREMENT = {
+  ...SETTLEMENT_OPEN,
+  id: 'set-proc',
+  settlement_no: 'STL-0003',
+  direction: 'out',
+  reference: 'INV-100',
+  subledger_only: true,
+  funding_transaction_id: 'cash-1',
+};
 // Commission transfers: money moves between two registered banks.
 const TRANSFER_IN = {
   id: 'tr-in',
@@ -44,6 +57,22 @@ const TRANSFER_IN = {
 };
 const TRANSFER_OUT_DONE = { ...TRANSFER_IN, id: 'tr-out-done', transfer_no: 'CTR-0002', from_bank_account_id: BANK_ID, to_bank_account_id: 'bank-other' };
 const TRANSFER_ELSEWHERE = { ...TRANSFER_IN, id: 'tr-else', transfer_no: 'CTR-0003', from_bank_account_id: 'bank-x', to_bank_account_id: 'bank-y' };
+const SUGGESTION = {
+  statement_line_id: 'line-1',
+  statement_date: '2026-10-02',
+  reference: 'REF1',
+  line_amount: 500000,
+  currency: 'UGX',
+  suggestion_rank: 1,
+  source: 'cash_bank',
+  candidate_id: 'cash-1',
+  candidate_ref: 'Legacy receipt',
+  candidate_date: '2026-10-02',
+  candidate_amount: 500000,
+  day_gap: 0,
+  needs_third_user: false,
+};
+
 const CASH_TXN = {
   id: 'cash-1',
   transaction_date: '2026-10-02',
@@ -82,6 +111,9 @@ function setup(opts: {
   extraHandlers?: Record<string, (args: unknown) => { data?: unknown; error?: unknown }>;
   transfers?: unknown[];
   reconRows?: unknown[];
+  settlements?: unknown[];
+  suggestions?: unknown[];
+  suggestionsError?: { message: string } | null;
 } = {}) {
   tableData = {
     fin_bank_accounts: opts.registry ?? [{ id: BANK_ID, name: 'Stanbic-001', currency: 'UGX' }],
@@ -89,7 +121,7 @@ function setup(opts: {
     v_cash_bank_unmatched: [CASH_TXN],
     v_bank_reconciliation_variance: [],
     v_bank_possible_double_entries: [],
-    fin_settlements: [SETTLEMENT_OPEN, SETTLEMENT_RECONCILED],
+    fin_settlements: opts.settlements ?? [SETTLEMENT_OPEN, SETTLEMENT_RECONCILED],
     bank_reconciliations: opts.reconRows ?? [{ settlement_id: SETTLEMENT_RECONCILED.id }],
     ins_commission_transfers: opts.transfers ?? [],
   };
@@ -114,6 +146,12 @@ function setup(opts: {
     match_bank_statement_line_to_settlement: () => ({ data: { variance: 0 }, error: null }),
     match_bank_statement_line: () => ({ data: { variance: 0 }, error: null }),
     match_bank_statement_line_to_commission_transfer: () => ({ data: { variance: 0 }, error: null }),
+    // Suggest-and-confirm (migration 20261117170000).
+    fin_bank_suggested_matches: () =>
+      opts.suggestionsError
+        ? { data: null, error: opts.suggestionsError }
+        : { data: opts.suggestions ?? [], error: null },
+    fin_bank_confirm_match: () => ({ data: { variance: 0 }, error: null }),
     auto_match_bank_statement: () => ({ data: 2, error: null }),
     ...opts.extraHandlers,
   });
@@ -176,6 +214,58 @@ describe('BankReconciliation', () => {
     await screen.findByText('STL-0001');
     expect(screen.queryByText('STL-0002')).toBeNull();
     expect(screen.getByText(/Open Settlements \(1\)/)).toBeTruthy();
+  });
+
+  it('shows suggested matches and confirms one through fin_bank_confirm_match', async () => {
+    const { callsTo } = setup({ suggestions: [SUGGESTION] });
+    const user = userEvent.setup();
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText(/Suggested matches \(1 line\)/);
+    expect(screen.getAllByText('Legacy receipt').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(callsTo('fin_bank_confirm_match').length).toBe(1));
+    expect(callsTo('fin_bank_confirm_match')[0].args).toMatchObject({
+      p_statement_line_id: 'line-1',
+      p_source: 'cash_bank',
+      p_candidate_id: 'cash-1',
+    });
+  });
+
+  it('warns before confirming a match that needs a third Finance user', async () => {
+    // The badge is a hint; the database refuses the match either way. But the
+    // desk should be told what will happen before it clicks.
+    setup({ suggestions: [{ ...SUGGESTION, source: 'settlement', needs_third_user: true }] });
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText('Needs a third Finance user');
+  });
+
+  it('keeps manual matching usable when the suggestion queue fails to load', async () => {
+    setup({ suggestionsError: { message: 'not authorized to see bank reconciliation suggestions' } });
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText(/Suggested matches could not be loaded/);
+    // The statement lines themselves are still there to work with.
+    expect(await screen.findByText(/CLIENT DEPOSIT/)).toBeTruthy();
+  });
+
+  it('marks a procurement settlement as an allocation only, not as its own journal', async () => {
+    // Finding E1: a procurement payment settles its open item through a
+    // subledger-only settlement. Its GL entry came from the cash/bank
+    // transaction, so the book must not imply this row posted a journal.
+    setup({ settlements: [SETTLEMENT_PROCUREMENT] });
+    render(<BankReconciliation />);
+    await openAccount('Stanbic-001');
+
+    await screen.findByText('STL-0003');
+    expect(screen.getByText('From procurement')).toBeTruthy();
+    expect(screen.queryByText('STL-0001')).toBeNull();
   });
 
   it('matches a statement line to a commission transfer through the transfer RPC', async () => {

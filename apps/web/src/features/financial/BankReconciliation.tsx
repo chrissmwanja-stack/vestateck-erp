@@ -3,13 +3,14 @@ import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, Paper, Sta
 import { AccountBalance as AccountBalanceIcon, Sync as SyncIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { db } from './bank-reconciliation/db';
-import type { BookSource } from './bank-reconciliation/types';
+import type { BookSource, SuggestedMatch } from './bank-reconciliation/types';
 import { monthAgo, today } from './bank-reconciliation/utils';
 import { useFinanceAccess } from './bank-reconciliation/useFinanceAccess';
 import { useReconciliationData } from './bank-reconciliation/useReconciliationData';
 import { PositionPanel } from './bank-reconciliation/PositionPanel';
 import { StatementTable } from './bank-reconciliation/StatementTable';
 import { SettlementsTable } from './bank-reconciliation/SettlementsTable';
+import { SuggestedMatchesTable } from './bank-reconciliation/SuggestedMatchesTable';
 import { TransferSidesTable } from './bank-reconciliation/TransferSidesTable';
 import { CashTransactionsTable } from './bank-reconciliation/CashTransactionsTable';
 import { VarianceReport } from './bank-reconciliation/VarianceReport';
@@ -40,6 +41,8 @@ export default function BankReconciliation() {
     position,
     positionError,
     variances,
+    suggestions,
+    suggestionsError,
     loading,
     error,
     setError,
@@ -54,6 +57,7 @@ export default function BankReconciliation() {
   const [matching, setMatching] = useState(false);
   const [autoMatching, setAutoMatching] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const selectedLine = statementLines.find((l) => l.id === selectedStatementLine) ?? null;
 
@@ -83,6 +87,27 @@ export default function BankReconciliation() {
     }
     const variance = Number((data as { variance?: number } | null)?.variance ?? 0);
     setInfo(variance !== 0 ? `Matched with a variance of ${variance.toLocaleString()}.` : 'Matched.');
+    load();
+  }
+
+  // Confirming a suggestion goes through fin_bank_confirm_match, which routes
+  // to the match RPC that owns that pair -- so this is a manual match, with
+  // every server-side check and the third-user rule still applied.
+  async function handleConfirmSuggestion(s: SuggestedMatch) {
+    setConfirmingId(s.candidate_id);
+    setError(null);
+    const { data, error: err } = await db.rpc('fin_bank_confirm_match', {
+      p_statement_line_id: s.statement_line_id,
+      p_source: s.source,
+      p_candidate_id: s.candidate_id,
+    });
+    setConfirmingId(null);
+    if (err) {
+      setError(err.message ?? 'Could not confirm that match.');
+      return;
+    }
+    const variance = Number((data as { variance?: number } | null)?.variance ?? 0);
+    setInfo(variance !== 0 ? `Confirmed with a variance of ${variance.toLocaleString()}.` : 'Confirmed.');
     load();
   }
 
@@ -144,6 +169,15 @@ export default function BankReconciliation() {
         Import a bank statement, then match each line against a posted settlement, a commission transfer or a recorded cash/bank transaction —
         automatically where the amount and date line up, manually otherwise.
       </Typography>
+
+      <SuggestedMatchesTable
+        suggestions={suggestions}
+        loading={loading}
+        error={suggestionsError}
+        busyId={confirmingId}
+        onConfirm={handleConfirmSuggestion}
+        onSelectLine={(id) => setSelectedStatementLine(id)}
+      />
 
       {isFinance === false && (
         <Alert severity="info" sx={{ mb: 2 }}>

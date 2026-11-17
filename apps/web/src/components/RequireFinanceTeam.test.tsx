@@ -71,4 +71,32 @@ describe('RequireFinanceTeam', () => {
       expect(screen.getByText(/don't have finance access/i)).toBeInTheDocument()
     );
   });
+
+  // A failed check and a real "no" both stay closed, but they are different
+  // problems and the desk should not read a network blip as "you lost your
+  // finance role".
+  it('says the access check failed, and why, when the RPC errors', async () => {
+    mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } }, loading: false });
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+
+    renderGuarded(<RequireFinanceTeam />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/Checking your access failed/)).toBeInTheDocument()
+    );
+    expect(screen.getByText(/boom/)).toBeInTheDocument();
+    expect(screen.getByText(/Reload to try again/)).toBeInTheDocument();
+  });
+
+  it('does not claim a failed check when the RPC answered false', async () => {
+    mockUseAuth.mockReturnValue({ session: { user: { id: 'u1' } }, loading: false });
+    mockRpc.mockResolvedValue({ data: false, error: null });
+
+    renderGuarded(<RequireFinanceTeam />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/don't have finance access/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/Checking your access failed/)).not.toBeInTheDocument();
+  });
 });

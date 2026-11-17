@@ -36,6 +36,8 @@ The Insurance Brokerage industry template (`20261008100625_insurance_brokerage_t
 
 Other template accounts (cash, payroll, and so on) are not used by the insurance flows in this pack.
 
+Added after this table was written (see section 9): 3900 Opening Balance Clearing for the in-force import, and the foreign-exchange accounts 4900, 4901, 5910, 5911 and 5900.
+
 ## 3. Decisions taken (owner, 11 October 2026)
 
 These are built in migrations `20261011090000`, `20261011100000` and `20261012090000`. The accountant is asked to confirm them.
@@ -253,13 +255,6 @@ Sections 5.6 to 5.9 were added after the 11 October review. They summarise the p
 
 Accountant name: ______________________ Date: ____________ Signature: ______________________
 
-## 9. Pointers for the reviewer
-
-- Design draft and decision history: `ANALYSIS.md`.
-- Reversal rules and accounting: `POLICY_REVERSAL.md`.
-- Test evidence: `supabase/tests/test_ins_*.sql` (run in CI), including `test_ins_commission*.sql` and `test_ins_policy_reversal.sql`.
-- Local UAT data: the Pearl Risk Brokers Ltd (UAT) tenant in `supabase/seed.sql` section 6 holds bound policies and a claim for walk-through. It is local only and uses fictional data.
-
 ## 9. Changes since 16 October 2026 (for review, not approved)
 
 Each item below is the software's current design and needs the accountant's confirmation. Details are in `ROADMAP.md` section 7 and the migrations named.
@@ -269,4 +264,11 @@ Each item below is the software's current design and needs the accountant's conf
 - **Claim excess and documents** (`20261106210000`): four excess handling modes stored on the claim; excess is never brokerage income. **Reserve revisions** (`20261022090000`) keep a history of every reserve.
 - **Policy approval workflow** (`20261106180000` and repairs): binding requires an approved policy; segregation of duties applies to approval.
 - **Insurer statement reconciliation** (`20261106220000`): insurer-reported premium, claims and commission compared line by line with the brokerage's records. Read-only; it adjusts nothing.
-- **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Not yet built beyond staging and validation.
+- **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Built (all five steps, `20261107140000` to `20261111100000`), not accountant-approved. New accounts and posting roles for review: account 3900 Opening Balance Clearing (equity, role `opening_balance_clearing`, template default, backfilled to existing insurance tenants by `20261109090000`) and a `retained_earnings` role that receives earned commission up to cut-over (account 3200 per `IN_FORCE_IMPORT.md` section 4).
+
+## 10. Pointers for the reviewer
+
+- Design draft and decision history: `ANALYSIS.md`.
+- Reversal rules and accounting: `POLICY_REVERSAL.md`.
+- Test evidence: `supabase/tests/test_ins_*.sql` (run in CI), including `test_ins_commission*.sql` and `test_ins_policy_reversal.sql`.
+- Local UAT data: the Pearl Risk Brokers Ltd (UAT) tenant in `supabase/seed.sql` section 6 holds bound policies and a claim for walk-through. It is local only and uses fictional data.

@@ -56,6 +56,15 @@ export function SettlementsTable({ settlements, isSelected, toggleBook, amountMa
                   {amountMatchesLine(signed) && (
                     <Chip size="small" variant="outlined" color="success" label="Amount matches" sx={{ mt: 0.5 }} />
                   )}
+                  {s.subledger_only && (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label="From procurement"
+                      title="Allocation only — the bank transaction posted the GL entry"
+                      sx={{ mt: 0.5, ml: 0.5 }}
+                    />
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   {signed.toLocaleString()}

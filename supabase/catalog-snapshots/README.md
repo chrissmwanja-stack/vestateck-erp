@@ -15,6 +15,11 @@ catalog state of schema `public`, produced by
 CI (`foundation-checks.yml`, step "Check security catalog snapshot") replays
 every migration, regenerates the file and fails on any difference.
 
+**Status:** the baseline file is not committed yet. Until it is, the step only prints a
+warning and enforces nothing. To start enforcing, download the `security-catalog-snapshot`
+artifact from a green run of `foundation-checks` and commit it here as
+`security-catalog.txt`.
+
 ## When it fails
 
 A diff means a migration changed one of those facts. Read the diff:

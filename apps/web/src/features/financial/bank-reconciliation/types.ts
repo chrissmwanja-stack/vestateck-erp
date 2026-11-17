@@ -26,6 +26,10 @@ export interface SettlementRow {
   settlement_date: string;
   reference: string | null;
   notes: string | null;
+  // True when the settlement records an allocation only: the bank movement and
+  // its GL entry belong to a cash/bank transaction (procurement payments).
+  subledger_only: boolean;
+  funding_transaction_id: string | null;
 }
 
 // One side of a posted commission transfer that has no reconciliation row yet.
@@ -88,4 +92,31 @@ export type BookSource = 'cash' | 'settlement' | 'transfer';
 export interface BookSelection {
   source: BookSource;
   id: string;
+}
+
+// A suggested match for one statement line (fin_bank_suggested_matches).
+// Suggestions are questions, not decisions: nothing is written until the
+// reader confirms one.
+export interface SuggestedMatch {
+  statement_line_id: string;
+  statement_date: string;
+  reference: string | null;
+  line_amount: number;
+  currency: string;
+  suggestion_rank: number;
+  source: 'settlement' | 'cash_bank' | 'transfer_from' | 'transfer_to';
+  candidate_id: string;
+  candidate_ref: string | null;
+  candidate_date: string | null;
+  candidate_amount: number | null;
+  day_gap: number | null;
+  // Insurance cash must be reconciled by a third Finance user; the server
+  // enforces it and this flag lets the screen say so before the attempt.
+  needs_third_user: boolean;
+}
+
+// One line of the "was this reviewed?" report.
+export interface ReviewMetric {
+  metric: string;
+  value: number;
 }

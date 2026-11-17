@@ -2,9 +2,8 @@
 # Enforces supabase/MIGRATION_POLICY.md against new migration files.
 #
 # Only checks files ADDED to supabase/migrations/ since the base ref --
-# existing migrations (0001, 20260730143728, 20260806143936,
-# 20260808143024) are grandfathered per the policy doc; rewriting them
-# is Phase 1.5 (squash), not something this script should fight.
+# existing migrations are never re-checked. (The grandfathered ones were
+# archived by the 2026-11 squash; see supabase/SQUASH_RUNBOOK.md.)
 #
 # Usage: scripts/check-migration-policy.sh [base-ref]
 #   base-ref defaults to origin/main (fine for local/manual runs and for
@@ -77,8 +76,8 @@ for f in $NEW_MIGRATIONS; do
 
   # Filename check, not content -- a Studio/db-dump remote_schema file
   # is identified by how it was generated, not by any single SQL
-  # pattern inside it. The three pre-existing dumps are grandfathered
-  # (MIGRATION_POLICY.md, rule 6); this only fires on new ones.
+  # pattern inside it. No dump remains in supabase/migrations/ since the
+  # 2026-11 squash (MIGRATION_POLICY.md, rule 6); this only fires on new ones.
   if [[ "$(basename "$f")" =~ remote_schema\.sql$ ]]; then
     echo "FAIL: $f looks like a 'supabase db dump'/Studio-generated remote_schema file, not a hand-authored migration. Write the actual diff instead. (MIGRATION_POLICY.md, rule 6)"
     FAIL=1

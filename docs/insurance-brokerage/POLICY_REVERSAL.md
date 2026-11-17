@@ -1,6 +1,6 @@
 # Restricted policy reversal and draft reissue
 
-Implementation prepared against `00aa643` on 14 October 2026. This is source work pending PR CI, a real test Supabase rollout and accountant acceptance; it is not evidence of production deployment.
+Implementation prepared against `00aa643` on 14 October 2026. Status on 17 November 2026: the migration (`20261014170000`), the SQL test (`test_ins_policy_reversal.sql`) and the UI (`PolicyReversalAction.tsx`) are on `main` and run in CI. Accountant acceptance is still pending, and the repo cannot show whether it has been rolled out to a live database; do not enable it for a real tenant until it is accepted.
 
 ## Confirmed owner choices
 

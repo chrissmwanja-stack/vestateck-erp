@@ -58,6 +58,11 @@ export default function AccountingPeriodsAdmin() {
   const [confirmTarget, setConfirmTarget] = useState<PeriodRow | null>(null);
   const [confirmSaving, setConfirmSaving] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  // Reopening is a control event: it must be justified on the record, and it
+  // must be done by a different finance user from the one who closed it. Both
+  // rules are enforced server-side (fin_reopen_accounting_period); this field
+  // exists so the user can supply the reason the RPC requires.
+  const [reopenReason, setReopenReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,13 +125,27 @@ export default function AccountingPeriodsAdmin() {
   async function handleConfirmToggle() {
     if (!confirmTarget) return;
     setConfirmError(null);
+
+    const closing = confirmTarget.status === 'open';
+    if (!closing && reopenReason.trim().length < 10) {
+      setConfirmError('A reason of at least 10 characters is required to reopen a period.');
+      return;
+    }
+
     setConfirmSaving(true);
 
-    const nextStatus = confirmTarget.status === 'open' ? 'closed' : 'open';
-    const { error: err } = await supabase
-      .from('accounting_periods')
-      .update({ status: nextStatus })
-      .eq('id', confirmTarget.id);
+    // Closing and reopening go through SECURITY DEFINER RPCs, not a table
+    // UPDATE: direct UPDATE/DELETE on accounting_periods is revoked so that a
+    // reopen cannot happen without a reason, a second finance user and an
+    // audit row. See migration 20261117130000_fin_period_close_controls.sql.
+    const { error: err } = closing
+      ? await supabase.rpc('fin_close_accounting_period', {
+          p_period_id: confirmTarget.id,
+        })
+      : await supabase.rpc('fin_reopen_accounting_period', {
+          p_period_id: confirmTarget.id,
+          p_reason: reopenReason.trim(),
+        });
 
     setConfirmSaving(false);
     if (err) {
@@ -134,6 +153,7 @@ export default function AccountingPeriodsAdmin() {
       return;
     }
     setConfirmTarget(null);
+    setReopenReason('');
     load();
   }
 
@@ -188,7 +208,14 @@ export default function AccountingPeriodsAdmin() {
                       />
                     </TableCell>
                     <TableCell align="right">
-                      <Button size="small" onClick={() => setConfirmTarget(row)}>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setReopenReason('');
+                          setConfirmError(null);
+                          setConfirmTarget(row);
+                        }}
+                      >
                         {row.status === 'open' ? 'Close' : 'Reopen'}
                       </Button>
                     </TableCell>
@@ -253,10 +280,24 @@ export default function AccountingPeriodsAdmin() {
             ) : (
               <>
                 Reopening {confirmTarget?.period_start} to {confirmTarget?.period_end} will allow new entries to
-                post into this range again.
+                post into this range again. This is logged against your name, and must be done by a
+                different finance user from the one who closed the period. Give the reason below.
               </>
             )}
           </DialogContentText>
+          {confirmTarget?.status === 'closed' && (
+            <TextField
+              label="Reason for reopening"
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              sx={{ mt: 2 }}
+              required
+              helperText="At least 10 characters. Recorded in the period's audit trail."
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmTarget(null)} disabled={confirmSaving}>

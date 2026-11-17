@@ -26,6 +26,7 @@ const Durations = lazy(() => import('../features/financial/Durations'));
 const EditInvoice = lazy(() => import('../features/financial/EditInvoice'));
 const ExpenditureSlips = lazy(() => import('../features/financial/ExpenditureSlips'));
 const FinancialDashboard = lazy(() => import('../features/financial/FinancialDashboard'));
+const FinancialAuditTrail = lazy(() => import('../features/financial/FinancialAuditTrail'));
 const FinancialReports = lazy(() => import('../features/financial/FinancialReports'));
 const GeneralLedger = lazy(() => import('../features/finance/GeneralLedger'));
 const MassSlip = lazy(() => import('../features/financial/MassSlip'));
@@ -78,6 +79,7 @@ export const financeRoutes = (
       <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
       <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />
       <Route path="/financial-management/reports" element={<FinancialReports />} />
+      <Route path="/financial-management/reports/audit-trail" element={<FinancialAuditTrail />} />
       <Route path="/financial-management/admin/accounts" element={<AccountsAdmin />} />
       <Route path="/financial-management/petty-cash-floats" element={<PettyCashFloats />} />
       <Route path="/financial-management/petty-cash-register" element={<PettyCashRegister />} />

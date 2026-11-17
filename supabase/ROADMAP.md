@@ -5,8 +5,9 @@ Ordered by priority; check items off as they land, one commit group per
 line where possible.
 
 > **Status note, 2026-11-07:** this is a dated log of the 2026-09-21 audit and is
-> not rewritten as the repo grows. Counts below were true on the day. Today: 8
-> e2e specs, 101 SQL test files, 190 migrations. Insurance work since then is
+> not rewritten as the repo grows. Counts below were true on the day. On 2026-11-17: 11
+> e2e specs, 118 SQL test files, 57 migrations in `supabase/migrations/` (after the
+> 2026-11 squash; the 172 older ones are in `supabase/migrations_archive/2026-11/`). Insurance work since then is
 > tracked in `docs/insurance-brokerage/ROADMAP.md`.
 
 ## Priority 1 — Security / RLS ✅ DONE (2026-09-21)
@@ -33,8 +34,9 @@ line where possible.
     `pmo_tasks.SELECT` keeps its `assignee_id = auth.uid()` exception so
     task assignees without a pmo role can still read their own tasks.
 - [x] Migration + regression test:
-      `supabase/migrations/20260921090000_hr_select_tightening_and_attendance_delete.sql`,
-      `supabase/migrations/20260921093000_young_module_select_tightening.sql`,
+      `supabase/migrations_archive/2026-11/20260921090000_hr_select_tightening_and_attendance_delete.sql`,
+      `supabase/migrations_archive/2026-11/20260921093000_young_module_select_tightening.sql`
+      (archived by the 2026-11 squash; their effect is in the baseline),
       `supabase/tests/test_rls_select_tightening.sql`
       (run against a fresh local stack: `psql -f`, same as other tests).
 - [x] `scripts/check-migration-policy.sh` passes on both migrations.
