@@ -36,14 +36,26 @@ begin
     where cardinality(d.implemented_values) = 0
        or not (d.implemented_values <@ d.allowed_values)
        or not (d.default_value = any (d.implemented_values))), 'definitions: implemented_values consistent');
+  -- Values advertised in allowed_values but with no reader must stay out of
+  -- implemented_values, so the settings guard refuses them.
+  --
+  -- This assertion used to name at_placement as one of them. 20261117210000
+  -- implemented at_placement end to end (the bind earns the commission and the
+  -- void path stops un-earning it), so the example moved to the two options that
+  -- are still only planned. The rule being pinned is unchanged: a value with no
+  -- reader must not be selectable.
   perform pg_temp.assert(exists (select 1 from public.accounting_setting_definitions
-    where key = 'ins.commission_recognition' and 'at_placement' = any (allowed_values)
-      and not ('at_placement' = any (implemented_values))), 'planned recognition options listed but not implemented');
+    where key = 'ins.commission_recognition'
+      and 'on_premium_collection' = any (allowed_values)
+      and not ('on_premium_collection' = any (implemented_values))),
+    'planned recognition options listed but not implemented');
 
-  -- (2) a planned value cannot be proposed
+  -- (2) a planned value cannot be proposed. at_placement is implemented as of
+  -- 20261117210000, so the example is on_premium_collection; the rule is the
+  -- same one: no reader, no proposal.
   perform pg_temp.jwt(i.adm);
   perform pg_temp.expect_error(
-    $q$select public.acct_setting_propose('ins.commission_recognition', 'at_placement', current_date, 'planned option attempt')$q$,
+    $q$select public.acct_setting_propose('ins.commission_recognition', 'on_premium_collection', current_date, 'planned option attempt')$q$,
     'ACCT_SETTING_VALUE_NOT_ALLOWED', 'planned value rejected');
 
   -- (3) minimum effective date: today for a fresh company, then the day after an approved choice

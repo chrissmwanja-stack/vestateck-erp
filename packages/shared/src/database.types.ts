@@ -5804,6 +5804,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          earned_by: string | null
           earned_on: string | null
           id: string
           insurer_share_id: string | null
@@ -5817,6 +5818,7 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string
+          earned_by?: string | null
           earned_on?: string | null
           id?: string
           insurer_share_id?: string | null
@@ -5830,6 +5832,7 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          earned_by?: string | null
           earned_on?: string | null
           id?: string
           insurer_share_id?: string | null
@@ -7005,6 +7008,7 @@ export type Database = {
           branch_id: string | null
           client_id: string
           commission_amount: number | null
+          commission_recognition_override: string | null
           commission_rate_pct: number
           created_at: string
           created_by: string | null
@@ -7037,6 +7041,7 @@ export type Database = {
           branch_id?: string | null
           client_id: string
           commission_amount?: number | null
+          commission_recognition_override?: string | null
           commission_rate_pct?: number
           created_at?: string
           created_by?: string | null
@@ -7069,6 +7074,7 @@ export type Database = {
           branch_id?: string | null
           client_id?: string
           commission_amount?: number | null
+          commission_recognition_override?: string | null
           commission_rate_pct?: number
           created_at?: string
           created_by?: string | null
@@ -7988,6 +7994,7 @@ export type Database = {
           policy_id: string
           premium_amount: number | null
           reviewed: boolean
+          settlement_basis: string | null
           share_pct: number
           tenant_id: string
         }
@@ -8003,6 +8010,7 @@ export type Database = {
           policy_id: string
           premium_amount?: number | null
           reviewed?: boolean
+          settlement_basis?: string | null
           share_pct: number
           tenant_id: string
         }
@@ -17509,6 +17517,10 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: undefined
       }
+      ins_commission_recognition_mode: {
+        Args: { p_policy_id: string }
+        Returns: string
+      }
       ins_commission_bank_accounts: {
         Args: never
         Returns: {
@@ -19063,6 +19075,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_set_policy_commission_recognition: {
+        Args: { p_mode: string; p_policy_id: string }
+        Returns: undefined
+      }
       ins_set_policy_financial_configuration: {
         Args: { p_charges: Json; p_policy_id: string; p_shares: Json }
         Returns: undefined
@@ -19071,6 +19087,7 @@ export type Database = {
         Args: { p_risk_id: string; p_status: string }
         Returns: undefined
       }
+      ins_share_basis: { Args: { p_policy_id: string }; Returns: string }
       ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
       ins_submit_cancellation_cash: {
         Args: {
