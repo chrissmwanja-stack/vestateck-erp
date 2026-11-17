@@ -1,4 +1,6 @@
-import * as XLSX from "xlsx";
+// xlsx is ~490 kB: it is loaded when a workbook is actually parsed, not when a
+// page that offers import is opened.
+type Xlsx = typeof import("xlsx");
 import type { ParsedCsv } from "./csvParser";
 
 /**
@@ -18,7 +20,7 @@ export interface ParsedWorkbook extends ParsedCsv {
   sheets: Record<string, Record<string, string>[]>;
 }
 
-function sheetToRows(sheet: XLSX.WorkSheet): ParsedCsv {
+function sheetToRows(XLSX: Xlsx, sheet: import("xlsx").WorkSheet): ParsedCsv {
 
   // header: 1 -> array-of-arrays instead of array-of-objects, so headers are
   // read exactly like the CSV parser reads them (lowercased/trimmed below),
@@ -69,6 +71,7 @@ function sheetToRows(sheet: XLSX.WorkSheet): ParsedCsv {
 
 export async function parseXlsx(file: File): Promise<ParsedWorkbook> {
   const buffer = await file.arrayBuffer();
+  const XLSX = await import("xlsx");
   // cellDates: true -> date-formatted cells come back as JS Date objects
   // instead of raw Excel serial numbers (e.g. 45362). Without this, a hire
   // date cell formatted as a date in the spreadsheet is read as its
@@ -84,8 +87,8 @@ export async function parseXlsx(file: File): Promise<ParsedWorkbook> {
   for (const name of workbook.SheetNames) {
     // Workbook sheet names are the customer's ("Policies", "Control Totals"),
     // so they are normalised the same way headers are.
-    sheets[name.trim().toLowerCase()] = sheetToRows(workbook.Sheets[name]).rows;
+    sheets[name.trim().toLowerCase()] = sheetToRows(XLSX, workbook.Sheets[name]).rows;
   }
 
-  return { ...sheetToRows(workbook.Sheets[firstSheetName]), sheets };
+  return { ...sheetToRows(XLSX, workbook.Sheets[firstSheetName]), sheets };
 }
