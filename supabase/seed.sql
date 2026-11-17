@@ -891,13 +891,35 @@ begin
     (v_t, 'stamp_duty.policy', 35000, 'UGX', date '2017-01-01',
      'UNVERIFIED: URA stamp duty schedule, UGX 35,000 per policy; group policies pay once. Effective date to be confirmed.',
      'draft', v_u_admin),
+    -- The accountant has confirmed this one: Income Tax Act s.134, 10% of GROSS
+    -- commission paid to an insurance agent, in force from 1 July 2020.
+    --
+    -- Note what did NOT change on 1 July 2026. The rate stayed at 10%; what
+    -- changed is that the tax became FINAL (s.139(aa), Income Tax (Amendment)
+    -- Act 2026). So the rate is one row and the character is a separate key,
+    -- instead of one row being edited at a boundary it does not have.
     (v_t, 'tax.wht_agent_commission_percent', 10, null, date '2020-07-01',
-     'UNVERIFIED: 10% final withholding on commission paid to agents, from 1 July 2020 (roadmap section 2). Accountant to confirm.',
+     'VERIFIED: Income Tax Act s.134 -- 10% of gross commission paid to an insurance agent, from 1 July 2020. Confirmed by the company accountant.',
      'draft', v_u_admin),
     (v_t, 'remittance.deadline_working_days', 1, null, date '2017-01-01',
      'UNVERIFIED: Insurance Act 2017 s.90(3), remit premium by the next working day. Later amendments not checked.',
      'draft', v_u_admin),
     (v_t, 'retention.policy_years', 10, null, date '2017-01-01',
      'UNVERIFIED: Insurance Act s.106, ten-year record retention. Not verified.',
+     'draft', v_u_admin);
+
+  -- The CHARACTER of the agent commission withholding, which is a different
+  -- fact from the rate and has its own history. Two approved-effective windows:
+  -- not final until 30 June 2026, final from 1 July 2026 (s.139(aa), Income Tax
+  -- (Amendment) Act 2026, which commenced 1 July 2026). Both start as drafts
+  -- like every other regulatory value: a value nobody approved must not post.
+  insert into regulatory_parameters (tenant_id, parameter_key, value_text,
+                                     effective_from, effective_to, source_ref, status, created_by)
+  values
+    (v_t, 'tax.wht_agent_commission_is_final', 'false', date '2020-07-01', date '2026-06-30',
+     'VERIFIED: before 1 July 2026 the s.134 withholding on agent commission was not a final tax; the agent''s other income and annual return could affect the final position.',
+     'draft', v_u_admin),
+    (v_t, 'tax.wht_agent_commission_is_final', 'true', date '2026-07-01', null,
+     'VERIFIED: Income Tax (Amendment) Act 2026 inserted s.139(aa), making the s.134 withholding on insurance agent commission a FINAL tax with effect from 1 July 2026 (assented 20 August 2026, commencing 1 July 2026).',
      'draft', v_u_admin);
 end $$;

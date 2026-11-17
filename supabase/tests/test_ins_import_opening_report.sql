@@ -97,6 +97,11 @@ create function pg_temp.batch(p_label text, p_policy_no text, p_gross text,
 returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_id uuid; v_rep jsonb; v_reviewer uuid;
 begin
+  -- Fixture: each scenario below is a fresh cut-over for the same company, so
+  -- lift the one-opening-per-company gate before creating the batch. The gate
+  -- itself is covered by test_ins_opening_acceptance_gate.sql.
+  update public.tenants set ins_opening_posted_at = null, ins_opening_reopened_at = now()
+   where id = public.get_my_tenant_id();
   select id into v_id from public.ins_import_create_batch(p_label, current_date);
   perform public.ins_import_stage_rows(v_id, 'policies', jsonb_build_array(jsonb_build_object(
     'legacy_policy_no', p_policy_no, 'client_name', 'Bank Client', 'insurer', 'BNKINS1',
