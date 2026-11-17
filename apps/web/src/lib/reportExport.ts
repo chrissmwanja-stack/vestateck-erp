@@ -1,6 +1,19 @@
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import type jsPDF from "jspdf";
+
+// xlsx (~490 kB) and jspdf + jspdf-autotable (~370 kB) are only needed at the
+// moment someone clicks Export, so they are loaded on demand inside each export
+// function rather than imported at the top. A static import here would put both
+// libraries into every report page's chunk and make each report download them
+// just to render. The export functions are therefore async; callers can ignore
+// the returned promise.
+const loadXlsx = () => import("xlsx");
+const loadPdf = async () => {
+  const [{ default: JsPdf }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  return { JsPdf, autoTable };
+};
 
 /**
  * Generic column definition for exporting a report's on-screen table to
@@ -52,12 +65,13 @@ export function eraseSection<T>(section: ReportSection<T>): ReportSection<unknow
  * definitions the on-screen table uses. Numbers are written as real
  * numbers (not strings) so totals/sums work if the user pivots the sheet.
  */
-export function exportReportToExcel<T>(
+export async function exportReportToExcel<T>(
   filename: string,
   sheetName: string,
   columns: ReportExportColumn<T>[],
   rows: T[]
-): void {
+): Promise<void> {
+  const XLSX = await loadXlsx();
   const aoa: (string | number)[][] = [
     columns.map((c) => c.header),
     ...rows.map((row) =>
@@ -86,14 +100,15 @@ export function exportReportToExcel<T>(
  * Exports rows to a landscape PDF with a title, optional subtitle (e.g. the
  * active date-range/organization filter), and an auto-paginated table.
  */
-export function exportReportToPdf<T>(
+export async function exportReportToPdf<T>(
   filename: string,
   title: string,
   columns: ReportExportColumn<T>[],
   rows: T[],
   subtitle?: string
-): void {
-  const doc = new jsPDF({ orientation: "landscape" });
+): Promise<void> {
+  const { JsPdf, autoTable } = await loadPdf();
+  const doc = new JsPdf({ orientation: "landscape" });
 
   doc.setFontSize(14);
   doc.text(title, 14, 15);
@@ -128,10 +143,11 @@ export function exportReportToPdf<T>(
  * Cash & Bank / Expenditure / Petty Cash) to one workbook, one sheet per
  * section. Summary lines are written as plain rows above the header row.
  */
-export function exportMultiSectionToExcel(
+export async function exportMultiSectionToExcel(
   filename: string,
   sections: ReportSection<unknown>[]
-): void {
+): Promise<void> {
+  const XLSX = await loadXlsx();
   const workbook = XLSX.utils.book_new();
   const usedNames = new Set<string>();
 
@@ -177,13 +193,14 @@ export function exportMultiSectionToExcel(
  * summary lines + table per section, flowing down the page and paginating
  * automatically via jspdf-autotable.
  */
-export function exportMultiSectionToPdf(
+export async function exportMultiSectionToPdf(
   filename: string,
   title: string,
   sections: ReportSection<unknown>[],
   subtitle?: string
-): void {
-  const doc = new jsPDF({ orientation: "landscape" });
+): Promise<void> {
+  const { JsPdf, autoTable } = await loadPdf();
+  const doc = new JsPdf({ orientation: "landscape" });
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 14;
 

@@ -222,7 +222,7 @@ export default function RequestTracking() {
       // codegen types them as `Json` -- everything else on `data` is
       // already correctly typed. Narrow just those two fields rather than
       // casting the whole object away.
-      const blob = buildPoPdf({
+      const blob = await buildPoPdf({
         ...data,
         line_items: data.line_items as unknown as PoPdfData["line_items"],
         approvals: data.approvals as unknown as PoPdfData["approvals"],

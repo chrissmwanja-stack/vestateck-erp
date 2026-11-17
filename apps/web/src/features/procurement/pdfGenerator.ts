@@ -1,4 +1,5 @@
-import { jsPDF } from "jspdf";
+// jspdf is ~370 kB: it is loaded when a PO PDF is actually built (the function
+// is async for that reason), not when the procurement pages are opened.
 
 // Builds the PO document as a Blob, laid out to match the reference
 // "Purchase Order and Approval Form" (request no / PO no / SAP project no
@@ -58,7 +59,8 @@ const fmtDate = (d: string | null | undefined) => {
   return Number.isNaN(parsed.getTime()) ? d : parsed.toLocaleDateString();
 };
 
-export function buildPoPdf(data: PoPdfData): Blob {
+export async function buildPoPdf(data: PoPdfData): Promise<Blob> {
+  const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = 40;
 

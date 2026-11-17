@@ -10,6 +10,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Vite's dynamic-import preload helper is a tiny virtual module that the
+          // app entry imports. Left unassigned, Rollup folded it into whichever
+          // manual chunk it landed next to -- the 374 kB jspdf 'pdf' chunk -- so
+          // the entry statically depended on jsPDF and every first load
+          // downloaded it. Pin it to 'vendor', which is loaded eagerly anyway.
+          if (id.includes('vite/preload-helper') || id.includes('vite/modulepreload-polyfill')) {
+            return 'vendor';
+          }
           // Vendor split — improves long-term caching
           if (id.includes('node_modules')) {
             if (id.includes('@mui')) return 'mui';
