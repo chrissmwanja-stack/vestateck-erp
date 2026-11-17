@@ -108,6 +108,7 @@ alter table accounting_period_events enable row level security;
 drop policy if exists accounting_period_events_select on accounting_period_events;
 create policy accounting_period_events_select on accounting_period_events
   for select
+  to authenticated
   using (is_finance_team_member(null) and tenant_id = get_my_tenant_id());
 
 -- Deliberately no INSERT/UPDATE/DELETE policies: an event log that its

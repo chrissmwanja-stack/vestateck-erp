@@ -122,7 +122,8 @@ alter table fin_transaction_actors enable row level security;
 
 drop policy if exists fin_transaction_actors_select on fin_transaction_actors;
 create policy fin_transaction_actors_select on fin_transaction_actors
-  for select using (tenant_id = get_my_tenant_id() and is_finance_team_member(null));
+  for select to authenticated
+  using (tenant_id = get_my_tenant_id() and is_finance_team_member(null));
 
 -- No INSERT/UPDATE/DELETE policy on purpose: only SECURITY DEFINER functions
 -- below write here. Tighten the grants to match.
