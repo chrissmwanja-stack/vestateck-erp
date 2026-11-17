@@ -50,8 +50,11 @@ supabase/functions    Edge Functions: accept-invite, bootstrap-admin, create-ten
                        send-operator-digest (JWT verification is declared per
                        function in supabase/config.toml; see docs/README.md)
 packages/shared       TypeScript types shared between the web app and edge functions
-scripts               Repo tooling: migration-policy check, run-sql-tests.ps1 (local
-                       per-file pass/fail for supabase/tests), and others
+scripts               Repo tooling: migration-policy check, lint ratchets
+                       (check-lint-ratchet.mjs), first-load bundle guard
+                       (check-initial-load.mjs), security catalog snapshot,
+                       run-sql-tests.ps1 (local per-file pass/fail for
+                       supabase/tests), insurance concurrency scripts, and others
 docs/                 Documentation index in docs/README.md. Insurance Brokerage:
                        ROADMAP.md (decisions, status, work plan), ANALYSIS.md
                        (original design draft), ACCOUNTANT_PACK.md (unsigned
@@ -60,6 +63,8 @@ docs/                 Documentation index in docs/README.md. Insurance Brokerage
 PHASE0_COUPLING_AUDIT.md   Decision log for the shared-kernel and finance (D1-D4) work
 FOUNDATION_PLAYBOOK.md     Reconstruction of the foundation phases (see its own note)
 docs/BULK_IMPORT_NOTES.md  Bulk-import file list and per-screen column specs
+apps/web/docs/AUTHORIZATION_ARCHITECTURE.md  Who may do what: identities, RLS tiers,
+                       View-as, definer-function rules, separation of duties
 ```
 
 ### Modules (`apps/web/src/modules/portals/`)
@@ -71,15 +76,15 @@ docs/BULK_IMPORT_NOTES.md  Bulk-import file list and per-screen column specs
 | Platform / Admin | Complete — two admin layers. Platform admin console: companies, tenant impersonation, health, annual renewals, module registry and entitlements (nav and routes are gated on entitlement, e.g. Purchase Orders and Payment Approvals require procurement), industry templates (company creation wizard reads them from the database), invites/bootstrap. Company Admin shell (`/company-admin/*`): departments, organizations, members, invites, approval workflow admin, setup readiness. Plus delegations and accounting-period/chart admin |
 | IT Support | Complete — tickets, SLAs, teams, access, assets, KB/FAQs, full RLS/RPC coverage |
 | Business Development | Broad but uneven — leads, clients, opportunities, tenders, proposals fully surfaced (incl. report exports); some RPCs and deeper workflows (opportunity math, tender submission management) still landing |
-| HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS coverage for compensation, team members and payroll approvers is in place (closed by the 20260819–20260821 migrations) |
+| HR | Mostly built — employees, attendance, leaves, payroll, performance, recruitment, org chart; RLS coverage for compensation, team members and payroll approvers is in place (closed by the 20260819–20260821 migrations). Leave: HR may file a request on an employee's behalf; a request is decided by an HR admin/manager, the company admin or the employee's line manager, and never by the employee it belongs to (`20261112100000`, `20261114090000` to `20261114110000`; the Leave Approvals screen is gated by `can_decide_leave()`) |
 | Law & Compliance | Real workflow — cases, contracts, compliance register, filings; contract approval via `submit_contract_for_approval`/`decide_contract` RPCs with decision audit trail, self-approval refused; filings run through a server-side `transition_filing` state machine |
 | PMO | Real workflow — projects, tasks, milestones, resources, Gantt with dependencies/critical path; project approval RPCs plus a real time/cost ledger (`pmo_time_entries`, `pmo_cost_entries`) backing the budget-vs-actual report |
 | Machine Operation | Real workflow — equipment, logs, fuel, maintenance; `transition_maintenance_request` state machine with an overdue sweep, and fuel/maintenance costs auto-post to GL |
 | Sustainability | Operational — metrics, audits, certifications (with expiry sweep), initiatives; no targets/baselines or emission-factor computation yet |
-| Insurance Brokerage (`modules/portals/insurance`) | Broad slice built; the accounting treatment is **not yet signed off by an accountant** (see `docs/insurance-brokerage/ACCOUNTANT_PACK.md`). Built: clients with KYC decisions, insurers, product lines, intermediaries (agents and sub-agents, no money yet); policies with branch, agent and transaction type, an insured-risk register and motor certificate stock, co-insurance shares and charges; a quotation pipeline (placing a quote creates the draft policy); a policy approval workflow (draft → pending approval → approved or rejected, and **bind requires an approved policy**); binding through RPCs only, posting one journal and creating the premium receivable and insurer payable in the open-item subledger. Renewals (120-day window, bulk drafts, outcomes, renewal notices); endorsements (proposals, Finance maker-checker posting, foreign-currency legs); cancellation with pro-rata calculation, approval and refund cash; restricted reverse-and-reissue (`docs/insurance-brokerage/POLICY_REVERSAL.md`); premium cash approvals, insurer remittances, the unremitted-premium report and a per-insurer remittance position. Commission is deferred at bind and recognised when a posted settlement fully pays the insurer's net item (reversed if that settlement is voided); earned commission stays in client money until a manager transfers it (`ins_transfer_earned_commission`, voidable, each side matched in bank reconciliation); per-insurer commission statements and an approved insurer/product rate matrix. Policies bound before `20261011090000` keep the old treatment (commission to income at bind). Claims follow a server-side state machine with an audit trail, reserve revisions with history, excess handling (four modes) and a document checklist; claim payments are per-insurer in one of two modes (insurer pays the client directly, or the brokerage pays through client money after the insurer's written confirmation). Insurer statement reconciliation, a production book, client statements and aged balances, a shared document store with a generated document pack (`generate-ins-doc`), and notifications. Multi-currency: policies bind and settle in their own currency at approved rates, with realised and unrealised FX (`docs/insurance-brokerage/CURRENCY_REVIEW.md`). Still open: the in-force portfolio import and opening balances (specified in `docs/insurance-brokerage/IN_FORCE_IMPORT.md`; step 1, staging and validation, is written but unmerged), commission recognition at placement and per-insurer settlement mode, a statutory charge catalogue, agent commission, client merge, period-close states, endorsement item cancellation (E4) and an insurance Playwright spec |
+| Insurance Brokerage (`modules/portals/insurance`) | Broad slice built; the accounting treatment is **not yet signed off by an accountant** (see `docs/insurance-brokerage/ACCOUNTANT_PACK.md`). Built: clients with KYC decisions, insurers, product lines, intermediaries (agents and sub-agents, no money yet); policies with branch, agent and transaction type, an insured-risk register and motor certificate stock, co-insurance shares and charges; a quotation pipeline (placing a quote creates the draft policy); a policy approval workflow (draft → pending approval → approved or rejected, and **bind requires an approved policy**); binding through RPCs only, posting one journal and creating the premium receivable and insurer payable in the open-item subledger. Renewals (120-day window, bulk drafts, outcomes, renewal notices); endorsements (proposals, Finance maker-checker posting, foreign-currency legs); cancellation with pro-rata calculation, approval and refund cash; restricted reverse-and-reissue (`docs/insurance-brokerage/POLICY_REVERSAL.md`); premium cash approvals, insurer remittances, the unremitted-premium report and a per-insurer remittance position. Commission is deferred at bind and recognised when a posted settlement fully pays the insurer's net item (reversed if that settlement is voided); earned commission stays in client money until a manager transfers it (`ins_transfer_earned_commission`, voidable, each side matched in bank reconciliation); per-insurer commission statements and an approved insurer/product rate matrix. Policies bound before `20261011090000` keep the old treatment (commission to income at bind). Claims follow a server-side state machine with an audit trail, reserve revisions with history, excess handling (four modes) and a document checklist; claim payments are per-insurer in one of two modes (insurer pays the client directly, or the brokerage pays through client money after the insurer's written confirmation). Insurer statement reconciliation, a production book, client statements and aged balances, a shared document store with a generated document pack (`generate-ins-doc`), and notifications. Multi-currency: policies bind and settle in their own currency at approved rates, with realised and unrealised FX (`docs/insurance-brokerage/CURRENCY_REVIEW.md`). The in-force portfolio import and opening balances are built (`docs/insurance-brokerage/IN_FORCE_IMPORT.md`, all five steps: staging and validation, policy commit, opening position, import wizard and a Playwright spec; migrations `20261107140000` to `20261111100000`), pending accounting acceptance. Still open: commission recognition at placement and per-insurer settlement mode, a statutory charge catalogue, agent commission, client merge, period-close states, endorsement item cancellation (E4) and Playwright coverage of the remaining insurance flows (see `apps/web/e2e/README.md`) |
 ## Getting started
 
-1. Install dependencies from the repo root:
+1. Install Node 22 or newer, then install dependencies from the repo root:
    ```
    npm install
    ```
@@ -179,7 +184,7 @@ Platform/Admin and Insurance Brokerage's database layer have the deepest SQL
 coverage; shallower modules (PMO, Machine Operation, Sustainability) have less.
 The Insurance Brokerage screens have unit tests for their pure logic and component
 tests for most pages (policy list, detail and new, cash panel, commission, quotes
-and others). The insurance in-force import has a Playwright spec (`insurance-import.spec.ts`); the main policy money flow does not yet.
+and others). Insurance has three Playwright specs: the in-force import (`insurance-import.spec.ts`), the money flow from approval and bind through premium receipt, insurer remittance and commission transfer (`insurance-cash-commission.spec.ts`), and a claim paid through the brokerage (`insurance-claim-payment.spec.ts`).
 
 ### SQL tests
 
@@ -211,16 +216,37 @@ has already been applied to a shared or live database is never edited; a fix goe
 in a new migration with a later timestamp. The generated types file is checked for
 drift against the migrations, and that check blocks the build.
 
-Two GitHub Actions workflows run on every push/PR to `main`:
-`foundation-checks.yml` (migration policy diff, build+typecheck, unit tests,
-from-scratch migration replay against a local Supabase stack, the tenant_id
-FK audit from `supabase/scripts/audit_tenant_fk.sql`, the SECURITY DEFINER
-exposure audit from `supabase/scripts/audit_security_definer.sql`, and every
-`supabase/tests/*.sql` functional test) and `e2e.yml` (eight Playwright specs
-in `apps/web/e2e/`: procurement happy path and threshold branch, finance
-invoice payment, payroll approve/reject and disbursement, BD proposal
-approvals, and company-admin member/invitation and organization setup). A third
-workflow, `supabase-keepalive.yml`, calls `keepalive_ping()` with the anon key on a
+Three GitHub Actions workflows live in `.github/workflows/`. Node 22 is required
+(`engines` in the root `package.json`; CI uses 22).
+
+`foundation-checks.yml` runs on every push/PR to `main` and has these jobs:
+
+- `migration-policy`: new migrations against `supabase/MIGRATION_POLICY.md`.
+- `repo-hygiene`: no unresolved merge-conflict markers.
+- `build`: typecheck + build, then the first-load bundle guard
+  (`scripts/check-initial-load.mjs`: PDF, Excel, screenshot and chart libraries must
+  stay out of the first-paint JS, which also has a size budget).
+- `test`: Vitest unit and component tests.
+- `lint-ratchets`: `npm run lint:ratchet --workspace=apps/web` compares per-file
+  counts of `any`, native dialogs, swallowed errors and hook-dependency violations
+  with committed baselines. A file may not get worse, and a file that improves must
+  have its baseline lowered (`npm run lint:ratchet:baseline --workspace=apps/web`).
+  Any violation of `react-hooks/rules-of-hooks` fails outright, with no baseline.
+- `db-shadow-replay`: replays every migration and the seed from scratch, runs
+  `plpgsql_check`, the tenant_id FK audit (`supabase/scripts/audit_tenant_fk.sql`),
+  the RLS coverage audit (`supabase/scripts/audit_rls_coverage.sql`), the
+  SECURITY DEFINER exposure audit (`supabase/scripts/audit_security_definer.sql`),
+  the security catalog snapshot check (grants, view options, RLS flags; see
+  `supabase/catalog-snapshots/README.md`), the generated-types drift check and every
+  `supabase/tests/*.sql` functional test.
+- `insurance-concurrency`: runs the `scripts/test-ins-*-concurrency.ts` scripts
+  against disposable migrated databases.
+
+`e2e.yml` runs the Playwright specs in `apps/web/e2e/` (eleven specs: procurement
+happy path and threshold branch, finance invoice payment, payroll approve/reject
+and disbursement, BD proposal approvals, company-admin member/invitation and
+organization setup, and the three insurance specs above); see `apps/web/e2e/README.md`.
+`supabase-keepalive.yml` calls `keepalive_ping()` with the anon key on a
 schedule (see `20261029053936` and `20261106120000`).
 
 ### Local UAT tenant

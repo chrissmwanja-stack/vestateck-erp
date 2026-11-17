@@ -53,27 +53,19 @@ reconstruction, not the original — see its own header note).
    and the apply, and buries the real change inside noise a reviewer
    won't read. If you made a change in Studio, write the equivalent
    hand-authored migration the same day (rule 3) -- don't dump the
-   catalog as a shortcut. `20260824064800_remote_schema.sql`,
-   `20260824110748_remote_schema.sql`, and
-   `20260901135345_remote_schema.sql` were grandfathered as pre-dating
-   this rule.
+   catalog as a shortcut. `20260824064800_remote_schema.sql` and six later dumps were grandfathered
+   because they pre-dated this rule or landed before it was enforced. All seven
+   were folded into the 2026-11 squash and now live only under
+   `supabase/migrations_archive/2026-11/`; no `remote_schema.sql` remains in
+   `supabase/migrations/`. `check-migration-policy.sh` matches on filename and
+   fails any new one.
 
-   **That grandfather list has since grown to seven files, not three:**
-   `20260903112116_remote_schema.sql`, `20260904082722_remote_schema.sql`,
-   `20260910113534_remote_schema.sql`, and `20260910133254_remote_schema.sql`
-   all landed on `main` *after* this rule and its CI check existed. This
-   isn't a checker bug -- `check-migration-policy.sh` does match on
-   filename and does fire on new `remote_schema.sql` files (confirmed: the
-   commit that added `20260910113534_remote_schema.sql` shows
-   `migration-policy` as a **failing** check on GitHub). The actual gap is
-   that `main` has no branch protection requiring that check to pass, so a
-   red `migration-policy` run doesn't block the push. Until that's turned
-   on (Settings -> Branches -> require status checks to pass, for
-   `migration-policy` at minimum), this rule is advisory, not enforced,
-   and the grandfather list will keep growing. Treat all seven as
-   grandfathered for now -- rewriting them is Phase 1.5 (squash), not a
-   one-off fix -- but do not add an eighth, and turning on branch
-   protection is the real fix, not a longer list here.
+   Enforcement: as of 2026-11-17 `main` is protected on GitHub and requires the
+   status checks `migration-policy`, `repo-hygiene`, `build`, `test`,
+   `lint-ratchets`, `db-shadow-replay`, `insurance-concurrency` and `e2e`. The
+   protection is enforced for non-admins, so an admin can still bypass a red
+   check. (Read from GitHub's branch API; it is a repository setting, not
+   something the code can pin, so re-check it if the rule seems not to bite.)
 
 7. **Run `scripts/check-migration-policy.sh` before you push.** CI runs
    it too (`.github/workflows/foundation-checks.yml`), but catching it
@@ -87,7 +79,8 @@ reconstruction, not the original — see its own header note).
    whatever was stored in that column or table before recreating it
    empty. This is exactly what happened in
    `20260904082722_remote_schema.sql` /
-   `20260904090500_payroll_paye_nssf_workstream_f.sql`, which dropped
+   `20260904090500_payroll_paye_nssf_workstream_f.sql` (both now under
+   `migrations_archive/2026-11/`), which dropped
    and recreated `hr_payroll_items.{paye_amount,nssf_employee,
    nssf_employer}` back to back. Deprecate instead: rename the column
    to `<name>_deprecated`, stop reading/writing it in application code,
@@ -139,12 +132,10 @@ learn it than doing it here.
 
 ## What this does not cover
 
-This policy is about what goes **into** new migrations. It does not
-retroactively fix `0001_init_core_schema.sql` or the other three
-migrations that already seed `@test.local` accounts directly --
-rewriting those breaks shadow replay for anything that FKs to those
-user ids (see Foundation Playbook, "Why this order"). That cleanup is
-Phase 1.5 (squash), done once, deliberately, not as an ongoing rule.
-It also does not retroactively fix the seven grandfathered
-`remote_schema.sql` dumps (rule 6) -- replacing them is part of the
-same squash cleanup, not something to hand-patch in isolation.
+This policy is about what goes **into** new migrations. It is not a review of
+what the 2026-11 squash archived: the pre-November history, including
+`0001_init_core_schema.sql` and the other early migrations that seeded
+`@test.local` accounts directly, now lives only in `supabase/migrations_archive/`
+for reference and must never be applied (see `SQUASH_RUNBOOK.md`). Rule 9 (fix
+forward) is a convention reviewers apply; `check-migration-policy.sh` cannot see
+whether a file was already applied somewhere.

@@ -93,7 +93,9 @@ npx playwright install --with-deps chromium
    `gm@test.local` (Deputy GM — high-threshold branch terminal stage),
    `bd@test.local` (BD officer with a seeded pending proposal),
    `company.admin@test.local` (company admin with no module role and no
-   finance row — seed.sql section 5).
+   finance row — seed.sql section 5), and for the insurance specs the Pearl Risk
+   Brokers UAT users from seed.sql section 6: `ins.manager@test.local`,
+   `ins.admin@test.local`, `fin.maker@test.local` and `fin.checker@test.local`.
 3. **`pm@test.local` is seeded as a payroll approver** directly in
    `supabase/seed.sql` (payroll approval rights are a separate grant
    from job title/`approval_assignments`, via `/hr/admin/payroll-approvers`

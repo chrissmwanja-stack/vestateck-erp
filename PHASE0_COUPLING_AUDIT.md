@@ -6,6 +6,8 @@
 
 **Status (updated 2026-10-08, repo at `f1282d0`):** Phase 0 is closed; all decisions D1-D7 are confirmed. Sections 1-3 are the audit as it stood at `2fc0c46` and are kept as a historical record, so their present-tense statements describe that commit, not today's repo. Section 4 carries the decisions and Section 7 carries what has been built since.
 
+**Update 2026-11-17 (repo at `0d550eb`):** the posting-role list has grown to 28 (latest `CHECK` in `20261110120000`; the later additions include `opening_balance_clearing` and `retained_earnings` for the in-force import, see `docs/insurance-brokerage/IN_FORCE_IMPORT.md`). The multi-currency question under "Not yet verified" is answered by `docs/insurance-brokerage/CURRENCY_REVIEW.md` (closed 21 October). The D4 "Next" items (D4e adjustments for unmatched bank lines, and an import batch id to stop CSV re-imports duplicating statement lines) have no migration or function in the repo, so they are still open. Production state is not re-checked here.
+
 **Update 2026-10-12:** the insurance commission follow-on (deferral, bank picker, transfer reconciliation) is built, which grows the posting roles to 19 and the insurance template to 19 accounts and 19 posting rules; see the end of Section 7. The full CI run (build, unit tests, migration replay and every SQL test) was reported green on 2026-10-12, which clears the "not yet run in CI" notes below.
 
 ---

@@ -5,6 +5,10 @@ Status: draft for review. Derived from the live definitions in production
 at `ab8409e` (which is `main` at `9eaeb79` plus per-tenant document numbering). Where
 the two could differ, production is authoritative (see `supabase/MIGRATION_POLICY.md`).
 
+Updated 17 November 2026 from the migrations and tests on `main` (`0d550eb`) for the
+`anon` privilege revoke (`20261112090000`) and the HR leave rules (section 8). Those additions were **not** re-checked against the live database; run
+`supabase/tests/check_live_security_drift.sql` on production before relying on them.
+
 The rule behind everything below: **the database is the security boundary.**
 React route guards decide what to show; RLS, grants and `SECURITY DEFINER` function
 bodies decide what is allowed.
@@ -214,8 +218,16 @@ A definer function is a privileged API. Every new one must have:
 (service role, cron, owner); the caller's effective tenant; a non-impersonating
 platform admin. It denies `anon` and `authenticated` tokens that carry no `sub`.
 
-Intentionally anon-callable: `health_check` and `get_platform_branding`. Everything
+Intentionally anon-callable: `health_check` and `get_platform_branding` (the README also
+lists `keepalive_ping`, which the keepalive workflow calls with the anon key). Everything
 else should be `authenticated`-only or internal.
+
+Table privileges: since `20261112090000`, `anon` holds no privilege on any table, view or
+sequence in `public`, and `authenticated` no longer holds `TRUNCATE`, `REFERENCES` or
+`TRIGGER`. RLS is still the barrier for `SELECT/INSERT/UPDATE/DELETE`, because the baseline
+default privileges give `authenticated` full DML on new tables. Guarded by
+`supabase/tests/test_anon_and_excess_table_privileges.sql`; `MIGRATION_POLICY.md` rule 10
+requires every new policy to name its role with `TO`.
 
 ## 7. Frontend guards
 
@@ -241,6 +253,15 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
   (`grant_payroll_approver`, `set_payroll_approver_active`). Usually the approver is the HR manager.
 - Salaries: `record_employee_compensation` requires an `hr_team_members` row **and** the HR
   module `manager` role.
+- Leave (`hr_leave_requests`): an employee files for themselves, and an HR module
+  admin/manager may file for any employee in their tenant. A filed request must be
+  `pending` with no approver, so filing cannot skip approval. A request may be decided by an
+  HR admin/manager, the company admin (`is_tenant_admin()`) or the employee's line manager
+  (`hr_employees.manager_id`), and never by the employee it belongs to, whichever of those
+  they are. `can_decide_leave()` backs the Leave Approvals screen and its sidebar entry
+  (`requiredAccess: "leave-decider"`); like payroll approvals, that screen is not behind
+  `RequireModule`. Migrations `20261112100000`, `20261114090000`, `20261114100000`,
+  `20261114110000`.
 - Journal entries are immutable once posted; corrections go through `void_journal_entry`.
 - Posting and period-close functions are internal or finance-gated, never
   client-callable with an arbitrary tenant id.
@@ -259,6 +280,8 @@ Payroll approvals are deliberately outside `RequireModule` (they follow
 | Numbering uniqueness (same number allowed across tenants, not within one) | `supabase/tests/test_per_tenant_document_numbers.sql` |
 | View-as actor attribution | `supabase/tests/test_impersonation_attribution.sql` |
 | Read-only mode | `supabase/tests/test_tenant_read_only_guard.sql` |
+| HR leave: filing on behalf, deciders, no self-approval, `can_decide_leave()` | `supabase/tests/test_hr_leave_on_behalf_and_self_approval.sql`, `test_hr_leave_deciders.sql`, `test_hr_can_decide_leave.sql`, `test_hr_authorization.sql` |
+| `anon` has no table access; `authenticated` has no excess privileges | `supabase/tests/test_anon_and_excess_table_privileges.sql` |
 | Production still matches the rules, including per-tenant numbering (check 13) and a pinned `search_path` on every definer function (check 15, rule 3 of section 6) | `supabase/tests/check_live_security_drift.sql` (read-only, safe on prod) |
 | Heuristic exposure scan of client-callable definer functions | `supabase/scripts/audit_security_definer.sql` (CI fails on `CRITICAL`) |
 | Company Admin screens, real HTTP path | `apps/web/e2e/company-admin-org-setup.spec.ts` |

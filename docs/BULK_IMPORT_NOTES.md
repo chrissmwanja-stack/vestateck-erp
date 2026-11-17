@@ -1,5 +1,7 @@
 # Bulk Import — Employees, Accounts, Equipment, Leads
 
+Status (17 November 2026): every file below is in the repo, so there is no copy step. Read this as the per-screen column spec. The "Not touched" list still stands: BD Clients and Cost Centers/Cost Codes have no bulk import, and `material_catalog` is unblocked but not wired. The insurance in-force import is separate (`docs/insurance-brokerage/IN_FORCE_IMPORT.md`).
+
 Built and validated against a fresh clone of `vestaportal` (typechecked with
 `tsc -b` and a full `vite build` — both pass clean). Copy these files into
 your repo at the matching paths, overwriting what's there.

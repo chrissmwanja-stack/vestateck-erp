@@ -95,7 +95,7 @@ Per-policy time-apportioned earned amounts can still be computed and shown on th
 ## 5. Build order
 
 1. Staging tables, mapping profile and validation RPC (no posting, safe to ship). — built (`20261107140000`).
-2. Policy commit with the version-1 override. — built (`20261110120000`, history promoted by `20261110140000`).
+2. Policy commit with the version-1 override. — built (`20261107160000`, history promoted by `20261110140000`).
 3. Opening journals and reconciliation. — built (`20261110120000` legs 1-3 and `20261110190000` leg 4; reconciled per currency by `20261110170000`).
 4. Wizard UI. — built (`ImportWizard.tsx`: multi-sheet staging, compare-before-commit, reason + approve, `?batch=` resume).
 5. Insurance E2E spec covering upload, validate, commit and reconcile. — built (`apps/web/e2e/insurance-import.spec.ts`, both the agreeing and the refused-then-approved path).

@@ -1,6 +1,6 @@
 # Documentation index
 
-Last reviewed: 7 November 2026 against `main` at `04bf056` plus the unmerged in-force import step 1. When a doc and the code disagree, the code and its tests win; fix the doc in the same change.
+Last reviewed: 17 November 2026 against `main` at `0d550eb`. When a doc and the code disagree, the code and its tests win; fix the doc in the same change.
 
 ## Root and platform
 
@@ -14,6 +14,11 @@ Last reviewed: 7 November 2026 against `main` at `04bf056` plus the unmerged in-
 | `docs/BULK_IMPORT_NOTES.md` | Bulk-import file list and per-screen column specs |
 | `supabase/SQUASH_RUNBOOK.md` | How to squash migrations into a new baseline and repair prod |
 | `apps/web/e2e/README.md` | Playwright specs, what they cover and what they do not |
+| `apps/web/docs/AUTHORIZATION_ARCHITECTURE.md` | Identities, RLS tiers, View-as, definer-function rules, separation of duties, and which test covers each rule |
+| `supabase/catalog-snapshots/README.md` | The security catalog snapshot (grants, view options, RLS flags) and what to do when CI reports a diff |
+| `.github/pull_request_template.md` | PR checklist (CI, migrations and types, tests, docs) |
+
+`docs/handoffs/` holds two TypeScript hand-off notes for the insurance cancellation work (`CANCELLATION_APPROVAL_HANDOFF.ts`, `CANCELLATION_CASH_HANDOFF.ts`); they are history, not maintained docs.
 
 ## Insurance Brokerage (`docs/insurance-brokerage/`)
 
@@ -40,6 +45,10 @@ Last reviewed: 7 November 2026 against `main` at `04bf056` plus the unmerged in-
 | `send-operator-digest` | **off** | Scheduler endpoint; authenticates its own shared secret (`OPERATOR_DIGEST_SECRET`) and fails closed |
 
 Functions that use the service-role key bypass RLS, so each re-checks the caller's tenant and access itself.
+
+## CI gates that guard the repo
+
+Described in the root `README.md` ("Testing & CI"): migration policy, merge-conflict markers, first-load bundle guard (`scripts/check-initial-load.mjs`), lint ratchets (`scripts/check-lint-ratchet.mjs`, baselines in `apps/web/eslint-*-baseline.json`), shadow replay with the SQL audits and security catalog snapshot, generated-types drift, and the insurance concurrency scripts.
 
 ## Keeping docs current
 
