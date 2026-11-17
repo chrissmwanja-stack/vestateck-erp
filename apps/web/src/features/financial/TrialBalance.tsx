@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
+  Stack,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -24,25 +26,38 @@ interface TrialBalanceRow {
   balance: number | null;
 }
 
+// "As at" defaults to today, which reproduces the old view's behaviour. Any
+// other date must give the same figures every time it is asked for: the
+// fin_trial_balance() function filters on entry_date, and voids are dated
+// reversal entries rather than retroactive deletions, so later activity
+// cannot change a historical report. See migration
+// 20261117120000_fin_as_at_reporting_and_void_netting.sql.
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function TrialBalance() {
   const [searchParams] = useSearchParams();
   const currency = searchParams.get('ccy') === 'USD' ? 'USD' : 'UGX';
+  const asOfParam = searchParams.get('asOf');
+  const [asOf, setAsOf] = useState<string>(asOfParam ?? today());
 
   const [rows, setRows] = useState<TrialBalanceRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
+    // The RPC is typed from the regenerated database.types.ts; v_trial_balance
+    // remains as an "as of today" shim for any older reader.
     supabase
-      .from('v_trial_balance')
-      .select('*')
+      .rpc('fin_trial_balance', { p_as_of: asOf })
       .eq('currency', currency)
       .order('category_name')
       .then(({ data, error }) => {
         setRows(error ? [] : (data as TrialBalanceRow[]) ?? []);
         setLoading(false);
       });
-  }, [currency]);
+  }, [currency, asOf]);
 
   const totalDebit = rows.reduce((sum, r) => sum + Number(r.total_debit ?? 0), 0);
   const totalCredit = rows.reduce((sum, r) => sum + Number(r.total_credit ?? 0), 0);
@@ -53,6 +68,20 @@ export default function TrialBalance() {
       <Typography variant="h5" gutterBottom>
         Trial Balance {currency === 'USD' && '(USD)'}
       </Typography>
+
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <TextField
+          label="As at"
+          type="date"
+          size="small"
+          value={asOf}
+          onChange={(e) => setAsOf(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          Figures as at this date will not change as later transactions are posted.
+        </Typography>
+      </Stack>
 
       <TableContainer component={Paper}>
         <Table size="small">

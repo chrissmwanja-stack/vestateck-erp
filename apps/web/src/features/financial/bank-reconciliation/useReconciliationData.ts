@@ -10,6 +10,7 @@ import type {
   PositionRow,
   SettlementRow,
   StatementLine,
+  SuggestedMatch,
   TransferSideRow,
   VarianceRow,
 } from './types';
@@ -31,6 +32,8 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
   const [position, setPosition] = useState<PositionRow[] | null>(null);
   const [positionError, setPositionError] = useState<string | null>(null);
   const [variances, setVariances] = useState<VarianceRow[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestedMatch[]>([]);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +75,8 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
       setPosition(null);
       setPositionError(null);
       setVariances([]);
+      setSuggestions([]);
+      setSuggestionsError(null);
       return;
     }
     setLoading(true);
@@ -83,7 +88,7 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
     const settlementsQuery = resolvedAccountId
       ? db
           .from('fin_settlements')
-          .select('id, settlement_no, direction, amount, currency, settlement_date, reference, notes')
+          .select('id, settlement_no, direction, amount, currency, settlement_date, reference, notes, subledger_only, funding_transaction_id')
           .eq('bank_account_id', resolvedAccountId)
           .eq('status', 'posted')
           .gte('settlement_date', bookFrom)
@@ -104,6 +109,14 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
           .order('transfer_date')
       : Promise.resolve({ data: [] as CommissionTransferRow[], error: null });
 
+    // The suggestion queue: what the database thinks could match each open
+    // line. Read-only -- it persists nothing.
+    const suggestionsQuery = db.rpc('fin_bank_suggested_matches', {
+      p_bank_account: account,
+      p_date_from: dateFrom,
+      p_date_to: dateTo,
+    });
+
     const positionQuery = resolvedAccountId
       ? db.rpc('fin_bank_reconciliation_position', { p_bank_account_id: resolvedAccountId, p_as_of: dateTo })
       : Promise.resolve({ data: null, error: null });
@@ -116,6 +129,7 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
       { data: transferRows, error: transferErr },
       { data: doubleRows, error: doubleErr },
       { data: posRows, error: posErr },
+      { data: suggestionRows, error: suggestionErr },
     ] = await Promise.all([
       supabase
         .from('v_bank_statement_unmatched')
@@ -140,6 +154,7 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
       transfersQuery,
       db.from('v_bank_possible_double_entries').select('statement_line_id').eq('bank_account', account),
       positionQuery,
+      suggestionsQuery,
     ]);
 
     // Settlements that already have a reconciliation row are not
@@ -220,6 +235,16 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
       );
     }
 
+    // Suggestions have their own error slot too: a queue that cannot load
+    // must not stop the desk matching by hand.
+    if (suggestionErr) {
+      setSuggestions([]);
+      setSuggestionsError(suggestionErr.message ?? 'Could not load suggested matches.');
+    } else {
+      setSuggestions((suggestionRows ?? []) as SuggestedMatch[]);
+      setSuggestionsError(null);
+    }
+
     // The position summary has its own error slot: a GL or permission
     // problem there should not hide the lines the user came to match.
     if (posErr) {
@@ -251,6 +276,8 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
     position,
     positionError,
     variances,
+    suggestions,
+    suggestionsError,
     loading,
     error,
     setError,

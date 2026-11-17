@@ -5,10 +5,18 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../lib/authContext';
 
 type AccessState = 'loading' | 'allowed' | 'denied';
+/** A refusal by can_access_finance(), as distinct from "the check did not run". */
+interface Denial {
+  /** The RPC's message, when it failed. Null when it answered `false`. */
+  detail: string | null;
+  /** True when the check itself failed (network, timeout), not when it said no. */
+  failed: boolean;
+}
 
-function useFinanceAccess(): AccessState {
+function useFinanceAccess(): { state: AccessState; denial: Denial | null } {
   const { session, loading: authLoading } = useAuth();
   const [state, setState] = useState<AccessState>('loading');
+  const [denial, setDenial] = useState<Denial | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -18,6 +26,7 @@ function useFinanceAccess(): AccessState {
     }
     let cancelled = false;
     setState('loading');
+    setDenial(null);
     // can_access_finance() is SECURITY DEFINER and already treats
     // is_platform_admin as an automatic pass on both underlying checks --
     // no need to special-case platform admins here.
@@ -25,7 +34,16 @@ function useFinanceAccess(): AccessState {
       .rpc('can_access_finance')
       .then(({ data, error }) => {
         if (cancelled) return;
-        setState(!error && data ? 'allowed' : 'denied');
+        if (error) {
+          // The check failed; that is not the same as "you are not finance".
+          // Both stay closed to the user, but the screen must say which it
+          // was, or a network blip reads as a permissions problem.
+          setDenial({ detail: error.message, failed: true });
+          setState('denied');
+          return;
+        }
+        setDenial(data ? null : { detail: null, failed: false });
+        setState(data ? 'allowed' : 'denied');
       });
     return () => {
       cancelled = true;
@@ -33,7 +51,7 @@ function useFinanceAccess(): AccessState {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, authLoading]);
 
-  return state;
+  return { state, denial };
 }
 
 /**
@@ -55,7 +73,7 @@ function useFinanceAccess(): AccessState {
  *   </Route>
  */
 export default function RequireFinanceTeam() {
-  const access = useFinanceAccess();
+  const { state: access, denial } = useFinanceAccess();
 
   if (access === 'loading') {
     return (
@@ -75,6 +93,12 @@ export default function RequireFinanceTeam() {
           You don't have finance access in your tenant. Contact your company admin if you
           believe this is a mistake.
         </Typography>
+        {denial?.failed && (
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            Checking your access failed, so this may be temporary. Reload to try again
+            {denial.detail ? ` (${denial.detail})` : ''}.
+          </Typography>
+        )}
       </Box>
     );
   }

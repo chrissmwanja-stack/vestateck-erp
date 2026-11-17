@@ -152,6 +152,66 @@ export type Database = {
           },
         ]
       }
+      accounting_period_events: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          new_status: string | null
+          note: string | null
+          period_end: string | null
+          period_id: string | null
+          period_start: string | null
+          previous_status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string | null
+          note?: string | null
+          period_end?: string | null
+          period_id?: string | null
+          period_start?: string | null
+          previous_status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string | null
+          note?: string | null
+          period_end?: string | null
+          period_id?: string | null
+          period_start?: string | null
+          previous_status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_period_events_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_period_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_policies: {
         Row: {
           approved_at: string | null
@@ -2956,6 +3016,7 @@ export type Database = {
           created_by: string | null
           currency: string
           direction: string
+          funding_transaction_id: string | null
           fx_rate: number
           id: string
           journal_entry_id: string | null
@@ -2966,6 +3027,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status: string
+          subledger_only: boolean
           tenant_id: string
           void_journal_entry_id: string | null
           void_reason: string | null
@@ -2981,6 +3043,7 @@ export type Database = {
           created_by?: string | null
           currency: string
           direction: string
+          funding_transaction_id?: string | null
           fx_rate?: number
           id?: string
           journal_entry_id?: string | null
@@ -2991,6 +3054,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status?: string
+          subledger_only?: boolean
           tenant_id: string
           void_journal_entry_id?: string | null
           void_reason?: string | null
@@ -3006,6 +3070,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           direction?: string
+          funding_transaction_id?: string | null
           fx_rate?: number
           id?: string
           journal_entry_id?: string | null
@@ -3016,6 +3081,7 @@ export type Database = {
           settlement_date?: string
           settlement_no?: string
           status?: string
+          subledger_only?: boolean
           tenant_id?: string
           void_journal_entry_id?: string | null
           void_reason?: string | null
@@ -3023,6 +3089,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fin_settlements_funding_transaction_id_fkey"
+            columns: ["funding_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "cash_bank_transactions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fin_settlements_bank_fk"
             columns: ["tenant_id", "bank_account_id"]
@@ -3070,6 +3143,81 @@ export type Database = {
             columns: ["void_journal_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_transaction_actors: {
+        Row: {
+          acted_at: string
+          acted_by: string | null
+          actor_id: string | null
+          id: string
+          impersonation_session_id: string | null
+          journal_entry_id: string
+          note: string | null
+          related_journal_entry_id: string | null
+          role: string
+          tenant_id: string
+        }
+        Insert: {
+          acted_at?: string
+          acted_by?: string | null
+          actor_id?: string | null
+          id?: string
+          impersonation_session_id?: string | null
+          journal_entry_id: string
+          note?: string | null
+          related_journal_entry_id?: string | null
+          role: string
+          tenant_id: string
+        }
+        Update: {
+          acted_at?: string
+          acted_by?: string | null
+          actor_id?: string | null
+          id?: string
+          impersonation_session_id?: string | null
+          journal_entry_id?: string
+          note?: string | null
+          related_journal_entry_id?: string | null
+          role?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transaction_actors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transaction_actors_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transaction_actors_related_journal_entry_id_fkey"
+            columns: ["related_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transaction_actors_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transaction_actors_acted_by_fkey"
+            columns: ["acted_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
             referencedColumns: ["id"]
           },
         ]
@@ -8788,6 +8936,9 @@ export type Database = {
           source_type: string
           status: string
           tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           accounting_policy_version?: number
@@ -8800,6 +8951,9 @@ export type Database = {
           source_type: string
           status?: string
           tenant_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           accounting_policy_version?: number
@@ -8812,6 +8966,9 @@ export type Database = {
           source_type?: string
           status?: string
           tenant_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -15589,6 +15746,143 @@ export type Database = {
           source: string
         }[]
       }
+      fin_account_ledger: {
+        Args: { p_as_of?: string }
+        Returns: {
+          account_id: string
+          base_credit: number | null
+          base_debit: number | null
+          credit: number
+          currency: string
+          debit: number
+          fx_rate: number
+          reference_no: string | null
+          source_id: string | null
+          source_type: string
+          tenant_id: string
+          transaction_date: string
+        }[]
+      }
+      fin_close_accounting_period: {
+        Args: { p_note?: string; p_period_id: string }
+        Returns: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_periods"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_delete_accounting_period: {
+        Args: { p_period_id: string; p_reason: string }
+        Returns: undefined
+      }
+      fin_period_events: {
+        Args: { p_period_id: string }
+        Returns: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          new_status: string | null
+          note: string | null
+          period_end: string | null
+          period_id: string | null
+          period_start: string | null
+          previous_status: string | null
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "accounting_period_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fin_reopen_accounting_period: {
+        Args: { p_period_id: string; p_reason: string }
+        Returns: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_periods"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_bank_confirm_match: {
+        Args: { p_candidate_id: string; p_source: string; p_statement_line_id: string }
+        Returns: {
+          bank_statement_line_id: string
+          cash_bank_transaction_id: string | null
+          commission_transfer_id: string | null
+          id: string
+          match_type: string
+          matched_at: string
+          matched_by: string | null
+          settlement_id: string | null
+          tenant_id: string
+          transfer_side: string | null
+          variance: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_bank_reconciliation_review: {
+        Args: { p_as_of: string; p_bank_account_id: string }
+        Returns: {
+          metric: string
+          value: number
+        }[]
+      }
+      fin_bank_review_gaps: {
+        Args: { p_older_than_days?: number; p_tenant_id?: string }
+        Returns: {
+          auto_matched: number
+          bank_account: string
+          oldest_unreviewed: string | null
+        }[]
+      }
+      fin_bank_suggested_matches: {
+        Args: { p_bank_account: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          candidate_amount: number
+          candidate_date: string | null
+          candidate_id: string
+          candidate_ref: string | null
+          currency: string | null
+          day_gap: number | null
+          line_amount: number
+          needs_third_user: boolean
+          reference: string | null
+          source: string
+          statement_date: string
+          statement_line_id: string
+          suggestion_rank: number
+        }[]
+      }
       fin_bank_reconciliation_position: {
         Args: { p_as_of?: string; p_bank_account_id: string }
         Returns: {
@@ -15773,6 +16067,93 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      fin_audit_approvals: {
+        Args: { p_journal_entry_id: string }
+        Returns: {
+          acted_at: string | null
+          acted_by: string | null
+          approver_id: string | null
+          approver_name: string | null
+          comment: string | null
+          decision: string | null
+          module: string | null
+          on_behalf_of: string | null
+        }[]
+      }
+      fin_audit_gaps: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          description: string | null
+          entry_date: string | null
+          gap: string | null
+          journal_entry_id: string | null
+          source_type: string | null
+        }[]
+      }
+      fin_audit_link_initiator: {
+        Args: { p_initiator_id: string; p_journal_entry_id: string; p_note?: string }
+        Returns: undefined
+      }
+      fin_audit_trail: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          actor_id: string | null
+          actor_name: string | null
+          amount: number | null
+          currency: string | null
+          detail: string | null
+          document_id: string | null
+          document_name: string | null
+          happened_at: string | null
+          hop: number | null
+          journal_id: string | null
+          stage: string | null
+          status: string | null
+          summary: string | null
+        }[]
+      }
+      fin_trace: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          actor: string | null
+          amount: number | null
+          currency: string | null
+          detail: string | null
+          entity_id: string | null
+          entity_table: string | null
+          happened_at: string | null
+          hop: number | null
+          hop_kind: string | null
+          journal_date: string | null
+          journal_id: string | null
+          journal_status: string | null
+          reference: string | null
+          status: string | null
+        }[]
+      }
+      fin_trace_gaps: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          entity_id: string | null
+          entity_type: string | null
+          gap: string | null
+          reference: string | null
+        }[]
+      }
+      fin_trial_balance: {
+        Args: { p_as_of?: string }
+        Returns: {
+          account_code: string
+          account_id: string
+          account_name: string
+          balance: number | null
+          category_name: string | null
+          currency: string | null
+          tenant_id: string
+          total_credit: number | null
+          total_debit: number | null
+        }[]
       }
       fin_revalue_fx: {
         Args: { p_as_of: string }
