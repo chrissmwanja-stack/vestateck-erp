@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
+  }
   public: {
     Tables: {
       access_requests: {
@@ -111,47 +116,6 @@ export type Database = {
           },
         ]
       }
-      accounting_periods: {
-        Row: {
-          closed_at: string | null
-          closed_by: string | null
-          created_at: string
-          id: string
-          period_end: string
-          period_start: string
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          closed_at?: string | null
-          closed_by?: string | null
-          created_at?: string
-          id?: string
-          period_end: string
-          period_start: string
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          closed_at?: string | null
-          closed_by?: string | null
-          created_at?: string
-          id?: string
-          period_end?: string
-          period_start?: string
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "accounting_periods_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       accounting_period_events: {
         Row: {
           action: string
@@ -205,6 +169,47 @@ export type Database = {
           },
           {
             foreignKeyName: "accounting_period_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_periods_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3090,6 +3095,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fin_settlements_bank_fk"
+            columns: ["tenant_id", "bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
             foreignKeyName: "fin_settlements_funding_transaction_id_fkey"
             columns: ["funding_transaction_id"]
             isOneToOne: false
@@ -3097,11 +3109,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fin_settlements_bank_fk"
-            columns: ["tenant_id", "bank_account_id"]
+            foreignKeyName: "fin_settlements_funding_transaction_id_fkey"
+            columns: ["funding_transaction_id"]
             isOneToOne: false
-            referencedRelation: "fin_bank_accounts"
-            referencedColumns: ["tenant_id", "id"]
+            referencedRelation: "v_cash_bank_unmatched"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fin_settlements_journal_entry_id_fkey"
@@ -3186,10 +3198,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fin_transaction_actors_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "fin_transaction_actors_acted_by_fkey"
+            columns: ["acted_by"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transaction_actors_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
             referencedColumns: ["id"]
           },
           {
@@ -3207,17 +3226,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fin_transaction_actors_actor_id_fkey"
-            columns: ["actor_id"]
+            foreignKeyName: "fin_transaction_actors_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "app_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fin_transaction_actors_acted_by_fkey"
-            columns: ["acted_by"]
-            isOneToOne: false
-            referencedRelation: "app_users"
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -15739,97 +15751,96 @@ export type Database = {
       effective_user_id: { Args: never; Returns: string }
       end_impersonation: { Args: never; Returns: undefined }
       feature_enabled: { Args: { p_key: string }; Returns: boolean }
-      fin_bank_line_candidates: {
-        Args: { p_line_id: string; p_tenant_id: string }
-        Returns: {
-          candidate_id: string
-          source: string
-        }[]
-      }
       fin_account_ledger: {
         Args: { p_as_of?: string }
         Returns: {
           account_id: string
-          base_credit: number | null
-          base_debit: number | null
+          base_credit: number
+          base_debit: number
           credit: number
           currency: string
           debit: number
           fx_rate: number
-          reference_no: string | null
-          source_id: string | null
+          reference_no: string
+          source_id: string
           source_type: string
           tenant_id: string
           transaction_date: string
         }[]
       }
-      fin_close_accounting_period: {
-        Args: { p_note?: string; p_period_id: string }
+      fin_audit_approvals: {
+        Args: { p_journal_entry_id: string }
         Returns: {
-          closed_at: string | null
-          closed_by: string | null
-          created_at: string
-          id: string
-          period_end: string
-          period_start: string
-          status: string
-          tenant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "accounting_periods"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+          acted_at: string
+          acted_by: string
+          approver_id: string
+          approver_name: string
+          comment: string
+          decision: string
+          module: string
+          on_behalf_of: string
+        }[]
       }
-      fin_delete_accounting_period: {
-        Args: { p_period_id: string; p_reason: string }
+      fin_audit_gaps: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          description: string
+          entry_date: string
+          gap: string
+          journal_entry_id: string
+          source_type: string
+        }[]
+      }
+      fin_audit_link_initiator: {
+        Args: {
+          p_initiator_id: string
+          p_journal_entry_id: string
+          p_note?: string
+        }
         Returns: undefined
       }
-      fin_period_events: {
-        Args: { p_period_id: string }
-        Returns: {
-          action: string
-          actor_email: string | null
-          actor_id: string | null
-          created_at: string
-          id: string
-          new_status: string | null
-          note: string | null
-          period_end: string | null
-          period_id: string | null
-          period_start: string | null
-          previous_status: string | null
-          tenant_id: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "accounting_period_events"
-          isOneToOne: false
-          isSetofReturn: true
+      fin_audit_record: {
+        Args: {
+          p_journal_entry_id: string
+          p_note?: string
+          p_related_journal_entry_id?: string
+          p_role: string
+          p_tenant_id: string
         }
+        Returns: undefined
       }
-      fin_reopen_accounting_period: {
-        Args: { p_period_id: string; p_reason: string }
+      fin_audit_reversal_of: {
+        Args: {
+          p_source_id: string
+          p_source_type: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
+      fin_audit_trail: {
+        Args: { p_entity_id: string; p_entity_type: string }
         Returns: {
-          closed_at: string | null
-          closed_by: string | null
-          created_at: string
-          id: string
-          period_end: string
-          period_start: string
+          actor_id: string
+          actor_name: string
+          amount: number
+          currency: string
+          detail: string
+          document_id: string
+          document_name: string
+          happened_at: string
+          hop: number
+          journal_id: string
+          stage: string
           status: string
-          tenant_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "accounting_periods"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+          summary: string
+        }[]
       }
       fin_bank_confirm_match: {
-        Args: { p_candidate_id: string; p_source: string; p_statement_line_id: string }
+        Args: {
+          p_candidate_id: string
+          p_source: string
+          p_statement_line_id: string
+        }
         Returns: {
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
@@ -15850,6 +15861,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_bank_line_candidates: {
+        Args: { p_line_id: string; p_tenant_id: string }
+        Returns: {
+          candidate_id: string
+          source: string
+        }[]
+      }
+      fin_bank_reconciliation_position: {
+        Args: { p_as_of?: string; p_bank_account_id: string }
+        Returns: {
+          amount: number
+          component: string
+          label: string
+          line_order: number
+        }[]
+      }
       fin_bank_reconciliation_review: {
         Args: { p_as_of: string; p_bank_account_id: string }
         Returns: {
@@ -15862,35 +15889,49 @@ export type Database = {
         Returns: {
           auto_matched: number
           bank_account: string
-          oldest_unreviewed: string | null
+          oldest_unreviewed: string
         }[]
       }
       fin_bank_suggested_matches: {
-        Args: { p_bank_account: string; p_date_from?: string; p_date_to?: string }
+        Args: {
+          p_bank_account: string
+          p_date_from?: string
+          p_date_to?: string
+        }
         Returns: {
           candidate_amount: number
-          candidate_date: string | null
+          candidate_date: string
           candidate_id: string
-          candidate_ref: string | null
-          currency: string | null
-          day_gap: number | null
+          candidate_ref: string
+          currency: string
+          day_gap: number
           line_amount: number
           needs_third_user: boolean
-          reference: string | null
+          reference: string
           source: string
           statement_date: string
           statement_line_id: string
           suggestion_rank: number
         }[]
       }
-      fin_bank_reconciliation_position: {
-        Args: { p_as_of?: string; p_bank_account_id: string }
+      fin_close_accounting_period: {
+        Args: { p_note?: string; p_period_id: string }
         Returns: {
-          amount: number
-          component: string
-          label: string
-          line_order: number
-        }[]
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_periods"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fin_create_open_item: {
         Args: {
@@ -15976,10 +16017,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_delete_accounting_period: {
+        Args: { p_period_id: string; p_reason: string }
+        Returns: undefined
+      }
       fin_ledger_currency: { Args: { p_tenant_id: string }; Returns: string }
       fin_open_item_consumed: {
         Args: { p_open_item_id: string }
         Returns: number
+      }
+      fin_period_events: {
+        Args: { p_period_id: string }
+        Returns: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          new_status: string | null
+          note: string | null
+          period_end: string | null
+          period_id: string | null
+          period_start: string | null
+          previous_status: string | null
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "accounting_period_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       fin_raise_credit_note: {
         Args: {
@@ -16045,6 +16113,7 @@ export type Database = {
           created_by: string | null
           currency: string
           direction: string
+          funding_transaction_id: string | null
           fx_rate: number
           id: string
           journal_entry_id: string | null
@@ -16055,6 +16124,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status: string
+          subledger_only: boolean
           tenant_id: string
           void_journal_entry_id: string | null
           void_reason: string | null
@@ -16068,92 +16138,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      fin_audit_approvals: {
-        Args: { p_journal_entry_id: string }
+      fin_reopen_accounting_period: {
+        Args: { p_period_id: string; p_reason: string }
         Returns: {
-          acted_at: string | null
-          acted_by: string | null
-          approver_id: string | null
-          approver_name: string | null
-          comment: string | null
-          decision: string | null
-          module: string | null
-          on_behalf_of: string | null
-        }[]
-      }
-      fin_audit_gaps: {
-        Args: { p_tenant_id?: string }
-        Returns: {
-          description: string | null
-          entry_date: string | null
-          gap: string | null
-          journal_entry_id: string | null
-          source_type: string | null
-        }[]
-      }
-      fin_audit_link_initiator: {
-        Args: { p_initiator_id: string; p_journal_entry_id: string; p_note?: string }
-        Returns: undefined
-      }
-      fin_audit_trail: {
-        Args: { p_entity_id: string; p_entity_type: string }
-        Returns: {
-          actor_id: string | null
-          actor_name: string | null
-          amount: number | null
-          currency: string | null
-          detail: string | null
-          document_id: string | null
-          document_name: string | null
-          happened_at: string | null
-          hop: number | null
-          journal_id: string | null
-          stage: string | null
-          status: string | null
-          summary: string | null
-        }[]
-      }
-      fin_trace: {
-        Args: { p_entity_id: string; p_entity_type: string }
-        Returns: {
-          actor: string | null
-          amount: number | null
-          currency: string | null
-          detail: string | null
-          entity_id: string | null
-          entity_table: string | null
-          happened_at: string | null
-          hop: number | null
-          hop_kind: string | null
-          journal_date: string | null
-          journal_id: string | null
-          journal_status: string | null
-          reference: string | null
-          status: string | null
-        }[]
-      }
-      fin_trace_gaps: {
-        Args: { p_tenant_id?: string }
-        Returns: {
-          entity_id: string | null
-          entity_type: string | null
-          gap: string | null
-          reference: string | null
-        }[]
-      }
-      fin_trial_balance: {
-        Args: { p_as_of?: string }
-        Returns: {
-          account_code: string
-          account_id: string
-          account_name: string
-          balance: number | null
-          category_name: string | null
-          currency: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          status: string
           tenant_id: string
-          total_credit: number | null
-          total_debit: number | null
-        }[]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "accounting_periods"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fin_revalue_fx: {
         Args: { p_as_of: string }
@@ -16178,6 +16180,48 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      fin_trace: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          actor: string
+          amount: number
+          currency: string
+          detail: string
+          entity_id: string
+          entity_table: string
+          happened_at: string
+          hop: number
+          hop_kind: string
+          journal_date: string
+          journal_id: string
+          journal_status: string
+          reference: string
+          status: string
+        }[]
+      }
+      fin_trace_gaps: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          entity_id: string
+          entity_type: string
+          gap: string
+          reference: string
+        }[]
+      }
+      fin_trial_balance: {
+        Args: { p_as_of?: string }
+        Returns: {
+          account_code: string
+          account_id: string
+          account_name: string
+          balance: number
+          category_name: string
+          currency: string
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+        }[]
       }
       fin_void_credit_note: {
         Args: {
@@ -16257,6 +16301,7 @@ export type Database = {
           created_by: string | null
           currency: string
           direction: string
+          funding_transaction_id: string | null
           fx_rate: number
           id: string
           journal_entry_id: string | null
@@ -16267,6 +16312,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status: string
+          subledger_only: boolean
           tenant_id: string
           void_journal_entry_id: string | null
           void_reason: string | null
@@ -19950,6 +19996,7 @@ export type Database = {
           created_by: string | null
           currency: string
           direction: string
+          funding_transaction_id: string | null
           fx_rate: number
           id: string
           journal_entry_id: string | null
@@ -19960,6 +20007,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status: string
+          subledger_only: boolean
           tenant_id: string
           void_journal_entry_id: string | null
           void_reason: string | null
@@ -20029,6 +20077,7 @@ export type Database = {
           created_by: string | null
           currency: string
           direction: string
+          funding_transaction_id: string | null
           fx_rate: number
           id: string
           journal_entry_id: string | null
@@ -20039,6 +20088,7 @@ export type Database = {
           settlement_date: string
           settlement_no: string
           status: string
+          subledger_only: boolean
           tenant_id: string
           void_journal_entry_id: string | null
           void_reason: string | null
@@ -20744,6 +20794,9 @@ export type Database = {
           source_type: string
           status: string
           tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         SetofOptions: {
           from: "*"
@@ -22169,6 +22222,9 @@ export type Database = {
           source_type: string
           status: string
           tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         SetofOptions: {
           from: "*"
@@ -22195,12 +22251,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -22224,11 +22280,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -22249,11 +22305,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -22274,11 +22330,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -22291,11 +22347,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -22309,4 +22365,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
