@@ -105,6 +105,14 @@ jobs:
       - name: Typecheck + build
         run: npm run build
 
+      # The first-paint bundle must not pull in the PDF/Excel/screenshot libraries
+      # or recharts; those load on demand. Source diffs cannot show this kind of
+      # regression, so it is checked on the built output. See
+      # scripts/check-initial-load.mjs. Stays inside the `build` job so the
+      # required status check keeps its name.
+      - name: Check first-load bundle
+        run: node scripts/check-initial-load.mjs
+
   test:
     runs-on: ubuntu-latest
     steps:
