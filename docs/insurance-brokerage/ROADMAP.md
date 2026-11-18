@@ -1,6 +1,6 @@
 # Insurance Brokerage: Roadmap and Decisions
 
-Status: working document, first written 16 October 2026, status updated 17 October 2026 and again 7 November 2026 (see section 7b). Suggested repo path: `docs/insurance-brokerage/ROADMAP.md`.
+Status: working document, first written 16 October 2026, status updated 17 October 2026 and again 7 November 2026 (see section 7b); the agent commission section was rewritten on 18 November 2026 (section 7c). Suggested repo path: `docs/insurance-brokerage/ROADMAP.md`.
 
 Sources: the IBS User Manual (Adelphi, Release 1.0, 2010), a clone of `vestateck-erp` at `ad159c7`, the accountant guidance in `Accountant.pdf`, and the existing docs `ANALYSIS.md`, `ACCOUNTANT_PACK.md` and `POLICY_REVERSAL.md`.
 
@@ -135,7 +135,7 @@ Beyond IBS: medical and group scheme member schedules, premium instalments, insu
 | Phase B, claim recognition | Built (`20261017110000`), **criteria proposed, not yet approved by the accountant**: an approved brokerage-managed claim stays "approved, pending settlement" until the insurer's written confirmation that it will pay the brokerage is recorded (reference required); the receivable is posted on recognition, and receipts and payouts are refused until then. Claims already approved were backfilled as recognised. |
 | Phase B, claim segregation | Built (`20261017120000`), **proposed, for the accountant to confirm**: the person who registered a claim cannot approve it; an approved claim can be un-approved with a reason only while nothing is recognised and nothing is paid. |
 | Phase B, finance worklist | Built (`20261019090000`): a Finance worklist of premium receipts, insurer remittances and cancellation cash that are waiting on a second Finance approval, with a page panel on the insurance side. |
-| Phase B, rest | Not started: commission recognition at placement and commission receivable, per-insurer settlement mode, statutory charge catalogue, agent commission trigger, `ACCOUNTANT_PACK.md` write-ups. |
+| Phase B, rest | Not started: commission recognition at placement and commission receivable, per-insurer settlement mode, statutory charge catalogue, `ACCOUNTANT_PACK.md` write-ups. Agent commission is **built** as of 18 November 2026 -- see section 7c. |
 
 Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17 Oct 2026 against the live project, whose migration history matches the repo through `20261016180000`. This added `journal_entry_lines.is_rounding` and removed `recognised_at`, `recognised_by` and `ins_recognise_claim_receivable`, which appeared in the committed file but in no migration and not in the live database. Nothing in `apps/` referenced them. A later regeneration covers the migrations through `20261017130000`. A replay of every migration on a scratch Postgres, run through the postgres-meta type generator, matched the committed file for every table, column, view, function and enum; only formatting that differs between generator versions differed. The CI check compares byte for byte against the pinned CLI, so that check remains the authority. It is also the reason the 20 Oct commit `7878c90` broke it: that commit replaced the types file with output in a newer generator's format (parenthesised helper types), though its message said the opposite. The file was restored from `992b898`, where the check had just gone green; content was unaffected (verified against the catalog after a full replay).
 
@@ -205,7 +205,7 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 | 3 | Quotation and placement | Built; placement fix | `20261106170000`, `20261107120000` |
 | 4 | Document pack | First set built (`generate-ins-doc`, shared document store); needs a first look on a real policy; co-insurer schedule open | `20261021100000` |
 | 5 | Production book and reporting | Production book, client statements, aged balances, premiums trend built; server-side as-of and pagination open | `20261021120000` |
-| 6 | Agents and sub-agents | Built: accrual, payables and withholding (`20261117240000`, `20261117250000`) | `20261017150000`, `20261117240000`, `20261117250000` |
+| 6 | Agents and sub-agents | **Built end to end** 18 Nov 2026: accrual, terms, register, maker-checker payments, withholding at payment, period returns and statements (`20261117240000`, `20261117250000`, `20261118120000`, `20261118140000`, `20261118160000`, `20261118180000`). See section 7c. | `20261017150000`, `20261117240000`, `20261117250000`, `20261118120000` to `20261118180000` |
 | 7 | Commission rate matrix | Built | `20261020210000` |
 | 8 | Bulk renewals, outcomes, notices | Built | `20261022080000`, `20261106200000` |
 | 9 | Claims depth | Reserve revisions, excess handling and document checklist built; letters and withdrawal or recovery (accountant answer 22) open | `20261022090000`, `20261106210000` |
@@ -217,6 +217,69 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 Also built outside the table: insurer statement reconciliation (`20261106220000`, entry screen still to improve), per-insurer remittance position (`20261106190000`), the operational hardening migrations of 6 and 7 November.
 
 Built since this snapshot: the in-force portfolio import and opening balances (`IN_FORCE_IMPORT.md`; all five steps, `20261107140000` to `20261109110000`) and its Playwright spec (`apps/web/e2e/insurance-import.spec.ts`). Also built since: Playwright specs for the money flow from approval and bind to premium receipt, insurer remittance and commission transfer (`insurance-cash-commission.spec.ts`, which starts from the seeded draft policy rather than creating the client and policy through the UI) and for a claim paid through the brokerage (`insurance-claim-payment.spec.ts`); see `apps/web/e2e/README.md` for what they leave uncovered. Not started: commission recognition at placement and per-insurer settlement mode (Phase B rest) and period-close states.
+
+## 7c. Agent commission: what is built, and what it cost to find out
+
+Built across item 6 slice 1 and eight later migrations, finished 18 November 2026. Written down
+because four of the defects below were invisible from the code and only appeared when a test could
+see them.
+
+### What exists
+
+| Piece | Where | What it does |
+|---|---|---|
+| Intermediary register | `20261017150000` | Agents, sub-agents and insurer-appointed agents, with termination and licence dates. Insurer-appointed agents never enter the brokerage's books. |
+| Commission terms | `20261117240000` | Versioned, never edited: to change an arrangement you end-date a term and enter a new one, so an accrual already made keeps the figures it was made with. Entry and approval are separate people. |
+| Accrual subledger | `20261117240000` | `provisional → eligible → paid`, with a reversal that mirrors the entry exactly. One share per policy per term. |
+| Withholding at payment | `20261117250000`, `20261118120000` | Computed from approved effective-dated parameters; the **rate did not change on 1 July 2026, the character did** (s.139(aa) made it final). Nothing is withheld at accrual, because nothing has been paid. |
+| Maker-checker payment | `20261118140000` | Authorisation is a table row, not a status on the accrual: propose (figures frozen), approve by a different manager, release and post. `ins_agent_commission_pay` survives but is gated on an approved payment. |
+| Period returns | `20261117250000` | Returns to URA on the **payment-month** basis, prepared, approved, paid with a reference, void releases its lines. |
+| Position | `20261118160000` | What is withheld, what is on a return, what is paid — per currency. |
+| Statements | `20261118180000` | One agent's account, per currency, on the payment date, printable to PDF. |
+
+The page in `apps/web` mirrors this: Overview, Commission Terms, Accruals, Payments, Statements,
+WHT Remittances. No tab is a placeholder.
+
+### The four defects, and why they were invisible
+
+1. **The rate was right and the character was wrong.** The build hard-coded withholding as
+   non-final. The 10% never changed; its character did, on 1 July 2026. A test that only checked
+   the percentage passed throughout.
+2. **Nothing distinguished "no withholding" from "not yet determined".** An unpaid share carries
+   `wht_amount = 0` because paying is when the tax is decided. The register read that as "no tax"
+   and told agents so. The sentence is now *"determined when the agent is paid"*.
+3. **The withholding position added unlike currencies together** (`20261118160000`). 500 USD of
+   tax plus 900,000 UGX of tax came back as 900,500 of something. Every single-currency tenant
+   passes that code path; the defect needed a two-currency fixture to appear.
+4. **The statement window used the accrual's `created_at`, not `paid_on`** (`20261118180000`), and
+   its detail included reversed shares while its totals excluded them. A statement whose lines do
+   not add up to its own headline is worse than no statement.
+
+### Two claims in an earlier draft of this file that measurement refuted
+
+Recorded because they were plausible and wrong, and the record of a wrong claim is worth more than
+a silent correction:
+
+- **"`actor_id` is never populated on commission events."** False. The column is omitted from every
+  insert, which means the DEFAULT (`auth.uid()`) applies. A trigger written to "fix" it was redundant
+  and was removed; test §17 now pins the real behaviour, including the honest null outside a session.
+- **"A filed return can outlive the withholding behind it, so `unreported` goes negative."** Not in
+  this schema: a return's amount is the sum of the accrual lines it claims, a paid share cannot be
+  reversed, and the withholding guard refuses post-hoc edits. The floor is kept as a guard against a
+  state the database does not currently permit, and documented as such.
+
+### Still open on this area
+
+- **`ACCOUNTANT_PACK.md`** does not yet describe agent commission: the accrual basis, the character
+  change on 1 July 2026, or the return period following payment. It should, because the accountant
+  has already confirmed the two tax points those write-ups depend on.
+- **Whether an insurer's commission paid to a **broker** is subject to the same 10%** (s.134) is
+  still unsettled — see section 2. It is a different question from agent commission and it is not
+  answered by anything built here.
+- **Commission recognition at placement and commission receivable** (Phase B) is untouched;
+  intermediated commission is still recognised on the insurer's statement, not at placement.
+- **Decision, not yet taken:** whether the Accruals tab may offer a manual *accrue* action. It has
+  been deliberately left out of three bits so that the default stays "accrual follows recognition".
 
 ## 8. Design defaults (change on request)
 

@@ -4605,6 +4605,7 @@ export type Database = {
           journal_entry_id: string | null
           net_amount: number | null
           paid_at: string | null
+          paid_on: string | null
           payment_journal_entry_id: string | null
           policy_id: string
           rate_pct: number | null
@@ -4631,6 +4632,7 @@ export type Database = {
           journal_entry_id?: string | null
           net_amount?: number | null
           paid_at?: string | null
+          paid_on?: string | null
           payment_journal_entry_id?: string | null
           policy_id: string
           rate_pct?: number | null
@@ -4657,6 +4659,7 @@ export type Database = {
           journal_entry_id?: string | null
           net_amount?: number | null
           paid_at?: string | null
+          paid_on?: string | null
           payment_journal_entry_id?: string | null
           policy_id?: string
           rate_pct?: number | null
@@ -4770,6 +4773,101 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_agent_commission_payments: {
+        Row: {
+          accrual_id: string
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string
+          currency: string
+          gross_amount: number
+          id: string
+          net_amount: number
+          note: string | null
+          paid_on: string
+          payment_journal_entry_id: string | null
+          prepared_at: string
+          prepared_by: string
+          status: string
+          tenant_id: string
+          wht_amount: number
+          wht_is_final: boolean | null
+          wht_parameter_ref: string | null
+          wht_rate_pct: number | null
+        }
+        Insert: {
+          accrual_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id: string
+          currency: string
+          gross_amount: number
+          id?: string
+          net_amount: number
+          note?: string | null
+          paid_on: string
+          payment_journal_entry_id?: string | null
+          prepared_at?: string
+          prepared_by: string
+          status?: string
+          tenant_id: string
+          wht_amount?: number
+          wht_is_final?: boolean | null
+          wht_parameter_ref?: string | null
+          wht_rate_pct?: number | null
+        }
+        Update: {
+          accrual_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string
+          currency?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          note?: string | null
+          paid_on?: string
+          payment_journal_entry_id?: string | null
+          prepared_at?: string
+          prepared_by?: string
+          status?: string
+          tenant_id?: string
+          wht_amount?: number
+          wht_is_final?: boolean | null
+          wht_parameter_ref?: string | null
+          wht_rate_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_agent_commission_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_agent_commission_payments_payment_journal_entry_id_fkey"
+            columns: ["payment_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_agent_commission_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_agent_payments_accrual_fk"
+            columns: ["tenant_id", "accrual_id"]
+            isOneToOne: false
+            referencedRelation: "ins_agent_commission_accruals"
+            referencedColumns: ["tenant_id", "id"]
           },
         ]
       }
@@ -17885,9 +17983,17 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: Json
       }
+      ins_agent_commission_approve_payment: {
+        Args: { p_payment_id: string }
+        Returns: Json
+      }
       ins_agent_commission_backfill: { Args: never; Returns: Json }
       ins_agent_commission_calculate: {
         Args: { p_intermediary_id: string; p_policy_id: string }
+        Returns: Json
+      }
+      ins_agent_commission_cancel_payment: {
+        Args: { p_payment_id: string; p_reason: string }
         Returns: Json
       }
       ins_agent_commission_mark_eligible: {
@@ -17903,6 +18009,23 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_agent_commission_prepare_payment: {
+        Args: {
+          p_accrual_id: string
+          p_bank_account_id: string
+          p_note?: string
+          p_paid_on: string
+        }
+        Returns: Json
+      }
+      ins_agent_commission_reject_payment: {
+        Args: { p_payment_id: string; p_reason: string }
+        Returns: Json
+      }
+      ins_agent_commission_release_payment: {
+        Args: { p_note?: string; p_payment_id: string }
+        Returns: Json
+      }
       ins_agent_commission_reverse: {
         Args: { p_accrual_id: string; p_reason: string }
         Returns: Json
@@ -17911,6 +18034,7 @@ export type Database = {
         Args: { p_from?: string; p_intermediary_id: string; p_to?: string }
         Returns: Json
       }
+      ins_agent_payment_position: { Args: never; Returns: Json }
       ins_agent_wht_for: { Args: { p_on: string }; Returns: Json }
       ins_approve_insurer_product_rate: {
         Args: { p_id: string }
@@ -23139,4 +23263,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
