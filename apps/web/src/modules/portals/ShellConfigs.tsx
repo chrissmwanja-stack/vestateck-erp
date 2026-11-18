@@ -518,6 +518,12 @@ export const insuranceNodes: TreeNode[] = [
     to: "/insurance/commission/statements",
   },
   {
+    id: "ins-agent-commission",
+    label: "Agent Commission",
+    icon: <Groups fontSize="small" />,
+    to: "/insurance/agent-commission",
+  },
+  {
     id: "ins-exchange-rates",
     label: "Exchange Rates",
     icon: <Payments fontSize="small" />,

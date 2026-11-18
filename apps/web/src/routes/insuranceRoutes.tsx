@@ -27,6 +27,7 @@ const NewClaim = lazy(() => import('../modules/portals/insurance/pages/claims/Ne
 const ClaimDetail = lazy(() => import('../modules/portals/insurance/pages/claims/ClaimDetail'));
 const CommissionPage = lazy(() => import('../modules/portals/insurance/pages/commission/CommissionPage'));
 const CommissionStatements = lazy(() => import('../modules/portals/insurance/pages/commission/CommissionStatements'));
+const AgentCommissionPage = lazy(() => import('../modules/portals/insurance/pages/agent-commission/AgentCommissionPage'));
 const ProductLinesAdmin = lazy(() => import('../modules/portals/insurance/pages/admin/ProductLinesAdmin'));
 const ExchangeRates = lazy(() => import('../modules/portals/insurance/pages/currency/ExchangeRates'));
 const RisksList = lazy(() => import('../modules/portals/insurance/pages/risks/RisksList'));
@@ -63,6 +64,9 @@ export const insuranceRoutes = (
           transfer/void for non-managers, and the RPCs enforce can_manage_insurance. */}
       <Route path="/insurance/commission" element={<CommissionPage />} />
       <Route path="/insurance/commission/statements" element={<CommissionStatements />} />
+      {/* What the brokerage owes its agents (ins_agent_commission_* subledger). Read: any insurance role (can_access_insurance);
+          every write goes through an RPC that enforces the real check. */}
+      <Route path="/insurance/agent-commission" element={<AgentCommissionPage />} />
       {/* Entry and approval are limited by the server (fx_rates policies and RPCs); the page only shows what each person may do. */}
       <Route path="/insurance/currency" element={<ExchangeRates />} />
       <Route path="/insurance/risks" element={<RisksList />} />
