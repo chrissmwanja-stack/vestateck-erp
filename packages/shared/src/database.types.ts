@@ -4605,6 +4605,7 @@ export type Database = {
           journal_entry_id: string | null
           net_amount: number | null
           paid_at: string | null
+          paid_on: string | null
           payment_journal_entry_id: string | null
           policy_id: string
           rate_pct: number | null
@@ -4631,6 +4632,7 @@ export type Database = {
           journal_entry_id?: string | null
           net_amount?: number | null
           paid_at?: string | null
+          paid_on?: string | null
           payment_journal_entry_id?: string | null
           policy_id: string
           rate_pct?: number | null
@@ -4657,6 +4659,7 @@ export type Database = {
           journal_entry_id?: string | null
           net_amount?: number | null
           paid_at?: string | null
+          paid_on?: string | null
           payment_journal_entry_id?: string | null
           policy_id?: string
           rate_pct?: number | null
@@ -4839,13 +4842,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ins_agent_payments_accrual_fk"
-            columns: ["tenant_id", "accrual_id"]
-            isOneToOne: false
-            referencedRelation: "ins_agent_commission_accruals"
-            referencedColumns: ["tenant_id", "id"]
-          },
-          {
             foreignKeyName: "ins_agent_commission_payments_bank_account_id_fkey"
             columns: ["bank_account_id"]
             isOneToOne: false
@@ -4865,6 +4861,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_agent_payments_accrual_fk"
+            columns: ["tenant_id", "accrual_id"]
+            isOneToOne: false
+            referencedRelation: "ins_agent_commission_accruals"
+            referencedColumns: ["tenant_id", "id"]
           },
         ]
       }
@@ -18031,6 +18034,7 @@ export type Database = {
         Args: { p_from?: string; p_intermediary_id: string; p_to?: string }
         Returns: Json
       }
+      ins_agent_payment_position: { Args: never; Returns: Json }
       ins_agent_wht_for: { Args: { p_on: string }; Returns: Json }
       ins_approve_insurer_product_rate: {
         Args: { p_id: string }

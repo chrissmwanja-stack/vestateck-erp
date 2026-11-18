@@ -433,6 +433,7 @@ export interface AgentPayment {
   /** The approved rate and its character, frozen with the figure. */
   wht_rate_pct: number | null;
   wht_is_final: boolean | null;
+  wht_parameter_ref: string | null;
   paid_on: string;
   note: string | null;
   status: AgentPaymentStatus;

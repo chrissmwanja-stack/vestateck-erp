@@ -10,7 +10,7 @@ vi.mock('../../../../../lib/supabaseClient', () => ({
   supabase: { from: (...a: unknown[]) => mockFrom(...a), rpc: vi.fn() },
 }));
 
-const accrual = (over: Record<string, unknown>) => ({
+const accrual = (over: Record<string, unknown> = {}) => ({
   id: 'a1', policy_id: 'p1', intermediary_id: 'i1', basis: 'pct_of_broker_commission',
   rate_pct: 40, fixed_amount: null, commission_base: 750000,
   gross_amount: 300000, wht_amount: 0, net_amount: 300000, currency: 'UGX',

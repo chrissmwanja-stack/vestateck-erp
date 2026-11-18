@@ -10,7 +10,6 @@ import {
 
 const payment = (over: Partial<AgentPayment> = {}): AgentPayment => ({
   id: 'pay1',
-  tenant_id: 't1',
   accrual_id: 'a1',
   bank_account_id: 'b1',
   currency: 'UGX',
