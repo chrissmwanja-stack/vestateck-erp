@@ -1,0 +1,39 @@
+version: 2
+
+# Weekly update PRs. They go through the normal PR flow, so branch protection
+# and the eight required checks decide whether each one can merge.
+#
+# Not covered by Dependabot (check by hand):
+#   - xlsx, installed from vendor/xlsx-0.20.3.tgz
+#   - the esm.sh / deno.land URL imports inside supabase/functions
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"            # root workspace; covers apps/* and packages/*
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The app is built on React 18 and MUI 5; a major bump is a planned
+      # migration, not a weekly chore.
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@mui/*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

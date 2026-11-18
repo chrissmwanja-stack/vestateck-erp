@@ -15,16 +15,23 @@
 //
 // ALLOWED_ORIGINS is a comma-separated edge-function secret, set with:
 //   supabase secrets set ALLOWED_ORIGINS=https://app.example.com,https://staging.example.com
-// Not deployed anywhere yet as of 2026-08-19 (dev-only, per Chris),
-// so this defaults to the Vite dev server origin. Set the secret --
-// don't hardcode a new default here -- the moment a real frontend URL
-// exists.
+// PRODUCTION: ALLOWED_ORIGINS MUST be set. If it is unset this falls back
+// to the Vite dev origin only, so every browser call to these functions
+// from the deployed app is blocked by CORS (fails closed, but looks like an
+// outage). A warning is logged whenever the fallback is in use. See
+// docs/OPERATIONS.md for the post-deploy check.
 
 const DEFAULT_DEV_ORIGINS = ['http://localhost:5173'];
 
 function getAllowedOrigins(): string[] {
   const raw = Deno.env.get('ALLOWED_ORIGINS');
-  if (!raw) return DEFAULT_DEV_ORIGINS;
+  if (!raw) {
+    console.warn(
+      '[cors] ALLOWED_ORIGINS is not set; allowing only http://localhost:5173. ' +
+        'Set it with `supabase secrets set ALLOWED_ORIGINS=https://your-app-origin` in production.',
+    );
+    return DEFAULT_DEV_ORIGINS;
+  }
   return raw
     .split(',')
     .map((o) => o.trim())

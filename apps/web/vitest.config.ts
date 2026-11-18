@@ -90,8 +90,30 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
-      include: ['src/lib/**/*.ts', 'src/features/**/*.tsx', 'src/components/**/*.tsx'],
+      reporter: ['text-summary', 'json-summary', 'html'],
+      // src/modules (the insurance, PMO, HR, law, machine and sustainability
+      // portals) is the largest part of the app, so it is measured too.
+      include: [
+        'src/lib/**/*.ts',
+        'src/features/**/*.{ts,tsx}',
+        'src/components/**/*.{ts,tsx}',
+        'src/modules/**/*.{ts,tsx}',
+      ],
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        '**/*.d.ts',
+        'src/test/**',
+      ],
+      // Floor, not a goal. Measured 2026-11-18: statements 41.05, branches
+      // 36.69, functions 35.96, lines 42.72 (insurance 76% of lines,
+      // features/procurement 0%, features/it-support 4%; those two are
+      // covered by SQL and e2e tests instead). Raise these as coverage rises.
+      thresholds: {
+        statements: 40,
+        branches: 35,
+        functions: 34,
+        lines: 41,
+      },
     },
   },
 });

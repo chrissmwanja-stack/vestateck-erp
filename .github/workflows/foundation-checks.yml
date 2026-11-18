@@ -126,8 +126,12 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test --workspace=apps/web
+      # Same run as before, with V8 coverage on top. The floor is set in
+      # apps/web/vitest.config.ts (coverage.thresholds) just under the
+      # 2026-11-18 baseline, so this fails if coverage drops. Raise the floor
+      # when it has risen; never lower it to get a PR through.
+      - name: Run unit tests with coverage
+        run: npm run test:coverage --workspace=apps/web
 
   # Lint ratchets: apps/web still has hundreds of violations of each rule below in older
   # pages. This fails when a file gets MORE of them than its apps/web/eslint-*-baseline.json

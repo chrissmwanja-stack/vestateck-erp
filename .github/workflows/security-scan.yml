@@ -1,0 +1,55 @@
+name: Security scan
+
+# Two checks that nothing else in CI covers:
+#
+# - npm-audit: fails on a HIGH or CRITICAL advisory in a production
+#   dependency. Dev-only advisories are reported by Dependabot instead of
+#   blocking merges. NOTE: xlsx is installed from vendor/xlsx-0.20.3.tgz, which
+#   `npm audit` cannot see inside; check https://cdn.sheetjs.com for new
+#   releases by hand when bumping it (see README "Known issues").
+#
+# - gitleaks: scans the WHOLE git history for committed secrets (API keys,
+#   service-role keys, tokens). Full history matters here because the
+#   repository is public: a key removed in a later commit is still readable in
+#   an old one. If this ever flags a real secret, ROTATE the secret first,
+#   then clean the history.
+#
+# Runs on push and PR to main, and weekly so a new advisory against an
+# unchanged dependency still gets noticed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 7 * * 1"      # Mondays 07:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # full history, not just the tip
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

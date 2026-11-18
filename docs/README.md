@@ -17,6 +17,9 @@ Last reviewed: 17 November 2026 against `main` at `0d550eb`. When a doc and the 
 | `apps/web/docs/AUTHORIZATION_ARCHITECTURE.md` | Identities, RLS tiers, View-as, definer-function rules, separation of duties, and which test covers each rule |
 | `supabase/catalog-snapshots/README.md` | The security catalog snapshot (grants, view options, RLS flags) and what to do when CI reports a diff |
 | `.github/pull_request_template.md` | PR checklist (CI, migrations and types, tests, docs) |
+| `docs/OPERATIONS.md` | Backups and the restore drill, monitoring, incident response, rollback, secrets inventory, post-deploy checks |
+| `SECURITY.md` | How to report a vulnerability, and what is in scope |
+| `.github/dependabot.yml` | Weekly dependency update PRs (npm and GitHub Actions) |
 
 `docs/handoffs/` holds two TypeScript hand-off notes for the insurance cancellation work (`CANCELLATION_APPROVAL_HANDOFF.ts`, `CANCELLATION_CASH_HANDOFF.ts`); they are history, not maintained docs.
 
