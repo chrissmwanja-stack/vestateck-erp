@@ -117,6 +117,36 @@ describe('policy financial configuration', () => {
       }),
     ).not.toBeChecked();
   });
+  it('asks what a broker fee is for, and asks for a reason only for a taxable service', async () => {
+    details.charges = [
+      {
+        kind: 'broker_fee',
+        description: 'Broker fee',
+        amount: 50,
+        recipient_mode: 'broker',
+        recipient_insurer_id: null,
+        vat_mode: 'not_calculated',
+        vat_rate_pct: null,
+        income_gl_account_id: null,
+        reviewed: false,
+        fee_class: 'insurance_brokerage',
+      },
+    ];
+    render(<PolicyFinancialConfiguration policyId="p1" onChanged={vi.fn()} />);
+    expect(await screen.findByLabelText('What is this fee for?')).toBeInTheDocument();
+    expect(screen.getByText(/Exempt: insurance brokerage/)).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Why is this a taxable service/),
+    ).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByLabelText('What is this fee for?'));
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Other taxable service/ }),
+    );
+    expect(
+      await screen.findByLabelText(/Why is this a taxable service/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Exempt: insurance brokerage/)).not.toBeInTheDocument();
+  });
   it('does not offer financial configuration to an Insurance member', async () => {
     details.can_configure = false;
     render(<PolicyFinancialConfiguration policyId="p1" onChanged={vi.fn()} />);

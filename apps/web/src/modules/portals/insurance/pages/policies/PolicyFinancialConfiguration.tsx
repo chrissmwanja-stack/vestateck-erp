@@ -22,6 +22,8 @@ import {
   configurationProblems,
   type FinancialDetails,
   type InsurerShare,
+  FEE_REASON_MIN_LENGTH,
+  type FeeClass,
   type PolicyCharge,
 } from '../../financialConfiguration';
 import { formatMoney } from '../../logic';
@@ -403,6 +405,9 @@ export default function PolicyFinancialConfiguration({
                         recipient_insurer_id: null,
                         vat_mode: 'not_calculated',
                         vat_rate_pct: null,
+                        fee_class: null,
+                        fee_class_reason: null,
+                        vat_rate_parameter_ref: null,
                       })
                     }
                   >
@@ -487,46 +492,87 @@ export default function PolicyFinancialConfiguration({
                         </MenuItem>
                       ))}
                     </TextField>
-                    <Stack direction="row" spacing={1}>
+                    {c.kind === 'broker_fee' && (
                       <TextField
                         select
                         size="small"
-                        label="Broker fee VAT option"
-                        value={c.vat_mode}
+                        label="What is this fee for?"
+                        value={c.fee_class ?? ''}
                         disabled={busy}
-                        onChange={(e) =>
-                          editCharge(i, {
-                            vat_mode: e.target
-                              .value as PolicyCharge['vat_mode'],
-                            vat_rate_pct: null,
-                          })
-                        }
+                        onChange={(e) => {
+                          const fee_class = (e.target.value ||
+                            null) as FeeClass | null;
+                          // Brokerage is exempt: clear any VAT. A taxable
+                          // service starts with VAT on, rate left to the
+                          // approved standard rate unless one is typed.
+                          editCharge(
+                            i,
+                            fee_class === 'other_taxable_service'
+                              ? {
+                                  fee_class,
+                                  vat_mode: 'exclusive',
+                                  vat_rate_pct: null,
+                                }
+                              : {
+                                  fee_class,
+                                  fee_class_reason: null,
+                                  vat_mode: 'not_calculated',
+                                  vat_rate_pct: null,
+                                },
+                          );
+                        }}
                       >
-                        <MenuItem value="not_calculated">
-                          VAT not calculated
+                        <MenuItem value="insurance_brokerage">
+                          Insurance brokerage (VAT-exempt)
                         </MenuItem>
-                        <MenuItem value="exclusive">
-                          Add VAT at specified rate
+                        <MenuItem value="other_taxable_service">
+                          Other taxable service (VAT applies)
                         </MenuItem>
                       </TextField>
-                      {c.vat_mode === 'exclusive' && (
-                        <TextField
-                          size="small"
-                          type="number"
-                          label="Applicable VAT rate %"
-                          value={c.vat_rate_pct ?? ''}
-                          disabled={busy}
-                          onChange={(e) =>
-                            editCharge(i, {
-                              vat_rate_pct:
-                                e.target.value === ''
-                                  ? null
-                                  : Number(e.target.value),
-                            })
-                          }
-                        />
+                    )}
+                    {c.kind === 'broker_fee' &&
+                      c.fee_class === 'insurance_brokerage' && (
+                        <Alert severity="info">
+                          Exempt: insurance brokerage is treated as an exempt
+                          supply, so no VAT is charged. Your accountant should
+                          confirm this treatment.
+                        </Alert>
                       )}
-                    </Stack>
+                    {c.kind === 'broker_fee' &&
+                      c.fee_class === 'other_taxable_service' && (
+                        <>
+                          <TextField
+                            size="small"
+                            multiline
+                            minRows={2}
+                            label="Why is this a taxable service, not brokerage?"
+                            helperText={`At least ${FEE_REASON_MIN_LENGTH} characters. This is what an auditor reads.`}
+                            value={c.fee_class_reason ?? ''}
+                            disabled={busy}
+                            onChange={(e) =>
+                              editCharge(i, {
+                                fee_class_reason: e.target.value,
+                              })
+                            }
+                          />
+                          <TextField
+                            size="small"
+                            type="number"
+                            label="VAT rate % (blank = approved standard rate)"
+                            value={c.vat_rate_pct ?? ''}
+                            disabled={busy}
+                            onChange={(e) =>
+                              editCharge(i, {
+                                vat_mode: 'exclusive',
+                                vat_rate_pct:
+                                  e.target.value === ''
+                                    ? null
+                                    : Number(e.target.value),
+                              })
+                            }
+                          />
+                        </>
+                      )}
                   </>
                 )}
                 <Stack direction="row">
@@ -563,7 +609,11 @@ export default function PolicyFinancialConfiguration({
                 ·{' '}
                 {c.vat_mode === 'exclusive'
                   ? `VAT ${c.vat_rate_pct}%: ${money(c.vat_amount)}`
-                  : 'VAT not calculated'}
+                  : c.fee_class === 'insurance_brokerage'
+                    ? 'VAT-exempt (insurance brokerage)'
+                    : 'VAT not calculated'}
+                {c.fee_class === 'other_taxable_service' &&
+                  ' · Taxable service'}
               </Typography>
             )}
           </Box>
@@ -593,9 +643,11 @@ export default function PolicyFinancialConfiguration({
           </Button>
         )}
         <Alert severity="warning" sx={{ my: 1 }}>
-          VAT not calculated does not mean exempt. Confirm treatment and the
-          selected income/tax accounts with your accountant and Ugandan tax
-          adviser. No statutory VAT rate is assumed. Insurer pass-through
+          Broker fees must be classed as insurance brokerage (VAT-exempt) or as
+          another taxable service, with a reason. For insurer pass-through
+          charges, VAT not calculated does not mean exempt. Confirm treatment
+          and the selected income/tax accounts with your accountant and
+          Ugandan tax adviser. Insurer pass-through
           amounts are entered as supplied by the insurer; separate tax payees
           and statutory levies are outside v1.
         </Alert>

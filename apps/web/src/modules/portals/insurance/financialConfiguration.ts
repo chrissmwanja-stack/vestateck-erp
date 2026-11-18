@@ -12,6 +12,8 @@ export interface InsurerShare {
   commission_amount?: number | null;
   payable_amount?: number | null;
 }
+export type FeeClass = 'insurance_brokerage' | 'other_taxable_service';
+
 export interface PolicyCharge {
   id?: string;
   kind: 'insurer_pass_through' | 'broker_fee';
@@ -24,7 +26,14 @@ export interface PolicyCharge {
   vat_amount?: number | null;
   income_gl_account_id: string | null;
   reviewed: boolean;
+  /** Broker fees only. Null for insurer pass-through charges. */
+  fee_class?: FeeClass | null;
+  /** Required (20+ characters) when fee_class is other_taxable_service. */
+  fee_class_reason?: string | null;
+  /** Set by the database when the approved standard rate was copied. */
+  vat_rate_parameter_ref?: string | null;
 }
+export const FEE_REASON_MIN_LENGTH = 20;
 export interface FinancialSnapshot {
   extended: boolean;
   invoice_total: number;
@@ -93,9 +102,31 @@ export function configurationProblems(
       errors.push(
         'Choose a participating insurer for each insurer-specific charge.',
       );
+    if (c.kind === 'broker_fee') {
+      if (!c.fee_class)
+        errors.push(
+          'Choose what kind of supply each broker fee is (insurance brokerage or other taxable service).',
+        );
+      else if (c.fee_class === 'insurance_brokerage') {
+        if (c.vat_mode === 'exclusive' || c.vat_rate_pct !== null)
+          errors.push(
+            'An insurance brokerage fee is VAT-exempt and cannot carry VAT. If it is a separate taxable service, classify it as one.',
+          );
+      } else if (
+        (c.fee_class_reason ?? '').trim().length < FEE_REASON_MIN_LENGTH
+      )
+        errors.push(
+          `Give a reason of at least ${FEE_REASON_MIN_LENGTH} characters for treating a fee as a taxable service.`,
+        );
+    }
+    // A taxable fee may leave the rate blank: the database then uses the
+    // approved standard rate. A rate that is typed must still be sensible.
+    // Pass-through charges have no approved default, so their rate is required.
     if (
       c.vat_mode === 'exclusive' &&
-      (c.vat_rate_pct === null || c.vat_rate_pct <= 0 || c.vat_rate_pct > 100)
+      (c.vat_rate_pct === null
+        ? !(c.kind === 'broker_fee' && c.fee_class === 'other_taxable_service')
+        : c.vat_rate_pct <= 0 || c.vat_rate_pct > 100)
     )
       errors.push(
         'Enter the applicable VAT rate; no statutory rate is assumed.',
