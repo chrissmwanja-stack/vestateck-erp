@@ -219,8 +219,13 @@ begin
   -- snapshot "extended", which is what the broker-fee report reads.
   config := jsonb_build_array(jsonb_build_object('insurer_id', insurer, 'is_lead', true, 'share_pct', 100,
     'commission_rate_pct', 10, 'insurer_policy_no', 'V-001', 'reviewed', true));
+  -- A taxable service, not a brokerage fee: this fixture exists to prove the
+  -- broker-fee VAT report carries a rate and an amount, which only a taxable
+  -- charge has. A genuine brokerage fee is exempt and would carry no VAT.
   charge_config := jsonb_build_array(jsonb_build_object('kind', 'broker_fee', 'description', 'Broker service fee',
     'amount', 50, 'recipient_mode', 'broker', 'income_gl_account_id', fee_gl,
+    'fee_class', 'other_taxable_service',
+    'fee_class_reason', 'Test fixture: a taxable administrative charge, not a brokerage fee',
     'vat_mode', 'exclusive', 'vat_rate_pct', 18, 'reviewed', true));
   perform ins_set_policy_financial_configuration(p.id, config, charge_config);
   perform pg_temp.motor_cert(p.id); p := pg_temp.approve_and_bind(p.id);

@@ -26,7 +26,9 @@ Verification of the factual claims, done 16 October 2026 against public sources:
 |---|---|
 | Brokers who receive premium must remit it by the next working day, without deducting commission (Insurance Act 2017, s.90(3)) | Confirmed in the 2017 text. Later amendments not checked. |
 | Stamp duty UGX 35,000 per policy; group policies pay once; endorsements adding or removing beneficiaries not dutiable | Confirmed (URA schedule reports, Tax Appeals Tribunal ruling, 14 Feb 2025). Store as data, not constants. |
-| 10% withholding tax on commission paid to insurance agents, final tax, since 1 July 2020 | Confirmed for agent commission. Whether it applies to commission an insurer pays a broker is not settled. |
+| 10% withholding tax on commission paid to insurance agents (ITA s.134). **Final tax from 1 July 2026** (s.139(aa), Income Tax (Amendment) Act 2026); the 10% rate applied from 2020 but was not final before that date. | Confirmed for agent commission. Whether it applies to commission an insurer pays a broker is not settled. |
+| Insurance brokerage fees are **VAT-exempt**: the VAT Act (Cap 344), Schedule 3, includes brokerage within insurance services, and insurance services are exempt supplies. Separate non-brokerage services may be standard-rated. | Confirmed 17 Nov 2026. Fees already invoiced with VAT keep it. |
+| Client withholding on a brokerage fee is **not** 10% (that is agent commission). It would be assessed under ITA s.129 (professional fee) or s.136 (designated agent), both 6%, with s.129's regular-compliance exception. | **Open.** Whether a brokerage fee is a professional fee under s.129 needs accountant confirmation. Rate seeded unapproved. |
 | Ten-year record retention (s.106) | Not verified. |
 | IRA circular for brokers dated 10 July 2026 | Not verified. |
 | Insurance training levy rate | Not verified. Rate is set by the Authority. |
@@ -203,7 +205,7 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 | 3 | Quotation and placement | Built; placement fix | `20261106170000`, `20261107120000` |
 | 4 | Document pack | First set built (`generate-ins-doc`, shared document store); needs a first look on a real policy; co-insurer schedule open | `20261021100000` |
 | 5 | Production book and reporting | Production book, client statements, aged balances, premiums trend built; server-side as-of and pagination open | `20261021120000` |
-| 6 | Agents and sub-agents | Register built, no money; accrual, payables and withholding open | `20261017150000` |
+| 6 | Agents and sub-agents | Built: accrual, payables and withholding (`20261117240000`, `20261117250000`) | `20261017150000`, `20261117240000`, `20261117250000` |
 | 7 | Commission rate matrix | Built | `20261020210000` |
 | 8 | Bulk renewals, outcomes, notices | Built | `20261022080000`, `20261106200000` |
 | 9 | Claims depth | Reserve revisions, excess handling and document checklist built; letters and withdrawal or recovery (accountant answer 22) open | `20261022090000`, `20261106210000` |
@@ -228,7 +230,7 @@ Built since this snapshot: the in-force portfolio import and opening balances (`
 
 1. Compliance adviser: current text of section 90, and whether a broker may hold premium at all.
 2. Accountant: sign-off of the commission recognition change, refund liability method, and the IAS 8 classification for policies bound before the change.
-3. Accountant: tax codes for commission, broker fees and pass-throughs, and withholding on commission received from insurers.
+3. Accountant: tax codes for commission, broker fees and pass-throughs, and withholding on commission received from insurers. **Partly answered 17 Nov 2026:** agent-commission withholding is settled (s.134, 10%, final from 1 July 2026) and brokerage fees are VAT-exempt. Still open: whether a client-paid brokerage fee is a s.129 professional fee, and WHT on commission received from insurers.
 4. Accountant: claim withdrawal, overpayment and recovery treatment (answer 22).
 5. Compliance adviser: the current IRA broker circular, returns, client-money reporting and the retention rule.
 6. Owner: whether any target clients need currencies other than USD at launch.

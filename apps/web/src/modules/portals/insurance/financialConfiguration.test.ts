@@ -23,8 +23,17 @@ const fee = (over: Partial<PolicyCharge> = {}): PolicyCharge => ({
   vat_rate_pct: null,
   income_gl_account_id: 'revenue',
   reviewed: true,
+  fee_class: 'insurance_brokerage',
+  fee_class_reason: null,
   ...over,
 });
+const taxable = (over: Partial<PolicyCharge> = {}): PolicyCharge =>
+  fee({
+    fee_class: 'other_taxable_service',
+    fee_class_reason: 'Separate risk-survey consultancy, not placement work',
+    vat_mode: 'exclusive',
+    ...over,
+  });
 describe('additive financial configuration UI validation', () => {
   it('preserves empty configuration as the existing single-insurer workflow', () =>
     expect(configurationProblems([], [])).toEqual([]));
@@ -73,9 +82,72 @@ describe('additive financial configuration UI validation', () => {
   });
   it('allows VAT not calculated without silently assuming exemption or a tax rate', () =>
     expect(configurationProblems([share()], [fee()])).toEqual([]));
-  it('requires an explicit VAT rate when enabled', () =>
+  it('requires an explicit VAT rate on a pass-through charge with VAT on', () =>
+    expect(
+      configurationProblems(
+        [share()],
+        [
+          fee({
+            kind: 'insurer_pass_through',
+            recipient_mode: 'all_insurers',
+            fee_class: null,
+            vat_mode: 'exclusive',
+          }),
+        ],
+      ),
+    ).toContain(
+      'Enter the applicable VAT rate; no statutory rate is assumed.',
+    ));
+  it('requires every broker fee to be classified', () =>
+    expect(
+      configurationProblems([share()], [fee({ fee_class: null })]),
+    ).toContain(
+      'Choose what kind of supply each broker fee is (insurance brokerage or other taxable service).',
+    ));
+  it('does not require a class on a pass-through charge', () =>
+    expect(
+      configurationProblems(
+        [share()],
+        [
+          fee({
+            kind: 'insurer_pass_through',
+            recipient_mode: 'all_insurers',
+            fee_class: null,
+          }),
+        ],
+      ),
+    ).toEqual([]));
+  it('refuses VAT on an insurance brokerage fee', () => {
+    const msg =
+      'An insurance brokerage fee is VAT-exempt and cannot carry VAT. If it is a separate taxable service, classify it as one.';
     expect(
       configurationProblems([share()], [fee({ vat_mode: 'exclusive' })]),
+    ).toContain(msg);
+    expect(
+      configurationProblems([share()], [fee({ vat_rate_pct: 18 })]),
+    ).toContain(msg);
+  });
+  it('requires a reason of at least 20 characters for a taxable service', () => {
+    const msg =
+      'Give a reason of at least 20 characters for treating a fee as a taxable service.';
+    expect(
+      configurationProblems([share()], [taxable({ fee_class_reason: null })]),
+    ).toContain(msg);
+    expect(
+      configurationProblems(
+        [share()],
+        [taxable({ fee_class_reason: '   too short   ' })],
+      ),
+    ).toContain(msg);
+    expect(configurationProblems([share()], [taxable()])).toEqual([]);
+  });
+  it('lets a taxable service leave the rate blank for the approved standard rate', () =>
+    expect(
+      configurationProblems([share()], [taxable({ vat_rate_pct: null })]),
+    ).toEqual([]));
+  it('still rejects an impossible typed rate on a taxable service', () =>
+    expect(
+      configurationProblems([share()], [taxable({ vat_rate_pct: 150 })]),
     ).toContain(
       'Enter the applicable VAT rate; no statutory rate is assumed.',
     ));

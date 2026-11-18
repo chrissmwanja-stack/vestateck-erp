@@ -168,7 +168,7 @@ begin
   charge_config:=jsonb_build_array(
     jsonb_build_object('kind','insurer_pass_through','description','All insurers charge','amount',100,'recipient_mode','all_insurers','vat_mode','not_calculated','reviewed',true),
     jsonb_build_object('kind','insurer_pass_through','description','Beta only charge','amount',50,'recipient_mode','one_insurer','recipient_insurer_id',beta,'vat_mode','not_calculated','reviewed',true),
-    jsonb_build_object('kind','broker_fee','description','Broker service fee','amount',50,'recipient_mode','broker','income_gl_account_id',fee_gl,'vat_mode','exclusive','vat_rate_pct',18,'reviewed',true));
+    jsonb_build_object('kind','broker_fee','description','Broker service fee','amount',50,'recipient_mode','broker','income_gl_account_id',fee_gl,'fee_class','other_taxable_service','fee_class_reason','Test fixture: a taxable administrative charge, not a brokerage fee','vat_mode','exclusive','vat_rate_pct',18,'reviewed',true));
   -- 18% here is only a test value, NOT a configured/default statutory rate.
   perform pg_temp.expect_error(format('select ins_set_policy_financial_configuration(%L,%L::jsonb,''[]''::jsonb)',draft.id,
     jsonb_set(config,'{0,share_pct}','59')),'INS_SHARE_TOTAL','shares must total exactly 100');
@@ -344,7 +344,7 @@ begin
   perform pg_temp.jwt(manager); set local role authenticated;
   zero_policy:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   perform ins_set_policy_financial_configuration(zero_policy.id,jsonb_build_array(config->0||jsonb_build_object('share_pct',100)),
-    jsonb_build_array(jsonb_build_object('kind','broker_fee','description','VAT deliberately not calculated','amount',50,'recipient_mode','broker','income_gl_account_id',fee_gl,'vat_mode','not_calculated','reviewed',true)));
+    jsonb_build_array(jsonb_build_object('kind','broker_fee','description','VAT deliberately not calculated','amount',50,'recipient_mode','broker','income_gl_account_id',fee_gl,'fee_class','insurance_brokerage','vat_mode','not_calculated','reviewed',true)));
   perform pg_temp.motor_cert(zero_policy.id); zero_policy:=pg_temp.approve_and_bind(zero_policy.id);
   reset role;
   perform pg_temp.assert((select vat_total=0 and invoice_total=1050 from ins_policy_financial_snapshots where policy_id=zero_policy.id),'VAT not calculated is allowed without a VAT liability mapping and is not labelled exempt');

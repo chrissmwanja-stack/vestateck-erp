@@ -219,7 +219,13 @@ begin
   -- 2. Statement: billed, posted-only receipts, balance
   -------------------------------------------------------------------
   select * into v_rec from ins_client_statement where policy_id = p1.id;
-  perform pg_temp.assert(v_rec.billed_amount = 500000, 'billed is the gross premium');
+  -- Billed is the RECEIVABLE raised at bind, not the premium recomputed. With
+  -- no charges on this policy the two happen to be equal, which is exactly why
+  -- the old assertion passed while fee-bearing policies under-billed: it never
+  -- exercised a policy that had a fee on it.
+  perform pg_temp.assert(v_rec.billed_amount = 500000, 'billed is the receivable raised at bind');
+  perform pg_temp.assert(v_rec.broker_fee_amount = 0 and v_rec.broker_fee_vat_amount = 0,
+    'no fee on this policy, so the fee columns are zero rather than null');
   perform pg_temp.assert(v_rec.received_amount = 200000, 'only the posted receipt counts, the pending one does not');
   perform pg_temp.assert(v_rec.balance_amount = 300000, 'balance is billed minus received');
   select * into v_rec from ins_client_statement where policy_id = p2.id;

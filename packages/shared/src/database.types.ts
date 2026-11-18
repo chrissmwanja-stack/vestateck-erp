@@ -6368,6 +6368,68 @@ export type Database = {
           },
         ]
       }
+      ins_fee_wht_records: {
+        Row: {
+          basis: string
+          cash_request_id: string
+          client_id: string
+          created_at: string
+          currency: string
+          gross_amount: number
+          id: string
+          journal_entry_id: string | null
+          net_received: number
+          reason: string
+          recorded_by: string | null
+          tenant_id: string
+          wht_amount: number
+          wht_parameter_ref: string | null
+          wht_rate_pct: number
+        }
+        Insert: {
+          basis: string
+          cash_request_id: string
+          client_id: string
+          created_at?: string
+          currency: string
+          gross_amount: number
+          id?: string
+          journal_entry_id?: string | null
+          net_received: number
+          reason: string
+          recorded_by?: string | null
+          tenant_id: string
+          wht_amount: number
+          wht_parameter_ref?: string | null
+          wht_rate_pct: number
+        }
+        Update: {
+          basis?: string
+          cash_request_id?: string
+          client_id?: string
+          created_at?: string
+          currency?: string
+          gross_amount?: number
+          id?: string
+          journal_entry_id?: string | null
+          net_received?: number
+          reason?: string
+          recorded_by?: string | null
+          tenant_id?: string
+          wht_amount?: number
+          wht_parameter_ref?: string | null
+          wht_rate_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_fee_wht_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_import_batches: {
         Row: {
           accounting_policy_version: number
@@ -7933,6 +7995,8 @@ export type Database = {
         Row: {
           amount: number | null
           description: string
+          fee_class: string | null
+          fee_class_reason: string | null
           id: string
           income_gl_account_id: string | null
           kind: string
@@ -7943,11 +8007,14 @@ export type Database = {
           tenant_id: string
           vat_amount: number | null
           vat_mode: string
+          vat_rate_parameter_ref: string | null
           vat_rate_pct: number | null
         }
         Insert: {
           amount?: number | null
           description: string
+          fee_class?: string | null
+          fee_class_reason?: string | null
           id?: string
           income_gl_account_id?: string | null
           kind: string
@@ -7958,11 +8025,14 @@ export type Database = {
           tenant_id: string
           vat_amount?: number | null
           vat_mode?: string
+          vat_rate_parameter_ref?: string | null
           vat_rate_pct?: number | null
         }
         Update: {
           amount?: number | null
           description?: string
+          fee_class?: string | null
+          fee_class_reason?: string | null
           id?: string
           income_gl_account_id?: string | null
           kind?: string
@@ -7973,6 +8043,7 @@ export type Database = {
           tenant_id?: string
           vat_amount?: number | null
           vat_mode?: string
+          vat_rate_parameter_ref?: string | null
           vat_rate_pct?: number | null
         }
         Relationships: [
@@ -14456,6 +14527,8 @@ export type Database = {
           balance_amount: number | null
           billed_amount: number | null
           bound_date: string | null
+          broker_fee_amount: number | null
+          broker_fee_vat_amount: number | null
           client_id: string | null
           client_name: string | null
           currency: string | null
@@ -18592,6 +18665,7 @@ export type Database = {
         Args: { p_insurer_id: string }
         Returns: string
       }
+      ins_fee_withholding_position: { Args: never; Returns: Json }
       ins_finance_pending_approvals: {
         Args: never
         Returns: {
@@ -18976,6 +19050,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_policy_billed_amount: {
+        Args: { p_policy_id: string }
+        Returns: number
+      }
       ins_policy_cancellation_context: {
         Args: { p_offset?: number; p_policy_id: string }
         Returns: Json
@@ -19347,6 +19425,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_record_fee_withholding: {
+        Args: {
+          p_basis: string
+          p_cash_request_id: string
+          p_reason: string
+          p_wht_amount: number
+          p_wht_rate_pct?: number
+        }
+        Returns: Json
       }
       ins_record_insurer_statement: {
         Args: {
