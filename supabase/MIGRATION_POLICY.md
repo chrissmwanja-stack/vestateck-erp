@@ -107,6 +107,14 @@ reconstruction, not the original — see its own header note).
     `supabase/tests/test_anon_and_excess_table_privileges.sql` fails if `anon`
     ever regains table access.
 
+11. **Every new migration filename starts with a valid UTC timestamp.**
+    `YYYYMMDDHHMMSS_snake_case_name.sql`, with a real calendar date and an
+    hour of 00-23. `20261117240000`, `20261117250000` and `20261117260000`
+    used hour 24, which the Supabase CLI cannot parse (`migration list` shows
+    the raw version instead of a date). They are applied, so they stay as they
+    are; do not rename them. For an end-of-day slot use `235900`.
+    `scripts/check-migration-policy.sh` enforces this on new migration files.
+
 ## Checklist for every new migration
 
 The rules above say what goes into a migration. This is the order to work in

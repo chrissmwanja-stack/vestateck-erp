@@ -33,6 +33,19 @@ FAIL=0
 for f in $NEW_MIGRATIONS; do
   [ -f "$f" ] || continue
 
+  # Filename must start with a real UTC timestamp, YYYYMMDDHHMMSS (rule 11).
+  # The CLI cannot parse an impossible time such as hour 24 ("20261117240000"),
+  # so `supabase migration list` prints the raw version instead of a date.
+  # Validate the calendar value with date(1), not just the digit count.
+  VERSION="$(basename "$f")"
+  VERSION="${VERSION%%_*}"
+  if ! [[ "$VERSION" =~ ^[0-9]{14}$ ]] \
+     || ! date -u -d "${VERSION:0:4}-${VERSION:4:2}-${VERSION:6:2} ${VERSION:8:2}:${VERSION:10:2}:${VERSION:12:2}" +%Y%m%d%H%M%S 2>/dev/null \
+          | grep -qx "$VERSION"; then
+    echo "FAIL: $f does not start with a valid UTC timestamp (YYYYMMDDHHMMSS, hour 00-23, e.g. 20261118235900_name.sql). (MIGRATION_POLICY.md, rule 11)"
+    FAIL=1
+  fi
+
   # Strip full-line and trailing SQL comments before checking. Comments
   # (e.g. explaining a *past* violation being fixed) shouldn't trip the
   # same pattern as live SQL -- see 20260814150000_fix_all_seeded_users_
