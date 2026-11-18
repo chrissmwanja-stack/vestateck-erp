@@ -201,3 +201,209 @@ export const canApproveTerm = (t: Pick<AgentTerm, 'status' | 'entered_by'>, user
 /** End-dating applies to an approved term that has no end date yet or one still ahead. */
 export const canEndTerm = (t: Pick<AgentTerm, 'status' | 'effective_to'>, today: string, canManage: boolean): boolean =>
   canManage && t.status === 'approved' && (t.effective_to === null || t.effective_to >= today);
+
+// ---------------------------------------------------------------------------
+// Accrual register (stage 3)
+// ---------------------------------------------------------------------------
+// One row per policy and intermediary: the share of brokerage commission owed to a
+// sub-agent or referral partner. The full row, including the columns the detail
+// dialog shows, is the table's own shape -- nothing here is derived money.
+
+export interface AgentAccrualDetail extends AgentAccrual {
+  term_id: string | null;
+  rate_pct: number | null;
+  fixed_amount: number | null;
+  commission_base: number;
+  reversal_reason: string | null;
+  journal_entry_id: string | null;
+  payment_journal_entry_id: string | null;
+  /** The approved rate row the withholding was copied from. Copied, not joined. */
+  wht_rate_pct: number | null;
+  /** Whether the withholding settled the agent's liability on that date (s.139(aa)). */
+  wht_is_final: boolean | null;
+  wht_parameter_ref: string | null;
+}
+
+export type AgentEventKind = 'accrued' | 'eligible' | 'paid' | 'reversed';
+
+export interface AgentAccrualEvent {
+  id: string;
+  accrual_id: string;
+  event: AgentEventKind | string;
+  amount: number | null;
+  journal_entry_id: string | null;
+  note: string | null;
+  actor_id: string | null;
+  created_at: string;
+}
+
+export const AGENT_EVENT_LABEL: Record<string, string> = {
+  accrued: 'Accrued',
+  eligible: 'Marked eligible',
+  paid: 'Paid',
+  reversed: 'Reversed',
+};
+
+/**
+ * What the amount on an event means, which is NOT the same thing for every event.
+ * A paid event carries the NET handed over, a reversal carries the GROSS unwound.
+ * Labelling both "amount" invites reading 270,000 and 300,000 as a discrepancy.
+ */
+export const AGENT_EVENT_AMOUNT_LABEL: Record<string, string> = {
+  accrued: 'gross share',
+  eligible: 'gross share',
+  paid: 'net paid',
+  reversed: 'gross reversed',
+};
+
+/** The date the share is attributed to: when it was recognised, and paid if it was paid. */
+export const accrualDate = (a: Pick<AgentAccrualDetail, 'created_at'>): string => isoDate(a.created_at);
+
+const isoDate = (iso: string): string => iso.slice(0, 10);
+
+/**
+ * Eligibility in words. "Eligible" on its own reads like "paid", and the difference
+ * between the two is the whole point of the lifecycle.
+ */
+export function eligibilityLabel(a: Pick<AgentAccrualDetail, 'status' | 'eligible_on'>): string {
+  if (a.status === 'eligible') return a.eligible_on ? `Eligible since ${a.eligible_on}` : 'Eligible, not yet paid';
+  if (a.status === 'paid') return 'Paid';
+  if (a.status === 'reversed') return 'Reversed, not payable';
+  return 'Waiting for the brokerage commission to be earned';
+}
+
+/**
+ * How much withholding, and what it MEANS, for one accrual.
+ *
+ * Since withholding moved to the payment event, an unpaid share carries none: the
+ * tax is taken when the agent is paid, and the character is settled by the law in
+ * force on that payment date. So "0.00" on an accrued row must read as "not yet
+ * determined", not as "no tax" -- otherwise a reviewer concludes the agent owes
+ * nothing when the deduction has simply not happened yet.
+ *
+ * This describes rows written BEFORE that change too, where tax was taken at
+ * accrual: those carry a rate and a character and are described on their own terms.
+ */
+export function withholdingNote(a: Pick<AgentAccrualDetail, 'status' | 'wht_amount' | 'wht_rate_pct' | 'wht_is_final'>): string {
+  if (a.status === 'reversed') return 'nothing to withhold, the share was reversed';
+  if (a.wht_amount > 0) {
+    const rate = a.wht_rate_pct === null ? 'the approved rate' : `${a.wht_rate_pct}%`;
+    if (a.wht_is_final === true) return `final tax at ${rate}`;
+    if (a.wht_is_final === false) return `on account at ${rate}, the agent still declares the income`;
+    return `withheld at ${rate}`;
+  }
+  if (a.status === 'paid') return 'nothing withheld on this share';
+  return 'determined when the agent is paid';
+}
+
+// ---- Filters -----------------------------------------------------------------
+
+export interface AccrualFilters {
+  text: string;
+  agentId: string;
+  status: '' | AgentAccrualStatus;
+  basis: string;
+  currency: string;
+  accruedFrom: string;
+  accruedTo: string;
+}
+
+/** Typed as Record<string,string> so countActive() can read it without a cast. */
+export const EMPTY_ACCRUAL_FILTERS: AccrualFilters = {
+  text: '', agentId: '', status: '', basis: '', currency: '', accruedFrom: '', accruedTo: '',
+};
+
+export type AccrualSort = 'newest' | 'oldest' | 'gross_desc' | 'agent_az' | 'policy_az';
+
+export const ACCRUAL_SORT_LABEL: Record<AccrualSort, string> = {
+  newest: 'Newest first',
+  oldest: 'Oldest first',
+  gross_desc: 'Largest gross first',
+  agent_az: 'Agent A to Z',
+  policy_az: 'Policy A to Z',
+};
+
+export interface AccrualLabels {
+  agent: (a: { intermediary_id: string }) => string;
+  policy: (a: { policy_id: string }) => string;
+  client: (a: { policy_id: string }) => string;
+}
+
+/** A date-only comparison, so a time zone cannot move a row into or out of a range. */
+function inRange(day: string, from: string, to: string): boolean {
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
+export function filterAccruals(
+  accruals: readonly AgentAccrualDetail[],
+  f: AccrualFilters,
+  labels: AccrualLabels,
+): AgentAccrualDetail[] {
+  const words = fold(f.text).split(/\s+/).filter(Boolean);
+  return accruals.filter((a) => {
+    if (f.agentId && a.intermediary_id !== f.agentId) return false;
+    if (f.status && a.status !== f.status) return false;
+    if (f.basis && a.basis !== f.basis) return false;
+    if (f.currency && a.currency !== f.currency) return false;
+    if (!inRange(accrualDate(a), f.accruedFrom, f.accruedTo)) return false;
+    if (words.length === 0) return true;
+    const haystack = fold([labels.agent(a), labels.policy(a), labels.client(a)].join(' '));
+    return words.every((w) => haystack.includes(w));
+  });
+}
+
+export function sortAccruals(
+  accruals: readonly AgentAccrualDetail[],
+  sort: AccrualSort,
+  labels: AccrualLabels,
+): AgentAccrualDetail[] {
+  const byAgent = (x: AgentAccrualDetail, y: AgentAccrualDetail) =>
+    labels.agent(x).localeCompare(labels.agent(y));
+  const byDate = (x: AgentAccrualDetail, y: AgentAccrualDetail) =>
+    x.created_at.localeCompare(y.created_at) || x.id.localeCompare(y.id);
+  const out = [...accruals];
+  switch (sort) {
+    case 'oldest': return out.sort(byDate);
+    case 'gross_desc': return out.sort((x, y) => y.gross_amount - x.gross_amount || byDate(y, x));
+    case 'agent_az': return out.sort((x, y) => byAgent(x, y) || byDate(y, x));
+    case 'policy_az': return out.sort((x, y) => labels.policy(x).localeCompare(labels.policy(y)) || byDate(y, x));
+    default: return out.sort((x, y) => byDate(y, x));
+  }
+}
+
+/** Chronological, and stable when two events share a timestamp. */
+export const sortEvents = (events: readonly AgentAccrualEvent[]): AgentAccrualEvent[] =>
+  [...events].sort((x, y) => x.created_at.localeCompare(y.created_at) || x.id.localeCompare(y.id));
+
+export interface RegisterTotals {
+  gross: CurrencyTotals;
+  withholding: CurrencyTotals;
+  net: CurrencyTotals;
+}
+
+/**
+ * Totals for the rows on screen, reversed shares left out, each currency separate.
+ *
+ * Net is the stored net where there is one and gross less withholding otherwise,
+ * which under the payment-event rule means an accrued row contributes its gross:
+ * nothing has been withheld, so nothing has been deducted from what the agent is
+ * owed. That is the correct reading, and it is why this must not "helpfully"
+ * apply a tax rate to an unpaid share.
+ */
+export function registerTotals(accruals: readonly AgentAccrualDetail[]): RegisterTotals {
+  const t: RegisterTotals = { gross: {}, withholding: {}, net: {} };
+  for (const a of accruals) {
+    if (a.status === 'reversed') continue;
+    addTo(t.gross, a.currency, a.gross_amount);
+    if (a.wht_amount > 0) addTo(t.withholding, a.currency, a.wht_amount);
+    addTo(t.net, a.currency, netOf(a));
+  }
+  return t;
+}
+
+/** Same accent- and case-insensitive fold the rest of the insurance lists use. */
+function fold(v: unknown): string {
+  return String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}

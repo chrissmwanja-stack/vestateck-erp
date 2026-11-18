@@ -7,6 +7,7 @@ import { allRows, errorText, table } from '../../db';
 import { formatMoney } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import AgentCommissionTerms from './AgentCommissionTerms';
+import AgentCommissionAccruals from './AgentCommissionAccruals';
 import {
   AGENT_ACCRUAL_STATUS_LABEL, recentAccruals, summariseAccruals, type AgentAccrual, type CurrencyTotals,
 } from '../../agentCommission';
@@ -21,8 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'wht', label: 'WHT Remittances' },
 ];
 
-const COMING: Record<Exclude<TabKey, 'overview' | 'terms'>, string> = {
-  accruals: 'The accrual register is built in a later stage.',
+const COMING: Record<Exclude<TabKey, 'overview' | 'terms' | 'accruals'>, string> = {
   payments: 'Payment processing is built in a later stage.',
   wht: 'WHT remittance management is built in a later stage.',
 };
@@ -89,7 +89,8 @@ const AgentCommissionPage = () => {
       </Tabs>
 
       {tab === 'terms' && <AgentCommissionTerms />}
-      {tab !== 'overview' && tab !== 'terms' && <Alert severity="info">{COMING[tab]}</Alert>}
+      {tab === 'accruals' && <AgentCommissionAccruals />}
+      {tab !== 'overview' && tab !== 'terms' && tab !== 'accruals' && <Alert severity="info">{COMING[tab]}</Alert>}
 
       {tab === 'overview' && (loading ? <CircularProgress /> : (
         <>
