@@ -17979,8 +17979,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ins_agent_commission_accrual_preview: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       ins_agent_commission_accrue: {
         Args: { p_policy_id: string }
+        Returns: Json
+      }
+      ins_agent_commission_accrue_manual: {
+        Args: { p_policy_id: string; p_reason?: string }
         Returns: Json
       }
       ins_agent_commission_approve_payment: {
@@ -17988,6 +17996,10 @@ export type Database = {
         Returns: Json
       }
       ins_agent_commission_backfill: { Args: never; Returns: Json }
+      ins_agent_commission_blocked_reason: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
       ins_agent_commission_calculate: {
         Args: { p_intermediary_id: string; p_policy_id: string }
         Returns: Json
@@ -19725,6 +19737,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_run_agent_commission_accruals: {
+        Args: { p_from: string; p_reason?: string; p_to: string }
+        Returns: Json
       }
       ins_save_intermediary: {
         Args: {
@@ -23263,3 +23279,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

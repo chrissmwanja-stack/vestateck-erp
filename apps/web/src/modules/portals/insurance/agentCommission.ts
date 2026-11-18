@@ -811,3 +811,151 @@ export function whtStillHeld(
   }
   return held;
 }
+
+// ---------------------------------------------------------------------------
+// Manual accrual (item 6, bit 7)
+// ---------------------------------------------------------------------------
+// A manager may ask for a share to be accrued, and the server decides whether it
+// is allowed. Nothing here computes a share: the figure shown in the dialog comes
+// back from ins_agent_commission_blocked_reason(), which runs the same
+// calculation the accrual will run. A preview that did its own arithmetic would
+// eventually disagree with the ledger, and the disagreement would be found by an
+// agent rather than by us.
+
+export type AccrualBlockCode =
+  | 'INS_AGENT_NO_AGENT'
+  | 'INS_AGENT_INSURER_PAID'
+  | 'INS_AGENT_UNKNOWN_CATEGORY'
+  | 'INS_AGENT_ALREADY_ACCRUED'
+  | 'INS_AGENT_NOT_RECOGNISED'
+  | 'INS_AGENT_NOT_PAYABLE'
+  | 'INS_AGENT_NOT_ACCRUABLE';
+
+/** What each refusal means, in the manager's terms rather than the database's. */
+export const ACCRUAL_BLOCK_LABEL: Record<AccrualBlockCode, string> = {
+  INS_AGENT_NO_AGENT: 'No intermediary on this policy',
+  INS_AGENT_INSURER_PAID: 'Paid by the insurer',
+  INS_AGENT_UNKNOWN_CATEGORY: 'No commission treatment',
+  INS_AGENT_ALREADY_ACCRUED: 'Already on the books',
+  INS_AGENT_NOT_RECOGNISED: 'Commission not yet earned',
+  INS_AGENT_NOT_PAYABLE: 'The agreement pays nothing',
+  INS_AGENT_NOT_ACCRUABLE: 'Cannot be accrued',
+};
+
+export interface AccrualCheck {
+  code: AccrualBlockCode | null;
+  reason: string | null;
+  intermediary_id?: string;
+  name?: string;
+  basis?: string;
+  gross_amount?: number;
+  currency?: string;
+  recognition_mode?: string;
+  accrual_id?: string;
+  status?: string;
+}
+
+export interface AccrualPreviewLine {
+  policy_id: string;
+  policy_no: string | null;
+  inception_date: string;
+  currency: string;
+  intermediary_id?: string;
+  name?: string;
+  basis?: string;
+  gross_amount?: number;
+}
+
+export interface AccrualBlockedLine {
+  policy_id: string;
+  policy_no: string | null;
+  inception_date: string;
+  currency: string;
+  code: AccrualBlockCode;
+  reason: string;
+}
+
+export interface AccrualPreview {
+  from: string;
+  to: string;
+  eligible: AccrualPreviewLine[];
+  eligible_count: number;
+  blocked: AccrualBlockedLine[];
+  blocked_count: number;
+  by_currency: { currency: string; count: number; gross_amount: number }[];
+}
+
+export interface AccrualRunResult {
+  from: string;
+  to: string;
+  accrued: number;
+  skipped: number;
+  failed: number;
+  failures: { policy_no: string | null; error: string }[];
+  results: { policy_no: string | null; accrued: boolean; accrual_id?: string; gross_amount?: number; reason?: string; error?: string }[];
+  blocked_before_run: number;
+  by_currency: { currency: string; count: number; gross_amount: number }[];
+}
+
+/** Can this policy be accrued, and if not, why? `null` code means yes. */
+export const accrualIsAllowed = (check: AccrualCheck | null): boolean => !check || check.code === null;
+
+/**
+ * The one sentence a manager reads. The server's reason wins because it knows
+ * more than the code does; the label is only there so a reason that arrives
+ * without context still has a heading.
+ */
+export const accrualRefusalText = (check: AccrualCheck | null): string => {
+  if (!check || check.code === null) return '';
+  const heading = ACCRUAL_BLOCK_LABEL[check.code] ?? 'Cannot be accrued';
+  return check.reason ? `${heading}: ${check.reason}` : heading;
+};
+
+/**
+ * Total a preview would post, per currency, never summed across currencies.
+ * Formatted the same way the register formats money, so a figure in this sentence
+ * and the same figure in the table cannot print differently.
+ */
+export const previewTotalsText = (preview: AccrualPreview | null): string => {
+  if (!preview || preview.by_currency.length === 0) return 'nothing to accrue';
+  return preview.by_currency
+    .map((c) => {
+      const money = new Intl.NumberFormat('en-UG', {
+        style: 'currency', currency: c.currency, maximumFractionDigits: 2,
+      }).format(c.gross_amount);
+      return `${money} across ${c.count} ${c.count === 1 ? 'policy' : 'policies'}`;
+    })
+    .join(', ');
+};
+
+/**
+ * The headline after a run. Says what happened rather than showing four numbers
+ * to be interpreted: a run that accrued nothing and a run that failed everywhere
+ * must not read the same.
+ */
+export const runResultText = (run: AccrualRunResult): string => {
+  if (run.failed > 0) {
+    return `Accrued ${run.accrued}, skipped ${run.skipped}, and ${run.failed} could not be accrued. Nothing is lost: fix the ${run.failed === 1 ? 'policy' : 'policies'} and run again.`;
+  }
+  if (run.accrued === 0) {
+    return run.skipped > 0
+      ? `Nothing new to accrue — ${run.skipped} ${run.skipped === 1 ? 'policy was' : 'policies were'} already on the books.`
+      : 'Nothing to accrue in this period.';
+  }
+  return `Accrued ${run.accrued} ${run.accrued === 1 ? 'share' : 'shares'}${run.skipped > 0 ? `, skipped ${run.skipped} already on the books` : ''}.`;
+};
+
+/** Default period for a run: the current month, as a manager would expect. */
+export const monthPeriod = (today = new Date()): { from: string; to: string } => {
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const last = new Date(y, today.getMonth() + 1, 0).getDate();
+  return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(last).padStart(2, '0')}` };
+};
+
+/** A run needs a period that exists. Returns null when the dates are unusable. */
+export const periodProblem = (from: string, to: string): string | null => {
+  if (!from || !to) return 'Choose both dates.';
+  if (to < from) return 'The end of the period cannot be before its start.';
+  return null;
+};

@@ -6,9 +6,19 @@ import AgentCommissionAccruals from './AgentCommissionAccruals';
 // The accrual register reads rows and never calculates money in the browser.
 
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 vi.mock('../../../../../lib/supabaseClient', () => ({
-  supabase: { from: (...a: unknown[]) => mockFrom(...a), rpc: vi.fn() },
+  supabase: {
+    from: (...a: unknown[]) => mockFrom(...a),
+    rpc: (...a: unknown[]) => mockRpc(...a),
+    auth: { getUser: () => Promise.resolve({ data: { user: { id: 'u1' } }, error: null }) },
+  },
 }));
+
+// The register now carries the manual-accrual actions, which read the caller's
+// insurance access. Default: not a manager, so these existing register tests are
+// unaffected by the dialogs. AccrualDialogs.test.tsx covers the manager side.
+vi.mock('../../access', () => ({ useInsuranceAccess: () => ({ loading: false, canManage: false }) }));
 
 const accrual = (over: Record<string, unknown> = {}) => ({
   id: 'a1', policy_id: 'p1', intermediary_id: 'i1', basis: 'pct_of_broker_commission',

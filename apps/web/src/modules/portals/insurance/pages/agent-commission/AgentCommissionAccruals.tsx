@@ -7,6 +7,7 @@ import { allRows, errorText, rows, table } from '../../db';
 import { formatMoney } from '../../logic';
 import ListToolbar from '../../ListToolbar';
 import { EmptyRow, ErrorBanner } from '../../shared';
+import AccrualDialogs from './AccrualDialogs';
 import { countActive } from '../../listFilters';
 import {
   ACCRUAL_SORT_LABEL, AGENT_ACCRUAL_STATUS_LABEL, AGENT_BASIS_LABEL, AGENT_EVENT_AMOUNT_LABEL, AGENT_EVENT_LABEL,
@@ -97,6 +98,15 @@ const AgentCommissionAccruals = () => {
     client: (a: { policy_id: string }) => policies[a.policy_id]?.ins_clients?.bd_clients?.name ?? '',
   }), [agents, policies]);
   const nameOf = (id: string | null) => (id ? people[id] ?? 'Another user' : 'System');
+  // Only policies that name an intermediary can ever be accrued; offering the
+  // rest would be offering a refusal.
+  const policyOptions = useMemo(
+    () => Object.values(policies)
+      .filter((p) => p.policy_no)
+      .map((p) => ({ id: p.id, policy_no: p.policy_no }))
+      .sort((x, y) => (x.policy_no ?? '').localeCompare(y.policy_no ?? '')),
+    [policies],
+  );
 
   // Dropdown choices come from the rows themselves, so only values in use are offered.
   const agentOptions = useMemo(
@@ -123,6 +133,8 @@ const AgentCommissionAccruals = () => {
         Figures are the ones copied when the commission accrued, so a later change of terms or tax rate does not rewrite them.
       </Typography>
       <ErrorBanner message={error} />
+
+      <AccrualDialogs onDone={() => void load()} policyOptions={policyOptions} />
 
       <ListToolbar
         search={filters.text}
