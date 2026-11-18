@@ -541,6 +541,28 @@ begin
       r.sig, r.sig);
   end loop;
 
+  -- Section 16: policy status check + bind guard (found drifted 2026-11-18:
+  -- 20261107090000 was recorded but ins_policies_status_check still lacked
+  -- 'reversed'/'cancelled' and ins_policy_bind_guard still raised on every
+  -- update of an active policy). Re-applied by 20261118090000.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.ins_policies'::regclass
+      and conname = 'ins_policies_status_check'
+      and pg_get_constraintdef(oid) like '%''reversed''%'
+      and pg_get_constraintdef(oid) like '%''cancelled''%'
+  ) then
+    v_fail := v_fail || 'ins_policies_status_check does not allow reversed/cancelled (re-run 20261118090000)'::text;
+  end if;
+  if not exists (
+    select 1 from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and p.proname = 'ins_policy_bind_guard'
+      and p.prosrc like '%is distinct from old.status%'
+  ) then
+    v_fail := v_fail || 'ins_policy_bind_guard is the pre-20261107090000 version: it blocks any update of an active policy (re-run 20261118090000)'::text;
+  end if;
+
   if array_length(v_fail, 1) is not null then
     raise exception E'SECURITY DRIFT DETECTED (% problem(s)):\n - %',
       array_length(v_fail, 1), array_to_string(v_fail, E'\n - ');
