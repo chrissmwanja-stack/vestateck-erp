@@ -1,0 +1,11 @@
+# Default owner for everything.
+*                       @chrissmwanja-stack
+
+# Areas where a mistake is expensive: schema and security rules, edge
+# functions that run with the service-role key, CI, and deployment config.
+/supabase/migrations/   @chrissmwanja-stack
+/supabase/functions/    @chrissmwanja-stack
+/supabase/tests/        @chrissmwanja-stack
+/.github/               @chrissmwanja-stack
+/api/                   @chrissmwanja-stack
+/vercel.json            @chrissmwanja-stack

@@ -1,0 +1,149 @@
+name: Database backup
+
+# Nightly logical backup of the production Supabase database, encrypted with
+# age and copied to an S3-compatible bucket (Cloudflare R2, Backblaze B2,
+# AWS S3...). It exists because the Supabase Free plan gives no managed
+# backups or point-in-time recovery.
+#
+# This repository is PUBLIC, so the dump is NEVER uploaded as a GitHub Actions
+# artifact (anyone signed in to GitHub could download it). It is encrypted to
+# an age PUBLIC key on the runner; only the matching private key, kept offline,
+# can decrypt it. Setup, retention and the restore drill are in
+# docs/OPERATIONS.md.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_DB_URL        Postgres connection string for the SESSION POOLER
+#                          (host aws-0-<region>.pooler.supabase.com, port 5432,
+#                          user postgres.<project-ref>). Use the pooler, not
+#                          the direct db.<ref>.supabase.co host: that one is
+#                          IPv6-only and GitHub runners are IPv4.
+#   BACKUP_AGE_RECIPIENT   age public key (starts with "age1...")
+#   BACKUP_S3_BUCKET       bucket name
+#   BACKUP_S3_ENDPOINT     S3 endpoint URL (for R2:
+#                          https://<account-id>.r2.cloudflarestorage.com)
+#   AWS_ACCESS_KEY_ID      access key for a key scoped to that bucket only
+#   AWS_SECRET_ACCESS_KEY  its secret
+#
+# Retention is set with a lifecycle rule on the bucket (30 days suggested),
+# not here. A failed run emails the repository owner through GitHub's normal
+# failed-workflow notification; keep that notification on.
+
+on:
+  schedule:
+    - cron: "30 1 * * *"   # every day at 01:30 UTC
+  workflow_dispatch: {}      # allows a manual run from the Actions tab
+
+permissions:
+  contents: read
+  actions: write             # only used by the "Keep this schedule enabled" step
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Must be >= the Postgres major version of the Supabase project
+      # (Dashboard -> Settings -> Infrastructure). pg_dump refuses to dump a
+      # newer server. Raise this when Supabase upgrades the project.
+      PG_MAJOR: "17"
+    steps:
+      - name: Check that the secrets are set
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          missing=0
+          for v in SUPABASE_DB_URL BACKUP_AGE_RECIPIENT BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Secret $v is not set"; missing=1; fi
+          done
+          case "$BACKUP_AGE_RECIPIENT" in
+            age1*) ;;
+            *) echo "::error::BACKUP_AGE_RECIPIENT must be an age public key (age1...)"; missing=1 ;;
+          esac
+          exit $missing
+
+      - name: Install pg_dump and age
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq "postgresql-client-${PG_MAJOR}" age
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" --version
+          age --version
+
+      - name: Dump the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          # public: all app data. auth: the user accounts (without it nobody can
+          # log in after a restore). storage: file metadata only; the files
+          # themselves live in object storage and are not in this dump.
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" \
+            --dbname="$SUPABASE_DB_URL" \
+            --format=custom --compress=6 \
+            --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage \
+            --file="vestaportal-$stamp.dump"
+          ls -l "vestaportal-$stamp.dump"
+
+      - name: Verify the dump is readable and not empty
+        run: |
+          set -euo pipefail
+          f="vestaportal-$STAMP.dump"
+          size=$(stat -c %s "$f")
+          if [ "$size" -lt 100000 ]; then
+            echo "::error::Dump is only $size bytes; refusing to upload a suspiciously small backup"
+            exit 1
+          fi
+          # pg_restore --list parses the whole table of contents; it fails on a
+          # truncated or corrupt archive.
+          entries=$("/usr/lib/postgresql/${PG_MAJOR}/bin/pg_restore" --list "$f" | grep -c "TABLE DATA" || true)
+          echo "Dump holds $entries TABLE DATA entries"
+          if [ "$entries" -lt 50 ]; then
+            echo "::error::Only $entries TABLE DATA entries; expected the full schema"
+            exit 1
+          fi
+
+      - name: Encrypt with age
+        env:
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          age -r "$BACKUP_AGE_RECIPIENT" -o "vestaportal-$STAMP.dump.age" "vestaportal-$STAMP.dump"
+          rm -f "vestaportal-$STAMP.dump"
+          ls -l "vestaportal-$STAMP.dump.age"
+
+      - name: Upload to the bucket
+        env:
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -euo pipefail
+          aws s3 cp "vestaportal-$STAMP.dump.age" \
+            "s3://$BACKUP_S3_BUCKET/db/vestaportal-$STAMP.dump.age" \
+            --endpoint-url "$BACKUP_S3_ENDPOINT"
+          aws s3 ls "s3://$BACKUP_S3_BUCKET/db/vestaportal-$STAMP.dump.age" \
+            --endpoint-url "$BACKUP_S3_ENDPOINT"
+
+      - name: Keep this schedule enabled
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/db-backup.yml/enable"
