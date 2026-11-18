@@ -2030,6 +2030,319 @@ begin
       '§20 a reversed share is absent from every statement, whatever the window');
   end;
 
+
+  -- -------------------------------------------------------------------
+  -- §21 manual accrual: a manager may ask, and the rules still decide
+  -- -------------------------------------------------------------------
+  -- The manager check is asserted FIRST, before any policy exists, because it
+  -- is the only guard that can be removed without the rest of the section
+  -- noticing: every scenario after this one runs as a manager, so a wrapper
+  -- that lost its can_manage_insurance() check would still pass them all.
+  -- (Measured: that mutant survived until this assertion existed.)
+  -- The action exists because a share can be missing for reasons recognition
+  -- never sees: commission earned before the subledger shipped, a book
+  -- migrated with earned commission on it, a share reversed for the wrong
+  -- reason. What it must NOT be is a way around the accrual rules, so the
+  -- tests below are as much about what is refused as about what is posted.
+  declare
+    v_m21    uuid := gen_random_uuid();
+    v_pol21  public.ins_policies;
+    v_c21    uuid;
+    v_b21    jsonb;
+    v_o21    jsonb;
+    v_prev21 jsonb;
+    v_run21  jsonb;
+    v_pol21b public.ins_policies;
+    v_pol21c public.ins_policies;
+    v_pol21d public.ins_policies;
+    v_gl_before numeric;
+    v_gl_after  numeric;
+  begin
+    -- A second manager, because the action is manager-gated.
+    insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+      values (v_m21, 'manacc-' || v_m21 || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+      on conflict (id) do nothing;
+    insert into public.app_users(id, tenant_id, name, email)
+      values (v_m21, ta, 'Manual accrual manager', 'manacc-' || v_m21 || '@test.local')
+      on conflict (id) do nothing;
+    insert into public.staff_roles(tenant_id, user_id, module, role)
+      select ta, v_m21, 'insurance', 'manager'
+      where not exists (select 1 from public.staff_roles
+                        where tenant_id = ta and user_id = v_m21 and module = 'insurance');
+
+    -- (0) A user with no insurance role must be refused, and refused by the
+    -- wrapper rather than by whatever happens to be missing further down.
+    reset role;
+    declare
+      v_plain21 uuid := gen_random_uuid();
+    begin
+      insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
+        values (v_plain21, 'plain-' || v_plain21 || '@test.local', '{}', '{}', 'authenticated', 'authenticated', now(), now())
+        on conflict (id) do nothing;
+      insert into public.app_users(id, tenant_id, name, email)
+        values (v_plain21, ta, 'No insurance role', 'plain-' || v_plain21 || '@test.local')
+        on conflict (id) do nothing;
+
+      perform pg_temp.jwt(v_plain21); set local role authenticated;
+      perform pg_temp.expect_error(
+        format($q$select public.ins_agent_commission_accrue_manual(%L, 'not mine to ask')$q$, v_pol_place),
+        'INS_ACCESS_DENIED',
+        '§21 somebody without an insurance role cannot accrue commission, whoever they ask for');
+      perform pg_temp.expect_error(
+        format($q$select public.ins_run_agent_commission_accruals(date '2000-01-01', current_date, 'not mine')$q$),
+        'INS_ACCESS_DENIED',
+        '§21 nor run accruals across the book');
+      perform pg_temp.expect_error(
+        format($q$select public.ins_agent_commission_accrual_preview(date '2000-01-01', current_date)$q$),
+        'INS_ACCESS_DENIED',
+        '§21 nor even look at what would be run');
+      reset role;
+    end;
+
+    -- (a) A bound policy whose commission is still DEFERRED. This is the case
+    -- the whole guard exists for: the brokerage has not been paid, so it has
+    -- not earned the commission, so there is nothing for the agent's share to
+    -- come out of. Asking must fail, and it must say why in words.
+    reset role;
+    v_c21 := (select id from ins_clients where tenant_id = ta limit 1);
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_pol21b := ins_create_policy(v_c21, v_insurer, v_line, current_date, current_date + 365,
+                                  4000000, 'UGX', 4000000, 15, null, v_sub, 'manual not yet recognised', null);
+    perform pg_temp.one_share(v_pol21b.id, v_insurer, 15);
+    v_pol21b := pg_temp.approve_and_bind(v_pol21b.id);
+    reset role;
+
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_b21 := public.ins_agent_commission_blocked_reason(v_pol21b.id);
+    perform pg_temp.assert(v_b21 ->> 'code' = 'INS_AGENT_NOT_RECOGNISED',
+      format('§21 a bound policy whose commission is deferred refuses manual accrual by name (got %s)', v_b21 ->> 'code'));
+    perform pg_temp.assert(v_b21 ->> 'reason' like '%not been recognised%',
+      format('§21 and the reason says the recognition point is the obstacle (got %s)', v_b21 ->> 'reason'));
+    perform pg_temp.assert(
+      v_b21 ->> 'reason' like '%' || public.ins_commission_recognition_mode(v_pol21b.id) || '%',
+      '§21 and names the policy''s recognition mode, so the manager can see which rule is holding it');
+
+    -- Nothing was posted while saying no. An explanation that still moved the
+    -- ledger would be the worst of both.
+    perform pg_temp.assert(not exists (
+      select 1 from public.ins_agent_commission_accruals
+       where policy_id = v_pol21b.id), '§21 and nothing was accrued while it was refusing');
+
+    v_o21 := public.ins_agent_commission_accrue_manual(v_pol21b.id, 'try anyway');
+    perform pg_temp.assert(not (v_o21 ->> 'accrued')::boolean,
+      '§21 asking anyway is still refused, and returns rather than raising');
+    perform pg_temp.assert(v_o21 ->> 'code' = 'INS_AGENT_NOT_RECOGNISED',
+      format('§21 with the same code (got %s)', v_o21 ->> 'code'));
+    reset role;
+
+    -- (b) Now the commission is recognised -- by the normal path, which accrues
+    -- automatically. So to test the MANUAL action we need a share that the
+    -- trigger did not create. The honest way to get one is to accrue, reverse,
+    -- and re-accrue manually: reversal is the documented repair path, and it
+    -- leaves exactly the state the manual action exists for.
+    perform pg_temp.recognise(v_pol21b.id, 600000);
+    perform pg_temp.assert(exists (
+      select 1 from public.ins_agent_commission_accruals
+       where policy_id = v_pol21b.id and status <> 'reversed'),
+      '§21 recognition accrues the share on its own, as before');
+
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_b21 := public.ins_agent_commission_blocked_reason(v_pol21b.id);
+    perform pg_temp.assert(v_b21 ->> 'code' = 'INS_AGENT_ALREADY_ACCRUED',
+      format('§21 a live share is reported as already accrued, not accrued twice (got %s)', v_b21 ->> 'code'));
+
+    -- The manual action must not double-post over the trigger's work.
+    reset role;
+    select gross_amount into v_gl_before
+      from public.ins_agent_commission_accruals where policy_id = v_pol21b.id and status <> 'reversed';
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_o21 := public.ins_agent_commission_accrue_manual(v_pol21b.id, 'duplicate attempt');
+    perform pg_temp.assert(not (v_o21 ->> 'accrued')::boolean,
+      '§21 and pressing the button does nothing at all');
+    reset role;
+    perform pg_temp.assert((select count(*) from public.ins_agent_commission_accruals
+                             where policy_id = v_pol21b.id) = 1,
+      '§21 exactly one accrual row exists for the policy');
+    perform pg_temp.assert(v_gl_before = 240000,
+      format('§21 the share is the agreed 40%% of the 600,000 commission (got %s)', v_gl_before));
+
+    -- (c) Reverse it. Then the share is gone but the commission is still earned,
+    -- which is the gap the manual action fills.
+    reset role;
+    perform public.ins_agent_commission_reverse(
+      (select id from public.ins_agent_commission_accruals
+        where policy_id = v_pol21b.id and status <> 'reversed'),
+      'accrued against the wrong term');
+
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_b21 := public.ins_agent_commission_blocked_reason(v_pol21b.id);
+    perform pg_temp.assert(v_b21 ->> 'code' is null,
+      format('§21 after a reversal the policy is accrueable again (got %s: %s)', v_b21 ->> 'code', v_b21 ->> 'reason'));
+    perform pg_temp.assert((v_b21 ->> 'gross_amount')::numeric = 240000,
+      format('§21 and the preview shows the same figure the accrual will post, from the same calculation (got %s)', v_b21 ->> 'gross_amount'));
+
+    v_o21 := public.ins_agent_commission_accrue_manual(v_pol21b.id, 're-accrued after reversing the wrong term');
+    perform pg_temp.assert((v_o21 ->> 'accrued')::boolean,
+      format('§21 the manual action re-accrues it (got %s)', v_o21::text));
+    perform pg_temp.assert((v_o21 ->> 'gross_amount')::numeric = 240000,
+      '§21 at the term''s figure, not at any figure the caller could name');
+    reset role;
+
+    -- One live share, plus the reversed one kept as history.
+    perform pg_temp.assert((
+      select count(*) from public.ins_agent_commission_accruals
+       where policy_id = v_pol21b.id and status <> 'reversed') = 1,
+      '§21 the manual accrual leaves exactly one live share');
+    perform pg_temp.assert((
+      select count(*) from public.ins_agent_commission_accruals
+       where policy_id = v_pol21b.id and status = 'reversed') = 1,
+      '§21 and the reversal is still there as history -- nothing is deleted');
+
+    -- (d) Who asked, and why. The event is the audit trail, and a manual accrual
+    -- must be distinguishable from one the settlement trigger produced.
+    perform pg_temp.assert((
+      select e.note like 'accrued manually by a manager:%' from public.ins_agent_commission_events e
+        join public.ins_agent_commission_accruals x on x.id = e.accrual_id
+       where x.policy_id = v_pol21b.id and x.status <> 'reversed' and e.event = 'accrued'),
+      '§21 the event records that a person asked for it');
+    perform pg_temp.assert((
+      select e.note like '%re-accrued after reversing the wrong term%' from public.ins_agent_commission_events e
+        join public.ins_agent_commission_accruals x on x.id = e.accrual_id
+       where x.policy_id = v_pol21b.id and x.status <> 'reversed' and e.event = 'accrued'),
+      '§21 and carries the reason the manager gave');
+    perform pg_temp.assert((
+      select e.actor_id = v_m21 from public.ins_agent_commission_events e
+        join public.ins_agent_commission_accruals x on x.id = e.accrual_id
+       where x.policy_id = v_pol21b.id and x.status <> 'reversed' and e.event = 'accrued'),
+      '§21 and stamps the manager who did it');
+
+    -- The first accrual, the trigger's, must NOT be relabelled as manual.
+    perform pg_temp.assert((
+      select e.note not like 'accrued manually%' from public.ins_agent_commission_events e
+        join public.ins_agent_commission_accruals x on x.id = e.accrual_id
+       where x.policy_id = v_pol21b.id and x.status = 'reversed' and e.event = 'accrued'),
+      '§21 an accrual the settlement trigger made is not rewritten as a manual one');
+
+    -- (e) An insurer-appointed agent is refused by name, not accrued at zero.
+    reset role;
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_b21 := public.ins_agent_commission_blocked_reason(v_pol_insurer_agent);
+    perform pg_temp.assert(v_b21 ->> 'code' = 'INS_AGENT_INSURER_PAID',
+      format('§21 an insurer-appointed agent cannot be accrued by hand either (got %s)', v_b21 ->> 'code'));
+    reset role;
+
+    -- (f) The bulk run: only what is genuinely eligible, one report, and every
+    -- obstacle accounted for. The period is wide enough to hold the policies
+    -- this file has built, including the ones filed under a past date.
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    v_prev21 := public.ins_agent_commission_accrual_preview(date '2000-01-01', current_date + 400);
+    perform pg_temp.assert((v_prev21 ->> 'eligible_count')::int >= 0,
+      '§21 the preview answers for a period');
+    perform pg_temp.assert(jsonb_typeof(v_prev21 -> 'blocked') = 'array',
+      '§21 and lists every obstacle rather than only counting them');
+    perform pg_temp.assert(jsonb_typeof(v_prev21 -> 'by_currency') = 'array',
+      '§21 totals per currency, never one merged figure');
+
+    -- Everything the preview called eligible must be something the run can
+    -- accrue or cleanly report. Nothing may be silently dropped.
+    v_run21 := public.ins_run_agent_commission_accruals(date '2000-01-01', current_date + 400, 'period run under test');
+    perform pg_temp.assert(
+      (v_run21 ->> 'accrued')::int + (v_run21 ->> 'skipped')::int + (v_run21 ->> 'failed')::int
+        = (v_prev21 ->> 'eligible_count')::int,
+      format('§21 every eligible policy is accounted for as accrued, skipped or failed (%s of %s)',
+             (v_run21 ->> 'accrued')::int + (v_run21 ->> 'skipped')::int + (v_run21 ->> 'failed')::int,
+             v_prev21 ->> 'eligible_count'));
+
+    -- Running it twice must post nothing the second time. This is what makes it
+    -- safe to press without knowing the current state of the book.
+    v_run21 := public.ins_run_agent_commission_accruals(date '2000-01-01', current_date + 400, 'second run');
+    perform pg_temp.assert((v_run21 ->> 'accrued')::int = 0,
+      format('§21 a second run accrues nothing (got %s)', v_run21 ->> 'accrued'));
+    reset role;
+
+    -- A failure inside the run is reported as a failure, not folded into the
+    -- successes. The race is real: the preview and the run are two readings of
+    -- the same book, and something can change between them. Simulated the way
+    -- it would actually happen -- the posting rule an accrual needs is removed
+    -- after the preview has already called the policy eligible.
+    -- (Measured: the mutant that counted failures as successes survived until
+    -- this assertion existed.)
+    reset role;
+    declare
+      v_fail21 public.ins_policies;
+      v_c21b   uuid;
+      v_prevf  jsonb;
+    begin
+      v_c21b := (select id from ins_clients where tenant_id = ta limit 1);
+      perform pg_temp.jwt(mgr); set local role authenticated;
+      v_fail21 := ins_create_policy(v_c21b, v_insurer, v_line, current_date, current_date + 365,
+                                    1000000, 'UGX', 1000000, 15, null, v_ref, 'run failure', null);
+      perform pg_temp.one_share(v_fail21.id, v_insurer, 15);
+      v_fail21 := pg_temp.approve_and_bind(v_fail21.id);
+      reset role;
+
+      -- Recognise it in a way the trigger cannot act on, then drop the accrual
+      -- it may have made, so the policy sits eligible-but-unaccrued.
+      perform pg_temp.recognise(v_fail21.id, 150000);
+      reset role;
+      delete from public.ins_agent_commission_accruals where policy_id = v_fail21.id;
+
+      perform pg_temp.jwt(v_m21); set local role authenticated;
+      v_prevf := public.ins_agent_commission_accrual_preview(current_date, current_date);
+      perform pg_temp.assert(
+        exists (select 1 from jsonb_array_elements(v_prevf -> 'eligible') e
+                 where (e ->> 'policy_id')::uuid = v_fail21.id),
+        '§21 the policy is eligible when the preview reads the book');
+      reset role;
+
+      -- Now remove the rule the ACCRUAL needs, behind the preview's back.
+      delete from public.gl_posting_rules
+       where tenant_id = ta and account_role = 'agent_commission_expense';
+
+      perform pg_temp.jwt(v_m21); set local role authenticated;
+      v_run21 := public.ins_run_agent_commission_accruals(current_date, current_date, 'failure reporting');
+      perform pg_temp.assert((v_run21 ->> 'failed')::int >= 1,
+        format('§21 an accrual that raises mid-run is counted as failed, not accrued (%s accrued / %s failed / %s skipped)',
+               v_run21 ->> 'accrued', v_run21 ->> 'failed', v_run21 ->> 'skipped'));
+      perform pg_temp.assert(
+        exists (select 1 from jsonb_array_elements(v_run21 -> 'failures') f),
+        '§21 and the failure carries its message rather than being swallowed');
+      perform pg_temp.assert(
+        (v_run21 ->> 'accrued')::int + (v_run21 ->> 'skipped')::int + (v_run21 ->> 'failed')::int
+          = jsonb_array_length(v_run21 -> 'results'),
+        '§21 and every counted policy appears in the results list');
+
+      -- Restore what the rest of the file needs.
+      reset role;
+      insert into public.gl_posting_rules (tenant_id, account_role, gl_account_id)
+      select ta, 'agent_commission_expense', expense_gl
+      where not exists (select 1 from public.gl_posting_rules
+                        where tenant_id = ta and account_role = 'agent_commission_expense');
+    end;
+
+    -- (g) A non-manager cannot accrue at all. The action is a manager's.
+    reset role;
+    perform pg_temp.jwt(v_m21); set local role authenticated;
+    perform pg_temp.assert(nullif(current_setting('request.jwt.claims', true), '') is not null,
+      '§21 (a session is active for the grant check below)');
+    reset role;
+
+    perform pg_temp.assert(
+      not has_function_privilege('authenticated',
+        'public.ins_agent_commission_accrue(uuid)', 'execute'),
+      '§21 the raw accrual function stays owner-only: clients cannot bypass the manager check');
+    perform pg_temp.assert(
+      has_function_privilege('authenticated',
+        'public.ins_agent_commission_accrue_manual(uuid, text)', 'execute'),
+      '§21 and the manual wrapper is what they are given instead');
+
+    -- Nothing about the original signature changed, so the recognition trigger
+    -- keeps working without being revisited.
+    perform pg_temp.assert((
+      select count(*) from pg_trigger where tgname = 'trg_ins_agent_commission_on_recognition') = 1,
+      '§21 the recognition trigger is untouched');
+  end;
+
   raise notice 'PASS: agent commission subledger (all scenarios)';
 end $$;
 
