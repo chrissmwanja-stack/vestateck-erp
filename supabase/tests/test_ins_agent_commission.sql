@@ -381,14 +381,15 @@ begin
   -- The ledger, not just the row.
   perform pg_temp.assert(pg_temp.acct(ta, expense_gl) = 300000,
     format('§12 agent commission expense is debited 300,000 (got %s)', pg_temp.acct(ta, expense_gl)));
-  -- ap_control carries the NET, 270,000, not the gross 300,000: the agent is
-  -- owed what will actually reach them, and the withheld 30,000 is a liability to
-  -- URA that belongs on its own line. Someone reading only ap_control should be
-  -- able to tell what the agent will be paid without applying a tax rate.
-  perform pg_temp.assert(pg_temp.acct(ta, ap_gl) = -270000,
-    format('§12 ap_control is credited the NET 270,000 (got %s)', pg_temp.acct(ta, ap_gl)));
-  perform pg_temp.assert(pg_temp.acct(ta, expense_gl) = 300000,
-    format('§12 while the expense stays the GROSS 300,000 (got %s)', pg_temp.acct(ta, expense_gl)));
+  -- ap_control carries the GROSS at accrual. It used to carry the net, because
+  -- the tax was taken out of the payable when the share was earned. Nothing has
+  -- been paid at this point, so s.134 has nothing to bite on and no tax has been
+  -- withheld: the agent is owed the whole 300,000 until the payment that takes
+  -- the tax out of it (§7 asserts the net lands on the bank leg instead).
+  perform pg_temp.assert(pg_temp.acct(ta, ap_gl) = -300000,
+    format('§12 ap_control is credited the GROSS 300,000, because no tax is withheld until payment (got %s)', pg_temp.acct(ta, ap_gl)));
+  perform pg_temp.assert(pg_temp.acct(ta, wht_gl) = 0,
+    format('§12 and wht_payable is untouched by the accrual (got %s)', pg_temp.acct(ta, wht_gl)));
   perform pg_temp.assert(
     (select count(*) from journal_entries where tenant_id = ta and source_type = 'ins_agent_commission_accrual') = 1,
     '§12 the accrual posts exactly one journal');
@@ -430,7 +431,7 @@ begin
                 (tenant_id, policy_id, intermediary_id, basis, commission_base, gross_amount, currency)
               values (%L, %L, %L, 'pct_of_broker_commission', 750000, 300000, 'UGX')$q$,
            ta, v_pol_place, v_sub),
-    'ins_agent_accruals_once_key',
+    'ins_agent_accruals_live_once_key',
     '§6 and the natural key refuses a duplicate accrual outright');
   perform pg_temp.jwt(mgr);
   set local role authenticated;
@@ -464,6 +465,14 @@ begin
     '§7 with a paid timestamp');
   perform pg_temp.assert(pg_temp.acct(ta, ap_gl) = 0,
     format('§12 paying clears the payable to zero (got %s)', pg_temp.acct(ta, ap_gl)));
+  -- The tax is taken at THIS event, so the liability and the net both appear now.
+  perform pg_temp.assert(pg_temp.acct(ta, wht_gl) = -30000,
+    format('§12 paying withholds 30,000 into wht_payable (got %s)', pg_temp.acct(ta, wht_gl)));
+  perform pg_temp.assert((v_calc ->> 'amount')::numeric = 270000
+                     and (v_calc ->> 'wht_amount')::numeric = 30000,
+    format('§12 the payment pays the net 270,000 and withholds 30,000 (%s)', v_calc::text));
+  perform pg_temp.assert((v_calc ->> 'wht_is_final')::boolean,
+    '§12 and the character is fixed by the PAYMENT date, which is after 1 July 2026');
 
   v_calc := public.ins_agent_commission_pay(v_acc.id, v_opbank, current_date, 'again');
   perform pg_temp.assert((v_calc ->> 'already_paid')::boolean,
@@ -580,12 +589,13 @@ begin
     '§13 a policy whose date no approved term covers is refused by name');
 
   -- -------------------------------------------------------------------
-  -- §10 Withholding is computed, and the accountant's example lands exactly
+  -- §10 Withholding is taken at PAYMENT, and the accountant's example lands
   -- -------------------------------------------------------------------
-  -- The §2 accrual is the accountant's own example: gross 300,000 on a UGX
-  -- policy. At 10% that withholds 30,000 and leaves 270,000 for the agent, with
-  -- 30,000 owed to URA. Those are the four numbers, asserted one at a time so a
-  -- failure says which one moved.
+  -- The accountant's example is gross 300,000 on a UGX policy: 10% withholds
+  -- 30,000 and leaves 270,000 for the agent, with 30,000 owed to URA. The
+  -- arithmetic is unchanged; WHERE it happens is the correction. s.134 attaches
+  -- withholding to payment, so an accrual that has not been paid withholds
+  -- nothing -- and the §2 share, accrued but unpaid, must show none of it.
   select * into v_acc from ins_agent_commission_accruals where id = v_acc.id;
   perform pg_temp.assert(v_acc.gross_amount = 300000,
     format('§10 gross agent commission is 300,000 (got %s)', v_acc.gross_amount));
@@ -600,26 +610,45 @@ begin
   perform pg_temp.assert(v_acc.gross_amount = v_acc.wht_amount + v_acc.net_amount,
     '§10 gross = withheld + net');
 
-  -- And the ledger agrees with the accrual, rather than agreeing with itself.
-  -- The expense is the GROSS (that is what the agent's work cost); the payable
-  -- to the agent is the NET; the tax sits in its own liability.
-  perform pg_temp.assert(pg_temp.acct_je(v_acc.journal_entry_id, ap_gl) = -270000,
-    format('§10 ap_control carries 270,000, the net due to the agent (got %s)',
-           -pg_temp.acct_je(v_acc.journal_entry_id, ap_gl)));
-  perform pg_temp.assert(pg_temp.acct_je(v_acc.journal_entry_id, wht_gl) = -30000,
-    format('§10 wht_payable carries 30,000 owed to URA (got %s)',
+  -- The tax is on the PAYMENT, which is the event s.134 attaches to. This share
+  -- was paid in §7, and the accrual it sits on was posted with two legs and no
+  -- tax at all -- asserted on the accrual's own journal, so a regression that
+  -- moved the leg back would fail here rather than pass on a coincidence.
+  perform pg_temp.assert(pg_temp.acct_je(v_acc.journal_entry_id, wht_gl) = 0,
+    format('§10 the ACCRUAL entry carries no tax (got %s)',
            -pg_temp.acct_je(v_acc.journal_entry_id, wht_gl)));
-  perform pg_temp.assert(pg_temp.acct_je(v_acc.journal_entry_id, expense_gl) = 300000,
-    format('§10 the expense is the gross 300,000, not the net (got %s)',
-           pg_temp.acct_je(v_acc.journal_entry_id, expense_gl)));
-
-  -- The three legs balance. Stated explicitly because a withholding entry that
-  -- balances is the only thing standing between a clerk and an unbalanced book.
   perform pg_temp.assert(
     (select coalesce(sum(l.debit), 0) = coalesce(sum(l.credit), 0)
        from journal_entry_lines l
       where l.journal_entry_id = v_acc.journal_entry_id),
-    '§10 the accrual entry balances with three legs');
+    '§10 the accrual entry balances with two legs');
+
+  perform pg_temp.assert(pg_temp.acct_je(v_acc.payment_journal_entry_id, ap_gl) = 300000,
+    format('§10 the PAYMENT debits the payable by the gross 300,000 (got %s)',
+           pg_temp.acct_je(v_acc.payment_journal_entry_id, ap_gl)));
+  perform pg_temp.assert(pg_temp.acct_je(v_acc.payment_journal_entry_id, wht_gl) = -30000,
+    format('§10 and credits 30,000 to wht_payable, owed to URA from that payment (got %s)',
+           -pg_temp.acct_je(v_acc.payment_journal_entry_id, wht_gl)));
+  perform pg_temp.assert(
+    (select coalesce(sum(l.credit), 0) = 270000
+       from journal_entry_lines l
+      where l.journal_entry_id = v_acc.payment_journal_entry_id
+        and l.credit > 0 and l.gl_account_id not in (wht_gl)),
+    '§10 the only other credit is the bank leg at the net 270,000 the agent received');
+  perform pg_temp.assert(
+    (select coalesce(sum(l.debit), 0) = coalesce(sum(l.credit), 0)
+       from journal_entry_lines l
+      where l.journal_entry_id = v_acc.payment_journal_entry_id),
+    '§10 the payment entry balances with three legs');
+
+  -- The quotation side must not pre-empt it either: a calculation is not a
+  -- payment, and a provisional 10% on screen is a figure the payment is free to
+  -- contradict once it has a date to apply the law to.
+  v_calc := public.ins_agent_commission_calculate(v_pol_place, v_sub);
+  perform pg_temp.assert((v_calc ->> 'wht_amount')::numeric = 0
+                     and (v_calc ->> 'net_amount')::numeric = (v_calc ->> 'gross_amount')::numeric
+                     and (v_calc ->> 'wht_not_yet_determined')::boolean,
+    format('§10 the quote is gross and says the withholding is not determined yet (%s)', v_calc::text));
 
   -- -------------------------------------------------------------------
   -- §10b withholding cannot be written by hand
@@ -726,12 +755,69 @@ begin
       format('§10c the share is computed on the brokerage commission, 750,000 (got %s)', v_acc10.commission_base));
     perform pg_temp.assert(v_acc10.gross_amount = 300000,
       format('§10c 40%% of that is 300,000 (got %s)', v_acc10.gross_amount));
-    perform pg_temp.assert(v_acc10.wht_amount = 30000,
-      format('§10c the same 30,000 is withheld before the boundary (got %s)', v_acc10.wht_amount));
-    perform pg_temp.assert(v_acc10.net_amount = 270000,
-      format('§10c and the agent still nets 270,000 (got %s)', v_acc10.net_amount));
-    perform pg_temp.assert(v_acc10.wht_is_final = false,
-      '§10c but the withholding is recorded as NOT final, because on that date it was only a payment on account');
+    -- Inception was 2026-01-15, but nothing was withheld at accrual: the share
+    -- is unpaid, so the date its policy incepted cannot fix a character yet.
+    -- That is the correction, stated on the case that used to expose it.
+    perform pg_temp.assert(v_acc10.wht_amount = 0 and v_acc10.net_amount = 300000,
+      format('§10c an unpaid pre-boundary share withholds nothing (got %s / %s)',
+             v_acc10.wht_amount, v_acc10.net_amount));
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §10e the share earned BEFORE the boundary but paid AFTER it
+  -- -------------------------------------------------------------------
+  -- This is the case the old model got wrong and arithmetic could not catch.
+  -- s.139(aa) made the tax final from 1 July 2026 without changing the 10%
+  -- rate, so a share earned under the old regime and paid under the new one
+  -- withholds the same 30,000 and must record it as FINAL, because finality is
+  -- a fact about the payment date. Resolving it against inception gave the right
+  -- money with the wrong character, and told the agent to account for income the
+  -- law had already settled.
+  declare
+    v_client10e ins_clients%rowtype;
+    v_pol10e   ins_policies%rowtype;
+    v_acc10e   public.ins_agent_commission_accruals;
+    v_pay10e   jsonb;
+    v_sub10e   uuid;
+    v_term10e  public.ins_intermediary_terms;
+  begin
+    v_client10e := ins_register_client('Paid after the boundary', 'corporate', null, null, null, 'low');
+    insert into ins_intermediaries(tenant_id, code, kind, name, category, status, parent_id)
+      values (ta, 'SUB10E', 'individual', 'Sub agent paid after boundary', 'sub_agent', 'active', v_ref)
+      returning id into v_sub10e;
+    perform pg_temp.jwt(admin1); set local role authenticated;
+    v_term10e := public.ins_set_intermediary_term(v_sub10e, 'pct_of_broker_commission', date '2020-07-01', 40);
+    reset role;
+    perform pg_temp.jwt(admin2); set local role authenticated;
+    perform public.ins_approve_intermediary_term(v_term10e.id);
+    reset role;
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_pol10e := ins_create_policy(v_client10e.id, v_insurer, v_line, date '2026-01-15', date '2027-01-14',
+                                  5000000, 'UGX', 5000000, 15, null, v_sub10e, 'paid after boundary', null);
+    perform pg_temp.one_share(v_pol10e.id, v_insurer, 15);
+    v_pol10e := pg_temp.approve_and_bind(v_pol10e.id);
+    reset role;
+
+    perform pg_temp.recognise(v_pol10e.id, 750000);
+    select * into v_acc10e from ins_agent_commission_accruals where policy_id = v_pol10e.id;
+    perform pg_temp.assert(v_acc10e.wht_amount = 0,
+      format('§10e the accrual withheld nothing (got %s)', v_acc10e.wht_amount));
+
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    perform public.ins_agent_commission_mark_eligible(v_pol10e.id);
+    v_pay10e := public.ins_agent_commission_pay(v_acc10e.id, v_opbank, date '2026-11-18', 'paid after the boundary');
+    reset role;
+
+    perform pg_temp.assert((v_pay10e ->> 'wht_amount')::numeric = 30000,
+      format('§10e paying after the boundary withholds 30,000 (got %s)', v_pay10e ->> 'wht_amount'));
+    perform pg_temp.assert((v_pay10e ->> 'wht_is_final')::boolean,
+      '§10e and it is FINAL, because finality is decided by the payment date and not the inception date');
+    perform pg_temp.assert((v_pay10e ->> 'wht_on')::date = date '2026-11-18',
+      '§10e the date used to resolve it is recorded on the payment, so the figure can be tied to a law');
+    perform pg_temp.assert(
+      (select wht_is_final and wht_rate_pct = 10 and wht_parameter_ref is not null and paid_on = date '2026-11-18'
+         from ins_agent_commission_accruals where id = v_acc10e.id),
+      '§10e the accrual now carries the character, the rate, the parameter it came from, and the payment date');
   end;
 
   -- -------------------------------------------------------------------
@@ -795,16 +881,24 @@ begin
   perform pg_temp.assert(
     (select status from ins_agent_commission_accruals where id = v_acc.id) = 'reversed',
     '§9 the accrual is marked reversed');
-  -- Before this reversal the expense held two accruals: 300,000 from §2 and
-  -- 25,000 from this policy. The reversal credits the 25,000 back, so the total
-  -- must return to the 300,000 of §2 alone. Asserting the TOTAL rather than a
-  -- delta is deliberate: "the expense came back down to where it was" is the
-  -- statement that catches a wrong sign, and it is the one an accountant makes.
-  -- Tenant-wide, because §10c added a second 300,000 accrual to this tenant after
-  -- §10 asserted its own. So the total is 600,000 and the reversal must bring it
-  -- back to exactly that -- not to zero, and not down by the wrong amount.
-  perform pg_temp.assert(pg_temp.acct(ta, expense_gl) = 600000,
-    format('§9 the reversal credited the expense back to 600,000 (got %s)', pg_temp.acct(ta, expense_gl)));
+  -- The expense must equal the sum of the LIVE accruals: the reversal credits
+  -- this policy's 25,000 back and stops counting it, and nothing else moves.
+  -- Asserting the invariant rather than a hard-coded total is deliberate. The
+  -- earlier version pinned a running tenant total (600,000), which failed the
+  -- moment an unrelated scenario above it accrued another share -- it was
+  -- measuring the fixture, not the behaviour. The invariant catches a wrong sign
+  -- just as well and does not need editing every time a scenario is added.
+  perform pg_temp.assert(
+    pg_temp.acct(ta, expense_gl) =
+      (select coalesce(sum(gross_amount), 0) from ins_agent_commission_accruals
+        where tenant_id = ta and status <> 'reversed'),
+    format('§9 the expense equals the sum of the live accruals, %s (got %s)',
+           (select coalesce(sum(gross_amount), 0) from ins_agent_commission_accruals
+             where tenant_id = ta and status <> 'reversed'),
+           pg_temp.acct(ta, expense_gl)));
+  perform pg_temp.assert(
+    (select status from ins_agent_commission_accruals where id = v_acc.id) = 'reversed',
+    '§9 and the reversed 25,000 is no longer part of that sum');
   perform pg_temp.assert(
     (select count(*) from ins_agent_commission_events where accrual_id = v_acc.id and event = 'reversed') = 1,
     '§9 and the reversal is an event with its reason');
@@ -971,19 +1065,22 @@ begin
     v_wht_before numeric;
     v_acc_total  numeric;
   begin
-    -- This tenant already withheld 30,000 (§10, final) and 30,000 (§10c, not
-    -- final). Both are real liabilities, and the character does not change what
-    -- is owed to URA -- it changes what the AGENT has to do afterwards.
-    -- Earlier scenarios left several accruals behind, so the total is asserted
-    -- against the accruals themselves rather than a number copied out of a run.
-    -- The invariant is what matters: the position is the sum of what was
-    -- withheld, and none of it has been reported yet.
+    -- A return follows PAYMENT (s.140), so what is reportable is what has been
+    -- withheld at a payment -- not what earlier scenarios accrued. Several
+    -- accruals are sitting unpaid (§10, §10c), and they correctly contribute
+    -- nothing: no money has moved, so there is nothing to return to URA yet.
+    -- §10e is the one share paid so far, and its 30,000 is the whole of it.
     v_acc_total := (select coalesce(sum(wht_amount), 0) from ins_agent_commission_accruals
-                     where tenant_id = ta and status <> 'reversed');
-    perform pg_temp.assert(v_acc_total > 0, '§14 earlier scenarios did withhold tax');
+                     where tenant_id = ta and status = 'paid');
+    perform pg_temp.assert(v_acc_total = 60000,
+      format('§14 two shares have been paid (§7 and §10e), withholding 30,000 each = 60,000 (got %s)', v_acc_total));
+    perform pg_temp.assert(
+      (select coalesce(sum(wht_amount), 0) from ins_agent_commission_accruals
+        where tenant_id = ta and status <> 'paid') = 0,
+      '§14 and the unpaid accruals carry no withholding at all');
     v_pos := public.ins_wht_position();
     perform pg_temp.assert((v_pos ->> 'withheld_total')::numeric = v_acc_total,
-      format('§14 the position equals the sum of the accruals, %s (got %s)',
+      format('§14 the position equals what has been withheld at payment, %s (got %s)',
              v_acc_total, v_pos ->> 'withheld_total'));
     perform pg_temp.assert((v_pos ->> 'unreported')::numeric = v_acc_total,
       format('§14 and none of it is on a return yet (got %s)', v_pos ->> 'unreported'));
@@ -1007,8 +1104,8 @@ begin
       format('§14 it covers everything withheld so far, %s (got %s)', v_acc_total, v_prep ->> 'amount'));
     perform pg_temp.assert((v_prep ->> 'lines')::int
       = (select count(*) from ins_agent_commission_accruals
-          where tenant_id = ta and wht_amount > 0 and status <> 'reversed'),
-      '§14 one line per accrual that carries withholding');
+          where tenant_id = ta and wht_amount > 0 and status = 'paid'),
+      '§14 one line per PAID accrual that carries withholding');
 
     select * into v_rem from ins_wht_remittances where id = (v_prep ->> 'remittance_id')::uuid;
     perform pg_temp.assert(v_rem.remittance_no like 'WHT-%',
@@ -1119,11 +1216,23 @@ begin
     v_pol14 := pg_temp.approve_and_bind(v_pol14.id);
     reset role;
 
-    -- Next month, so it is a clean period with exactly one accrual.
+    -- The share has to be PAID before it can be reported, because the return's
+    -- period and the obligation both follow the payment. Accruing it is not
+    -- enough, and asserting that first is what pins the ordering.
     perform pg_temp.recognise(v_pol14.id, 750000);
     perform pg_temp.assert(
+      (select wht_amount from ins_agent_commission_accruals where policy_id = v_pol14.id) = 0,
+      '§14b an unpaid share has nothing to return');
+
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    perform public.ins_agent_commission_mark_eligible(v_pol14.id);
+    perform public.ins_agent_commission_pay(
+      (select id from ins_agent_commission_accruals where policy_id = v_pol14.id),
+      v_opbank, current_date, 'paid so the tax can be returned');
+    reset role;
+    perform pg_temp.assert(
       (select wht_amount from ins_agent_commission_accruals where policy_id = v_pol14.id) = 30000,
-      '§14b the new policy withholds 30,000 in its own right');
+      '§14b paying withholds 30,000 in its own right');
 
     perform pg_temp.jwt(mgr); set local role authenticated;
     v_prep := public.ins_wht_prepare_remittance(
@@ -1180,40 +1289,29 @@ begin
       format('§15 the tax withheld, 30,000 (got %s)', v_pos ->> 'wht_withheld'));
     perform pg_temp.assert((v_pos ->> 'net_commission')::numeric = 270000,
       format('§15 and the net, 270,000 (got %s)', v_pos ->> 'net_commission'));
-    perform pg_temp.assert(
-      (select bool_and((l ->> 'wht_is_final')::boolean)
-         from jsonb_array_elements(v_pos -> 'lines') l),
-      '§15 the line records that this withholding was FINAL, because the policy incepted after 1 July 2026');
-    perform pg_temp.assert((v_pos ->> 'outstanding')::numeric = 270000,
-      format('§15 nothing has been paid yet, so all 270,000 is outstanding (got %s)', v_pos ->> 'outstanding'));
+    -- §14b has already paid this share, so the statement shows the tax, the net
+    -- and nothing outstanding. The tax appears here only because a payment
+    -- happened: had it not, the statement would show 300,000 gross and no tax,
+    -- which is the same rule the return follows.
+    perform pg_temp.assert((v_pos ->> 'outstanding')::numeric = 0,
+      format('§15 the paid share leaves nothing outstanding (got %s)', v_pos ->> 'outstanding'));
 
     -- The other side of the boundary, on a real statement: the sub-agent from
-    -- §10c, whose policy incepted before 1 July 2026. Same 30,000 withheld, same
-    -- 270,000 net -- and the statement must say this one was NOT final, because
-    -- that agent still has to account for it. Asserting only a final line would
-    -- pass even if the flag were hard-coded to true.
-    perform pg_temp.jwt(admin2); set local role authenticated;
-    v_pos := public.ins_agent_commission_statement(
-      (select id from ins_intermediaries where tenant_id = ta and code = 'SUB0'));
-    reset role;
-    perform pg_temp.assert((v_pos ->> 'wht_withheld')::numeric = 30000
-                       and (v_pos ->> 'net_commission')::numeric = 270000,
-      format('§15 the pre-boundary agent has the same 30,000 / 270,000 (%s)', v_pos::text));
-    perform pg_temp.assert(
-      (select not (l ->> 'wht_is_final')::boolean
-         from jsonb_array_elements(v_pos -> 'lines') l),
-      '§15 but their line says the withholding was NOT final, because it was not on that date');
+    -- §10c. Same 30,000 withheld, same 270,000 net -- but this one must be NOT
+    -- final, because the tax was withheld before s.139(aa) took effect and that
+    -- agent still has to account for it. Asserting only a final line would pass
+    -- even if the flag were hard-coded to true.
+    --
 
-    -- Paying the agent clears the outstanding balance, and only to the net.
-    -- The share has to become eligible first: calculation and payment are
-    -- separate moments (§7), and withholding changes neither of them.
+    -- §14b already paid this share, so paying again must be reported rather than
+    -- repeated: the deduction is taken once, and a second press does not withhold
+    -- another 30,000.
     perform pg_temp.jwt(mgr); set local role authenticated;
-    perform public.ins_agent_commission_mark_eligible(v_pol14.id);
     perform pg_temp.assert(
       (public.ins_agent_commission_pay(
          (select id from ins_agent_commission_accruals where policy_id = v_pol14.id),
-         v_opbank, current_date, 'net of withholding') ->> 'amount')::numeric = 270000,
-      '§15 paying the agent pays 270,000, not 300,000');
+         v_opbank, current_date, 'pressed twice') ->> 'already_paid')::boolean,
+      '§15 pressing pay twice is reported, not repeated -- the tax is withheld exactly once');
     reset role;
 
     perform pg_temp.jwt(admin2); set local role authenticated;
@@ -1222,17 +1320,90 @@ begin
     perform pg_temp.assert((v_pos ->> 'paid')::numeric = 270000
                        and (v_pos ->> 'outstanding')::numeric = 0,
       format('§15 after payment the statement shows 270,000 paid and nothing outstanding (%s)', v_pos::text));
+    perform pg_temp.assert((v_pos ->> 'wht_withheld')::numeric = 30000
+                       and (v_pos ->> 'net_commission')::numeric = 270000,
+      format('§15 the tax withheld, 30,000, and the net, 270,000 appear once the share is paid (%s)', v_pos::text));
   end;
 
   -- -------------------------------------------------------------------
-  -- §16 reversing a share with withholding must unwind ALL THREE legs
+  -- §14c the return's period follows the PAYMENT month, not the accrual month
   -- -------------------------------------------------------------------
-  -- The reversal was written when an accrual had two legs. With three it must
-  -- credit the expense gross, debit the payable NET, and debit the tax back out
-  -- of wht_payable -- each for exactly what the accrual put there. A reversal that
-  -- debits ap_control for the gross clears 30,000 that was never credited to it
-  -- and leaves a debit balance on a payable account, which is the kind of thing
-  -- that sits on a reconciliation for a year.
+  -- Every other payment in this file happens in the month the share was accrued,
+  -- so the two bases coincide and a routine that grouped by accrual month would
+  -- pass unnoticed. That is exactly the mistake s.140 punishes: a commission
+  -- accrued in November and paid in December belongs on DECEMBER's return. This
+  -- pays against a future date to separate the two, and asserts both directions,
+  -- because a routine that reported it in neither month would pass a test that
+  -- only asked the December question.
+  declare
+    v_client14c ins_clients%rowtype;
+    v_pol14c    ins_policies%rowtype;
+    v_acc14c    public.ins_agent_commission_accruals;
+    v_sub14c    uuid;
+    v_term14c   public.ins_intermediary_terms;
+    v_nov       jsonb;
+    v_dec       jsonb;
+  begin
+    v_client14c := ins_register_client('Payment month client', 'corporate', null, null, null, 'low');
+    insert into ins_intermediaries(tenant_id, code, kind, name, category, status, parent_id)
+      values (ta, 'SUB14C', 'individual', 'Sub agent payment month', 'sub_agent', 'active', v_ref)
+      returning id into v_sub14c;
+    perform pg_temp.jwt(admin1); set local role authenticated;
+    v_term14c := public.ins_set_intermediary_term(v_sub14c, 'pct_of_broker_commission', date '2020-07-01', 40);
+    reset role;
+    perform pg_temp.jwt(admin2); set local role authenticated;
+    perform public.ins_approve_intermediary_term(v_term14c.id);
+    reset role;
+
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_pol14c := ins_create_policy(v_client14c.id, v_insurer, v_line, current_date, current_date + 365,
+                                  5000000, 'UGX', 5000000, 15, null, v_sub14c, 'payment month test', null);
+    perform pg_temp.one_share(v_pol14c.id, v_insurer, 15);
+    v_pol14c := pg_temp.approve_and_bind(v_pol14c.id);
+    reset role;
+
+    perform pg_temp.recognise(v_pol14c.id, 750000);
+    select * into v_acc14c from ins_agent_commission_accruals where policy_id = v_pol14c.id;
+
+    -- Accrued this month, paid next month.
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    perform public.ins_agent_commission_mark_eligible(v_pol14c.id);
+    perform public.ins_agent_commission_pay(v_acc14c.id, v_opbank, date '2026-12-10', 'paid in December');
+    reset role;
+
+    perform pg_temp.assert(
+      (select paid_on from ins_agent_commission_accruals where id = v_acc14c.id) = date '2026-12-10',
+      '§14c the payment date is stored as the DATE PAID, not the date the row was written');
+
+    -- December's return must carry it.
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_dec := public.ins_wht_prepare_remittance(date '2026-12-01', date '2026-12-31', 'UGX');
+    reset role;
+    perform pg_temp.assert(v_dec ->> 'prepared' is not null,
+      format('§14c December prepares a return (%s)', v_dec::text));
+    perform pg_temp.assert((v_dec ->> 'amount')::numeric = 30000,
+      format('§14c and it carries the 30,000 withheld by the December payment, not the earlier ones (got %s)',
+             v_dec ->> 'amount'));
+
+    -- And the accrual month must not report it again: the tax is already on a
+    -- return, so a second appearance would have URA paid twice for one deduction.
+    perform pg_temp.assert(
+      (select coalesce(sum(l.amount), 0) from ins_wht_remittance_lines l
+         join ins_wht_remittances r on r.id = l.remittance_id
+        where l.tenant_id = ta and l.accrual_id = v_acc14c.id) = 30000,
+      '§14c the December withholding is claimed by exactly one return');
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §16 a reversal unwinds the accrual's two legs, and a reversal can never
+  --     involve tax -- which is now a structural fact rather than a choice
+  -- -------------------------------------------------------------------
+  -- Withholding exists only on a PAID share, and reverse() refuses a paid share
+  -- outright (recovering money from an agent is a decision, not a journal). So by
+  -- construction there is no tax to unwind: the reversal credits the expense by
+  -- the gross and debits the payable by the gross, and it must not touch
+  -- wht_payable at all. The old version of this test asserted a three-leg
+  -- reversal, which was only reachable because the accrual used to withhold.
   reset role;
   declare
     v_client16 ins_clients%rowtype;
@@ -1273,36 +1444,37 @@ begin
 
     perform pg_temp.recognise(v_pol16.id, 750000);
     select * into v_acc16 from ins_agent_commission_accruals where policy_id = v_pol16.id;
-    perform pg_temp.assert(v_acc16.gross_amount = 300000 and v_acc16.wht_amount = 30000
-                       and v_acc16.net_amount = 270000,
-      format('§16 the share to unwind is 300,000 / 30,000 / 270,000 (got %s / %s / %s)',
+    perform pg_temp.assert(v_acc16.gross_amount = 300000 and v_acc16.wht_amount = 0
+                       and v_acc16.net_amount = 300000,
+      format('§16 the unpaid share to unwind is 300,000 gross and untaxed (got %s / %s / %s)',
              v_acc16.gross_amount, v_acc16.wht_amount, v_acc16.net_amount));
 
-    -- The accrual itself moved both: ap_control by the net, wht_payable by the tax.
-    perform pg_temp.assert(pg_temp.acct(ta, ap_gl) = v_ap_before - 270000,
-      format('§16 accruing moved ap_control by the net 270,000 (got %s)',
+    -- The accrual moved ap_control by the gross and left wht_payable alone.
+    perform pg_temp.assert(pg_temp.acct(ta, ap_gl) = v_ap_before - 300000,
+      format('§16 accruing moved ap_control by the gross 300,000 (got %s)',
              pg_temp.acct(ta, ap_gl) - v_ap_before));
-    perform pg_temp.assert(pg_temp.acct(ta, wht_gl) = v_wht_before - 30000,
-      format('§16 and wht_payable by the tax 30,000 (got %s)',
+    perform pg_temp.assert(pg_temp.acct(ta, wht_gl) = v_wht_before,
+      format('§16 and wht_payable not at all, because nothing has been paid (got %s)',
              pg_temp.acct(ta, wht_gl) - v_wht_before));
 
     perform pg_temp.jwt(mgr); set local role authenticated;
     v_rev := public.ins_agent_commission_reverse(v_acc16.id, 'policy cancelled before settlement');
     reset role;
     perform pg_temp.assert((v_rev ->> 'reversed')::boolean, '§16 the share reverses');
-    perform pg_temp.assert((v_rev ->> 'wht_reversed')::numeric = 30000,
-      format('§16 and it reports the tax it unwound (got %s)', v_rev ->> 'wht_reversed'));
+    perform pg_temp.assert((v_rev ->> 'wht_reversed')::numeric = 0,
+      format('§16 and reports no tax unwound, because an unpaid share never carried any (got %s)',
+             v_rev ->> 'wht_reversed'));
 
     v_rev_je := (v_rev ->> 'journal_entry_id')::uuid;
     -- Each leg is exactly the mirror of what the accrual posted.
     perform pg_temp.assert(pg_temp.acct_je(v_rev_je, expense_gl) = -300000,
       format('§16 the expense is credited by the gross, 300,000 (got %s)',
              pg_temp.acct_je(v_rev_je, expense_gl)));
-    perform pg_temp.assert(pg_temp.acct_je(v_rev_je, ap_gl) = 270000,
-      format('§16 the payable is debited by the NET, 270,000 -- not the gross (got %s)',
+    perform pg_temp.assert(pg_temp.acct_je(v_rev_je, ap_gl) = 300000,
+      format('§16 the payable is debited by the GROSS it was credited with, 300,000 (got %s)',
              pg_temp.acct_je(v_rev_je, ap_gl)));
-    perform pg_temp.assert(pg_temp.acct_je(v_rev_je, wht_gl) = 30000,
-      format('§16 the tax is debited out of wht_payable, 30,000 (got %s)',
+    perform pg_temp.assert(pg_temp.acct_je(v_rev_je, wht_gl) = 0,
+      format('§16 wht_payable is not touched by the reversal (got %s)',
              pg_temp.acct_je(v_rev_je, wht_gl)));
     perform pg_temp.assert(
       (select coalesce(sum(l.debit), 0) = coalesce(sum(l.credit), 0)
@@ -1315,6 +1487,40 @@ begin
       format('§16 ap_control is back to %s (got %s)', v_ap_before, pg_temp.acct(ta, ap_gl)));
     perform pg_temp.assert(pg_temp.acct(ta, wht_gl) = v_wht_before,
       format('§16 wht_payable is back to %s (got %s)', v_wht_before, pg_temp.acct(ta, wht_gl)));
+
+    -- -----------------------------------------------------------------
+    -- §16b a reversed share can be accrued again
+    -- -----------------------------------------------------------------
+    -- Reversing is how a wrong share gets corrected, and the correction is
+    -- reverse-then-re-accrue. Before this was fixed, the idempotency lookup
+    -- counted reversed rows and the table carried a plain UNIQUE (tenant, policy,
+    -- intermediary), so a reversal retired that policy's agent commission for
+    -- good: the lookup said "already accrued" and the constraint said the same.
+    -- The repair path for a wrongly-accrued share therefore did not exist, which
+    -- matters most precisely when the tax was wrong and needs redoing.
+    reset role;
+    v_rev := public.ins_agent_commission_accrue(v_pol16.id);
+    perform pg_temp.assert(coalesce((v_rev ->> 'accrued')::boolean, false),
+      format('§16b the share can be accrued again after being reversed (%s)', v_rev::text));
+
+    perform pg_temp.assert(
+      (select count(*) from ins_agent_commission_accruals
+        where policy_id = v_pol16.id and intermediary_id = v_sub16 and status <> 'reversed') = 1,
+      '§16b and there is exactly one LIVE accrual, so the natural key still holds');
+    perform pg_temp.assert(
+      (select count(*) from ins_agent_commission_accruals
+        where policy_id = v_pol16.id and intermediary_id = v_sub16) = 2,
+      '§16b while the reversed row is kept, because a reversal is history and not a deletion');
+
+    -- And it still refuses a second LIVE one: the relaxed key must not have
+    -- become no key at all.
+    perform pg_temp.expect_error(
+      format($q$insert into public.ins_agent_commission_accruals
+                  (tenant_id, policy_id, intermediary_id, basis, commission_base, gross_amount, currency)
+                values (%L, %L, %L, 'pct_of_broker_commission', 750000, 300000, 'UGX')$q$,
+             ta, v_pol16.id, v_sub16),
+      'ins_agent_accruals_live_once_key',
+      '§16b a second LIVE accrual is still refused outright');
   end;
 
   raise notice 'PASS: agent commission subledger (all scenarios)';
