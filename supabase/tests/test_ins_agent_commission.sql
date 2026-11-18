@@ -144,6 +144,68 @@ begin
     values (gen_random_uuid(), v_tenant, v_entry, 'recognised', p_amount);
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Maker-checker helpers (item 8, bit 4)
+-- ---------------------------------------------------------------------
+-- Since agent payment separates preparing from approving, every test that pays
+-- an agent has to go through both. Two people are needed and they must differ,
+-- so these helpers take the two roles explicitly rather than hiding the fact
+-- that a second pair of eyes is required. `jwt_as()` does the role switch the
+-- tests already did by hand.
+create or replace function pg_temp.jwt_as(p_uid uuid) returns void
+language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+end $$;
+
+create or replace function pg_temp.jwt_off() returns void
+language plpgsql as $$
+begin
+  reset role;
+end $$;
+
+/**
+ * Prepare and approve a payment for one share, by two different users, and return
+ * the approved payment id. `p_maker` proposes, `p_checker` approves.
+ */
+create or replace function pg_temp.approve_payment(
+  p_accrual uuid, p_bank uuid, p_on date, p_maker uuid, p_checker uuid, p_note text default null
+) returns uuid
+language plpgsql as $$
+declare v jsonb; v_id uuid;
+begin
+  perform pg_temp.jwt_as(p_maker);
+  v := public.ins_agent_commission_prepare_payment(p_accrual, p_bank, p_on, p_note);
+  v_id := (v ->> 'payment_id')::uuid;
+  perform pg_temp.jwt_off();
+  -- The checker must be a DIFFERENT user than the maker, or the self-approval
+  -- refusal fires -- which is the control working, not a fixture problem.
+  perform pg_temp.jwt_as(p_checker);
+  perform public.ins_agent_commission_approve_payment(v_id);
+  perform pg_temp.jwt_off();
+  return v_id;
+end $$;
+
+/**
+ * The whole journey: prepare (maker), approve (checker), release. Returns the
+ * release jsonb, so a caller asserting on the payment figures gets the same shape
+ * ins_agent_commission_pay used to return.
+ */
+create or replace function pg_temp.pay_via_checker(
+  p_accrual uuid, p_bank uuid, p_on date, p_maker uuid, p_checker uuid, p_note text default null
+) returns jsonb
+language plpgsql as $$
+declare v_id uuid; v jsonb;
+begin
+  v_id := pg_temp.approve_payment(p_accrual, p_bank, p_on, p_maker, p_checker, p_note);
+  perform pg_temp.jwt_as(p_checker);
+  v := public.ins_agent_commission_release_payment(v_id, p_note);
+  perform pg_temp.jwt_off();
+  return v;
+end $$;
+
 do $$
 declare
   ta       uuid := gen_random_uuid();
@@ -160,6 +222,7 @@ declare
   v_term   public.ins_intermediary_terms;
   v_calc   jsonb;
   v_acc    public.ins_agent_commission_accruals;
+  v_payment uuid;
   v_pol_place uuid; v_pol_insurer_agent uuid; v_pol_tier uuid;
   v_pol_exp uuid; v_pol_rev uuid;
   v_comm   numeric;
@@ -439,11 +502,14 @@ begin
   -- -------------------------------------------------------------------
   -- §7 Calculation is not payment
   -- -------------------------------------------------------------------
+  -- Refused at PREPARE: that is the earliest point anybody tries to move money,
+  -- and making the proposer find out is better than letting a proposal reach an
+  -- approver who cannot tell it is unpayable.
   perform pg_temp.expect_error(
-    format($q$select public.ins_agent_commission_pay(%L, %L, current_date, 'pay now')$q$,
+    format($q$select public.ins_agent_commission_prepare_payment(%L, %L, current_date, 'pay now')$q$,
            v_acc.id, v_opbank),
     'INS_AGENT_NOT_ELIGIBLE',
-    '§7 an accrued-but-not-eligible share cannot be paid');
+    '§7 an accrued-but-not-eligible share cannot be prepared for payment');
 
   perform pg_temp.assert(
     ((public.ins_agent_commission_mark_eligible(v_pol_place)) ->> 'marked_eligible')::int = 1,
@@ -455,7 +521,42 @@ begin
     (select count(*) from ins_agent_commission_events where accrual_id = v_acc.id and event = 'eligible') = 1,
     '§7 eligibility is an event, not a silent field change');
 
-  v_calc := public.ins_agent_commission_pay(v_acc.id, v_opbank, current_date, 'paid in full');
+  -- ---------------------------------------------------------------------
+  -- §7b maker-checker: one person cannot prepare, approve and release
+  -- ---------------------------------------------------------------------
+  -- The control this item exists for. Asserted as three refusals plus one success,
+  -- because "a second person is required" is only true if the first person is
+  -- actually stopped -- a test that only drove the happy path would pass on an
+  -- implementation where any manager could do all three.
+  reset role;
+  perform pg_temp.jwt(mgr);
+  set local role authenticated;
+  v_calc := public.ins_agent_commission_prepare_payment(v_acc.id, v_opbank, current_date, 'paid in full');
+  perform pg_temp.assert((v_calc ->> 'prepared')::boolean,
+    format('§7b the preparer proposes a payment (%s)', v_calc::text));
+  perform pg_temp.assert((v_calc ->> 'wht_amount')::numeric = 30000
+                     and (v_calc ->> 'net_amount')::numeric = 270000,
+    '§7b and the proposal freezes the tax and the net the approver will be asked to accept');
+  v_payment := (v_calc ->> 'payment_id')::uuid;
+
+  perform pg_temp.expect_error(
+    format($q$select public.ins_agent_commission_approve_payment(%L)$q$, v_payment),
+    'INS_AGENT_SELF_APPROVAL',
+    '§7b the preparer cannot approve their own payment');
+  perform pg_temp.expect_error(
+    format($q$select public.ins_agent_commission_pay(%L, %L, current_date, 'sneak')$q$, v_acc.id, v_opbank),
+    'INS_AGENT_PAYMENT_NOT_APPROVED',
+    '§7b and cannot step round it by calling pay() directly: an unapproved payment does not release');
+  reset role;
+
+  -- A second manager approves, and only then does the cash move.
+  perform pg_temp.jwt(admin2);
+  set local role authenticated;
+  perform pg_temp.assert((public.ins_agent_commission_approve_payment(v_payment) ->> 'approved')::boolean,
+    '§7b somebody else approves it');
+  reset role;
+
+  v_calc := public.ins_agent_commission_release_payment(v_payment, 'paid in full');
   perform pg_temp.assert((v_calc ->> 'paid')::boolean, '§7 the share can now be paid');
   perform pg_temp.assert(
     (select status from ins_agent_commission_accruals where id = v_acc.id) = 'paid',
@@ -471,12 +572,94 @@ begin
   perform pg_temp.assert((v_calc ->> 'amount')::numeric = 270000
                      and (v_calc ->> 'wht_amount')::numeric = 30000,
     format('§12 the payment pays the net 270,000 and withholds 30,000 (%s)', v_calc::text));
-  perform pg_temp.assert((v_calc ->> 'wht_is_final')::boolean,
+  -- The character is decided by the payment date. The release response no longer
+  -- echoes it (it is frozen on the payment, not re-resolved at release), so this
+  -- reads it from the accrual -- which is where the agent's statement reads it.
+  perform pg_temp.assert(
+    (select wht_is_final from ins_agent_commission_accruals where id = v_acc.id),
     '§12 and the character is fixed by the PAYMENT date, which is after 1 July 2026');
 
-  v_calc := public.ins_agent_commission_pay(v_acc.id, v_opbank, current_date, 'again');
-  perform pg_temp.assert((v_calc ->> 'already_paid')::boolean,
-    '§7 a second payment is reported as already done');
+  -- Pressing release twice is reported, not repeated: the second call finds the
+  -- payment already paid and does not post a second journal or withhold twice.
+  perform pg_temp.assert((public.ins_agent_commission_release_payment(v_payment) ->> 'already_paid')::boolean,
+    '§7 a second release is reported as already done');
+  -- And the share can no longer be prepared for payment at all.
+  perform pg_temp.expect_error(
+    format($q$select public.ins_agent_commission_prepare_payment(%L, %L, current_date, 'again')$q$,
+           v_acc.id, v_opbank),
+    'INS_AGENT_ALREADY_PAID',
+    '§7 nor can a payment be prepared for a share that has been paid');
+
+  -- -------------------------------------------------------------------
+  -- §7c the authorisation cannot be walked around
+  -- -------------------------------------------------------------------
+  -- §7b proves one person cannot do all three steps. That is worth very little
+  -- if the proposal can be EDITED between preparing and approving, or released
+  -- without an approval at all -- so each of those routes is refused by name,
+  -- and each is asserted separately because they fail in different ways.
+  reset role;
+  declare
+    v_pol7c  ins_policies%rowtype;
+    v_acc7c  public.ins_agent_commission_accruals;
+    v_pay7c  uuid;
+    v_client7c ins_clients%rowtype;
+  begin
+    v_client7c := ins_register_client('Maker checker client', 'corporate', null, null, null, 'low');
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_pol7c := ins_create_policy(v_client7c.id, v_insurer, v_line, current_date, current_date + 365,
+                                 5000000, 'UGX', 5000000, 15, null, v_sub, 'maker checker', null);
+    perform pg_temp.one_share(v_pol7c.id, v_insurer, 15);
+    v_pol7c := pg_temp.approve_and_bind(v_pol7c.id);
+    reset role;
+
+    perform pg_temp.recognise(v_pol7c.id, 750000);
+    select * into v_acc7c from ins_agent_commission_accruals where policy_id = v_pol7c.id;
+
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    perform public.ins_agent_commission_mark_eligible(v_pol7c.id);
+    v_pay7c := (public.ins_agent_commission_prepare_payment(
+                  v_acc7c.id, v_opbank, current_date, 'proposed') ->> 'payment_id')::uuid;
+
+    -- Releasing without an approval must not work. This is the bypass that would
+    -- make the whole control decorative.
+    perform pg_temp.expect_error(
+      format($q$select public.ins_agent_commission_release_payment(%L)$q$, v_pay7c),
+      'INS_AGENT_PAYMENT_NOT_APPROVED',
+      '§7c a prepared payment cannot be released before it is approved');
+    reset role;
+
+    -- The figure the approver will see cannot be moved by the preparer after the
+    -- fact. Editing it would mean approving one number and paying another.
+    perform pg_temp.expect_error(
+      format($q$update public.ins_agent_commission_payments set net_amount = 1, wht_amount = %s where id = %L$q$,
+             0, v_pay7c),
+      'INS_AGENT_PAYMENT_IMMUTABLE',
+      '§7c the figures on a prepared payment cannot be edited');
+
+    -- Not even by reassigning it to a different share.
+    perform pg_temp.expect_error(
+      format($q$update public.ins_agent_commission_payments set paid_on = current_date - 30 where id = %L$q$, v_pay7c),
+      'INS_AGENT_PAYMENT_IMMUTABLE',
+      '§7c nor can the payment date be moved after preparing');
+
+    -- The table itself refuses a row whose approver is its preparer, so the rule
+    -- holds even for a caller that never goes through the function.
+    perform pg_temp.expect_error(
+      format($q$update public.ins_agent_commission_payments set approved_by = prepared_by where id = %L$q$, v_pay7c),
+      'ins_agent_payments_no_self_approval_chk',
+      '§7c and the table constraint refuses a payment approved by its own preparer');
+
+    -- A proposal whose share changed underneath it is stale, not approvable. A
+    -- reversal is the realistic cause: the agent share is unwound while the
+    -- payment sits waiting for a second signature.
+    perform public.ins_agent_commission_reverse(v_acc7c.id, 'share unwound while payment awaited approval');
+    perform pg_temp.jwt(admin2); set local role authenticated;
+    perform pg_temp.expect_error(
+      format($q$select public.ins_agent_commission_approve_payment(%L)$q$, v_pay7c),
+      'INS_AGENT_PAYMENT_STALE',
+      '§7c an approval is refused once the share behind it has been reversed');
+    reset role;
+  end;
 
   -- -------------------------------------------------------------------
   -- §9 A paid share is not silently reversed
@@ -805,12 +988,17 @@ begin
 
     perform pg_temp.jwt(mgr); set local role authenticated;
     perform public.ins_agent_commission_mark_eligible(v_pol10e.id);
-    v_pay10e := public.ins_agent_commission_pay(v_acc10e.id, v_opbank, date '2026-11-18', 'paid after the boundary');
     reset role;
+    v_pay10e := pg_temp.pay_via_checker(v_acc10e.id, v_opbank, date '2026-11-18', mgr, admin2,
+                                        'paid after the boundary');
 
     perform pg_temp.assert((v_pay10e ->> 'wht_amount')::numeric = 30000,
       format('§10e paying after the boundary withholds 30,000 (got %s)', v_pay10e ->> 'wht_amount'));
-    perform pg_temp.assert((v_pay10e ->> 'wht_is_final')::boolean,
+    -- The release response echoes the money but not the character; the character
+    -- lives on the accrual (asserted on the next line) and on the payment row,
+    -- because that is where the agent's statement reads it from.
+    perform pg_temp.assert(
+      (select wht_is_final from ins_agent_commission_accruals where id = v_acc10e.id),
       '§10e and it is FINAL, because finality is decided by the payment date and not the inception date');
     perform pg_temp.assert((v_pay10e ->> 'wht_on')::date = date '2026-11-18',
       '§10e the date used to resolve it is recorded on the payment, so the figure can be tied to a law');
@@ -904,7 +1092,7 @@ begin
     '§9 and the reversal is an event with its reason');
 
   perform pg_temp.expect_error(
-    format($q$select public.ins_agent_commission_pay(%L, %L, current_date, 'try again')$q$,
+    format($q$select public.ins_agent_commission_prepare_payment(%L, %L, current_date, 'try again')$q$,
            v_acc.id, v_opbank),
     'INS_AGENT_ACCRUAL_REVERSED',
     '§9 a reversed share cannot be paid afterwards');
@@ -958,8 +1146,10 @@ begin
 
     update ins_intermediaries set status = 'suspended'
      where tenant_id = ta and code = 'SUB3';
+    -- Refused at prepare: nobody should be able to put a payment for a suspended
+    -- agent in front of an approver in the first place.
     perform pg_temp.expect_error(
-      format($q$select public.ins_agent_commission_pay(%L, %L, current_date, 'pay')$q$, v_acc8.id, v_opbank),
+      format($q$select public.ins_agent_commission_prepare_payment(%L, %L, current_date, 'pay')$q$, v_acc8.id, v_opbank),
       'INS_AGENT_NOT_ACTIVE',
       '§8 a share cannot be paid to a suspended intermediary');
 
@@ -969,7 +1159,7 @@ begin
        set status = 'active', licence_valid_to = current_date - 1
      where tenant_id = ta and code = 'SUB3';
     perform pg_temp.expect_error(
-      format($q$select public.ins_agent_commission_pay(%L, %L, current_date, 'pay')$q$, v_acc8.id, v_opbank),
+      format($q$select public.ins_agent_commission_prepare_payment(%L, %L, current_date, 'pay')$q$, v_acc8.id, v_opbank),
       'INS_AGENT_LICENCE_EXPIRED',
       '§8 and not to one whose licence expired before the payment date');
 
@@ -1226,9 +1416,9 @@ begin
 
     perform pg_temp.jwt(mgr); set local role authenticated;
     perform public.ins_agent_commission_mark_eligible(v_pol14.id);
-    perform public.ins_agent_commission_pay(
+    perform pg_temp.pay_via_checker(
       (select id from ins_agent_commission_accruals where policy_id = v_pol14.id),
-      v_opbank, current_date, 'paid so the tax can be returned');
+      v_opbank, current_date, mgr, admin2, 'paid so the tax can be returned');
     reset role;
     perform pg_temp.assert(
       (select wht_amount from ins_agent_commission_accruals where policy_id = v_pol14.id) = 30000,
@@ -1303,15 +1493,15 @@ begin
     -- even if the flag were hard-coded to true.
     --
 
-    -- §14b already paid this share, so paying again must be reported rather than
-    -- repeated: the deduction is taken once, and a second press does not withhold
-    -- another 30,000.
+    -- §14b already paid this share, so a second attempt must be refused rather
+    -- than repeated: the deduction is taken once, and the refusal names the state.
     perform pg_temp.jwt(mgr); set local role authenticated;
-    perform pg_temp.assert(
-      (public.ins_agent_commission_pay(
-         (select id from ins_agent_commission_accruals where policy_id = v_pol14.id),
-         v_opbank, current_date, 'pressed twice') ->> 'already_paid')::boolean,
-      '§15 pressing pay twice is reported, not repeated -- the tax is withheld exactly once');
+    perform pg_temp.expect_error(
+      format($q$select public.ins_agent_commission_prepare_payment(
+                 (select id from ins_agent_commission_accruals where policy_id = %L), %L, current_date, 'pressed twice')$q$,
+             v_pol14.id, v_opbank),
+      'INS_AGENT_ALREADY_PAID',
+      '§15 a share cannot be prepared for payment twice -- the tax is withheld exactly once');
     reset role;
 
     perform pg_temp.jwt(admin2); set local role authenticated;
@@ -1368,8 +1558,9 @@ begin
     -- Accrued this month, paid next month.
     perform pg_temp.jwt(mgr); set local role authenticated;
     perform public.ins_agent_commission_mark_eligible(v_pol14c.id);
-    perform public.ins_agent_commission_pay(v_acc14c.id, v_opbank, date '2026-12-10', 'paid in December');
     reset role;
+    perform pg_temp.pay_via_checker(v_acc14c.id, v_opbank, date '2026-12-10', mgr, admin2,
+                                    'paid in December');
 
     perform pg_temp.assert(
       (select paid_on from ins_agent_commission_accruals where id = v_acc14c.id) = date '2026-12-10',
@@ -1521,6 +1712,322 @@ begin
              ta, v_pol16.id, v_sub16),
       'ins_agent_accruals_live_once_key',
       '§16b a second LIVE accrual is still refused outright');
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §17 an event says WHO did it (item 8, bit 5)
+  -- -------------------------------------------------------------------
+  -- The actor arrives from the column default `auth.uid()`, which fires because
+  -- every insert omits actor_id rather than writing NULL. That is worth pinning
+  -- precisely because it is invisible: it holds today, it would stop holding the
+  -- first time somebody writes `actor_id` into an insert list and leaves it null,
+  -- and a history where every line reads "System" is not an audit trail.
+  reset role;
+  declare
+    v_acc17  public.ins_agent_commission_accruals;
+    v_actor  uuid;
+  begin
+    select * into v_acc17 from public.ins_agent_commission_accruals
+     where tenant_id = ta and status = 'paid' order by created_at limit 1;
+
+    select actor_id into v_actor from public.ins_agent_commission_events
+     where tenant_id = ta and accrual_id = v_acc17.id and event = 'paid';
+
+    perform pg_temp.assert(v_actor is not null,
+      '§17 the event that released the money names the manager who released it');
+    -- Non-null is not enough: the actor must be somebody who works here, because
+    -- a made-up identity would pass a non-null check and fail an audit.
+    perform pg_temp.assert(v_actor in (admin1, admin2, mgr),
+      format('§17 and it names one of the people who works here (got %s)', v_actor));
+
+    -- No session means no identity. Outside `authenticated` there is no user, and
+    -- the act was genuinely performed with nobody to name: writing one would be
+    -- worse than leaving it blank.
+    perform set_config('request.jwt.claims', '', true);
+    insert into public.ins_agent_commission_events (tenant_id, accrual_id, event, amount, note)
+      values (ta, v_acc17.id, 'eligible', null, 'no session');
+    perform pg_temp.assert(
+      (select actor_id from public.ins_agent_commission_events
+        where tenant_id = ta and note = 'no session') is null,
+      '§17 with no user session the actor stays null rather than being invented');
+    delete from public.ins_agent_commission_events where tenant_id = ta and note = 'no session';
+
+    -- The default reads the CLAIMS, not the database role, so it keeps working
+    -- inside a security-definer RPC where the effective role is the owner.
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', mgr, 'role', 'authenticated')::text, true);
+    insert into public.ins_agent_commission_events (tenant_id, accrual_id, event, amount, note)
+      values (ta, v_acc17.id, 'eligible', null, 'named by claims');
+    perform pg_temp.assert(
+      (select actor_id from public.ins_agent_commission_events
+        where tenant_id = ta and note = 'named by claims') = mgr,
+      '§17 and inside a user session it names that user');
+    delete from public.ins_agent_commission_events where tenant_id = ta and note = 'named by claims';
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §18 the position is per currency
+  -- -------------------------------------------------------------------
+  -- The old function answered in one sum, so a tenant working in two currencies
+  -- got a number that was not money. By this point in the file the tenant is fully
+  -- settled (§14 paid the last return), which is a useful state to assert the
+  -- identities from, and a useless one for a backlog: the per-currency figures must
+  -- still add up to the flat ones, and both must add up to what is unresolved.
+  reset role;
+  declare
+    v_pos    jsonb;
+    v_ccy    jsonb;
+    v_ugx    numeric;
+    v_rems   numeric;
+  begin
+    v_pos := public.ins_wht_position();
+    perform pg_temp.assert(jsonb_typeof(v_pos -> 'by_currency') = 'array',
+      '§18 the position splits by currency');
+    perform pg_temp.assert(jsonb_array_length(v_pos -> 'by_currency') >= 1,
+      '§18 and this tenant has at least one currency with tax in it');
+
+    select elem into v_ccy from jsonb_array_elements(v_pos -> 'by_currency') as elem
+     where elem ->> 'currency' = 'UGX';
+    perform pg_temp.assert(v_ccy is not null, '§18 UGX appears in the split');
+
+    -- The split must agree with the tax actually withheld, or it is decoration.
+    select round(coalesce(sum(wht_amount), 0), 2) into v_ugx
+      from public.ins_agent_commission_accruals
+     where tenant_id = ta and currency = 'UGX' and wht_amount > 0 and status <> 'reversed';
+    perform pg_temp.assert((v_ccy ->> 'withheld_total')::numeric = v_ugx,
+      format('§18 the UGX line matches the accruals it is derived from (%s vs %s)',
+             v_ccy ->> 'withheld_total', v_ugx));
+
+    -- With one currency in use, the split and the flat summary must be the same
+    -- numbers. This is what makes the flat fields safe for the single-currency
+    -- tenants that already read them.
+    perform pg_temp.assert((v_ccy ->> 'withheld_total')::numeric = (v_pos ->> 'withheld_total')::numeric,
+      '§18 with one currency the split agrees with the flat total');
+    perform pg_temp.assert((v_ccy ->> 'reported_total')::numeric = (v_pos ->> 'reported_total')::numeric,
+      '§18 and so does the reported total');
+
+    -- Every return this tenant prepared is on the flat reported figure: the split
+    -- cannot silently drop a remittance.
+    select round(coalesce(sum(amount), 0), 2) into v_rems
+      from public.ins_wht_remittances
+     where tenant_id = ta and status in ('prepared', 'approved', 'paid');
+    perform pg_temp.assert((v_pos ->> 'reported_total')::numeric = v_rems,
+      format('§18 the reported total is the sum of live returns (%s vs %s)',
+             v_pos ->> 'reported_total', v_rems));
+
+    -- Each currency's line must satisfy its own identity, whichever branch the
+    -- floor takes.
+    perform pg_temp.assert(
+      (v_ccy ->> 'unreported_open')::numeric
+        = greatest((v_ccy ->> 'withheld_total')::numeric - (v_ccy ->> 'reported_total')::numeric, 0),
+      '§18 unreported_open is withheld less reported, floored at zero');
+    perform pg_temp.assert(
+      (v_ccy ->> 'awaiting_payment')::numeric
+        = greatest((v_ccy ->> 'reported_total')::numeric - (v_ccy ->> 'paid_total')::numeric, 0),
+      '§18 awaiting_payment is reported less paid, floored at zero');
+    perform pg_temp.assert(
+      (v_ccy ->> 'unreported')::numeric
+        = (v_ccy ->> 'unreported_open')::numeric - (v_ccy ->> 'over_reported')::numeric,
+      '§18 unreported = unreported_open - over_reported, exactly');
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §19 two currencies in one tenant stay two answers
+  -- -------------------------------------------------------------------
+  -- The defect this bit exists for. Until the position was split, 500 USD of tax
+  -- and 900,000 UGX of tax came back as one number, and that number was not
+  -- money. Asserting the split on a single-currency tenant would prove nothing:
+  -- the old code passes that test. So this builds the mixed case deliberately.
+  --
+  -- The shares are inserted rather than accrued, because the accrual path derives
+  -- its currency from the policy and a policy in USD needs an insurer, a product
+  -- line and a premium in a currency this fixture does not otherwise use. The
+  -- column being asserted on is `currency`, and the withholding is already a
+  -- stored figure at this point in the lifecycle, so the insert is the honest
+  -- fixture rather than a shortcut around the code under test.
+  reset role;
+  declare
+    v_pos     jsonb;
+    v_ugx     jsonb;
+    v_usd     jsonb;
+    v_acc     uuid;
+    v_ret     jsonb;
+  begin
+    -- `ins_agent_commission_wht_guard` refuses a hand-written withholding
+    -- figure, which is the control doing its job: a tax amount nobody can tie
+    -- back to a rate and a date is a number with no defence. The calculation
+    -- RPCs set this same flag inside their own transaction, so setting it here is
+    -- how a fixture stands in for the calculation rather than around it.
+    perform set_config('ins.via_wht_calc', 'on', true);
+    insert into public.ins_agent_commission_accruals
+      (tenant_id, policy_id, intermediary_id, basis, commission_base,
+       gross_amount, wht_amount, net_amount, currency, status, paid_at, paid_on,
+       wht_rate_pct, wht_is_final, wht_parameter_ref)
+    values
+      -- A paid share must name the rate, its character AND the parameter row they
+      -- came from, so the tax can be traced to a decision rather than a decimal.
+      (ta, v_pol_exp, v_sub, 'pct_of_broker_commission', 1000, 111.11, 11.11, 100.00,
+       'USD', 'paid', now(), date '2026-11-18', 10, true,
+       (select id from public.regulatory_parameters
+         where tenant_id = ta and parameter_key = 'tax.wht_agent_commission_percent'
+         order by effective_from limit 1))
+    returning id into v_acc;
+    perform set_config('ins.via_wht_calc', 'off', true);
+
+    v_pos := public.ins_wht_position();
+    select elem into v_ugx from jsonb_array_elements(v_pos -> 'by_currency') as elem
+     where elem ->> 'currency' = 'UGX';
+    select elem into v_usd from jsonb_array_elements(v_pos -> 'by_currency') as elem
+     where elem ->> 'currency' = 'USD';
+
+    perform pg_temp.assert(v_ugx is not null and v_usd is not null,
+      format('§19 both currencies appear in the split (%s)', v_pos -> 'by_currency'));
+
+    -- The identity a single-currency tenant can never test: each line counts ITS
+    -- OWN currency, not the whole tenant. 11.11 must not appear as 120,011.11.
+    perform pg_temp.assert((v_usd ->> 'withheld_total')::numeric = 11.11,
+      format('§19 the USD line counts only USD tax (got %s)', v_usd ->> 'withheld_total'));
+    perform pg_temp.assert((v_ugx ->> 'withheld_total')::numeric = 120000.00,
+      format('§19 and the UGX line is unchanged by it (got %s)', v_ugx ->> 'withheld_total'));
+    perform pg_temp.assert((v_usd ->> 'unreported_open')::numeric = 11.11,
+      '§19 the USD tax is unreported, because no return has been prepared for it');
+
+    -- The flat summary is now knowingly the sum of unlike things. It is kept for
+    -- the single-currency callers it was written for, and this asserts the size of
+    -- the lie rather than pretending it does not exist.
+    perform pg_temp.assert((v_pos ->> 'withheld_total')::numeric = 120011.11,
+      '§19 the flat total adds the two currencies together, which is why by_currency exists');
+
+    -- A return in one currency cannot claim the other currency's tax, or URA is
+    -- paid shillings for a dollar liability.
+    perform pg_temp.jwt(mgr); set local role authenticated;
+    v_ret := public.ins_wht_prepare_remittance(date '2026-11-01', date '2026-11-30', 'USD');
+    reset role;
+    perform pg_temp.assert((v_ret ->> 'amount')::numeric = 11.11,
+      format('§19 a USD return claims only the USD tax (got %s)', v_ret -> 'amount'));
+    perform pg_temp.assert(
+      not exists (select 1 from public.ins_wht_remittance_lines l
+                   join public.ins_agent_commission_accruals a on a.id = l.accrual_id
+                  where l.tenant_id = ta and a.currency <> 'USD'
+                    and l.remittance_id = (v_ret ->> 'remittance_id')::uuid),
+      '§19 and no UGX share is on it');
+  end;
+
+  -- -------------------------------------------------------------------
+  -- §20 the statement: per currency, consistent, and dated by payment
+  -- -------------------------------------------------------------------
+  -- Three defects in one function, and the third is a correctness problem.
+  --
+  --  (a) It summed unlike currencies.
+  --  (b) `lines` included reversed shares while the totals excluded them, so the
+  --      detail did not add up to the headline.
+  --  (c) The window filtered on created_at -- when the row was written -- while
+  --      the money it reports is paid on paid_on.
+  --
+  -- (c) is asserted by contradiction: the same accrual must fall on the statement
+  -- for its PAYMENT month and out of the statement for the month it was created,
+  -- which are different months for §14c's share.
+  reset role;
+  declare
+    v_st      jsonb;
+    v_st_nov  jsonb;
+    v_st_dec  jsonb;
+    v_line    jsonb;
+    v_usd     jsonb;
+    v_sum     numeric;
+    v_net     numeric;
+    v_created date;
+    v_acc     uuid;
+  begin
+    -- (a) the mixed-currency agent from §19. v_sub now has a USD share and a
+    -- shilling share, so the two dialects of "total" cannot agree.
+    v_st := public.ins_agent_commission_statement(v_sub);
+    perform pg_temp.assert(jsonb_array_length(v_st -> 'by_currency') = 2,
+      format('§20 a two-currency agent gets two lines (%s)', v_st -> 'by_currency'));
+
+    select elem into v_usd from jsonb_array_elements(v_st -> 'by_currency') as elem
+     where elem ->> 'currency' = 'USD';
+    perform pg_temp.assert((v_usd ->> 'gross_commission')::numeric = 111.11,
+      format('§20 the USD line counts only USD business (got %s)', v_usd ->> 'gross_commission'));
+
+    -- Every currency line's outstanding must be its own net less its own paid.
+    for v_line in select * from jsonb_array_elements(v_st -> 'by_currency') loop
+      perform pg_temp.assert(
+        (v_line ->> 'outstanding')::numeric
+          = round((v_line ->> 'net_commission')::numeric - (v_line ->> 'paid')::numeric, 2),
+        format('§20 %s outstanding is its own net less its own paid (%s)',
+               v_line ->> 'currency', v_line::text));
+    end loop;
+
+    -- (b) the lines must add up to the headline, in the currency they share.
+    -- This is the assertion the old function failed: reversed shares were in the
+    -- detail and out of the total.
+    select coalesce(sum((elem ->> 'gross_amount')::numeric), 0),
+           coalesce(sum((elem ->> 'net_amount')::numeric), 0)
+      into v_sum, v_net
+      from jsonb_array_elements(v_st -> 'lines') as elem
+     where elem ->> 'status' <> 'reversed';
+    perform pg_temp.assert(v_sum = (v_st ->> 'gross_commission')::numeric,
+      format('§20 the statement lines add up to its gross (%s vs %s)',
+             v_sum, v_st ->> 'gross_commission'));
+    perform pg_temp.assert(
+      not exists (select 1 from jsonb_array_elements(v_st -> 'lines') as elem
+                   where elem ->> 'status' = 'reversed'),
+      '§20 and no reversed share appears in the detail at all');
+
+    -- (c) dated by payment. §14c accrued in November and was paid in December.
+    select x.id, x.created_at::date into v_acc, v_created
+      from public.ins_agent_commission_accruals x
+     where x.tenant_id = ta and x.paid_on = date '2026-12-10' limit 1;
+    perform pg_temp.assert(v_acc is not null, '§20 the December-paid share exists');
+
+    v_st_nov := public.ins_agent_commission_statement(
+      (select intermediary_id from public.ins_agent_commission_accruals where id = v_acc),
+      date '2026-11-01', date '2026-11-30');
+    v_st_dec := public.ins_agent_commission_statement(
+      (select intermediary_id from public.ins_agent_commission_accruals where id = v_acc),
+      date '2026-12-01', date '2026-12-31');
+
+    perform pg_temp.assert(
+      exists (select 1 from jsonb_array_elements(v_st_dec -> 'lines') as elem
+               where (elem ->> 'accrual_id')::uuid = v_acc),
+      '§20 the share appears on the statement for the month it was PAID');
+    perform pg_temp.assert(
+      not exists (select 1 from jsonb_array_elements(v_st_nov -> 'lines') as elem
+                   where (elem ->> 'accrual_id')::uuid = v_acc),
+      format('§20 and not on the statement for the month its row was written (%s)', v_created));
+
+    -- The totals must follow the same window as the lines. Asserting only the
+    -- lines let a mutant that filtered the TOTALS on created_at survive: the
+    -- detail moved to December while the headline stayed in November, and nothing
+    -- compared the two. Computed here as an oracle rather than restated.
+    perform pg_temp.assert((v_st_dec ->> 'gross_commission')::numeric = (
+        select coalesce(sum(gross_amount), 0) from public.ins_agent_commission_accruals
+         where tenant_id = ta and status <> 'reversed'
+           and intermediary_id = (select intermediary_id from public.ins_agent_commission_accruals where id = v_acc)
+           and coalesce(paid_on, created_at::date) between date '2026-12-01' and date '2026-12-31'),
+      format('§20 the December statement total follows the payment date (%s)',
+             v_st_dec ->> 'gross_commission'));
+    perform pg_temp.assert((v_st_nov ->> 'gross_commission')::numeric = (
+        select coalesce(sum(gross_amount), 0) from public.ins_agent_commission_accruals
+         where tenant_id = ta and status <> 'reversed'
+           and intermediary_id = (select intermediary_id from public.ins_agent_commission_accruals where id = v_acc)
+           and coalesce(paid_on, created_at::date) between date '2026-11-01' and date '2026-11-30'),
+      format('§20 and so does the November one (%s)', v_st_nov ->> 'gross_commission'));
+
+    -- A reversed share must be out of both the window and the totals. §16 left
+    -- one behind; picking it up here proves the filter is the same on both paths.
+    perform pg_temp.assert(
+      (select count(*) from public.ins_agent_commission_accruals
+        where tenant_id = ta and status = 'reversed') > 0,
+      '§20 there is a reversed share in this tenant to test the filter with');
+    perform pg_temp.assert(
+      not exists (
+        select 1 from public.ins_agent_commission_accruals x
+          join jsonb_array_elements(public.ins_agent_commission_statement(x.intermediary_id) -> 'lines') as elem
+            on (elem ->> 'accrual_id')::uuid = x.id
+         where x.tenant_id = ta and x.status = 'reversed'),
+      '§20 a reversed share is absent from every statement, whatever the window');
   end;
 
   raise notice 'PASS: agent commission subledger (all scenarios)';

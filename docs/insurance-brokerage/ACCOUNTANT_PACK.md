@@ -252,10 +252,64 @@ Built so far, with no effect on any company that has no foreign-currency lines (
 
 Not built when this section was written (all since built, see the update above): realised gain or loss at settlement, period-end revaluation at the closing rate, foreign-currency open items, settlements and bank reconciliation. The expected policy (transaction-date rate at recognition, closing rate for monetary items, differences to profit and loss, original rates never overwritten) is recorded in `ROADMAP.md` section 6 and is not yet implemented or signed off.
 
+### 5.12 Agent commission: accrual, withholding and returns (item 6, finished 18 November 2026)
+
+> **Status: built, not signed off.** This section describes what the software does. Section 7c of
+> `ROADMAP.md` lists what is still unconfirmed.
+
+**What is being accounted for.** A sub-agent or referral partner earns a share of the brokerage's
+commission on a policy. The share is a cost of the brokerage, not a reduction of revenue: netting it
+against commission income would hide both figures, so it posts to its own expense account (5010,
+role `agent_commission_expense`) with a credit to the agent payable. **An agent appointed by an
+insurer is not on the brokerage's books at all** — that agent is paid by the insurer, and the system
+refuses the transaction by name rather than recording a zero.
+
+**The lifecycle, and why it has three states.**
+
+| State | Meaning | Ledger |
+|---|---|---|
+| `accrued` (the provisional step) | The brokerage's commission on the policy has been recognised, so an obligation to the agent exists but is not yet payable. | Expense and payable posted. |
+| `eligible` | Settlement conditions are met: the policy is bound and nothing is in dispute. | Nothing further. |
+| `paid` | Money has left, through a separate approver, at the payment date. | Payable cleared, withholding credited to `wht_payable`. |
+| `reversed` | The share is undone before payment, with a reason. Reverse and re-enter, never edit. | The original entry is mirrored exactly. A **paid** share cannot be reversed; recovering money from an agent is a decision, not a journal. |
+
+**Withholding: the rate did not change, the character did.** Withholding is 10% under ITA s.134 and
+has been since 2020. What changed on **1 July 2026** is that s.139(aa) of the Income Tax (Amendment)
+Act 2026 made it a **final** tax. The system holds both the rate and the character as effective-dated
+approved parameters, and the sentence an agent is shown differs accordingly: "final tax" means the
+agent does not declare it again; "payment on account" means they still do. Both are 10%; presenting
+them as one thing is what the earlier build did, and it was wrong in a way no percentage check
+would catch.
+
+On the accountant's own example: gross share 300,000, withholding 30,000, net 270,000 —
+`Dr Agent commission expense 300,000 / Cr Agent payable 300,000` at accrual, then
+`Dr Agent payable 300,000 / Cr Bank 270,000 / Cr WHT payable (URA) 30,000` at payment.
+
+**Withholding happens at payment, not at accrual.** No money has moved at accrual, so no tax has been
+withheld; the accrual carries `wht_amount = 0` to mean *not yet determined*, not *no tax owed*. The
+agent register says which, in words.
+
+**The return period follows the payment.** A share earned in November and paid in December belongs on
+December's return. The remittance is prepared by one manager, approved by a second, and paid with the
+URA reference recorded; a voided return releases its lines so a later return can claim the tax.
+
+**Maker-checker on the payment itself.** One manager proposes the payment and the tax is fixed at that
+moment; a *different* manager approves those exact figures; only then is it released and posted. An
+approved payment whose figures were recomputed at release time would not be an approved payment.
+
+**Statements.** Each agent's statement runs on the payment date, states each currency separately
+(they are never added together), and says whether the tax withheld was final or on account.
+
+**What the accountant is asked to confirm here.** The accrual basis for each agreement type
+(percentage of the brokerage's commission, fixed amount, tiered, product-specific, shared split); that
+the agent-share expense treatment above is right rather than a netting against commission income; and
+that the 1 July 2026 character change is reflected correctly for shares paid across that boundary.
+
 ## 6. Reporting
 
 - Broker fee tax report: `ins_broker_fee_tax_report` (a view). Broker-fee credit rows for cancellations are dated at posting.
 - Insurer commission statements: `ins_insurer_commission_statement_data`, one per insurer.
+- Agent commission: `ins_agent_commission_statement(intermediary, from, to)` gives one agent's account per currency, and the register's WHT position is `ins_wht_position()` (per currency). Both are also on screen, and the agent statement prints to PDF from the browser with no server round trip.
 - Policy cash position: section 5.6. Cancellation cash workflow (`20261015210000`): covered in section 5.8, with the cash-side controls not repeated here.
 
 ## 7. Coverage
@@ -287,6 +341,7 @@ Each item below is the software's current design and needs the accountant's conf
 - **Claim excess and documents** (`20261106210000`): four excess handling modes stored on the claim; excess is never brokerage income. **Reserve revisions** (`20261022090000`) keep a history of every reserve.
 - **Policy approval workflow** (`20261106180000` and repairs): binding requires an approved policy; segregation of duties applies to approval.
 - **Insurer statement reconciliation** (`20261106220000`): insurer-reported premium, claims and commission compared line by line with the brokerage's records. Read-only; it adjusts nothing.
+- **Agent commission** (`20261117240000` to `20261118180000`): accrual at recognition of the brokerage's commission, agent share as an expense (5010), withholding at payment from approved effective-dated parameters with the character change on 1 July 2026, maker-checker payment, per-period returns to URA on the payment-month basis, and per-currency statements. Section 5.12 describes the treatment; the basis for each agreement type and the expense-versus-netting question need the accountant's confirmation.
 - **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Built (all five steps, `20261107140000` to `20261111100000`), not accountant-approved. New accounts and posting roles for review: account 3900 Opening Balance Clearing (equity, role `opening_balance_clearing`, template default, backfilled to existing insurance tenants by `20261109090000`) and a `retained_earnings` role that receives earned commission up to cut-over (account 3200 per `IN_FORCE_IMPORT.md` section 4).
 
 ## 10. Pointers for the reviewer

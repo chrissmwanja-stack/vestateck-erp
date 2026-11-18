@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Card, CardContent, Chip, CircularProgress, Grid, Tab, Tabs, Table, TableBody, TableCell,
+  Box, Card, CardContent, Chip, CircularProgress, Grid, Tab, Tabs, Table, TableBody, TableCell,
   TableHead, TableRow, Typography,
 } from '@mui/material';
 import { allRows, errorText, table } from '../../db';
@@ -8,24 +8,26 @@ import { formatMoney } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import AgentCommissionTerms from './AgentCommissionTerms';
 import AgentCommissionAccruals from './AgentCommissionAccruals';
+import AgentCommissionPayments from './AgentCommissionPayments';
+import AgentCommissionWht from './AgentCommissionWht';
+import AgentCommissionStatements from './AgentCommissionStatements';
 import {
-  AGENT_ACCRUAL_STATUS_LABEL, recentAccruals, summariseAccruals, type AgentAccrual, type CurrencyTotals,
+  AGENT_ACCRUAL_STATUS_LABEL, recentAccruals, summariseAccruals, whtStillHeld,
+  type AgentAccrual, type CurrencyTotals, type WhtLineRef, type WhtRemittance,
 } from '../../agentCommission';
 
-type TabKey = 'overview' | 'terms' | 'accruals' | 'payments' | 'wht';
+type TabKey = 'overview' | 'terms' | 'accruals' | 'payments' | 'statements' | 'wht';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'terms', label: 'Commission Terms' },
   { key: 'accruals', label: 'Accruals' },
   { key: 'payments', label: 'Payments' },
+  { key: 'statements', label: 'Statements' },
   { key: 'wht', label: 'WHT Remittances' },
 ];
 
-const COMING: Record<Exclude<TabKey, 'overview' | 'terms' | 'accruals'>, string> = {
-  payments: 'Payment processing is built in a later stage.',
-  wht: 'WHT remittance management is built in a later stage.',
-};
+
 
 /** One line per currency; currencies are never added together. */
 const money = (totals: CurrencyTotals): string => {
@@ -48,6 +50,10 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint: strin
 const AgentCommissionPage = () => {
   const [tab, setTab] = useState<TabKey>('overview');
   const [accruals, setAccruals] = useState<AgentAccrual[]>([]);
+  // Withholding is a liability only until it is paid over, so the tile needs to
+  // know which returns have actually been settled.
+  const [whtLines, setWhtLines] = useState<WhtLineRef[]>([]);
+  const [whtRemittances, setWhtRemittances] = useState<Pick<WhtRemittance, 'id' | 'status'>[]>([]);
   const [agents, setAgents] = useState<Record<string, string>>({});
   const [policies, setPolicies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -56,12 +62,16 @@ const AgentCommissionPage = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [acc, ints, pols] = await Promise.all([
+      const [acc, ints, pols, lines, rems] = await Promise.all([
         allRows<AgentAccrual>(() => table('ins_agent_commission_accruals').select('*').order('updated_at', { ascending: false }).order('id')),
         allRows<{ id: string; name: string }>(() => table('ins_intermediaries').select('id, name').order('id')),
         allRows<{ id: string; policy_no: string | null }>(() => table('ins_policies').select('id, policy_no').order('id')),
+        allRows<WhtLineRef>(() => table('ins_wht_remittance_lines').select('accrual_id, amount, remittance_id').order('id')),
+        allRows<Pick<WhtRemittance, 'id' | 'status'>>(() => table('ins_wht_remittances').select('id, status').order('id')),
       ]);
       setAccruals(acc);
+      setWhtLines(lines);
+      setWhtRemittances(rems);
       setAgents(Object.fromEntries(ints.map((i) => [i.id, i.name])));
       setPolicies(Object.fromEntries(pols.map((p) => [p.id, p.policy_no ?? '-'])));
       setError(null);
@@ -75,6 +85,7 @@ const AgentCommissionPage = () => {
   useEffect(() => { void load(); }, [load]);
 
   const summary = useMemo(() => summariseAccruals(accruals), [accruals]);
+  const held = useMemo(() => whtStillHeld(accruals, whtLines, whtRemittances), [accruals, whtLines, whtRemittances]);
   const recent = useMemo(() => recentAccruals(accruals), [accruals]);
 
   return (
@@ -90,7 +101,9 @@ const AgentCommissionPage = () => {
 
       {tab === 'terms' && <AgentCommissionTerms />}
       {tab === 'accruals' && <AgentCommissionAccruals />}
-      {tab !== 'overview' && tab !== 'terms' && tab !== 'accruals' && <Alert severity="info">{COMING[tab]}</Alert>}
+      {tab === 'payments' && <AgentCommissionPayments />}
+      {tab === 'statements' && <AgentCommissionStatements />}
+      {tab === 'wht' && <AgentCommissionWht />}
 
       {tab === 'overview' && (loading ? <CircularProgress /> : (
         <>
@@ -98,7 +111,10 @@ const AgentCommissionPage = () => {
             <Grid item xs={12} sm={6} md={3}><Kpi label="Accrued" value={money(summary.accrued)} hint="Earned by agents, not yet eligible" /></Grid>
             <Grid item xs={12} sm={6} md={3}><Kpi label="Eligible for payment" value={money(summary.eligible)} hint="Settlement conditions met" /></Grid>
             <Grid item xs={12} sm={6} md={3}><Kpi label="Paid" value={money(summary.paid)} hint="Gross, already paid out" /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Kpi label="Withholding tax" value={money(summary.withholding)} hint="Withheld on agent commission" /></Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Kpi label="Withholding still held" value={money(held)}
+                hint="Withheld and not yet paid to URA" />
+            </Grid>
             <Grid item xs={12}><Kpi label="Outstanding agent liability" value={money(summary.outstanding)} hint="Net still owed (accrued + eligible)" /></Grid>
           </Grid>
           <Typography variant="h6" sx={{ mb: 1 }}>Recent commission activity</Typography>
