@@ -10,6 +10,7 @@ import { ClaimStatusChip, EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } 
 import { commissionSplit, daysBetween, formatMoney, policyTermDays } from '../../logic';
 import type { FinancialDetails } from '../../financialConfiguration';
 import PolicyFinancialConfiguration from './PolicyFinancialConfiguration';
+import StatutoryChargesPanel from './StatutoryChargesPanel';
 import PolicyCashPanel from './PolicyCashPanel';
 import PolicyReversalAction from './PolicyReversalAction';
 import PolicyRisksCard from './PolicyRisksCard';
@@ -272,6 +273,9 @@ const PolicyDetail = () => {
       </Grid>
 
       <PolicyFinancialConfiguration policyId={id} onChanged={load} onDirtyChange={setFinancialDirty} onDetails={setFinancial} />
+      {/* Below the configuration rather than beside it: pricing reads what is
+          stored, so it only makes sense after the configuration is saved. */}
+      <StatutoryChargesPanel policyId={id} onChanged={load} dirty={financialDirty} />
       {policy.status !== 'draft' && <PolicyCashPanel policyId={id} />}
 
       <Box sx={{ mt: 3 }}>

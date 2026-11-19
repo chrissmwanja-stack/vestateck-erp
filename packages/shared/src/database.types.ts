@@ -8023,6 +8023,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -8056,6 +8057,7 @@ export type Database = {
           renewal_of_id?: string | null
           risk_description?: string | null
           status?: string
+          statutory_charges_ack?: Json | null
           sum_insured?: number
           tenant_id: string
           transaction_type?: string
@@ -8089,6 +8091,7 @@ export type Database = {
           renewal_of_id?: string | null
           risk_description?: string | null
           status?: string
+          statutory_charges_ack?: Json | null
           sum_insured?: number
           tenant_id?: string
           transaction_type?: string
@@ -19010,6 +19013,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ins_acknowledge_statutory_charges: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
       ins_agent_commission_accrual_preview: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -19079,6 +19086,14 @@ export type Database = {
       }
       ins_agent_payment_position: { Args: never; Returns: Json }
       ins_agent_wht_for: { Args: { p_on: string }; Returns: Json }
+      ins_apply_statutory_charges: {
+        Args: {
+          p_add_missing_params?: boolean
+          p_params?: Json
+          p_policy_id: string
+        }
+        Returns: Json
+      }
       ins_approve_insurer_product_rate: {
         Args: { p_id: string }
         Returns: {
@@ -19170,6 +19185,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -19360,6 +19376,7 @@ export type Database = {
               renewal_of_id: string | null
               risk_description: string | null
               status: string
+              statutory_charges_ack: Json | null
               sum_insured: number
               tenant_id: string
               transaction_type: string
@@ -19414,6 +19431,7 @@ export type Database = {
               renewal_of_id: string | null
               risk_description: string | null
               status: string
+              statutory_charges_ack: Json | null
               sum_insured: number
               tenant_id: string
               transaction_type: string
@@ -19499,6 +19517,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -19601,6 +19620,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -20210,6 +20230,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -21030,6 +21051,10 @@ export type Database = {
       }
       ins_share_basis: { Args: { p_policy_id: string }; Returns: string }
       ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
+      ins_statutory_enforcement: {
+        Args: { p_on?: string; p_tenant_id: string }
+        Returns: string
+      }
       ins_submit_cancellation_cash: {
         Args: {
           p_adjustment_id: string
@@ -21222,6 +21247,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22191,6 +22217,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22233,6 +22260,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22421,6 +22449,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22463,6 +22492,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
