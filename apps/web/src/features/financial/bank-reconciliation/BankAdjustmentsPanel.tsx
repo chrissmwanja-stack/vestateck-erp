@@ -291,8 +291,9 @@ export function BankAdjustmentsPanel({
       {pendingOwn.length > 0 && !canSelfApprove && (
         <Alert severity="info" sx={{ mb: 2 }} data-testid="pending-own-hint">
           {pendingOwn.length === 1 ? 'One of your proposals is' : `${pendingOwn.length} of your proposals are`} waiting
-          for a different finance user. You can withdraw {pendingOwn.length === 1 ? 'it' : 'them'} if it is wrong, but
-          you cannot approve {pendingOwn.length === 1 ? 'it' : 'them'} yourself.
+          for a different finance user — nobody can approve their own. If you are the only person who works on bank
+          reconciliation, the company can approve the one-person exception instead. You can withdraw
+          {pendingOwn.length === 1 ? ' it' : ' them'} if it is wrong.
         </Alert>
       )}
 

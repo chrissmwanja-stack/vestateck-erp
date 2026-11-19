@@ -313,12 +313,14 @@ describe('BankAdjustmentsPanel', () => {
     expect(within(dialog).getByText('wrong counter-account')).toBeInTheDocument();
   });
 
-  it('tells the reader how many of their proposals are waiting, and that they cannot approve them', async () => {
+  it('tells the reader how many of their proposals are waiting, that nobody can approve their own, and what the way out is', async () => {
     setup([ADJ_OWN], false);
     renderPanel();
     const hint = await screen.findByTestId('pending-own-hint');
     expect(within(hint).getByText(/waiting/i)).toBeInTheDocument();
-    expect(within(hint).getByText(/cannot approve/)).toBeInTheDocument();
+    expect(within(hint).getByText(/nobody can approve their own/)).toBeInTheDocument();
+    // A one-person team must be told the exception exists, not just refused.
+    expect(within(hint).getByText(/one-person exception/)).toBeInTheDocument();
   });
   it('drills through from a row to its statement line in the table above', async () => {
     setup([ADJ_POSTED]);

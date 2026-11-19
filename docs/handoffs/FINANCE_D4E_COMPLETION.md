@@ -137,24 +137,60 @@ them.
 
 ## Verification performed here
 
+The first real run of `supabase/tests/*.sql` (CI, after the branch pushed) is
+what this section is mostly about: it found two defects that no amount of
+parsing could have caught, and both are fixed forward.
+
 | Check | Result |
 |---|---|
-| `check-migration-policy.sh origin/main` | 1 new migration, OK |
-| Migration + SQL test parse (pglast, real PG grammar) | 36 and 56 statements, clean |
-| Panel tests | 11 passed (was 6) |
-| New report-screen tests | 8 passed |
+| `check-migration-policy.sh origin/main` | 5 new migrations, OK |
+| Migration + SQL test parse (pglast, real PG grammar) | clean |
+| Full migration replay (94 files) against plain Postgres 17 | 0 failures |
+| `supabase/tests/*.sql` | every D4e file passes; 6 failures elsewhere are identical on a clean `origin/main` |
+| Panel tests | 14 passed (was 6 at the start of the pass) |
+| New report-screen tests | 10 passed |
 | Bank reconciliation screen tests | 16 passed |
-| Full web suite | 182 files / 1778 passed, 11 expected-fail, 0 failed |
-| `tsc --noEmit` (src) and `tsc -p e2e` | clean |
-| Lint ratchets (any / dialogs / swallowed / hook-deps) | none over baseline |
+| `tsc --noEmit` | clean |
+| Lint ratchets (any / dialogs / swallowed) | none over baseline |
+| `database.types.ts` | the D4e columns added by hand from the live schema (see below) |
 
-**Not run here:** `supabase db reset`, the SQL test files, `npm run build`
-(the sandbox has 2 GB RAM; `vite build` is OOM-killed, and CI builds fine).
-`database.types.ts` was **not** regenerated: this migration adds columns, three
-RPCs and no view/table signature the web app reads through the committed
-types — the D4e objects are still read through the untyped `db` handle. If CI's
-type check disagrees, run `gen-types.ps1 -Local` on a machine with the stack
-and commit the result (policy step 3).
+**Not run here:** the Playwright spec (policy: specs only, no live stack),
+`npm run build` (2 GB sandbox; `vite build` is OOM-killed, CI builds fine).
+Everything above marked "replay"/"tests" was run locally by installing
+PostgreSQL 17 and stubbing the Supabase platform schemas (`auth`, `storage`,
+`cron`, `net`) — that is a faithful test of the SQL, not of the platform. The
+scripts live outside the repo; treat CI as the authority.
+
+### What the CI run found
+
+1. **Approving a bank adjustment never worked.** `bank_reconciliations.match_type`
+   is checked against `('manual','auto')`, and the approval path inserted
+   `'adjustment'`. Every approval raised a check violation. Fixed by
+   `20261119235951_d4e_fix_bank_reconciliation_match_type.sql`, which allows the
+   value rather than writing a lie about how the line was cleared, and
+   `fin_bank_reconciliation_review` gains a matching count so the review totals
+   still add up (`20261119235953`).
+2. **History could render out of order.** `bank_adjustment_history` sorted on
+   `created_at`, which is the transaction timestamp, so two events written by one
+   RPC shared it and the tie-break was a random uuid. `20261119235952` orders by
+   insertion order for equal timestamps.
+
+The test files also had to be corrected — they had been written but never run:
+the exception setting cannot be inserted already-approved (the settings guard
+refuses that), so it is now set up through `acct_setting_propose` →
+`acct_setting_approve` → `acct_setting_record_review`, and the setting has to
+exist *before* anything is posted because a setting effective today cannot be
+created after today's journal entries (`ACCT_SETTING_BACKDATED`).
+
+### `database.types.ts`
+
+`supabase gen types` needs Docker, so it was not run. The columns this pass adds
+(`approval_mode` on `bank_adjustments`; `approval_mode`, `bank_statement_line_id`,
+`bank_line_description`, `counter_account_id` on `bank_adjustment_register`)
+were added by hand from the replayed schema. The CI step diffs this file against
+a freshly generated one, so **if that step disagrees, run
+`scripts/gen-types.ps1 -Local` and commit its output** — it is authoritative and
+this edit is only an approximation.
 
 ---
 

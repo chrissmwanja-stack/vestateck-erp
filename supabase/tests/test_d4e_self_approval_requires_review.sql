@@ -121,25 +121,53 @@ do $$ begin raise notice 'PASS: no setting means no self-approval'; end $$;
 
 -- ---------------------------------------------------------------------------
 -- 2. Approved, but NOT reviewed: still refused.
---    The row is written as the owner because acct_setting_propose/approve need a
---    company admin and a different approver -- that workflow is covered by
---    test_acct_config_stabilisation.sql; what matters here is the state.
--- ---------------------------------------------------------------------------
-do $$
-declare v_t uuid := pg_temp.hget('t');
+--    Proposed by the maker and approved by the checker through the real
+--    functions: company_accounting_settings_guard refuses a new row that arrives
+--    already approved, so a direct insert cannot produce this state (nor should
+--    it). That workflow itself is covered by test_acct_config_stabilisation.sql;
+--    what matters here is the approved-but-unreviewed state.
+
+-- Put the one-person exception in force the way the app does: propose, approve
+-- by a DIFFERENT company admin, then record the compliance review. Writing the
+-- row directly does not work - company_accounting_settings_guard refuses a new
+-- row that arrives already approved, which is the point of the guard.
+create or replace function pg_temp.grant_one_person_exception(p_proposer uuid, p_approver uuid, p_reference text)
+returns void language plpgsql as $$
+declare v_id uuid;
 begin
-  -- approved_by must differ from created_by (the owner-side trigger enforces
-  -- the same maker/checker rule the RPC does), so the maker proposes it and the
-  -- checker is the recorded approver.
-  insert into public.company_accounting_settings (
-    tenant_id, setting_key, value, effective_from, status, rationale,
-    approved_by, approved_at, created_by
-  ) values (
-    v_t, 'allow_self_approved_bank_adjustments', 'true', current_date, 'approved',
-    'approved but not yet reviewed by the accountant',
-    pg_temp.hget('ck'), now(), pg_temp.hget('mk')
-  );
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_proposer, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select id into v_id from public.acct_setting_propose(
+    'allow_self_approved_bank_adjustments', 'true', current_date,
+    'one finance user: nobody else can approve their work');
+  reset role;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_approver, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.acct_setting_approve(v_id);
+  reset role;
 end $$;
+
+create or replace function pg_temp.record_review(p_approver uuid, p_reference text)
+returns void language plpgsql as $$
+declare v_id uuid;
+begin
+  select id into v_id from public.company_accounting_settings
+   where tenant_id = pg_temp.hget('t')
+     and setting_key = 'allow_self_approved_bank_adjustments'
+     and status = 'approved'
+   order by created_at desc limit 1;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_approver, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.acct_setting_record_review(v_id, 'External Accountant', p_reference);
+  reset role;
+end $$;
+
+select pg_temp.grant_one_person_exception(pg_temp.hget('mk'), pg_temp.hget('ck'), 'not reviewed yet');
 
 select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('mk'), 'role', 'authenticated')::text, true);
@@ -178,16 +206,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 3. Record the review: now the exception is in force and self-approval works.
 -- ---------------------------------------------------------------------------
-select set_config('request.jwt.claims',
-  json_build_object('sub', pg_temp.hget('ck'), 'role', 'authenticated')::text, true);
-set local role authenticated;
-select acct_setting_record_review(
-  (select id from public.company_accounting_settings
-    where tenant_id = pg_temp.hget('t')
-      and setting_key = 'allow_self_approved_bank_adjustments'
-      and status = 'approved' limit 1),
-  'External Accountant', 'Review memo 2026-11-19');
-reset role;
+select pg_temp.record_review(pg_temp.hget('ck'), 'Review memo 2026-11-19');
 
 select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('mk'), 'role', 'authenticated')::text, true);
