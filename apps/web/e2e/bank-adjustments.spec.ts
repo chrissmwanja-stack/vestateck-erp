@@ -17,6 +17,13 @@ import { loginAs } from './utils/auth';
  * The spec consumes the two lines (an approved adjustment matches them), so a
  * second run on the same database needs `supabase db reset`. That is the same
  * contract as insurance-cash-commission.spec.ts.
+ *
+ * Counter-account names come from the seeded chart of accounts, not from
+ * anything this spec creates: 5000 General Expense (the charge) and 4100
+ * Brokerage Fees & Other Income (the interest). There is no "Bank Charges" or
+ * "Interest Received" account in the seed -- using those names is what the
+ * first CI run of this file did, and it waited a minute for an option that
+ * could never appear.
  */
 
 const BANK = 'PEARL-OPERATING';
@@ -43,12 +50,27 @@ async function selectStatementLine(page: Page, reference: string) {
   return row;
 }
 
-/** Picks the counter-account in the adjustments panel. */
+/**
+ * Picks the counter-account in the adjustments panel.
+ *
+ * The option must be asserted before clicking: `click()` alone waits out the
+ * whole test budget on a name that does not exist, and reports it as a click
+ * timeout rather than "this account is not in the chart". The names below are
+ * seeded by the chart-of-accounts template (GL 5000 General Expense, 4100
+ * Brokerage Fees & Other Income) -- if one is renamed there, this is the line
+ * to change, not the picker.
+ */
 async function pickCounterAccount(page: Page, label: string) {
   const picker = page.getByLabel('Other side of the entry');
   await picker.click();
   await picker.fill(label);
-  await page.getByRole('option', { name: new RegExp(label) }).first().click();
+  const option = page.getByRole('option', { name: new RegExp(label) }).first();
+  await expect(
+    option,
+    `Counter account "${label}" is not in the seeded chart of accounts (or is disabled as a ` +
+      `header/control account). Check gl_accounts in supabase/seed.sql.`
+  ).toBeVisible({ timeout: 10_000 });
+  await option.click();
 }
 
 test.describe('Bank adjustments (D4e)', () => {
@@ -61,7 +83,7 @@ test.describe('Bank adjustments (D4e)', () => {
       await openReconciliationAs(page, 'finMaker');
       await selectStatementLine(page, 'D4E-CHARGE-1');
 
-      await pickCounterAccount(page, 'Bank Charges');
+      await pickCounterAccount(page, 'General Expense');
       await page.getByLabel('Reason').fill(uniqueReason);
       await page.getByRole('button', { name: 'Propose adjustment' }).click();
 
@@ -113,7 +135,7 @@ test.describe('Bank adjustments (D4e)', () => {
     await test.step('maker proposes, checker rejects with a reason', async () => {
       await openReconciliationAs(page, 'finMaker');
       await selectStatementLine(page, 'D4E-INTEREST-1');
-      await pickCounterAccount(page, 'Interest Received');
+      await pickCounterAccount(page, '4100');
       await page.getByLabel('Reason').fill(rejected);
       await page.getByRole('button', { name: 'Propose adjustment' }).click();
       await expect(page.getByRole('row', { name: new RegExp(rejected) })).toBeVisible({ timeout: 15_000 });
@@ -160,19 +182,29 @@ test.describe('Bank adjustments (D4e)', () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel('Add an account').click();
-      await dialog.getByLabel('Add an account').fill('Bank Charges');
-      await page.getByRole('option', { name: /Bank Charges/ }).first().click();
+      await dialog.getByLabel('Add an account').fill('General Expense');
+      const usual = page.getByRole('option', { name: /General Expense/ }).first();
+      await expect(usual, 'General Expense (GL 5000) is not in the seeded chart of accounts').toBeVisible({ timeout: 10_000 });
+      await usual.click();
       await dialog.getByRole('button', { name: 'Add' }).click();
       await dialog.getByRole('button', { name: 'Close' }).click();
 
       await expect(page.getByTestId('usual-empty-alert')).toHaveCount(0);
-      // The control account must never be offered as a usual account.
+    });
+
+    await test.step('the control account is offered but cannot be chosen', async () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
-      await page.getByRole('dialog').getByLabel('Add an account').click();
-      const receivables = page.getByRole('option', { name: /Trade Receivables/ });
-      if (await receivables.count()) {
-        await expect(receivables.first()).toHaveAttribute('aria-disabled', 'true');
-      }
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Add an account').click();
+      await dialog.getByLabel('Add an account').fill('Accounts Receivable Control');
+      // It IS in the chart of accounts, so it appears -- and must be refused,
+      // because a control account can never be the other side of an adjustment.
+      const control = page.getByRole('option', { name: /Accounts Receivable Control/ }).first();
+      await expect(
+        control,
+        'Accounts Receivable Control (GL 1100) should be listed as a control account in seed.sql'
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(control).toHaveAttribute('aria-disabled', 'true');
     });
   });
 });
