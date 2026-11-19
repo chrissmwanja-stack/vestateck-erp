@@ -131,7 +131,7 @@ export function BankAdjustmentsPanel({
       db
         .from('bank_adjustments')
         .select(
-          'id, kind, status, amount, currency, direction, reason, bank_account, bank_statement_line_id, created_by, created_at, decided_by, decided_at, self_approved, approval_mode, rejection_reason, reversal_reason, reworked_from, reverses_adjustment_id, journal_entry_id, line:bank_statement_lines!bank_adjustments_bank_statement_line_id_fkey(statement_date, description, reference), counter:gl_accounts!bank_adjustments_counter_account_id_fkey(account_code, name)'
+          'id, kind, status, amount, currency, direction, reason, bank_account, bank_statement_line_id, created_by, created_at, decided_by, decided_at, self_approved, approval_mode, rejection_reason, reversal_reason, reworked_from, reverses_adjustment_id, journal_entry_id, line:bank_statement_lines!bank_adjustments_statement_line_id_fkey(statement_date, description, reference), counter:gl_accounts!bank_adjustments_counter_account_id_fkey(account_code, name)'
         )
         .order('created_at', { ascending: false })
         .limit(100),

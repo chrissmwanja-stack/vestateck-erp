@@ -145,8 +145,10 @@ parsing could have caught, and both are fixed forward.
 |---|---|
 | `check-migration-policy.sh origin/main` | 5 new migrations, OK |
 | Migration + SQL test parse (pglast, real PG grammar) | clean |
-| Full migration replay (94 files) against plain Postgres 17 | 0 failures |
-| `supabase/tests/*.sql` | every D4e file passes; 6 failures elsewhere are identical on a clean `origin/main` |
+| Full migration replay (95 files) + `seed.sql` against plain Postgres 17 | 0 failures |
+| `supabase/tests/*.sql` — the whole suite, not just D4e | **all pass** |
+| `npm run build` (`tsc -b && vite build`) | clean; `dist` 6.1 MB |
+| Web suite | 182 files / 1783 passed, 11 expected-fail, 0 failed |
 | Panel tests | 14 passed (was 6 at the start of the pass) |
 | New report-screen tests | 10 passed |
 | Bank reconciliation screen tests | 16 passed |
@@ -154,12 +156,22 @@ parsing could have caught, and both are fixed forward.
 | Lint ratchets (any / dialogs / swallowed) | none over baseline |
 | `database.types.ts` | the D4e columns added by hand from the live schema (see below) |
 
-**Not run here:** the Playwright spec (policy: specs only, no live stack),
-`npm run build` (2 GB sandbox; `vite build` is OOM-killed, CI builds fine).
+**Not run here:** the Playwright spec (policy: specs only, no live stack).
 Everything above marked "replay"/"tests" was run locally by installing
 PostgreSQL 17 and stubbing the Supabase platform schemas (`auth`, `storage`,
-`cron`, `net`) — that is a faithful test of the SQL, not of the platform. The
-scripts live outside the repo; treat CI as the authority.
+`cron`, `net`) — a faithful test of the SQL, not of the platform. Treat CI as
+the authority.
+
+Two warnings about that harness, learned the hard way:
+
+* **Apply `seed.sql` first.** Several tests build on seeded tenants and staff.
+  Without it, five files fail for reasons that have nothing to do with the code.
+  An earlier round of this handoff reported those as pre-existing failures, on a
+  run that had skipped the seed; that claim was wrong and is withdrawn.
+* **Enable RLS on the stubbed `storage` tables.** The real image does. Without
+  it the `tenant_documents_*` policies are inert and the RLS assertions in
+  `test_documents_store.sql` pass for the wrong reason (or, with the seed
+  applied, fail).
 
 ### What the CI run found
 

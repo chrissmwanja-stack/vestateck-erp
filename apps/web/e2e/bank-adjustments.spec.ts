@@ -28,35 +28,10 @@ import { loginAs } from './utils/auth';
 
 const BANK = 'PEARL-OPERATING';
 
-/**
- * A RegExp that matches `text` literally. Reasons are free text built in the
- * tests (e.g. "... (corrected)"); passed raw to new RegExp(), the parentheses
- * become a capture group and the pattern no longer matches the visible text.
- */
-function literal(text: string): RegExp {
-  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-}
-
-/**
- * Several steps switch users on the same page. If the previous session is still
- * live, /login redirects straight back into the app while the form is being
- * filled ("element was detached from the DOM"). Sign out first, and wait for the
- * sign-out to actually finish (back on /login) before the next login starts.
- * isVisible() does not wait, so this is a no-op on a fresh page.
- */
-async function signOutIfSignedIn(page: Page) {
-  const signOut = page.getByRole('button', { name: 'Sign out' });
-  if (!(await signOut.isVisible())) return;
-  await signOut.click();
-  await page.waitForURL(/\/login/, { timeout: 15_000 });
-  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-}
-
 async function openReconciliationAs(page: Page, account: 'finMaker' | 'finChecker') {
-  await signOutIfSignedIn(page);
   await loginAs(page, account);
   await page.goto('/financial-management/bank-reconciliation');
-  const bank = page.getByRole('combobox', { name: 'Bank Account' });
+  const bank = page.getByLabel('Bank Account');
   await bank.fill(BANK);
   await page.keyboard.press('Escape');
   // The panel appears once the screen has an account.
@@ -86,10 +61,7 @@ async function selectStatementLine(page: Page, reference: string) {
  * to change, not the picker.
  */
 async function pickCounterAccount(page: Page, label: string) {
-  // getByRole, not getByLabel: once the popup opens, MUI's listbox <ul> is also
-  // aria-labelledby this label, so getByLabel matches two elements and trips
-  // Playwright's strict mode on fill().
-  const picker = page.getByRole('combobox', { name: 'Other side of the entry' });
+  const picker = page.getByLabel('Other side of the entry');
   await picker.click();
   await picker.fill(label);
   const option = page.getByRole('option', { name: new RegExp(label) }).first();
@@ -118,7 +90,7 @@ test.describe('Bank adjustments (D4e)', () => {
       // The maker must NOT be able to approve their own proposal: the button is
       // present but disabled (unless the company enabled the one-person
       // exception, which the seeded tenant has not).
-      const ownRow = page.getByRole('row', { name: literal(uniqueReason) });
+      const ownRow = page.getByRole('row', { name: new RegExp(uniqueReason) });
       await expect(ownRow).toBeVisible({ timeout: 15_000 });
       await expect(ownRow.getByRole('button', { name: 'Approve' })).toBeDisabled();
       await expect(ownRow.getByRole('button', { name: 'Withdraw' })).toBeEnabled();
@@ -126,7 +98,7 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('a different finance user sees it and approves it', async () => {
       await openReconciliationAs(page, 'finChecker');
-      const row = page.getByRole('row', { name: literal(uniqueReason) });
+      const row = page.getByRole('row', { name: new RegExp(uniqueReason) });
       await expect(row).toBeVisible({ timeout: 15_000 });
 
       await row.getByRole('button', { name: 'Approve' }).click();
@@ -135,13 +107,13 @@ test.describe('Bank adjustments (D4e)', () => {
       await dialog.getByRole('button', { name: 'Approve and post' }).click();
 
       await expect(page.getByText(/approved and posted/i)).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByRole('row', { name: literal(uniqueReason) }))
+      await expect(page.getByRole('row', { name: new RegExp(uniqueReason) }))
         .toContainText('posted');
     });
 
     await test.step('the accountant register shows it, approved by the checker', async () => {
       await page.goto('/financial-management/reports/bank-adjustments');
-      const row = page.getByRole('row', { name: literal(uniqueReason) });
+      const row = page.getByRole('row', { name: new RegExp(uniqueReason) });
       await expect(row).toBeVisible({ timeout: 15_000 });
       await expect(row).toContainText('posted');
       await expect(row).toContainText('Pearl Finance Checker');
@@ -152,13 +124,7 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('the statement line is matched, so it is no longer offered for adjustment', async () => {
       await openReconciliationAs(page, 'finMaker');
-      // The statement table lists UNMATCHED lines only (v_bank_statement_unmatched),
-      // so a matched line is absent from it rather than shown with a "matched"
-      // badge. Wait for the other seeded line first so the table has loaded and
-      // "absent" cannot pass vacuously. "Ref: " is the statement table's own
-      // prefix; the adjustment history lists the same line without it.
-      await expect(page.getByRole('row', { name: /Ref: D4E-INTEREST-1/ })).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByRole('row', { name: /Ref: D4E-CHARGE-1/ })).toHaveCount(0);
+      await expect(page.getByRole('row', { name: /D4E-CHARGE-1/ }).first()).toContainText(/matched/i);
     });
   });
 
@@ -172,10 +138,10 @@ test.describe('Bank adjustments (D4e)', () => {
       await pickCounterAccount(page, '4100');
       await page.getByLabel('Reason').fill(rejected);
       await page.getByRole('button', { name: 'Propose adjustment' }).click();
-      await expect(page.getByRole('row', { name: literal(rejected) })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('row', { name: new RegExp(rejected) })).toBeVisible({ timeout: 15_000 });
 
       await openReconciliationAs(page, 'finChecker');
-      const row = page.getByRole('row', { name: literal(rejected) });
+      const row = page.getByRole('row', { name: new RegExp(rejected) });
       await row.getByRole('button', { name: 'Reject' }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel(/Why is it being rejected/).fill('please use the interest income account');
@@ -185,7 +151,7 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('the maker reworks it, linked to the rejected row', async () => {
       await openReconciliationAs(page, 'finMaker');
-      const rejectedRow = page.getByRole('row', { name: literal(rejected) });
+      const rejectedRow = page.getByRole('row', { name: new RegExp(rejected) });
       await expect(rejectedRow).toContainText('rejected');
       await rejectedRow.getByRole('button', { name: 'Rework' }).click();
 
@@ -193,7 +159,7 @@ test.describe('Bank adjustments (D4e)', () => {
       await page.getByLabel('Reason').fill(reworked);
       await page.getByRole('button', { name: 'Propose rework' }).click();
 
-      const reworkedRow = page.getByRole('row', { name: literal(reworked) });
+      const reworkedRow = page.getByRole('row', { name: new RegExp(reworked) });
       await expect(reworkedRow).toBeVisible({ timeout: 15_000 });
       await expect(reworkedRow.getByText('reworked')).toBeVisible();
 
@@ -215,8 +181,8 @@ test.describe('Bank adjustments (D4e)', () => {
     await test.step('adding the usual account empties the flag list for that account', async () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('combobox', { name: 'Add an account' }).click();
-      await dialog.getByRole('combobox', { name: 'Add an account' }).fill('General Expense');
+      await dialog.getByLabel('Add an account').click();
+      await dialog.getByLabel('Add an account').fill('General Expense');
       const usual = page.getByRole('option', { name: /General Expense/ }).first();
       await expect(usual, 'General Expense (GL 5000) is not in the seeded chart of accounts').toBeVisible({ timeout: 10_000 });
       await usual.click();
@@ -229,8 +195,8 @@ test.describe('Bank adjustments (D4e)', () => {
     await test.step('the control account is offered but cannot be chosen', async () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('combobox', { name: 'Add an account' }).click();
-      await dialog.getByRole('combobox', { name: 'Add an account' }).fill('Accounts Receivable Control');
+      await dialog.getByLabel('Add an account').click();
+      await dialog.getByLabel('Add an account').fill('Accounts Receivable Control');
       // It IS in the chart of accounts, so it appears -- and must be refused,
       // because a control account can never be the other side of an adjustment.
       const control = page.getByRole('option', { name: /Accounts Receivable Control/ }).first();

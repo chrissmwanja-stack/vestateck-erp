@@ -185,7 +185,7 @@ Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17
 2. Insured-risk register and certificate stock.
 3. Document pack, first set, with the shared document store.
 4. Production book, statements of account, aged balances, unremitted funds.
-5. Endorsements -- proposals (E1), posting (E2) and the foreign legs (E3) built; cancel-of-endorsement-items + the pack document (E4) remains.
+5. Endorsements -- proposals (E1), posting (E2) and the foreign legs (E3) built; cancel-of-endorsement-items + the pack document (E4) remains. **Sized 19 November 2026** -- see E4 below; it is an engine change, not a removed guard.
 6. Agents and sub-agents.
 7. Quotation and placement pipeline.
 8. Bulk renewals and renewal outcomes.
@@ -201,7 +201,7 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 | # | Gap | Status | Where |
 |---|---|---|---|
 | 1 | Insured-risk register and certificate stock | Built | `20261017100000` |
-| 2 | Endorsements | E1 to E3 built (proposals, posting, foreign legs); E4 (cancel endorsement items, pack document) open | `20261021220000`, `20261021230000`, `20261022100000` |
+| 2 | Endorsements | E1 to E3 built (proposals, posting, foreign legs); **E4 open** (see the sizing note below -- there are two blockers, not one) | `20261021220000`, `20261021230000`, `20261022100000` |
 | 3 | Quotation and placement | Built; placement fix | `20261106170000`, `20261107120000` |
 | 4 | Document pack | First set built (`generate-ins-doc`, shared document store); needs a first look on a real policy; co-insurer schedule open | `20261021100000` |
 | 5 | Production book and reporting | Production book, client statements, aged balances, premiums trend built; server-side as-of and pagination open | `20261021120000` |
@@ -216,7 +216,13 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 
 Also built outside the table: insurer statement reconciliation (`20261106220000`, entry screen still to improve), per-insurer remittance position (`20261106190000`), the operational hardening migrations of 6 and 7 November.
 
-Built since this snapshot: the in-force portfolio import and opening balances (`IN_FORCE_IMPORT.md`; all five steps, `20261107140000` to `20261109110000`) and its Playwright spec (`apps/web/e2e/insurance-import.spec.ts`). Also built since: Playwright specs for the money flow from approval and bind to premium receipt, insurer remittance and commission transfer (`insurance-cash-commission.spec.ts`, which starts from the seeded draft policy rather than creating the client and policy through the UI) and for a claim paid through the brokerage (`insurance-claim-payment.spec.ts`); see `apps/web/e2e/README.md` for what they leave uncovered. Not started: commission recognition at placement and per-insurer settlement mode (Phase B rest) and period-close states.
+Built since this snapshot: the in-force portfolio import and opening balances (`IN_FORCE_IMPORT.md`; all five steps, `20261107140000` to `20261109110000`) and its Playwright spec (`apps/web/e2e/insurance-import.spec.ts`). Also built since: Playwright specs for the money flow from approval and bind to premium receipt, insurer remittance and commission transfer (`insurance-cash-commission.spec.ts`, which starts from the seeded draft policy rather than creating the client and policy through the UI) and for a claim paid through the brokerage (`insurance-claim-payment.spec.ts`); see `apps/web/e2e/README.md` for what they leave uncovered. **Corrected 19 November 2026:** commission recognition at placement and the per-insurer
+settlement mode (gross/net) are **built**, not "not started" as this line said. The modes are
+`20261117200000` (per-share settlement basis, gross posting) and `20261117210000` (recognition
+modes with `at_placement`), and `20261119240000` added `on_premium_collection`. An earlier
+snapshot of this file missed them; the code was read to confirm. Still not started from Phase B:
+`over_policy_term` (an earned-over-time schedule), the statutory charge catalogue, and
+period-close states.
 
 ## 7c. Agent commission: what is built, and what it cost to find out
 
@@ -270,16 +276,134 @@ a silent correction:
 
 ### Still open on this area
 
-- **`ACCOUNTANT_PACK.md`** does not yet describe agent commission: the accrual basis, the character
-  change on 1 July 2026, or the return period following payment. It should, because the accountant
-  has already confirmed the two tax points those write-ups depend on.
+- ~~**`ACCOUNTANT_PACK.md`** does not yet describe agent commission.~~ **Closed 19 November 2026:**
+  section 5.12 describes the accrual basis, the character change on 1 July 2026 and the
+  payment-month return basis, and agent commission is now a row in the section 8 sign-off table --
+  it was missing from that table entirely, so an item the owner asked to be documented had never
+  actually been put in front of the accountant to approve.
 - **Whether an insurer's commission paid to a **broker** is subject to the same 10%** (s.134) is
   still unsettled — see section 2. It is a different question from agent commission and it is not
   answered by anything built here.
-- **Commission recognition at placement and commission receivable** (Phase B) is untouched;
-  intermediated commission is still recognised on the insurer's statement, not at placement.
+- ~~**Commission recognition at placement and commission receivable** (Phase B) is untouched.~~
+  **Out of date as of 19 November 2026:** `at_placement`, `on_premium_collection` and the gross
+  basis with commission receivable (1110) are all built. What is genuinely open is which insurer
+  agreements use which mode -- an accountant question, not a build (`ACCOUNTANT_PACK.md` 5.13).
 - **Decision, not yet taken:** whether the Accruals tab may offer a manual *accrue* action. It has
   been deliberately left out of three bits so that the default stays "accrual follows recognition".
+
+### Two traps worth writing down (19 November 2026)
+
+Neither is an insurance fact; both cost a full pass to discover, and both would catch the next person.
+
+1. **`npx vitest run` from the repo root does not run this suite.** The config lives at
+   `apps/web/vitest.config.ts`, so from the root vitest finds no config, applies no jsdom
+   environment, and reports 1063 "failures" that are all `document is not defined`. The real run is
+   `cd apps/web && npx vitest run`. A wholesale regression is almost always the wrong working
+   directory, not a broken branch -- check that before reading a single failure.
+2. **`tsc -b` needs a larger heap than the default here.** `npm run build` died with a V8
+   `AllocateRawWithRetryOrFailSlowPath` abort, which looks like the OOM kill this repo hits with no
+   swap, but swap was already on. `NODE_OPTIONS=--max-old-space-size=3072 npm run build` passes.
+   The abort is a heap ceiling, not the machine running out.
+
+Also: `check-migration-policy.sh` catches things the SQL tests cannot, because the tests run as the
+table owner and never exercise the grants. The charge catalogue's `CREATE POLICY` without
+`to authenticated` passed 98 migrations and the whole SQL suite, and failed rule 10. Run the policy
+check before believing a green test run.
+
+### Statutory charge catalogue: what is built (19 November 2026)
+
+Built in `20261120002000` and made extensible in `20261120003000`, tested in
+`supabase/tests/test_ins_statutory_charge_catalogue.sql`.
+
+**The first cut had the right table and the wrong vocabulary**, and it is worth recording because
+the mistake is seductive: the columns were generic, so it *looked* extensible, while the engine
+around them was not. `basis` was a CHECK of five names, `charge_class` a CHECK of four, the resolver
+a `case` over the five, and "a statutory charge must be verified" was keyed off the literal class
+name `'commercial_fee'`. Adding a levy on sum insured, a banded statutory premium, or simply a fifth
+class of charge would each have needed DDL and a function rewrite. That is the redesign deferred
+rather than avoided, and it was caught before anything consumed it.
+
+**What is now a row, not a migration:**
+
+| To add | Where |
+|---|---|
+| A charge of an existing kind | one `ins_charge_catalogue` row |
+| A rate on any registered quantity (premium, net, commission, **sum insured**, counts) | `ins_charge_param` row + a catalogue row |
+| A new class of charge, statutory or not | `ins_charge_class` row, with `is_statutory` |
+| A cap, floor or rounding | fields on the formula |
+| A whole new shape of formula (banded marginal rates, fixed-per-count) | one branch in `ins_charge_formula_valid` and the resolver |
+
+`ins_charge_class.is_statutory` is what decides whether a rate must be verified against an instrument.
+The first cut hard-coded `'commercial_fee'` as the exception, which would have silently started
+filtering out the next non-statutory class someone added.
+
+**Two integrity points the change exposed, both fixed:**
+
+- The immutability guard froze `rate_pct` and `fixed_amount`. Once the formula became authoritative
+  those columns are null on both sides, so a billed charge's rate could have been edited freely
+  through `formula` -- the rule would have existed and stopped biting. The guard now watches the
+  formula.
+- A charge whose base quantity the caller did not supply **raises** rather than pricing zero. A levy
+  silently not charged is under-billing nobody notices until an audit; a per-vehicle charge billed
+  for one vehicle is the same mistake with a smaller number.
+
+**Verified versus assumed, and why it matters here.** The training levy is 0.5% of gross direct
+premium by Insurance Act s.141(3) and SI No. 100 of 2020 reg. 17(2), which states the rate in words;
+it seeds `verified` and active. The 1.5% IRA levy and the UGX 35,000 general-policy stamp duty appear
+in press summaries and could not be confirmed against an instrument in this pass. Both seed
+**unverified and inactive**, with the unconfirmed figures recorded and no source invented, so the
+accountant can see what is waiting and nobody can bill it.
+
+**Still open, and named in the migration so it is not mistaken for done:** policy creation does not
+call the resolver yet (the client still supplies charge lines), and the statutory payable roles --
+`insurance_training_levy_payable`, `ira_levy_payable`, `stamp_duty_payable` -- have no template
+accounts. Rule 5 of the owner's five (integration with issuance, endorsements, cancellations,
+receipts, remittances and reports) is therefore **partly** delivered: the pricing point exists, the
+call sites do not.
+
+**Deliberately not in the catalogue:** VAT on a broker fee (it already has its own pathway, and a levy
+on the total of other levies would be a genuinely new design), and IRA *minimum premium rates* --
+those are a rate table by vehicle class, not a levy, and they belong with the pricing engine.
+
+### E4 sizing (19 November 2026)
+
+Recorded before any code is written, because the item is larger than the phrase
+"cancel endorsement items" suggests and one of its two blockers has never been written down.
+
+**Blocker 1, known:** `ins_endorsement_cross_guard` raises `INS_ENDORSEMENT_POSTED` when a
+cancellation in (`proposed`, `prepared`, `posting`) exists on a policy with any posted endorsement.
+
+**Blocker 2, found while sizing and not previously recorded:** even with that guard gone the
+cancellation would fail later, with `INS_CANCELLATION_REVIEW_REQUIRED: existing policy credits
+require Finance review`. `ins_preview_policy_cancellation` refuses a policy with any posted credit
+note applied to its premium item. A return-premium endorsement always raises one
+(`ins_decide_policy_endorsement` credits the original premium item, or raises an
+`ins_policy_endorsement_recovery` item when the return exceeds what is outstanding). So the common
+case -- policy with a mid-term reduction, then cancelled -- hits blocker 2 immediately. Anyone
+removing only the guard would ship a path that fails in production on exactly the policies E4
+exists to serve.
+
+**Blocker 3, the arithmetic:** the preview reconciles the policy receivable as
+`total_credit <= invoice`, single item, `ins_policy_premium` only, built from the bind-time
+snapshot. A policy with posted endorsements has *additional* premium items
+(`ins_policy_endorsement`, `ins_policy_endorsement_insurer`) and credit notes, none of which the
+preview knows about. Its "credit the client for the unexpired cover" figure would be computed on
+the original premium while the client was actually billed the endorsed one -- wrong in the
+direction that pays money out.
+
+**Proposed shape (not built).** Do not teach the cancellation engine about endorsements. Instead
+unwind them as their own approved document first -- an endorsement cancellation that fully credits
+each endorsement's premium item, mirrors its commission entry, and re-derives the policy's current
+values from `ins_endorsement_review_position` (which already computes current = bound + posted
+deltas, and exists for exactly this). The ordinary cancellation then runs on a policy whose
+financial position is once again the bind position, with no change to a 10,000-character money path
+that is the most safety-critical code in the module. The guard becomes "endorsements must be
+unwound first", which is a rule about ordering rather than a wall.
+
+This is a multi-step build with its own maker/checker and its own tests. It is not included in this
+pass: the commission work above is complete and verified, and folding an untested rewrite of the
+cancellation engine into the same delivery would put a working money path at risk to save a round
+trip.
 
 ## 8. Design defaults (change on request)
 
