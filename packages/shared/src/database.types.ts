@@ -14848,12 +14848,16 @@ export type Database = {
           adjustment_id: string | null
           amount: number | null
           approval_date: string | null
+          approval_mode: string | null
           approver_email: string | null
           approver_id: string | null
           approver_name: string | null
           bank_account: string | null
+          bank_line_description: string | null
           bank_line_reference: string | null
+          bank_statement_line_id: string | null
           counter_account_code: string | null
+          counter_account_id: string | null
           counter_account_name: string | null
           created_at: string | null
           created_by: string | null
@@ -14875,6 +14879,41 @@ export type Database = {
           transaction_date: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_possible_double_entries"
+            referencedColumns: ["statement_line_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_statement_unmatched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
           {
             foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
             columns: ["posting_journal_reference"]
@@ -14959,12 +14998,16 @@ export type Database = {
           adjustment_id: string | null
           amount: number | null
           approval_date: string | null
+          approval_mode: string | null
           approver_email: string | null
           approver_id: string | null
           approver_name: string | null
           bank_account: string | null
+          bank_line_description: string | null
           bank_line_reference: string | null
+          bank_statement_line_id: string | null
           counter_account_code: string | null
+          counter_account_id: string | null
           counter_account_name: string | null
           created_at: string | null
           created_by: string | null
@@ -14986,6 +15029,41 @@ export type Database = {
           transaction_date: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_possible_double_entries"
+            referencedColumns: ["statement_line_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_statement_unmatched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
           {
             foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
             columns: ["posting_journal_reference"]
