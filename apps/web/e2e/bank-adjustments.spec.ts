@@ -28,7 +28,23 @@ import { loginAs } from './utils/auth';
 
 const BANK = 'PEARL-OPERATING';
 
+/**
+ * Several steps switch users on the same page. If the previous session is still
+ * live, /login redirects straight back into the app while the form is being
+ * filled ("element was detached from the DOM"). Sign out first, and wait for the
+ * sign-out to actually finish (back on /login) before the next login starts.
+ * isVisible() does not wait, so this is a no-op on a fresh page.
+ */
+async function signOutIfSignedIn(page: Page) {
+  const signOut = page.getByRole('button', { name: 'Sign out' });
+  if (!(await signOut.isVisible())) return;
+  await signOut.click();
+  await page.waitForURL(/\/login/, { timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+}
+
 async function openReconciliationAs(page: Page, account: 'finMaker' | 'finChecker') {
+  await signOutIfSignedIn(page);
   await loginAs(page, account);
   await page.goto('/financial-management/bank-reconciliation');
   const bank = page.getByRole('combobox', { name: 'Bank Account' });
