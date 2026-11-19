@@ -214,3 +214,32 @@ export function counterAccountBlockReason(account: GlAccountOption): string | nu
   if (account.is_control_account) return 'a control account (receivables/payables) cannot be the other side';
   return null;
 }
+
+/** One row of bank_adjustment_register (20261119240000 shape). The register
+ *  screen, the exception report and the CSV export all read this. */
+export interface RegisterRow {
+  adjustment_id: string;
+  tenant_id: string;
+  kind: AdjustmentKind;
+  status: AdjustmentStatus;
+  bank_account: string;
+  transaction_date: string;
+  bank_line_reference: string | null;
+  bank_line_description: string | null;
+  counter_account_code: string;
+  counter_account_name: string;
+  amount: number;
+  currency: string;
+  direction: 'in' | 'out';
+  description_reason: string;
+  created_by_name: string | null;
+  created_at: string;
+  approver_name: string | null;
+  approval_date: string | null;
+  self_approved: boolean;
+  approval_mode: AdjustmentApprovalMode;
+  rejection_reason: string | null;
+  posting_journal_reference: string | null;
+  reworked_from: string | null;
+  reverses_adjustment_id: string | null;
+}

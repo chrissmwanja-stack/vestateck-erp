@@ -12,21 +12,29 @@ import BankAdjustmentUnusualAccounts from './BankAdjustmentUnusualAccounts';
 //                   render, and adding/removing a usual account goes through
 //                   the RPCs rather than a table write.
 
+// Shape of bank_adjustment_register as 20261119240000 leaves it.
 const ADJ_SELF = {
-  id: 'a-self', kind: 'adjustment', status: 'posted',
-  amount: 50000, currency: 'UGX', direction: 'out', reason: 'bank charge',
-  bank_account: 'Stanbic-001', statement_date: '2026-11-10',
-  created_by: 'u1', created_at: '2026-11-10T09:00:00Z',
-  decided_at: '2026-11-10T09:05:00Z', self_approved: true, approval_mode: 'one_person_exception',
-  rejection_reason: null, reversal_reason: null, reworked_from: null,
-  line: { statement_date: '2026-11-10', description: 'BANK CHARGE', reference: 'CHG1' },
-  counter: { account_code: '5000', name: 'Bank Charges' },
-  created_by_name: 'Finance Maker', approver_name: 'Finance Maker',
+  adjustment_id: 'a-self', tenant_id: 't1', kind: 'adjustment', status: 'posted',
+  amount: 50000, currency: 'UGX', direction: 'out',
+  description_reason: 'bank charge', bank_account: 'Stanbic-001',
+  transaction_date: '2026-11-10', bank_line_reference: 'CHG1',
+  bank_line_description: 'BANK CHARGE',
+  counter_account_code: '5000', counter_account_name: 'Bank Charges',
+  created_by_name: 'Finance Maker', created_at: '2026-11-10T09:00:00Z',
+  approver_name: 'Finance Maker', approval_date: '2026-11-10T09:05:00Z',
+  self_approved: true, approval_mode: 'one_person_exception',
+  rejection_reason: null, posting_journal_reference: 'je-1', reworked_from: null,
+  reverses_adjustment_id: null,
 };
 const ADJ_REJECTED = {
-  ...ADJ_SELF, id: 'a-rej', status: 'rejected', self_approved: false, approval_mode: null,
-  reason: 'interest first attempt', rejection_reason: 'wrong counter-account',
-  decided_at: '2026-11-11T09:00:00Z', created_by: 'u2', created_by_name: 'Finance Checker',
+  ...ADJ_SELF, adjustment_id: 'a-rej', status: 'rejected', self_approved: false,
+  approval_mode: null, description_reason: 'interest first attempt',
+  rejection_reason: 'wrong counter-account', approver_name: 'Finance Checker',
+  approval_date: '2026-11-11T09:00:00Z', created_by_name: 'Finance Checker',
+};
+const ADJ_TWO_PERSON = {
+  ...ADJ_SELF, adjustment_id: 'a-two', approval_mode: 'two_person', self_approved: false,
+  description_reason: 'interest received', approver_name: 'Finance Checker',
 };
 const UNUSUAL = [
   {
@@ -74,7 +82,7 @@ function setup({
   usual?: unknown[];
   gl?: unknown[];
 } = {}) {
-  tableData = { bank_adjustments: adjustments, gl_accounts: gl };
+  tableData = { bank_adjustment_register: adjustments, gl_accounts: gl };
   rpcData = {
     bank_adjustment_unusual_account_usage: unusual,
     bank_adjustment_list_usual_accounts: usual,
@@ -131,6 +139,56 @@ describe('BankAdjustmentRegister', () => {
 
     fireEvent.change(screen.getByLabelText('Bank account'), { target: { value: 'other bank' } });
     expect(await screen.findByText('No adjustments match this filter.')).toBeInTheDocument();
+  });
+
+  it('marks a two-person approval as such, so it is not mistaken for the exception', async () => {
+    setup({ adjustments: [ADJ_TWO_PERSON] });
+    render(<BankAdjustmentRegister />);
+    const table = await screen.findByTestId('adjustment-register-table');
+    expect(within(table).getByText('two-person approval')).toBeInTheDocument();
+    expect(within(table).queryByText('self-approved')).not.toBeInTheDocument();
+  });
+
+  it('exports the filtered rows as CSV for the accountant, quoting what needs it', async () => {
+    setup({ adjustments: [ADJ_SELF, ADJ_REJECTED] });
+    render(<BankAdjustmentRegister />);
+    await screen.findByTestId('adjustment-register-table');
+
+    // Only the posted, self-approved row survives this filter.
+    fireEvent.mouseDown(screen.getByLabelText('Show'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Self-approved (one-person exception)' }));
+
+    let csv = '';
+    const createObjectURL = vi.fn((blob: Blob) => {
+      // jsdom has no Blob.text() on old versions; FileReader is reliable.
+      const reader = new FileReader();
+      reader.onload = () => { csv = String(reader.result); };
+      reader.readAsText(blob);
+      return 'blob:mock';
+    });
+    const click = vi.fn();
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL as never);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag);
+      if (tag === 'a') {
+        (el as HTMLAnchorElement).click = click;
+        Object.defineProperty(el, 'download', { value: '', writable: true });
+      }
+      return el;
+    });
+
+    fireEvent.click(screen.getByTestId('export-register-csv'));
+
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    await waitFor(() => expect(csv).toContain('Adjustment ID'));
+    expect(csv).toContain('a-self');
+    expect(csv).toContain('one_person_exception');
+    expect(csv).toContain('yes');            // self approved
+    expect(csv).not.toContain('a-rej');      // filtered out
+    vi.restoreAllMocks();
   });
 });
 

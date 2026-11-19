@@ -22,7 +22,7 @@ const LINE: StatementLine = {
 };
 
 const ADJ_OWN = {
-  id: 'adj-own', kind: 'adjustment', status: 'pending',
+  id: 'adj-own', kind: 'adjustment', status: 'pending', bank_statement_line_id: 'line-1',
   amount: 50000, currency: 'UGX', direction: 'out',
   reason: 'bank charge per statement', bank_account: 'Stanbic-001',
   created_by: 'user-a', created_at: '2026-11-10T09:00:00Z',
@@ -314,5 +314,12 @@ describe('BankAdjustmentsPanel', () => {
     const hint = await screen.findByTestId('pending-own-hint');
     expect(within(hint).getByText(/waiting/i)).toBeInTheDocument();
     expect(within(hint).getByText(/cannot approve/)).toBeInTheDocument();
+  });
+  it('drills through from a row to its statement line in the table above', async () => {
+    setup([ADJ_POSTED]);
+    const { onSelectLine } = renderPanel();
+    const user = userEvent.setup();
+    await user.click(await screen.findByTestId('line-adj-posted'));
+    expect(onSelectLine).toHaveBeenCalledWith('line-1');
   });
 });

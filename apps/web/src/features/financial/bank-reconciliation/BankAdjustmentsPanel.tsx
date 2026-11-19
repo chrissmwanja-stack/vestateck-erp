@@ -107,7 +107,8 @@ export function BankAdjustmentsPanel({
   selectedLine: StatementLine | null;
   onChanged: (message: string) => void;
   onError: (message: string) => void;
-  /** Selects a statement line in the screen above, for Rework. */
+  /** Selects a statement line in the screen above (Rework, and drill-through
+   *  from a row to the line it was booked against). */
   onSelectLine?: (lineId: string) => void;
 }) {
   const [rows, setRows] = useState<AdjustmentRow[]>([]);
@@ -393,7 +394,22 @@ export function BankAdjustmentsPanel({
               return (
                 <TableRow key={r.id}>
                   <TableCell>
-                    {r.line?.statement_date} {r.line?.description ?? r.line?.reference ?? ''}
+                    {r.bank_statement_line_id && onSelectLine ? (
+                      <Tooltip title="Select this statement line in the table above">
+                        <Button
+                          size="small"
+                          sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: 'inherit', fontWeight: 'inherit' }}
+                          onClick={() => onSelectLine(r.bank_statement_line_id as string)}
+                          data-testid={`line-${r.id}`}
+                        >
+                          {r.line?.statement_date} {r.line?.description ?? r.line?.reference ?? ''}
+                        </Button>
+                      </Tooltip>
+                    ) : (
+                      <>
+                        {r.line?.statement_date} {r.line?.description ?? r.line?.reference ?? ''}
+                      </>
+                    )}
                     {r.kind === 'reversal' && <Chip size="small" variant="outlined" label="reversal" sx={{ ml: 1 }} />}
                     {r.reworked_from && (
                       <Chip
