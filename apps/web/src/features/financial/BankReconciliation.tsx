@@ -14,6 +14,7 @@ import { SuggestedMatchesTable } from './bank-reconciliation/SuggestedMatchesTab
 import { TransferSidesTable } from './bank-reconciliation/TransferSidesTable';
 import { CashTransactionsTable } from './bank-reconciliation/CashTransactionsTable';
 import { VarianceReport } from './bank-reconciliation/VarianceReport';
+import { BankAdjustmentsPanel } from './bank-reconciliation/BankAdjustmentsPanel';
 import { ImportStatementDialog } from './bank-reconciliation/ImportStatementDialog';
 
 // Bank reconciliation screen: pick a bank account and window, then match each
@@ -301,6 +302,16 @@ export default function BankReconciliation() {
               {matching ? 'Matching…' : 'Match Selected Pair'}
             </Button>
           </Stack>
+
+          <BankAdjustmentsPanel
+            bankAccountName={account}
+            selectedLine={selectedLine}
+            onChanged={(m) => {
+              setInfo(m);
+              load();
+            }}
+            onError={setError}
+          />
 
           <Divider sx={{ mb: 2 }} />
 
