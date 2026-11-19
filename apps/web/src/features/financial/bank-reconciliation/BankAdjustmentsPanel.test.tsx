@@ -73,7 +73,7 @@ function builderFor(table: string) {
 function setup(rows: unknown[] = [ADJ_OWN, ADJ_OTHER, ADJ_POSTED]) {
   tableData = { bank_adjustments: rows, gl_accounts: GL_OPTIONS };
   mockFrom.mockImplementation((table: string) => builderFor(table));
-  mockRpc.mockImplementation((name: string) => Promise.resolve({ data: { id: 'new-adj' }, error: null }));
+  mockRpc.mockImplementation(() => Promise.resolve({ data: { id: 'new-adj' }, error: null }));
 }
 
 function renderPanel(overrides: Partial<Parameters<typeof BankAdjustmentsPanel>[0]> = {}) {
