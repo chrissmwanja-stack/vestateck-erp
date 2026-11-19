@@ -31,7 +31,7 @@ jobs:
   migration-policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history so the diff against the base ref is meaningful
 
@@ -71,7 +71,7 @@ jobs:
   repo-hygiene:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: No unresolved merge-conflict markers
         run: |
           chmod +x scripts/check-conflict-markers.sh
@@ -80,7 +80,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Bumped from 20 -> 22: @supabase/supabase-js's package.json now
       # declares "engines": { "node": ">=22.0.0" } (confirmed via
@@ -116,7 +116,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -145,7 +145,7 @@ jobs:
   lint-ratchets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -161,7 +161,7 @@ jobs:
   db-shadow-replay:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: supabase/setup-cli@v3
         with:
@@ -382,7 +382,7 @@ jobs:
   insurance-concurrency:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
