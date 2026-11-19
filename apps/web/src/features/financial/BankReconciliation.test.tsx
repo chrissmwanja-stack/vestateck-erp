@@ -93,12 +93,15 @@ vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
     from: (...args: [string]) => mockFrom(...args),
     rpc: (...args: [string, unknown?]) => mockRpc(...args),
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: { id: 'fin-user-1' } } }),
+    },
   },
 }));
 
 function builderFor(table: string) {
   const builder: any = {};
-  for (const m of ['select', 'eq', 'gte', 'lte', 'in', 'order']) builder[m] = () => builder;
+  for (const m of ['select', 'eq', 'gte', 'lte', 'in', 'order', 'limit']) builder[m] = () => builder;
   builder.then = (resolve: (v: { data: unknown; error: unknown }) => void) =>
     resolve({ data: tableData[table] ?? [], error: null });
   return builder;

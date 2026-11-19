@@ -998,8 +998,321 @@ export type Database = {
           },
         ]
       }
+      bank_adjustment_events: {
+        Row: {
+          actor_id: string
+          adjustment_id: string
+          created_at: string
+          event: string
+          id: string
+          note: string | null
+          tenant_id: string
+        }
+        Insert: {
+          actor_id?: string
+          adjustment_id: string
+          created_at?: string
+          event: string
+          id?: string
+          note?: string | null
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          adjustment_id?: string
+          created_at?: string
+          event?: string
+          id?: string
+          note?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustment_events_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_events_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_events_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_events_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_adjustment_usual_accounts: {
+        Row: {
+          created_at: string
+          created_by: string
+          gl_account_id: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          gl_account_id: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          gl_account_id?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustment_usual_accounts_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_usual_accounts_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustment_usual_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_adjustments: {
+        Row: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          reason: string
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean
+          statement_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at?: string
+          created_by?: string
+          currency: string
+          decided_at?: string | null
+          decided_by?: string | null
+          direction: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          reason: string
+          rejection_reason?: string | null
+          reversal_journal_entry_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          reverses_adjustment_id?: string | null
+          reworked_from?: string | null
+          self_approved?: boolean
+          statement_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_account?: string
+          bank_statement_line_id?: string
+          counter_account_id?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          direction?: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          reason?: string
+          rejection_reason?: string | null
+          reversal_journal_entry_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          reverses_adjustment_id?: string | null
+          reworked_from?: string | null
+          self_approved?: boolean
+          statement_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_possible_double_entries"
+            referencedColumns: ["statement_line_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_bank_statement_line_id_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_statement_unmatched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_counter_account_id_fkey"
+            columns: ["counter_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reversal_journal_entry_id_fkey"
+            columns: ["reversal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_reconciliations: {
         Row: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -1013,6 +1326,7 @@ export type Database = {
           variance: number
         }
         Insert: {
+          bank_adjustment_id?: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id?: string | null
           commission_transfer_id?: string | null
@@ -1026,6 +1340,7 @@ export type Database = {
           variance?: number
         }
         Update: {
+          bank_adjustment_id?: string | null
           bank_statement_line_id?: string
           cash_bank_transaction_id?: string | null
           commission_transfer_id?: string | null
@@ -1039,6 +1354,34 @@ export type Database = {
           variance?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_bank_adjustment_id_fkey"
+            columns: ["bank_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_bank_adjustment_id_fkey"
+            columns: ["bank_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_bank_adjustment_id_fkey"
+            columns: ["bank_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliations_bank_adjustment_id_fkey"
+            columns: ["bank_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bank_reconciliations_bank_statement_line_id_fkey"
             columns: ["bank_statement_line_id"]
@@ -1104,6 +1447,7 @@ export type Database = {
           currency: string
           description: string | null
           id: string
+          import_batch_id: string | null
           imported_at: string
           imported_by: string | null
           reference: string | null
@@ -1116,6 +1460,7 @@ export type Database = {
           currency: string
           description?: string | null
           id?: string
+          import_batch_id?: string | null
           imported_at?: string
           imported_by?: string | null
           reference?: string | null
@@ -1128,6 +1473,7 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          import_batch_id?: string | null
           imported_at?: string
           imported_by?: string | null
           reference?: string | null
@@ -3450,6 +3796,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_control_account: boolean
+          is_header: boolean
           name: string
           tenant_id: string
         }
@@ -3460,6 +3807,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_control_account?: boolean
+          is_header?: boolean
           name: string
           tenant_id: string
         }
@@ -3470,6 +3818,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_control_account?: boolean
+          is_header?: boolean
           name?: string
           tenant_id?: string
         }
@@ -14488,6 +14837,263 @@ export type Database = {
       }
     }
     Views: {
+      bank_adjustment_exceptions: {
+        Row: {
+          adjustment_id: string | null
+          amount: number | null
+          approval_date: string | null
+          approver_email: string | null
+          approver_id: string | null
+          approver_name: string | null
+          bank_account: string | null
+          bank_line_reference: string | null
+          counter_account_code: string | null
+          counter_account_name: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_email: string | null
+          created_by_name: string | null
+          currency: string | null
+          description_reason: string | null
+          direction: string | null
+          kind: string | null
+          posting_journal_reference: string | null
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversed_at: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean | null
+          status: string | null
+          tenant_id: string | null
+          transaction_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
+            columns: ["posting_journal_reference"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reversal_journal_entry_id_fkey"
+            columns: ["reversal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_adjustment_register: {
+        Row: {
+          adjustment_id: string | null
+          amount: number | null
+          approval_date: string | null
+          approver_email: string | null
+          approver_id: string | null
+          approver_name: string | null
+          bank_account: string | null
+          bank_line_reference: string | null
+          counter_account_code: string | null
+          counter_account_name: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_email: string | null
+          created_by_name: string | null
+          currency: string | null
+          description_reason: string | null
+          direction: string | null
+          kind: string | null
+          posting_journal_reference: string | null
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversed_at: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean | null
+          status: string | null
+          tenant_id: string | null
+          transaction_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
+            columns: ["posting_journal_reference"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reversal_journal_entry_id_fkey"
+            columns: ["reversal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reverses_adjustment_id_fkey"
+            columns: ["reverses_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_exceptions"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_register"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustment_unusual_accounts"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_reworked_from_fkey"
+            columns: ["reworked_from"]
+            isOneToOne: false
+            referencedRelation: "bank_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_adjustment_unusual_accounts: {
+        Row: {
+          adjustment_id: string | null
+          amount: number | null
+          approval_date: string | null
+          approver_name: string | null
+          bank_account: string | null
+          counter_account_code: string | null
+          counter_account_name: string | null
+          created_by_name: string | null
+          currency: string | null
+          direction: string | null
+          posting_journal_reference: string | null
+          reason: string | null
+          self_approved: boolean | null
+          statement_date: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_adjustments_journal_entry_id_fkey"
+            columns: ["posting_journal_reference"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_adjustments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_open_item_balances: {
         Row: {
           allocated_amount: number | null
@@ -15673,6 +16279,43 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      approve_bank_adjustment: {
+        Args: { p_adjustment_id: string }
+        Returns: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          reason: string
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean
+          statement_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_adjustments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       approve_line_item_receipt: {
         Args: { p_receipt_id: string }
         Returns: {
@@ -15819,6 +16462,14 @@ export type Database = {
       auto_match_bank_statement: {
         Args: { p_bank_account: string; p_date_from: string; p_date_to: string }
         Returns: number
+      }
+      bank_adjustment_check_period: {
+        Args: { p_date: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      bank_adjustment_validate_counter: {
+        Args: { p_counter_account_id: string; p_tenant_id: string }
+        Returns: undefined
       }
       bd_pipeline_summary: { Args: never; Returns: Json }
       calculate_statutory_deductions: {
@@ -15999,6 +16650,48 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "asset_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_bank_adjustment: {
+        Args: {
+          p_counter_account_id: string
+          p_reason: string
+          p_reworked_from?: string
+          p_statement_line_id: string
+        }
+        Returns: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          reason: string
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean
+          statement_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_adjustments"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -16461,6 +17154,7 @@ export type Database = {
           p_statement_line_id: string
         }
         Returns: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -17958,6 +18652,14 @@ export type Database = {
       has_receipt_access: { Args: never; Returns: boolean }
       health_check: { Args: never; Returns: Json }
       impersonated_user_id: { Args: never; Returns: string }
+      import_bank_statement_batch: {
+        Args: {
+          p_bank_account: string
+          p_lines: Json
+          p_skip_duplicates?: boolean
+        }
+        Returns: Json
+      }
       import_bank_statement_lines: {
         Args: { p_bank_account: string; p_lines: Json }
         Returns: {
@@ -17966,6 +18668,7 @@ export type Database = {
           currency: string
           description: string | null
           id: string
+          import_batch_id: string | null
           imported_at: string
           imported_by: string | null
           reference: string | null
@@ -20673,6 +21376,7 @@ export type Database = {
           p_statement_line_id: string
         }
         Returns: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -20695,6 +21399,7 @@ export type Database = {
       match_bank_statement_line_to_commission_transfer: {
         Args: { p_statement_line_id: string; p_transfer_id: string }
         Returns: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -20717,6 +21422,7 @@ export type Database = {
       match_bank_statement_line_to_settlement: {
         Args: { p_settlement_id: string; p_statement_line_id: string }
         Returns: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -21387,6 +22093,7 @@ export type Database = {
       platform_ins_cxl_before_match_settlement: {
         Args: { p_settlement_id: string; p_statement_line_id: string }
         Returns: {
+          bank_adjustment_id: string | null
           bank_statement_line_id: string
           cash_bank_transaction_id: string | null
           commission_transfer_id: string | null
@@ -21702,6 +22409,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      preview_bank_statement_import: {
+        Args: { p_bank_account: string; p_lines: Json }
+        Returns: {
+          already_imported: boolean
+          line_no: number
+        }[]
       }
       record_approval_decision: {
         Args: {
@@ -22071,6 +22785,43 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reject_bank_adjustment: {
+        Args: { p_adjustment_id: string; p_reason: string }
+        Returns: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          reason: string
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean
+          statement_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_adjustments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       reject_material_request_item: {
         Args: { p_item_id: string; p_message: string }
         Returns: {
@@ -22138,6 +22889,43 @@ export type Database = {
       remove_support_team_member: {
         Args: { p_team_id: string; p_user_id: string }
         Returns: undefined
+      }
+      request_bank_adjustment_reversal: {
+        Args: { p_adjustment_id: string; p_reason: string }
+        Returns: {
+          amount: number
+          bank_account: string
+          bank_statement_line_id: string
+          counter_account_id: string
+          created_at: string
+          created_by: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          direction: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          reason: string
+          rejection_reason: string | null
+          reversal_journal_entry_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_adjustment_id: string | null
+          reworked_from: string | null
+          self_approved: boolean
+          statement_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bank_adjustments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       require_platform_admin: {
         Args: { p_action?: string }

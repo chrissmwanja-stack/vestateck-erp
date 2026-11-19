@@ -47,7 +47,7 @@ jobs:
       # apply on first start (same job shape as foundation-checks' green
       # db-shadow-replay job, which also boots the stack from scratch).
       - name: Start local Supabase (migrations + seed)
-        run: supabase start
+        run: bash scripts/ci-supabase-start.sh
 
       # The web app under test needs apps/web/.env to point at this
       # freshly-started stack. Playwright's global-setup prints the URL

@@ -176,7 +176,7 @@ jobs:
       # fail loudly here instead of surfacing on the next teammate's
       # fresh clone or the next `supabase db reset`.
       - name: Replay all migrations + seed from scratch
-        run: supabase start
+        run: bash scripts/ci-supabase-start.sh
 
       # Static plpgsql lint (risks-gaps #4): plpgsql_check parses every
       # public plpgsql function body and flags unknown columns, ambiguous
@@ -393,7 +393,7 @@ jobs:
           version: 2.114.0
 
       - name: Start local stack
-        run: supabase start
+        run: bash scripts/ci-supabase-start.sh
 
       # A bare `create database` has no `extensions`, `auth` or `storage`
       # schemas (the baseline migration fails on `extensions`), so replaying
