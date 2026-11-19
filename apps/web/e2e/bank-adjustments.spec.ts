@@ -143,7 +143,13 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('the statement line is matched, so it is no longer offered for adjustment', async () => {
       await openReconciliationAs(page, 'finMaker');
-      await expect(page.getByRole('row', { name: /D4E-CHARGE-1/ }).first()).toContainText(/matched/i);
+      // The statement table lists UNMATCHED lines only (v_bank_statement_unmatched),
+      // so a matched line is absent from it rather than shown with a "matched"
+      // badge. Wait for the other seeded line first so the table has loaded and
+      // "absent" cannot pass vacuously. "Ref: " is the statement table's own
+      // prefix; the adjustment history lists the same line without it.
+      await expect(page.getByRole('row', { name: /Ref: D4E-INTEREST-1/ })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('row', { name: /Ref: D4E-CHARGE-1/ })).toHaveCount(0);
     });
   });
 
