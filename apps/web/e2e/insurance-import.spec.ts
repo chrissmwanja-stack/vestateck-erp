@@ -202,6 +202,12 @@ test.describe('Insurance in-force import wizard', () => {
 
     await test.step('a second person approves the difference with a reason', async () => {
       await page.getByRole('button', { name: 'Sign out' }).click();
+      // Wait for sign-out to finish (the app returns to /login once the session
+      // is cleared). Navigating away while the sign-out request is in flight
+      // can leave the old session in storage, and /login then redirects
+      // straight back into the app while the form is being filled.
+      await page.waitForURL(/\/login/, { timeout: 15_000 });
+      await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
       await loginAs(page, ADMIN);
       await page.goto(reviewUrl);
       await expect(page.getByText(/Opened batch/)).toBeVisible({ timeout: 15_000 });
