@@ -141,9 +141,11 @@ export default function BankReconciliation() {
     load();
   }
 
-  function handleImported(count: number) {
+  function handleImported(count: number, skipped = 0) {
     setImportOpen(false);
-    setInfo(`Imported ${count} statement line${count === 1 ? '' : 's'}.`);
+    const skippedNote =
+      skipped > 0 ? ` ${skipped} line${skipped === 1 ? ' was' : 's were'} already on file and skipped.` : '';
+    setInfo(`Imported ${count} statement line${count === 1 ? '' : 's'}.${skippedNote}`);
     load();
   }
 
