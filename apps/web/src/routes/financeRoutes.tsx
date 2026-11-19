@@ -15,6 +15,8 @@ const AdvancePayments = lazy(() => import('../features/financial/AdvancePayments
 const InsuranceFeeTaxReport = lazy(() => import('../features/financial/InsuranceFeeTaxReport'));
 const InsurancePremiumCash = lazy(() => import('../features/financial/InsurancePremiumCash'));
 const BankReconciliation = lazy(() => import('../features/financial/BankReconciliation'));
+const BankAdjustmentRegister = lazy(() => import('../features/financial/BankAdjustmentRegister'));
+const BankAdjustmentUnusualAccounts = lazy(() => import('../features/financial/BankAdjustmentUnusualAccounts'));
 const CashBankOperations = lazy(() => import('../features/financial/CashBankOperations'));
 const ChartOfAccountsAdmin = lazy(() => import('../features/admin/ChartOfAccountsAdmin'));
 const BankAccountsAdmin = lazy(() => import('../features/admin/BankAccountsAdmin'));
@@ -75,6 +77,11 @@ export const financeRoutes = (
       <Route path="/financial-management/reports/insurance-fee-vat" element={<InsuranceFeeTaxReport />} />
       <Route path="/financial-management/insurance-premium-cash" element={<InsurancePremiumCash />} />
       <Route path="/financial-management/bank-reconciliation" element={<BankReconciliation />} />
+      <Route path="/financial-management/reports/bank-adjustments" element={<BankAdjustmentRegister />} />
+      <Route
+        path="/financial-management/reports/bank-adjustment-unusual-accounts"
+        element={<BankAdjustmentUnusualAccounts />}
+      />
       <Route path="/financial-management/invoices/receivable-invoice" element={<ReceivableInvoice />} />
       <Route path="/financial-management/expenditure-slips" element={<ExpenditureSlips />} />
       <Route path="/financial-management/invoices/edit-invoice" element={<EditInvoice />} />

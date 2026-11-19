@@ -40,12 +40,26 @@ const ADJ_POSTED = {
   line: { statement_date: '2026-11-08', description: 'INTEREST', reference: 'INT1' },
   counter: { account_code: '4100', name: 'Interest Received' },
 };
+const ADJ_REJECTED = {
+  ...ADJ_OWN, id: 'adj-rejected', status: 'rejected', created_by: 'user-a',
+  bank_statement_line_id: 'line-1', rejection_reason: 'wrong counter-account',
+  reason: 'bank charge, first attempt',
+  line: { statement_date: '2026-11-10', description: 'BANK CHARGE', reference: 'CHG1' },
+};
+const ADJ_HEADER_GL = {
+  id: 'gl-9', account_code: '9000', name: 'Suspense Header', is_header: true,
+};
+const ADJ_CONTROL_GL = {
+  id: 'gl-8', account_code: '1100', name: 'Trade Receivables', is_control_account: true,
+};
 const ADJ_ELSEWHERE = {
   ...ADJ_OWN, id: 'adj-elsewhere', bank_account: 'OtherBank-9', reason: 'account at another bank',
 };
 const GL_OPTIONS = [
   { id: 'gl-1', account_code: '5000', name: 'Bank Charges' },
   { id: 'gl-2', account_code: '4100', name: 'Interest Received' },
+  ADJ_HEADER_GL,
+  ADJ_CONTROL_GL,
 ];
 
 let tableData: Record<string, unknown[]>;
@@ -70,25 +84,40 @@ function builderFor(table: string) {
   return builder;
 }
 
-function setup(rows: unknown[] = [ADJ_OWN, ADJ_OTHER, ADJ_POSTED]) {
+function setup(rows: unknown[] = [ADJ_OWN, ADJ_OTHER, ADJ_POSTED], canSelfApprove = false) {
   tableData = { bank_adjustments: rows, gl_accounts: GL_OPTIONS };
   mockFrom.mockImplementation((table: string) => builderFor(table));
-  mockRpc.mockImplementation(() => Promise.resolve({ data: { id: 'new-adj' }, error: null }));
+  mockRpc.mockImplementation((name: string) => {
+    if (name === 'bank_adjustment_can_self_approve') {
+      return Promise.resolve({ data: canSelfApprove, error: null });
+    }
+    if (name === 'bank_adjustment_history') {
+      return Promise.resolve({ data: HISTORY, error: null });
+    }
+    return Promise.resolve({ data: { id: 'new-adj' }, error: null });
+  });
 }
+
+const HISTORY = [
+  { event: 'created', actor_id: 'user-a', actor_name: 'Finance Maker', note: null, created_at: '2026-11-10T09:00:00Z' },
+  { event: 'rejected', actor_id: 'user-b', actor_name: 'Finance Checker', note: 'wrong counter-account', created_at: '2026-11-10T10:00:00Z' },
+];
 
 function renderPanel(overrides: Partial<Parameters<typeof BankAdjustmentsPanel>[0]> = {}) {
   const onChanged = vi.fn();
   const onError = vi.fn();
+  const onSelectLine = vi.fn();
   render(
     <BankAdjustmentsPanel
       bankAccountName="Stanbic-001"
       selectedLine={LINE}
       onChanged={onChanged}
       onError={onError}
+      onSelectLine={onSelectLine}
       {...overrides}
     />
   );
-  return { onChanged, onError };
+  return { onChanged, onError, onSelectLine };
 }
 
 describe('BankAdjustmentsPanel', () => {
@@ -97,7 +126,7 @@ describe('BankAdjustmentsPanel', () => {
     mockFrom.mockReset();
   });
 
-  it('hides the approve button state on your own proposal but not on somebody else’s', async () => {
+  it('disables Approve on your own proposal when the one-person exception is not in force', async () => {
     setup();
     renderPanel();
     const approves = await screen.findAllByRole('button', { name: 'Approve' });
@@ -195,5 +224,95 @@ describe('BankAdjustmentsPanel', () => {
     );
     expect(mockRpc).not.toHaveBeenCalledWith('approve_bank_adjustment', expect.anything());
     expect(onChanged).toHaveBeenCalledWith(expect.stringContaining('Reversal requested'));
+  });
+  it('enables self-approval on your own proposal when the company has the exception, and says what it means', async () => {
+    setup([ADJ_OWN], true);
+    const { onChanged } = renderPanel();
+    const user = userEvent.setup();
+
+    expect(await screen.findByTestId('self-approve-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('self-approve-chip')).toBeInTheDocument();
+
+    const approve = screen.getByRole('button', { name: 'Approve' });
+    expect(approve).toBeEnabled();
+    await user.click(approve);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/self-approved under your company/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Approve and post' }));
+
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('approve_bank_adjustment', { p_adjustment_id: 'adj-own' })
+    );
+    expect(onChanged).toHaveBeenCalledWith(expect.stringContaining('one-person exception'));
+  });
+
+  it('explains that a header or control account cannot be the other side, and refuses to submit it', async () => {
+    setup([]);
+    renderPanel();
+    const user = userEvent.setup();
+
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'bank charge per statement' } });
+    const combo = screen.getByLabelText('Other side of the entry');
+    fireEvent.mouseDown(combo);
+
+    const header = await screen.findByRole('option', { name: /9000 Suspense Header/ });
+    expect(header).toHaveAttribute('aria-disabled', 'true');
+    expect(within(header).getByText(/header account cannot be posted to/)).toBeInTheDocument();
+
+    const control = await screen.findByRole('option', { name: /1100 Trade Receivables/ });
+    expect(control).toHaveAttribute('aria-disabled', 'true');
+    expect(within(control).getByText(/control account/)).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Propose adjustment' })).toBeDisabled();
+    expect(mockRpc).not.toHaveBeenCalledWith('create_bank_adjustment', expect.anything());
+  });
+
+  it('reworking a rejected proposal re-selects its line and links the new one with p_reworked_from', async () => {
+    setup([ADJ_REJECTED]);
+    const { onSelectLine, onChanged } = renderPanel();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByTestId('rework-adj-rejected'));
+    expect(onSelectLine).toHaveBeenCalledWith('line-1');
+    expect(await screen.findByTestId('rework-banner')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Propose rework' }));
+
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('create_bank_adjustment', {
+        p_statement_line_id: 'line-1',
+        p_counter_account_id: 'gl-1',
+        p_reason: 'bank charge, first attempt',
+        p_reworked_from: 'adj-rejected',
+      })
+    );
+    expect(onChanged).toHaveBeenCalledWith(expect.stringContaining('linked to the rejected adjustment'));
+  });
+
+  it('shows the audit history of an adjustment, with who did what', async () => {
+    setup([ADJ_REJECTED]);
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByTestId('history-adj-rejected'));
+    const dialog = await screen.findByRole('dialog');
+
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('bank_adjustment_history', { p_adjustment_id: 'adj-rejected' })
+    );
+    expect(await within(dialog).findByText('Proposed')).toBeInTheDocument();
+    expect(within(dialog).getByText('Rejected')).toBeInTheDocument();
+    expect(within(dialog).getByText('Finance Maker')).toBeInTheDocument();
+    expect(within(dialog).getByText('wrong counter-account')).toBeInTheDocument();
+  });
+
+  it('tells the reader how many of their proposals are waiting, and that they cannot approve them', async () => {
+    setup([ADJ_OWN], false);
+    renderPanel();
+    const hint = await screen.findByTestId('pending-own-hint');
+    expect(within(hint).getByText(/waiting/i)).toBeInTheDocument();
+    expect(within(hint).getByText(/cannot approve/)).toBeInTheDocument();
   });
 });

@@ -311,6 +311,7 @@ export default function BankReconciliation() {
               load();
             }}
             onError={setError}
+            onSelectLine={setSelectedStatementLine}
           />
 
           <Divider sx={{ mb: 2 }} />
