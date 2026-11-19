@@ -267,12 +267,21 @@ end $$;
 do $$
 declare v_t uuid := pg_temp.hget('t');
 begin
+  -- Since 20261119220000 the exception must also be COMPLIANCE-REVIEWED, not
+  -- merely approved (allow_self_approved_bank_adjustments is a
+  -- requires_legal_review key). The approve -> refuse -> review -> allow
+  -- sequence is covered in detail by test_d4e_self_approval_requires_review.sql;
+  -- here the row is written in the reviewed state so the rest of this file can
+  -- concentrate on the flag and the mode.
   insert into public.company_accounting_settings (
     tenant_id, setting_key, value, effective_from, status, rationale,
-    approved_by, approved_at, created_by
+    approved_by, approved_at, created_by,
+    review_status, reviewer_name, review_reference, reviewed_by, reviewed_at
   ) values (
     v_t, 'allow_self_approved_bank_adjustments', 'true', current_date, 'approved',
-    'single finance user company', pg_temp.hget('fin2'), now(), pg_temp.hget('fin2')
+    'single finance user company', pg_temp.hget('fin2'), now(), pg_temp.hget('fin'),
+    'reviewed', 'External Accountant', 'Review memo 2026-11-19',
+    pg_temp.hget('fin2'), now()
   );
 end $$;
 do $$

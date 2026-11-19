@@ -158,18 +158,62 @@ and commit the result (policy step 3).
 
 ---
 
-## Follow-ups this pass deliberately did not take
+## Follow-ups, and what happened to them
 
-- **Table-level grants (F1 in the review).** `anon`/`authenticated` still hold
-  INSERT/UPDATE/DELETE on `bank_adjustments`, `bank_adjustment_events` and
-  `bank_adjustment_usual_accounts`. RLS makes them inert (no write policies
-  exist) and the new RPCs mean the client needs none of them. Revoking is a
-  four-line migration plus an assertion; it is not in this pass so that a
-  grant change cannot mask a failure in the functional work above.
-- **`acct_setting_approve` and `requires_legal_review`.** Approving a
-  legally-reviewed setting does not require `review_status = 'reviewed'`; the
-  warning is UI-only. Pre-existing, outside D4e, but D4e's escape hatch depends
-  on that setting being taken seriously.
+Both items this handoff originally listed as deliberately out of scope are now
+done, in their own commits after the main pass.
+
+### Table privileges — done, and the earlier report was wrong
+
+`20261119230000_d4e_bank_adjustments_surface_hardening.sql`.
+
+**Correction:** an earlier version of this handoff said `anon` held
+INSERT/UPDATE/DELETE on the D4e tables. It does not. `20261112090000` revoked
+all table privileges from `anon` and set the default privileges to match, so the
+three tables were born with no anon access; the live catalog lists only
+`authenticated`, `postgres` and `service_role`. The claim came from
+`has_table_privilege('anon', …)` being true, which was an artifact of an `aclitem`
+cast in a quick query, not a real grant.
+
+What was actually true, and is now fixed:
+
+| Role | Before | After |
+|---|---|---|
+| `anon` | nothing | nothing (unchanged, now pinned by a test) |
+| `authenticated` | SELECT, INSERT, UPDATE, DELETE, MAINTAIN | **SELECT only** |
+
+Writes are now RPC-only in fact: every write already went through
+`create_/approve_/reject_/request_bank_adjustment_reversal` and, since
+`20261119210000`, the usual-account add/remove RPCs. MAINTAIN is revoked too
+(PostgreSQL 17 only; the revoke is guarded so replay on older servers is a
+no-op). `supabase/tests/test_d4e_bank_adjustments_privileges.sql` pins both
+directions and that the write RPCs stay callable.
+
+### `acct_setting_approve` and legal review — done, as a D4e gate
+
+`20261119220000_d4e_self_approval_requires_review.sql`.
+
+Rather than change the settings workflow (approve now, review later, which
+`acct_assert_reviewed` already defends at the point of use — and which
+`test_acct_config_stabilisation.sql` asserts), the gate moved to where D4e
+depends on it: `approve_bank_adjustment` now reads
+`allow_self_approved_bank_adjustments` through `acct_assert_reviewed`, so the
+one-person exception only counts when the approved value has a recorded
+compliance review. `bank_adjustment_can_self_approve()` uses the same call, so
+the screen cannot offer what the server will refuse.
+
+`supabase/tests/test_d4e_self_approval_requires_review.sql` covers the three
+states: no setting (refused), approved-but-unreviewed (refused, while a
+different finance user can still approve), and reviewed (allowed, recorded as
+`one_person_exception`).
+
+### Still open, unchanged
+
 - **Panel reads base tables rather than `bank_adjustment_register`.** The view
-  exists and is tested; the panel's embedded select predates it. Switching is a
-  small refactor, not a behaviour change.
+  exists and is tested; the panel's embedded select predates it. A small
+  refactor, not a behaviour change.
+- **The settings workflow itself** still allows approving a
+  `requires_legal_review` key before its review is recorded. That is by design —
+  the review can be recorded on an approved choice, and readers enforce it — but
+  if the intent is "no approval without a review", the change belongs in
+  `acct_setting_approve`, with `test_acct_config_stabilisation.sql` updated.

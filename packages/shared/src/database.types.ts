@@ -1001,6 +1001,7 @@ export type Database = {
       bank_adjustment_events: {
         Row: {
           actor_id: string
+          actor_name: string | null
           adjustment_id: string
           created_at: string
           event: string
@@ -1010,6 +1011,7 @@ export type Database = {
         }
         Insert: {
           actor_id?: string
+          actor_name?: string | null
           adjustment_id: string
           created_at?: string
           event: string
@@ -1019,6 +1021,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string
+          actor_name?: string | null
           adjustment_id?: string
           created_at?: string
           event?: string
@@ -1113,6 +1116,7 @@ export type Database = {
       bank_adjustments: {
         Row: {
           amount: number
+          approval_mode: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
@@ -1141,6 +1145,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          approval_mode?: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
@@ -1169,6 +1174,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          approval_mode?: string | null
           bank_account?: string
           bank_statement_line_id?: string
           counter_account_id?: string
@@ -16283,6 +16289,7 @@ export type Database = {
         Args: { p_adjustment_id: string }
         Returns: {
           amount: number
+          approval_mode: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
@@ -16463,9 +16470,56 @@ export type Database = {
         Args: { p_bank_account: string; p_date_from: string; p_date_to: string }
         Returns: number
       }
+      bank_adjustment_add_usual_account: {
+        Args: { p_gl_account_id: string }
+        Returns: undefined
+      }
+      bank_adjustment_can_self_approve: { Args: never; Returns: boolean }
       bank_adjustment_check_period: {
         Args: { p_date: string; p_tenant_id: string }
         Returns: undefined
+      }
+      bank_adjustment_history: {
+        Args: { p_adjustment_id: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          created_at: string
+          event: string
+          note: string
+        }[]
+      }
+      bank_adjustment_list_usual_accounts: {
+        Args: never
+        Returns: {
+          account_code: string
+          account_name: string
+          created_at: string
+          gl_account_id: string
+        }[]
+      }
+      bank_adjustment_remove_usual_account: {
+        Args: { p_gl_account_id: string }
+        Returns: undefined
+      }
+      bank_adjustment_unusual_account_usage: {
+        Args: { p_days?: number }
+        Returns: {
+          adjustment_id: string
+          amount: number
+          approval_date: string
+          approver_name: string
+          bank_account: string
+          counter_account_code: string
+          counter_account_name: string
+          created_by_name: string
+          currency: string
+          direction: string
+          posting_journal_reference: string
+          reason: string
+          self_approved: boolean
+          statement_date: string
+        }[]
       }
       bank_adjustment_validate_counter: {
         Args: { p_counter_account_id: string; p_tenant_id: string }
@@ -16663,6 +16717,7 @@ export type Database = {
         }
         Returns: {
           amount: number
+          approval_mode: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
@@ -22789,6 +22844,7 @@ export type Database = {
         Args: { p_adjustment_id: string; p_reason: string }
         Returns: {
           amount: number
+          approval_mode: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
@@ -22894,6 +22950,7 @@ export type Database = {
         Args: { p_adjustment_id: string; p_reason: string }
         Returns: {
           amount: number
+          approval_mode: string | null
           bank_account: string
           bank_statement_line_id: string
           counter_account_id: string
