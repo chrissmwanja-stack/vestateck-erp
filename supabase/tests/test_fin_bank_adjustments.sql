@@ -35,10 +35,10 @@ language sql security definer as $$
   select id from public.bank_statement_lines where tenant_id = p_tenant and amount = p_amount
 $$;
 create temp table holder (name text primary key, id uuid);
-create function pg_temp.hput(p_name text, p_id uuid) returns void language sql as $$
+create function pg_temp.hput(p_name text, p_id uuid) returns void language sql security definer as $$
   insert into holder (name, id) values (p_name, p_id) on conflict (name) do update set id = excluded.id
 $$;
-create function pg_temp.hget(p_name text) returns uuid language sql as $$
+create function pg_temp.hget(p_name text) returns uuid language sql security definer as $$
   select id from holder where name = p_name
 $$;
 
@@ -112,41 +112,40 @@ begin
 end $$;
 
 -- Import statement lines as the finance user (tenant A: three lines; tenant B: one).
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform import_bank_statement_lines('OPS-UGX', jsonb_build_array(
+select import_bank_statement_lines('OPS-UGX', jsonb_build_array(
   jsonb_build_object('statement_date', current_date, 'amount', -30,    'description', 'bank charge',  'reference', 'CHG-1'),
   jsonb_build_object('statement_date', current_date, 'amount',  20000, 'description', 'interest',     'reference', 'INT-1'),
   jsonb_build_object('statement_date', current_date, 'amount', -45,    'description', 'account fees', 'reference', 'FEE-1')
 ));
 reset role;
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_b'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform import_bank_statement_lines('OPS-B-UGX', jsonb_build_array(
+select import_bank_statement_lines('OPS-B-UGX', jsonb_build_array(
   jsonb_build_object('statement_date', current_date, 'amount', -55, 'description', 'fee', 'reference', 'FEE-B')
 ));
 reset role;
 
 -- 1. A non-finance user cannot create an adjustment.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('out_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('ta'), -30), pg_temp.hget('gl_charges'), 'bank charge per statement'),
   'not authorized', 'non-finance user creating an adjustment');
 reset role;
 
 -- 2. Finance creates a pending adjustment for the bank charge line.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into holder
-select 'adj_charge', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), -30),
+select pg_temp.hput('adj_charge', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), -30),
                                              pg_temp.hget('gl_charges'),
-                                             'bank charge per statement')).id;
+                                             'bank charge per statement')).id);
 reset role;
 do $$
 declare v public.bank_adjustments%rowtype;
@@ -159,44 +158,44 @@ begin
 end $$;
 
 -- 3. One live adjustment per line.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('ta'), -30), pg_temp.hget('gl_charges'), 'duplicate attempt'),
   'ADJ_LIVE_EXISTS', 'duplicate live adjustment');
 reset role;
 
 -- 4. The creator cannot approve their own adjustment.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select approve_bank_adjustment(%L)', pg_temp.hget('adj_charge')),
   'ADJ_SELF_APPROVAL_FORBIDDEN', 'creator self-approves');
 reset role;
 
 -- 5. Counter-account rules: control, header and bank-GL accounts are rejected.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('ta'), 20000), pg_temp.hget('gl_ar'), 'control account attempt'),
   'ADJ_COUNTER_CONTROL', 'control account rejected');
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('ta'), 20000), pg_temp.hget('gl_header'), 'header account attempt'),
   'ADJ_COUNTER_HEADER', 'header account rejected');
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('ta'), 20000), pg_temp.hget('gl_bank'), 'bank gl attempt'),
   'ADJ_COUNTER_BANK', 'bank GL rejected');
 reset role;
 
 -- 6. A different finance user approves: journal posted + line reconciled atomically.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
 do $$
@@ -242,16 +241,16 @@ begin
 end $$;
 
 -- Re-approving a posted adjustment is refused.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select approve_bank_adjustment(%L)', pg_temp.hget('adj_charge')),
   'ADJ_NOT_PENDING', 'double approval');
 reset role;
 
 -- 7. Register is visible to finance.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
 do $$
@@ -265,27 +264,25 @@ end $$;
 reset role;
 
 -- 8. Reject, then rework a rejected adjustment into a new pending row.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into holder
-select 'adj_interest', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
+select pg_temp.hput('adj_interest', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
                                                pg_temp.hget('gl_interest'),
-                                               'interest per bank statement')).id;
+                                               'interest per bank statement')).id);
 reset role;
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform reject_bank_adjustment(pg_temp.hget('adj_interest'), 'please confirm the interest amount first');
+select reject_bank_adjustment(pg_temp.hget('adj_interest'), 'please confirm the interest amount first');
 reset role;
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into holder
-select 'adj_rework', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
+select pg_temp.hput('adj_rework', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
                                              pg_temp.hget('gl_interest'),
                                              'interest confirmed against statement',
-                                             pg_temp.hget('adj_interest'))).id;
+                                             pg_temp.hget('adj_interest'))).id);
 reset role;
 do $$
 declare v public.bank_adjustments%rowtype;
@@ -301,7 +298,7 @@ begin
 end $$;
 
 -- 9. Approve the rework, then reverse it with independent approval.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
 do $$
@@ -311,23 +308,22 @@ begin
   if v.status <> 'posted' then raise exception 'FAIL: rework did not post'; end if;
 end $$;
 reset role;
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into holder
-select 'adj_reversal', (request_bank_adjustment_reversal(pg_temp.hget('adj_rework'),
-                                                         'wrong counter-account, reversing')).id;
+select pg_temp.hput('adj_reversal', (request_bank_adjustment_reversal(pg_temp.hget('adj_rework'),
+                                                         'wrong counter-account, reversing')).id);
 reset role;
 -- The requester cannot self-approve the reversal either.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select approve_bank_adjustment(%L)', pg_temp.hget('adj_reversal')),
   'ADJ_SELF_APPROVAL_FORBIDDEN', 'creator self-approves reversal');
 reset role;
 -- Independent approval posts the reversal journal and un-reconciles the line.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin2'), 'role', 'authenticated')::text, true);
 set local role authenticated;
 do $$
@@ -359,13 +355,12 @@ begin
   end if;
 end $$;
 -- The line is free again: a replacement adjustment can be submitted.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_a'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into holder
-select 'adj_replacement', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
+select pg_temp.hput('adj_replacement', (create_bank_adjustment(pg_temp.line_id(pg_temp.hget('ta'), 20000),
                                                   pg_temp.hget('gl_interest'),
-                                                  'replacement after reversal')).id;
+                                                  'replacement after reversal')).id);
 reset role;
 do $$
 begin
@@ -375,20 +370,20 @@ begin
 end $$;
 
 -- 10. Closed period blocks creation.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_b'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select create_bank_adjustment(%L, %L, %L)',
          pg_temp.line_id(pg_temp.hget('tb'), -55), pg_temp.hget('gl_charges_b'), 'closed period attempt'),
   'ADJ_PERIOD_CLOSED', 'closed period blocks creation');
 reset role;
 
 -- 11. Cross-tenant isolation: tenant B finance cannot approve tenant A's adjustment.
-perform set_config('request.jwt.claims',
+select set_config('request.jwt.claims',
   json_build_object('sub', pg_temp.hget('fin_b'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-perform pg_temp.expect_error(
+select pg_temp.expect_error(
   format('select approve_bank_adjustment(%L)', pg_temp.hget('adj_replacement')),
   'ADJ_NOT_FOUND', 'cross-tenant approval');
 reset role;
