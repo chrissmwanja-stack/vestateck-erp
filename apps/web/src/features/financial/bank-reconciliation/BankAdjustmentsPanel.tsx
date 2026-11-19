@@ -257,7 +257,7 @@ export function BankAdjustmentsPanel({
   const copy = dialog ? DIALOG_COPY[dialog.mode] : null;
   const counterBlock = counter ? counterAccountBlockReason(counter) : null;
   const canPropose = Boolean(selectedLine && counter && !counterBlock && reason.trim().length >= 5) && !busy;
-  const pendingOwn = visible.filter((r) => r.status === 'pending' && r.created_by === me && r.kind === 'adjustment');
+  const pendingOwn = visible.filter((r) => r.status === 'pending' && r.created_by === me);
 
   return (
     <Paper sx={{ p: 2, mb: 3 }} data-testid="bank-adjustments-panel">
@@ -385,7 +385,10 @@ export function BankAdjustmentsPanel({
               const own = me !== null && r.created_by === me;
               const terminalNote = r.status === 'rejected' ? r.rejection_reason : r.status === 'reversed' ? r.reversal_reason : null;
               const decision = modeLabel(r.approval_mode);
-              const canApproveThis = !own || (canSelfApprove && r.kind === 'adjustment');
+              // The exception covers approving your own submission, whether it
+              // is an adjustment or a reversal request (20261119235950). Without
+              // it a one-person team could never reverse a wrong posting.
+              const canApproveThis = !own || canSelfApprove;
               const approveTip = own
                 ? canSelfApprove
                   ? 'Approving your own proposal posts it as self-approved under the one-person exception, and flags it for the accountant'
@@ -507,8 +510,9 @@ export function BankAdjustmentsPanel({
           )}
           {dialog?.mode === 'approve' && dialog.row.created_by === me && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              This is your own proposal. Approving it posts the entry now and records it as self-approved under your
-              company’s one-person exception, for the accountant to review.
+              This is your own {dialog.row.kind === 'reversal' ? 'reversal request' : 'proposal'}. Approving it posts
+              the entry now and records it as self-approved under your company’s one-person exception, for the
+              accountant to review.
             </Alert>
           )}
           {dialog && dialog.mode !== 'approve' && (

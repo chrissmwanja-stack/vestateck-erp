@@ -52,6 +52,11 @@ const ADJ_HEADER_GL = {
 const ADJ_CONTROL_GL = {
   id: 'gl-8', account_code: '1100', name: 'Trade Receivables', is_control_account: true,
 };
+const ADJ_OWN_REVERSAL = {
+  ...ADJ_OWN, id: 'adj-own-rev', kind: 'reversal', reason: 'posted in error',
+  reverses_adjustment_id: 'adj-posted', counter: { account_code: '4100', name: 'Interest Received' },
+  line: { statement_date: '2026-11-08', description: 'INTEREST', reference: 'INT1' },
+};
 const ADJ_ELSEWHERE = {
   ...ADJ_OWN, id: 'adj-elsewhere', bank_account: 'OtherBank-9', reason: 'account at another bank',
 };
@@ -321,5 +326,31 @@ describe('BankAdjustmentsPanel', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByTestId('line-adj-posted'));
     expect(onSelectLine).toHaveBeenCalledWith('line-1');
+  });
+  it('lets a one-person team approve its own reversal request, since nobody else can', async () => {
+    setup([ADJ_OWN_REVERSAL], true);
+    const { onChanged: onChangedForSelfApproval } = renderPanel();
+    const user = userEvent.setup();
+
+    const row = await screen.findByRole('row', { name: /posted in error/ });
+    const approve = within(row).getByRole('button', { name: 'Approve' });
+    expect(approve).toBeEnabled();
+    await user.click(approve);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/your own reversal request/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Approve and post' }));
+
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('approve_bank_adjustment', { p_adjustment_id: 'adj-own-rev' })
+    );
+    expect(onChangedForSelfApproval).toHaveBeenCalled();
+  });
+
+  it('still refuses to let you approve your own reversal request without the exception', async () => {
+    setup([ADJ_OWN_REVERSAL], false);
+    renderPanel();
+    const row = await screen.findByRole('row', { name: /posted in error/ });
+    expect(within(row).getByRole('button', { name: 'Approve' })).toBeDisabled();
   });
 });

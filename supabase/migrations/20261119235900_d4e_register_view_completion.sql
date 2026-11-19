@@ -54,7 +54,7 @@ select
   a.reverses_adjustment_id,
   a.reversal_journal_entry_id,
   a.reversed_at,
-  -- appended by 20261119240000
+  -- appended by 20261119235900
   a.approval_mode,
   a.bank_statement_line_id,
   l.description         as bank_line_description,

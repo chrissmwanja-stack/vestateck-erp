@@ -215,7 +215,7 @@ export function counterAccountBlockReason(account: GlAccountOption): string | nu
   return null;
 }
 
-/** One row of bank_adjustment_register (20261119240000 shape). The register
+/** One row of bank_adjustment_register (20261119235900 shape). The register
  *  screen, the exception report and the CSV export all read this. */
 export interface RegisterRow {
   adjustment_id: string;

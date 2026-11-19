@@ -281,6 +281,11 @@ export const portals: Portal[] = [
           { id: "vat-report", label: "VAT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/vat-report" },
           { id: "wht-report", label: "WHT Report", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/wht-report" },
           { id: "paye-nssf-remittance", label: "PAYE/NSSF Remittance", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/paye-nssf-remittance" },
+          // D4e: the accountant-facing side of bank adjustments. Both are
+          // finance-only behind the routes; without these entries they could
+          // only be reached by typing the URL.
+          { id: "bank-adjustment-register", label: "Bank Adjustment Register", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/bank-adjustments" },
+          { id: "bank-adjustment-unusual-accounts", label: "Unusual Adjustment Accounts", icon: <BarChart fontSize="small" />, to: "/financial-management/reports/bank-adjustment-unusual-accounts" },
         ],
       },
       {

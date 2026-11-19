@@ -12,7 +12,7 @@ import BankAdjustmentUnusualAccounts from './BankAdjustmentUnusualAccounts';
 //                   render, and adding/removing a usual account goes through
 //                   the RPCs rather than a table write.
 
-// Shape of bank_adjustment_register as 20261119240000 leaves it.
+// Shape of bank_adjustment_register as 20261119235900 leaves it.
 const ADJ_SELF = {
   adjustment_id: 'a-self', tenant_id: 't1', kind: 'adjustment', status: 'posted',
   amount: 50000, currency: 'UGX', direction: 'out',
