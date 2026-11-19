@@ -31,7 +31,7 @@ const BANK = 'PEARL-OPERATING';
 async function openReconciliationAs(page: Page, account: 'finMaker' | 'finChecker') {
   await loginAs(page, account);
   await page.goto('/financial-management/bank-reconciliation');
-  const bank = page.getByLabel('Bank Account');
+  const bank = page.getByRole('combobox', { name: 'Bank Account' });
   await bank.fill(BANK);
   await page.keyboard.press('Escape');
   // The panel appears once the screen has an account.
@@ -61,7 +61,10 @@ async function selectStatementLine(page: Page, reference: string) {
  * to change, not the picker.
  */
 async function pickCounterAccount(page: Page, label: string) {
-  const picker = page.getByLabel('Other side of the entry');
+  // getByRole, not getByLabel: once the popup opens, MUI's listbox <ul> is also
+  // aria-labelledby this label, so getByLabel matches two elements and trips
+  // Playwright's strict mode on fill().
+  const picker = page.getByRole('combobox', { name: 'Other side of the entry' });
   await picker.click();
   await picker.fill(label);
   const option = page.getByRole('option', { name: new RegExp(label) }).first();
@@ -181,8 +184,8 @@ test.describe('Bank adjustments (D4e)', () => {
     await test.step('adding the usual account empties the flag list for that account', async () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByLabel('Add an account').click();
-      await dialog.getByLabel('Add an account').fill('General Expense');
+      await dialog.getByRole('combobox', { name: 'Add an account' }).click();
+      await dialog.getByRole('combobox', { name: 'Add an account' }).fill('General Expense');
       const usual = page.getByRole('option', { name: /General Expense/ }).first();
       await expect(usual, 'General Expense (GL 5000) is not in the seeded chart of accounts').toBeVisible({ timeout: 10_000 });
       await usual.click();
@@ -195,8 +198,8 @@ test.describe('Bank adjustments (D4e)', () => {
     await test.step('the control account is offered but cannot be chosen', async () => {
       await page.getByRole('button', { name: /Usual accounts/ }).click();
       const dialog = page.getByRole('dialog');
-      await dialog.getByLabel('Add an account').click();
-      await dialog.getByLabel('Add an account').fill('Accounts Receivable Control');
+      await dialog.getByRole('combobox', { name: 'Add an account' }).click();
+      await dialog.getByRole('combobox', { name: 'Add an account' }).fill('Accounts Receivable Control');
       // It IS in the chart of accounts, so it appears -- and must be refused,
       // because a control account can never be the other side of an adjustment.
       const control = page.getByRole('option', { name: /Accounts Receivable Control/ }).first();
