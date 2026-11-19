@@ -29,6 +29,15 @@ import { loginAs } from './utils/auth';
 const BANK = 'PEARL-OPERATING';
 
 /**
+ * A RegExp that matches `text` literally. Reasons are free text built in the
+ * tests (e.g. "... (corrected)"); passed raw to new RegExp(), the parentheses
+ * become a capture group and the pattern no longer matches the visible text.
+ */
+function literal(text: string): RegExp {
+  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+}
+
+/**
  * Several steps switch users on the same page. If the previous session is still
  * live, /login redirects straight back into the app while the form is being
  * filled ("element was detached from the DOM"). Sign out first, and wait for the
@@ -109,7 +118,7 @@ test.describe('Bank adjustments (D4e)', () => {
       // The maker must NOT be able to approve their own proposal: the button is
       // present but disabled (unless the company enabled the one-person
       // exception, which the seeded tenant has not).
-      const ownRow = page.getByRole('row', { name: new RegExp(uniqueReason) });
+      const ownRow = page.getByRole('row', { name: literal(uniqueReason) });
       await expect(ownRow).toBeVisible({ timeout: 15_000 });
       await expect(ownRow.getByRole('button', { name: 'Approve' })).toBeDisabled();
       await expect(ownRow.getByRole('button', { name: 'Withdraw' })).toBeEnabled();
@@ -117,7 +126,7 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('a different finance user sees it and approves it', async () => {
       await openReconciliationAs(page, 'finChecker');
-      const row = page.getByRole('row', { name: new RegExp(uniqueReason) });
+      const row = page.getByRole('row', { name: literal(uniqueReason) });
       await expect(row).toBeVisible({ timeout: 15_000 });
 
       await row.getByRole('button', { name: 'Approve' }).click();
@@ -126,13 +135,13 @@ test.describe('Bank adjustments (D4e)', () => {
       await dialog.getByRole('button', { name: 'Approve and post' }).click();
 
       await expect(page.getByText(/approved and posted/i)).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByRole('row', { name: new RegExp(uniqueReason) }))
+      await expect(page.getByRole('row', { name: literal(uniqueReason) }))
         .toContainText('posted');
     });
 
     await test.step('the accountant register shows it, approved by the checker', async () => {
       await page.goto('/financial-management/reports/bank-adjustments');
-      const row = page.getByRole('row', { name: new RegExp(uniqueReason) });
+      const row = page.getByRole('row', { name: literal(uniqueReason) });
       await expect(row).toBeVisible({ timeout: 15_000 });
       await expect(row).toContainText('posted');
       await expect(row).toContainText('Pearl Finance Checker');
@@ -163,10 +172,10 @@ test.describe('Bank adjustments (D4e)', () => {
       await pickCounterAccount(page, '4100');
       await page.getByLabel('Reason').fill(rejected);
       await page.getByRole('button', { name: 'Propose adjustment' }).click();
-      await expect(page.getByRole('row', { name: new RegExp(rejected) })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('row', { name: literal(rejected) })).toBeVisible({ timeout: 15_000 });
 
       await openReconciliationAs(page, 'finChecker');
-      const row = page.getByRole('row', { name: new RegExp(rejected) });
+      const row = page.getByRole('row', { name: literal(rejected) });
       await row.getByRole('button', { name: 'Reject' }).click();
       const dialog = page.getByRole('dialog');
       await dialog.getByLabel(/Why is it being rejected/).fill('please use the interest income account');
@@ -176,7 +185,7 @@ test.describe('Bank adjustments (D4e)', () => {
 
     await test.step('the maker reworks it, linked to the rejected row', async () => {
       await openReconciliationAs(page, 'finMaker');
-      const rejectedRow = page.getByRole('row', { name: new RegExp(rejected) });
+      const rejectedRow = page.getByRole('row', { name: literal(rejected) });
       await expect(rejectedRow).toContainText('rejected');
       await rejectedRow.getByRole('button', { name: 'Rework' }).click();
 
@@ -184,7 +193,7 @@ test.describe('Bank adjustments (D4e)', () => {
       await page.getByLabel('Reason').fill(reworked);
       await page.getByRole('button', { name: 'Propose rework' }).click();
 
-      const reworkedRow = page.getByRole('row', { name: new RegExp(reworked) });
+      const reworkedRow = page.getByRole('row', { name: literal(reworked) });
       await expect(reworkedRow).toBeVisible({ timeout: 15_000 });
       await expect(reworkedRow.getByText('reworked')).toBeVisible();
 
