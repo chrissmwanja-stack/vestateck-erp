@@ -39,7 +39,7 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.114.0
 
