@@ -365,6 +365,53 @@ before the contingency that creates it has cleared.
 4. Whether any agreement is pro-rata on collection, which would need a schedule and is
    not built.
 
+### 5.13b Statutory charges on the policy (19 November 2026)
+
+> **Status: built; the rate classification needs your confirmation.**
+
+Charges on a policy used to be free text: a description, an amount, and a flag for
+whether the money passes through to an insurer. That is enough to bill a client and
+not enough to account for a levy, because nothing recorded what class of charge it
+was, who collects it, who receives it, which account it is payable to, or which
+version of the law set the rate.
+
+**The catalogue.** Statutory charges are rows in `ins_charge_catalogue`, versioned
+and immutable once billed. A charge says its class (statutory tax, statutory levy,
+regulatory contribution, commercial fee), its formula, the collector, the recipient,
+the payable account, and its exemptions. A statutory rate must name the instrument
+that verified it: "verified" without a source reference is refused, which is what
+stops it meaning "someone typed it".
+
+**On a policy.** Pricing is explicit -- `ins_apply_statutory_charges` -- and the
+manager then acknowledges the resulting figures. The acknowledgement is not
+ceremony: a levy is money collected for someone else, and if a verified rate changes
+between drafting and binding, the policy would otherwise bind at the old figure with
+nothing to show for it. Bind re-prices and refuses if the figures moved.
+
+**Three seeded charges, and which of them you can rely on.**
+
+| Charge | Rate | Verified? | Billed? |
+|---|---|---|---|
+| Insurance Training Levy | 0.5% of gross direct premium | **Yes** -- Insurance Act s.141(3) and SI No. 100 of 2020 reg. 17(2), which states the rate in words | Yes |
+| IRA regulatory levy | 1.5% (unconfirmed) | No -- press summaries only | **No**, inactive until verified |
+| Stamp duty, general policy | UGX 35,000 (unconfirmed) | No -- press summaries only | **No**, inactive until verified |
+
+**What you are asked to confirm here.**
+
+1. The two unconfirmed rates, or the instruments that state them. Until then they are
+   visible in the catalogue and cannot be billed, which is deliberate: an unverified
+   figure that could be billed would end up on a client invoice.
+2. Which charges this brokerage is actually obliged to collect and remit, and which
+   are the insurer's obligation. The distinction decides whether the charge belongs
+   in the client's invoice at all.
+3. Whether enforcement should be on. The company setting
+   `ins.statutory_charge_enforcement` is **advisory** by default, meaning charges are
+   priced and recorded when asked but a policy binds without them. Turning on
+   `required` makes bind refuse a policy whose statutory charges were not priced and
+   acknowledged -- and, importantly, **raises the premium of every policy bound from
+   then on**. That is a commercial decision, not a configuration detail, which is why
+   it is not the default.
+
 ### 5.14 Gross versus net remittance, and what the software does now (19 November 2026)
 
 > **Status: build follows the owner's decision; one legal question stays open.**
@@ -424,6 +471,7 @@ Sections 5.6 to 5.9 were added after the 11 October review. They summarise the p
 | Section 5.12 (agent commission: accrual, withholding character, returns) | | |
 | **Section 5.13 (commission recognition: which insurers are placement / collection / settlement)** | | |
 | **Section 5.14 (gross remittance and commission receivable; the s.90(3) set-off question)** | | |
+| **Section 5.13b (statutory charges: the two unverified rates, and whether enforcement should be required)** | | |
 
 Accountant name: ______________________ Date: ____________ Signature: ______________________
 
