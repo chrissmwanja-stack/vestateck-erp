@@ -816,6 +816,39 @@ begin
     (v_t, 'PEARL-OPERATING', 'operating',     'UGX', v_gl_bank),
     (v_t, 'PEARL-TRUST',     'client_money',  'UGX', v_gl_trust);
 
+  -- 3b. Unmatched statement lines for the bank-adjustment flow (D4e).
+  --
+  -- Two lines on PEARL-OPERATING that no book entry will match: a bank charge
+  -- and interest received. They exist so the reconciliation screen has
+  -- something to adjust and the Playwright spec does not have to import a
+  -- statement first. Written through import_bank_statement_batch as the
+  -- reconciler: it is the same path the Import Statement dialog uses, it sets
+  -- import_batch_id, and it enforces the account's currency (UGX).
+  -- Skipped when the lines are already there, so a second reset is harmless.
+  if not exists (
+    select 1 from bank_statement_lines
+     where tenant_id = v_t and bank_account = 'PEARL-OPERATING'
+       and reference in ('D4E-CHARGE-1', 'D4E-INTEREST-1')
+  ) then
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_u_recon, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform import_bank_statement_batch(
+      'PEARL-OPERATING',
+      jsonb_build_array(
+        jsonb_build_object('statement_date', current_date - 3,
+                           'description', 'BANK CHARGES - MONTHLY',
+                           'reference', 'D4E-CHARGE-1',
+                           'amount', -45000),
+        jsonb_build_object('statement_date', current_date - 2,
+                           'description', 'CREDIT INTEREST',
+                           'reference', 'D4E-INTEREST-1',
+                           'amount', 12000)
+      ),
+      false);
+    reset role;
+  end if;
+
   -- 4. Insurers and product lines.
   insert into ins_insurers (tenant_id, code, name) values
     (v_t, 'SAV', 'Savanna General Insurance'),

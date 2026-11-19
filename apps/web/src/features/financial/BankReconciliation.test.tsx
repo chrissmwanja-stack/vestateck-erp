@@ -156,6 +156,9 @@ function setup(opts: {
         : { data: opts.suggestions ?? [], error: null },
     fin_bank_confirm_match: () => ({ data: { variance: 0 }, error: null }),
     auto_match_bank_statement: () => ({ data: 2, error: null }),
+    // The adjustments panel asks the server whether the company's one-person
+    // exception is in force before it offers self-approval (D4e completion).
+    bank_adjustment_can_self_approve: () => ({ data: false, error: null }),
     ...opts.extraHandlers,
   });
 }
