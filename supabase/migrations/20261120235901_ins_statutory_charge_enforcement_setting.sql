@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Statutory charge enforcement is a company decision, not a global default
 -- =====================================================================
--- 20261120006000 made the bind guard fire on the real approval path. Measured:
+-- 20261120235900 made the bind guard fire on the real approval path. Measured:
 -- 39 SQL tests failed, because enforcing acknowledgement for every policy changes
 -- the invoice of every policy that already exists, and every fixture that binds one.
 --

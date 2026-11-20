@@ -91,7 +91,7 @@ begin
                  ('commission_receivable', '1110')) as r(role, code)
     join gl_accounts a on a.tenant_id = ta and a.account_code = r.code;
 
-  -- Enforcement is opt-in per company (20261120007000), because requiring it
+  -- Enforcement is opt-in per company (20261120235901), because requiring it
   -- globally changes the premium of every existing policy. This file is about the
   -- enforcing mode, so the company chooses it -- through the real workflow, not by
   -- an insert, so the approval path is exercised too.

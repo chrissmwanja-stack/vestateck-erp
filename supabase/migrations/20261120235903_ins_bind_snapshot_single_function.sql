@@ -12,7 +12,7 @@
 --      ("trigger functions can only be called as triggers"), so the wrapper could not
 --      have worked even once repointed.
 --
--- 20261120008000 repointed the trigger at the wrapper, which turned every bind into
+-- 20261120235902 repointed the trigger at the wrapper, which turned every bind into
 -- that second error and broke 43 tests.
 --
 -- The only correct shape is one function holding both responsibilities. Its body is
