@@ -191,10 +191,18 @@ begin
     'at_placement' = any (select unnest(implemented_values) from accounting_setting_definitions
                            where key = 'ins.commission_recognition'),
     '§1 the registry treats at_placement as implemented, because a reader shipped with it');
+  -- Since 20261119240000 on_premium_collection HAS a reader (the receipt
+  -- trigger), so it is selectable by design. What must stay unimplemented is
+  -- over_policy_term: it needs an earned-over-time schedule, and shipping it
+  -- selectable would be the silent-ignore bug this whole key exists to prevent.
   perform pg_temp.assert(
-    not ('on_premium_collection' = any (select unnest(implemented_values) from accounting_setting_definitions
-                                         where key = 'ins.commission_recognition')),
-    '§1 on_premium_collection is still not selectable -- nothing reads it');
+    'on_premium_collection' = any (select unnest(implemented_values) from accounting_setting_definitions
+                                    where key = 'ins.commission_recognition'),
+    '§1 on_premium_collection is selectable, because a reader shipped with it');
+  perform pg_temp.assert(
+    not ('over_policy_term' = any (select unnest(implemented_values) from accounting_setting_definitions
+                                    where key = 'ins.commission_recognition')),
+    '§1 over_policy_term is still not selectable -- nothing reads it');
 
   perform pg_temp.jwt(mgr);
   set local role authenticated;
@@ -349,10 +357,13 @@ begin
   c := ins_register_client('Refusal client', 'corporate', null, null, null, 'low');
   p := ins_create_policy(c.id, v_insurer, v_line, current_date, current_date + 365,
                          1000000, 'UGX', 200000, 10, null, null, 'Refusal fixture', null);
+  -- on_premium_collection gained a reader in 20261119240000 (the receipt
+  -- trigger), so it is now a legal override. What stays refused is
+  -- over_policy_term, which needs an earned-over-time schedule that is not built.
   perform pg_temp.expect_error(
-    format($q$select public.ins_set_policy_commission_recognition(%L, 'on_premium_collection')$q$, p.id),
+    format($q$select public.ins_set_policy_commission_recognition(%L, 'over_policy_term')$q$, p.id),
     'INS_COMMISSION_RECOGNITION_UNIMPLEMENTED',
-    '§5 a policy override of on_premium_collection');
+    '§5 a policy override of over_policy_term');
   perform pg_temp.expect_error(
     format($q$select public.ins_set_policy_commission_recognition(%L, 'whenever')$q$, p.id),
     'INS_COMMISSION_RECOGNITION_MODE',

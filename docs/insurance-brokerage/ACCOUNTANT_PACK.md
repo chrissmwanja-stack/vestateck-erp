@@ -21,16 +21,16 @@ The Insurance Brokerage industry template (`20261008100625_insurance_brokerage_t
 | 1000 | Operating Bank | asset | `bank` | Operating bank accounts, commission transfers in |
 | 1020 | Client Money Bank (Premium Trust) | asset | `client_money_bank` | Client money; earned commission held until moved |
 | 1100 | Accounts Receivable Control | asset | `ar_control` | Gross premium at bind |
-| 1110 | Commission Receivable | asset | not used by bind (see Q2) | Open question |
+| 1110 | Commission Receivable | asset | `commission_receivable` | Commission owed by the insurer under gross settlement (section 5.14). Unused under net, where a company still defaults until it chooses |
 | 1120 | Claims Receivable from Insurers | asset | `insurer_claim_receivable` | Claims approved for payment through the brokerage |
 | 1200 | VAT Input | asset | `vat_input` | Not used on commission (decision 6); see Q4 |
 | 1210 | WHT Receivable | asset | `wht_receivable` | Not used on commission (decision 6); see Q4 |
-| 2010 | Insurer Payable (Premiums) | liability | `insurer_payable` | Net premium owed to the insurer |
-| 2020 | Unearned Commission | liability | `unearned_commission` | Commission at bind, until the insurer is paid in full |
+| 2010 | Insurer Payable (Premiums) | liability | `insurer_payable` | Premium owed to the insurer: **gross** under the decided basis, net only for a company still on the historic default (section 5.14) |
+| 2020 | Unearned Commission | liability | `unearned_commission` | Commission held back at bind under net settlement, or under recognition cases 2 and 3, until the event that earns it (section 5.13) |
 | 2030 | Claims Payable to Clients | liability | `client_claim_payable` | Claim proceeds owed to the client |
 | 2100 | VAT Output | liability | `vat_output` | Not used on commission; see Q4 |
 | 2200 | WHT Payable | liability | `wht_payable` | Not used on commission; see Q4 |
-| 4000 | Commission Income | revenue | `commission_income` | Earned commission (recognised on settlement) |
+| 4000 | Commission Income | revenue | `commission_income` | Earned commission: at bind in case 1, on the client's receipt in case 2, on the insurer's settlement in case 3 (section 5.13) |
 | 4100 | Brokerage Fees & Other Income | revenue | no posting role identified | Broker-fee charge lines; see Q4 |
 | 5000 | General Expense | expense | general | Not used by insurance flows |
 
@@ -55,7 +55,7 @@ These are built in migrations `20261011090000`, `20261011100000` and `2026101209
 From `ANALYSIS.md` section 7. Questions 2, 5 and 6 are decided (section 3 above). Question 4 is partly decided.
 
 1. **Gross-up (open).** Should gross premium go to AR (1100) at bind, as now? Or should client money go straight to the premium trust (1020) when received? The current bind books to 1100. Cash collection into 1020 and remittance out of it are not in the bind journal.
-2. **Commission timing (decided in part).** The current design earns commission at bind into 2020, with recognition on insurer settlement. Confirm this, or say whether commission receivable (1110) should be used at bind instead.
+2. **Commission timing — answered by the owner, 19 November 2026.** Recognition follows the insurer agreement, in three cases, not one rule (section 5.13): an unconditional entitlement is earned at bind; an entitlement conditional on the policyholder paying is earned on the covering receipt; one that follows the insurer's settlement is earned then. Gross settlement with commission receivable (1110) is the decided basis (section 5.14). What remains for the accountant is the *classification* of each insurer agreement, and the s.90(3) set-off question. The previous wording of this question — confirm net-until-settlement, or use 1110 at bind — is therefore closed.
 3. **Net-of-commission (open).** Does the insurer remit only the net, so the broker never pays the gross on? The current design assumes yes.
 4. **Account names and VAT/WHT (VAT and the brokerage-fee treatment decided; template names still open).** Confirm the template names. On broker fees (4100), see the clarification below.
 
@@ -100,6 +100,11 @@ Worked example: G = 1,000,000 UGX, rate 10%. C = 100,000, N = 900,000. Dr 1100 1
 Two open items are created: an AR item for the client (`ins_policy_premium`, G) and a payable item for the insurer (`ins_policy_insurer`, N).
 
 ### 5.2 Commission recognised (on insurer settlement)
+
+> **This is case 3 of section 5.13 and is no longer the only treatment.** It remains the
+> default for a company that has not chosen, and it is the correct treatment for insurers
+> whose agreements make entitlement follow settlement. See 5.13 for the placement and
+> collection cases.
 
 When a posted settlement fully pays the insurer's net item, commission moves from liability to income: Dr 2020 Unearned Commission, Cr 4000 Commission Income, for C.
 
@@ -305,6 +310,140 @@ approved payment whose figures were recomputed at release time would not be an a
 the agent-share expense treatment above is right rather than a netting against commission income; and
 that the 1 July 2026 character change is reflected correctly for shares paid across that boundary.
 
+### 5.13 Commission recognition: three cases, one switch (19 November 2026)
+
+> **Status: built; the baseline needs your signature.** The owner has decided the shape
+> (below); what remains for you is to confirm which insurers fall in case 2.
+
+**The distinction being drawn.** When the brokerage has *earned* its commission and
+when it has *collected* the money are two different events, and the software must not
+treat them as one. What decides the recognition point is the insurer agreement: whether
+the brokerage's entitlement is unconditional once the policy is placed, or conditional
+on something that happens later.
+
+| Case | Agreement says | Mode | Earned at | Journal at bind |
+|---|---|---|---|---|
+| 1 | Entitlement is unconditional on placement/bind | `at_placement` | bind date | Dr 1100 gross · Cr 2010 net · Cr 4000 commission |
+| 2 | Entitlement is conditional on the policyholder paying | `on_premium_collection` | the receipt that covers the premium | Dr 1100 gross · Cr 2010 net · Cr 2020 unearned |
+| 3 | Entitlement follows the insurer's settlement | `on_insurer_settlement` | settlement of the insurer's item | as case 2, then Dr 2020 · Cr 4000 on settlement |
+
+Case 3 is the historic behaviour and remains the **default** for a company that has not
+chosen. Cases 1 and 2 exist because recognising case-2 agreements at placement would
+overstate both revenue and the amount recoverable — the commission would be booked
+before the contingency that creates it has cleared.
+
+**Case 2 in detail, because it is the one you are being asked to populate.**
+
+- **The condition is the client's payment, not the insurer's.** A receipt that leaves the
+  client's premium item fully covered earns the whole commission, in one movement, on the
+  receipt date. **A partial receipt earns nothing**: the agreement is binary, and
+  recognising a proportion on a part payment would invent an entitlement the agreement
+  does not create. If any insurer agreement is in fact pro-rata on collection, that is a
+  fourth case and it needs a schedule, not a switch.
+- **The unearned balance stays in 2020 until then**, which is what makes the deferred
+  position visible to you between bind and collection.
+- **Voiding the receipt un-earns it.** The reversing journal goes back through 2020 at
+  the *same booked rate*, and the deferred entry is restored. Income is never carried on
+  money that came back.
+- **A credit note does not earn it on its own.** Coverage is tested as receipts plus
+  credit notes, because a fully credited item can never be collected and leaving it
+  deferred forever is a worse error than recognising it — but the recognition event is
+  the **receipt**. Please confirm you are content with that treatment for a cancelled sale
+  that is credited rather than refunded.
+- **Gross settlement and case 2 cannot coexist.** Under gross the premium crosses in full
+  at placement, so there is nothing left to collect; the system refuses the combination by
+  name at bind rather than silently choosing one.
+
+**What the accountant is asked to confirm here.**
+
+1. Which insurer agreements are case 1, which are case 2, and which are case 3. Today
+   every company defaults to case 3 unless it chooses otherwise, so a misclassification
+   is not something the software will catch.
+2. That the case-2 trigger is the **client's** receipt — not the insurer's settlement and
+   not the credit note.
+3. That a voided receipt reverses the recognition rather than leaving it earned.
+4. Whether any agreement is pro-rata on collection, which would need a schedule and is
+   not built.
+
+### 5.13b Statutory charges on the policy (19 November 2026)
+
+> **Status: built; the rate classification needs your confirmation.**
+
+Charges on a policy used to be free text: a description, an amount, and a flag for
+whether the money passes through to an insurer. That is enough to bill a client and
+not enough to account for a levy, because nothing recorded what class of charge it
+was, who collects it, who receives it, which account it is payable to, or which
+version of the law set the rate.
+
+**The catalogue.** Statutory charges are rows in `ins_charge_catalogue`, versioned
+and immutable once billed. A charge says its class (statutory tax, statutory levy,
+regulatory contribution, commercial fee), its formula, the collector, the recipient,
+the payable account, and its exemptions. A statutory rate must name the instrument
+that verified it: "verified" without a source reference is refused, which is what
+stops it meaning "someone typed it".
+
+**On a policy.** Pricing is explicit -- `ins_apply_statutory_charges` -- and the
+manager then acknowledges the resulting figures. The acknowledgement is not
+ceremony: a levy is money collected for someone else, and if a verified rate changes
+between drafting and binding, the policy would otherwise bind at the old figure with
+nothing to show for it. Bind re-prices and refuses if the figures moved.
+
+**Three seeded charges, and which of them you can rely on.**
+
+| Charge | Rate | Verified? | Billed? |
+|---|---|---|---|
+| Insurance Training Levy | 0.5% of gross direct premium | **Yes** -- Insurance Act s.141(3) and SI No. 100 of 2020 reg. 17(2), which states the rate in words | Yes |
+| IRA regulatory levy | 1.5% (unconfirmed) | No -- press summaries only | **No**, inactive until verified |
+| Stamp duty, general policy | UGX 35,000 (unconfirmed) | No -- press summaries only | **No**, inactive until verified |
+
+**What you are asked to confirm here.**
+
+1. The two unconfirmed rates, or the instruments that state them. Until then they are
+   visible in the catalogue and cannot be billed, which is deliberate: an unverified
+   figure that could be billed would end up on a client invoice.
+2. Which charges this brokerage is actually obliged to collect and remit, and which
+   are the insurer's obligation. The distinction decides whether the charge belongs
+   in the client's invoice at all.
+3. Whether enforcement should be on. The company setting
+   `ins.statutory_charge_enforcement` is **advisory** by default, meaning charges are
+   priced and recorded when asked but a policy binds without them. Turning on
+   `required` makes bind refuse a policy whose statutory charges were not priced and
+   acknowledged -- and, importantly, **raises the premium of every policy bound from
+   then on**. That is a commercial decision, not a configuration detail, which is why
+   it is not the default.
+
+### 5.14 Gross versus net remittance, and what the software does now (19 November 2026)
+
+> **Status: build follows the owner's decision; one legal question stays open.**
+
+The insurer payable is booked **gross** and commission is a separate receivable from the
+insurer — never a deduction from what the insurer is owed. The bind posts
+Dr 1100 gross · Cr 2010 gross · Dr 1110 Commission receivable · Cr 4000 Commission
+income, and the insurer is paid in full.
+
+**This differs from section 5.1 and 5.2**, which describe the net treatment (payable =
+gross − commission, commission to 2020). Those sections remain in this pack because the
+net basis is still a selectable position — `ins.insurer_remittance_basis` is a
+legal-review-gated setting with both values — but **a company that has not chosen still
+gets net**, which is the historic behaviour. Why the difference matters:
+
+- Insurance Act s.90(3) requires premium to be remitted "without any deductions of
+  commissions". Booking the payable net of commission is the opposite of that sentence.
+- The owner has therefore ruled that gross is the intended basis, and that the system
+  should **not** offer commission netting as a standard settlement method — no generic
+  net-settlement switch exists to accommodate an insurer's statement.
+
+**The one question left open for legal/accounting confirmation:** may a particular insurer
+agreement create a lawful contractual set-off, and if so under what circumstances can it
+operate without conflicting with s.90(3)? Until that is answered, netting is a
+configuration a company must deliberately choose (and have compliance-reviewed), not a
+default.
+
+**Consequences you should check in the ledger map.** Gross settlement needs account 1110
+Commission Receivable (posting role `commission_receivable`). It also means the client's
+premium and the insurer's payable are the same amount, so the trust account holds the
+whole premium until remitted, and commission income does not depend on remittance at all.
+
 ## 6. Reporting
 
 - Broker fee tax report: `ins_broker_fee_tax_report` (a view). Broker-fee credit rows for cancellations are dated at posting.
@@ -329,6 +468,10 @@ Sections 5.6 to 5.9 were added after the 11 October review. They summarise the p
 | Sections 5.6 to 5.9 (premium cash, co-insurance and VAT, cancellations, claim payments) | | |
 | Section 5.10 (claim recognition criteria, segregation of duties, un-approval) | | |
 | Section 5.11 (foreign currency: rounding account 5900, void at original rate) | | |
+| Section 5.12 (agent commission: accrual, withholding character, returns) | | |
+| **Section 5.13 (commission recognition: which insurers are placement / collection / settlement)** | | |
+| **Section 5.14 (gross remittance and commission receivable; the s.90(3) set-off question)** | | |
+| **Section 5.13b (statutory charges: the two unverified rates, and whether enforcement should be required)** | | |
 
 Accountant name: ______________________ Date: ____________ Signature: ______________________
 
@@ -342,6 +485,14 @@ Each item below is the software's current design and needs the accountant's conf
 - **Policy approval workflow** (`20261106180000` and repairs): binding requires an approved policy; segregation of duties applies to approval.
 - **Insurer statement reconciliation** (`20261106220000`): insurer-reported premium, claims and commission compared line by line with the brokerage's records. Read-only; it adjusts nothing.
 - **Agent commission** (`20261117240000` to `20261118180000`): accrual at recognition of the brokerage's commission, agent share as an expense (5010), withholding at payment from approved effective-dated parameters with the character change on 1 July 2026, maker-checker payment, per-period returns to URA on the payment-month basis, and per-currency statements. Section 5.12 describes the treatment; the basis for each agreement type and the expense-versus-netting question need the accountant's confirmation.
+- **Commission recognition modes** (`20261117210000`, `20261119240000`): `at_placement` and
+  `on_insurer_settlement` were joined by `on_premium_collection`, which earns the commission on the
+  client's receipt that covers the premium, earns nothing on a part payment, and un-earns on a void.
+  `over_policy_term` remains unimplemented and unselectable. Section 5.13.
+- **Gross remittance** (`20261117200000`): the insurer payable is booked for the whole premium with
+  commission as a receivable (1110), per the owner's decision that commission is never netted off
+  what an insurer is owed. Netting survives as a legal-review-gated configuration, not a default.
+  Section 5.14.
 - **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Built (all five steps, `20261107140000` to `20261111100000`), not accountant-approved. New accounts and posting roles for review: account 3900 Opening Balance Clearing (equity, role `opening_balance_clearing`, template default, backfilled to existing insurance tenants by `20261109090000`) and a `retained_earnings` role that receives earned commission up to cut-over (account 3200 per `IN_FORCE_IMPORT.md` section 4).
 
 ## 10. Pointers for the reviewer

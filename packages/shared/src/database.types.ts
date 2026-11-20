@@ -5906,6 +5906,173 @@ export type Database = {
           },
         ]
       }
+      ins_charge_catalogue: {
+        Row: {
+          applies_to_product_lines: string[] | null
+          basis: string | null
+          charge_class: string
+          code: string
+          collector: string
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          effective_from: string
+          effective_to: string | null
+          exemptions: Json
+          fixed_amount: number | null
+          formula: Json
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          payable_role: string
+          rate_pct: number | null
+          recipient_kind: string
+          recipient_name: string
+          source_reference: string | null
+          supersedes_id: string | null
+          tenant_id: string | null
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
+          version: number
+        }
+        Insert: {
+          applies_to_product_lines?: string[] | null
+          basis?: string | null
+          charge_class: string
+          code: string
+          collector: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          effective_from: string
+          effective_to?: string | null
+          exemptions?: Json
+          fixed_amount?: number | null
+          formula: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          payable_role: string
+          rate_pct?: number | null
+          recipient_kind: string
+          recipient_name: string
+          source_reference?: string | null
+          supersedes_id?: string | null
+          tenant_id?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          version?: number
+        }
+        Update: {
+          applies_to_product_lines?: string[] | null
+          basis?: string | null
+          charge_class?: string
+          code?: string
+          collector?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          exemptions?: Json
+          fixed_amount?: number | null
+          formula?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          payable_role?: string
+          rate_pct?: number | null
+          recipient_kind?: string
+          recipient_name?: string
+          source_reference?: string | null
+          supersedes_id?: string | null
+          tenant_id?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_charge_catalogue_class_fk"
+            columns: ["charge_class"]
+            isOneToOne: false
+            referencedRelation: "ins_charge_class"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "ins_charge_catalogue_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "ins_charge_catalogue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_charge_catalogue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_charge_catalogue_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_charge_class: {
+        Row: {
+          code: string
+          created_at: string
+          is_statutory: boolean
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_statutory: boolean
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_statutory?: boolean
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      ins_charge_param: {
+        Row: {
+          code: string
+          created_at: string
+          is_money: boolean
+          label: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_money: boolean
+          label: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_money?: boolean
+          label?: string
+        }
+        Relationships: []
+      }
       ins_claim_correspondence: {
         Row: {
           body: string | null
@@ -7856,6 +8023,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -7889,6 +8057,7 @@ export type Database = {
           renewal_of_id?: string | null
           risk_description?: string | null
           status?: string
+          statutory_charges_ack?: Json | null
           sum_insured?: number
           tenant_id: string
           transaction_type?: string
@@ -7922,6 +8091,7 @@ export type Database = {
           renewal_of_id?: string | null
           risk_description?: string | null
           status?: string
+          statutory_charges_ack?: Json | null
           sum_insured?: number
           tenant_id?: string
           transaction_type?: string
@@ -8447,15 +8617,22 @@ export type Database = {
       ins_policy_charges: {
         Row: {
           amount: number | null
+          catalogue_id: string | null
+          catalogue_snapshot: Json | null
+          catalogue_version: number | null
+          charge_class: string | null
+          collector: string | null
           description: string
           fee_class: string | null
           fee_class_reason: string | null
           id: string
           income_gl_account_id: string | null
           kind: string
+          payable_role: string | null
           policy_id: string
           recipient_insurer_id: string | null
           recipient_mode: string
+          recipient_name: string | null
           reviewed: boolean
           tenant_id: string
           vat_amount: number | null
@@ -8465,15 +8642,22 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          catalogue_id?: string | null
+          catalogue_snapshot?: Json | null
+          catalogue_version?: number | null
+          charge_class?: string | null
+          collector?: string | null
           description: string
           fee_class?: string | null
           fee_class_reason?: string | null
           id?: string
           income_gl_account_id?: string | null
           kind: string
+          payable_role?: string | null
           policy_id: string
           recipient_insurer_id?: string | null
           recipient_mode: string
+          recipient_name?: string | null
           reviewed?: boolean
           tenant_id: string
           vat_amount?: number | null
@@ -8483,15 +8667,22 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          catalogue_id?: string | null
+          catalogue_snapshot?: Json | null
+          catalogue_version?: number | null
+          charge_class?: string | null
+          collector?: string | null
           description?: string
           fee_class?: string | null
           fee_class_reason?: string | null
           id?: string
           income_gl_account_id?: string | null
           kind?: string
+          payable_role?: string | null
           policy_id?: string
           recipient_insurer_id?: string | null
           recipient_mode?: string
+          recipient_name?: string | null
           reviewed?: boolean
           tenant_id?: string
           vat_amount?: number | null
@@ -8500,6 +8691,13 @@ export type Database = {
           vat_rate_pct?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ins_policy_charges_catalogue_id_fkey"
+            columns: ["catalogue_id"]
+            isOneToOne: false
+            referencedRelation: "ins_charge_catalogue"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ins_policy_charges_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -18815,6 +19013,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ins_acknowledge_statutory_charges: {
+        Args: { p_policy_id: string }
+        Returns: Json
+      }
       ins_agent_commission_accrual_preview: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -18884,6 +19086,14 @@ export type Database = {
       }
       ins_agent_payment_position: { Args: never; Returns: Json }
       ins_agent_wht_for: { Args: { p_on: string }; Returns: Json }
+      ins_apply_statutory_charges: {
+        Args: {
+          p_add_missing_params?: boolean
+          p_params?: Json
+          p_policy_id: string
+        }
+        Returns: Json
+      }
       ins_approve_insurer_product_rate: {
         Args: { p_id: string }
         Returns: {
@@ -18975,6 +19185,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -19028,6 +19239,7 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_charge_formula_valid: { Args: { p_formula: Json }; Returns: boolean }
       ins_claim_apply_payment_totals: {
         Args: { p_claim_id: string; p_note: string }
         Returns: {
@@ -19164,6 +19376,7 @@ export type Database = {
               renewal_of_id: string | null
               risk_description: string | null
               status: string
+              statutory_charges_ack: Json | null
               sum_insured: number
               tenant_id: string
               transaction_type: string
@@ -19218,6 +19431,7 @@ export type Database = {
               renewal_of_id: string | null
               risk_description: string | null
               status: string
+              statutory_charges_ack: Json | null
               sum_insured: number
               tenant_id: string
               transaction_type: string
@@ -19303,6 +19517,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -19405,6 +19620,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -19563,6 +19779,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      ins_earn_commission_on_collection: {
+        Args: { p_reverse: boolean; p_settlement_id: string }
+        Returns: number
       }
       ins_end_insurer_product_rate: {
         Args: { p_effective_to: string; p_id: string }
@@ -20010,6 +20230,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -20219,6 +20440,58 @@ export type Database = {
           p_policy_id: string
         }
         Returns: Json
+      }
+      ins_price_charges: {
+        Args: {
+          p_commission_amount: number
+          p_currency?: string
+          p_gross_premium: number
+          p_net_premium: number
+          p_on?: string
+          p_product_line_code?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          amount: number
+          basis: string
+          catalogue_id: string
+          catalogue_version: number
+          charge_class: string
+          code: string
+          collector: string
+          name: string
+          payable_account_id: string
+          payable_role: string
+          recipient_kind: string
+          recipient_name: string
+          snapshot: Json
+          warnings: string[]
+        }[]
+      }
+      ins_price_charges_for: {
+        Args: {
+          p_currency?: string
+          p_on?: string
+          p_params: Json
+          p_product_line_code?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          amount: number
+          basis: string
+          catalogue_id: string
+          catalogue_version: number
+          charge_class: string
+          code: string
+          collector: string
+          name: string
+          payable_account_id: string
+          payable_role: string
+          recipient_kind: string
+          recipient_name: string
+          snapshot: Json
+          warnings: string[]
+        }[]
       }
       ins_propose_policy_endorsement: {
         Args: {
@@ -20778,6 +21051,10 @@ export type Database = {
       }
       ins_share_basis: { Args: { p_policy_id: string }; Returns: string }
       ins_share_cash_totals: { Args: { p_share_id: string }; Returns: Json }
+      ins_statutory_enforcement: {
+        Args: { p_on?: string; p_tenant_id: string }
+        Returns: string
+      }
       ins_submit_cancellation_cash: {
         Args: {
           p_adjustment_id: string
@@ -20970,6 +21247,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -21939,6 +22217,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -21981,6 +22260,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22169,6 +22449,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
@@ -22211,6 +22492,7 @@ export type Database = {
           renewal_of_id: string | null
           risk_description: string | null
           status: string
+          statutory_charges_ack: Json | null
           sum_insured: number
           tenant_id: string
           transaction_type: string
