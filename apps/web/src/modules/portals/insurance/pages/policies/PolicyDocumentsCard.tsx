@@ -48,6 +48,7 @@ const KIND_LABEL: Record<string, string> = {
   insurer_debit_note: 'Insurer debit note',
   risk_note: 'Risk note',
   renewal_notice: 'Renewal notice',
+  endorsement_note: 'Endorsement confirmation',
 };
 
 export default function PolicyDocumentsCard({ policyId, canManage }: { policyId: string; canManage: boolean }) {
@@ -129,12 +130,12 @@ export default function PolicyDocumentsCard({ policyId, canManage }: { policyId:
   // The function renders the PDF, stores it and registers it; from here the
   // registry is simply re-read.
   const [generating, setGenerating] = useState<string | null>(null);
-  const generate = async (kind: string) => {
+  const generate = async (kind: string, endorsementId?: string) => {
     setGenerating(kind);
     setError(null);
     try {
       const { error: fnError } = await supabase.functions.invoke('generate-ins-doc', {
-        body: { policy_id: policyId, kind },
+        body: { policy_id: policyId, kind, ...(endorsementId ? { endorsement_id: endorsementId } : {}) },
       });
       if (fnError) {
         const context = (fnError as { context?: Response }).context;
@@ -186,6 +187,8 @@ export default function PolicyDocumentsCard({ policyId, canManage }: { policyId:
             onClick={() => void generate('renewal_notice')}>
             {generating === 'renewal_notice' ? 'Generating…' : 'Renewal notice'}
           </Button>
+          {/* An endorsement confirmation is about one endorsement, so it is generated
+              from that endorsement's own row rather than from a list of kinds here. */}
         </Stack>
       )}
       {loading ? (

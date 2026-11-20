@@ -57,6 +57,16 @@ describe('statusTone', () => {
     expect(statusTone('rejected')).toBe('error');
     expect(statusTone('withdrawn')).toBe('default');
   });
+
+  it('shows a cancelled endorsement as neutral, not as a failure', () => {
+    // Cancelling is a deliberate, approved act -- an endorsement that was undone.
+    // Painting it red would make an ordinary correction look like an error.
+    expect(statusTone('cancelled')).toBe('default');
+  });
+
+  it('does not treat a cancelled endorsement as live', () => {
+    expect(isLive('cancelled')).toBe(false);
+  });
 });
 
 describe('formatSigned', () => {

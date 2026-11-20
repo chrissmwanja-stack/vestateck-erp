@@ -16,6 +16,8 @@
 //   insurer_debit_note commission debited to the insurers, premium shown for context
 //   risk_note          schedule of the risks linked to the policy
 //   renewal_notice     expiry notice for the insured
+//   endorsement_note   one posted endorsement: what changed, and what it did to
+//                      the premium, the commission and the document number
 //
 // No email path: the document lands in the store and is downloaded from
 // there (the policy page's Documents panel lists it immediately).
@@ -33,7 +35,7 @@ const BUCKET = 'tenant-documents';
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // the caller gets a fresh download from the store anyway
 const TEMPLATE_VERSION = 1;
 
-const KINDS = ['client_debit_note', 'insurer_debit_note', 'risk_note', 'renewal_notice'] as const;
+const KINDS = ['client_debit_note', 'insurer_debit_note', 'risk_note', 'renewal_notice', 'endorsement_note'] as const;
 type DocKind = (typeof KINDS)[number];
 
 const TITLES: Record<DocKind, string> = {
@@ -41,11 +43,17 @@ const TITLES: Record<DocKind, string> = {
   insurer_debit_note: 'INSURER DEBIT NOTE (COMMISSION)',
   risk_note: 'RISK NOTE',
   renewal_notice: 'RENEWAL NOTICE',
+  endorsement_note: 'ENDORSEMENT CONFIRMATION',
 };
 
 interface GenerateDocBody {
   policy_id: string;
   kind: DocKind;
+  /**
+   * Required for endorsement_note, ignored otherwise: an endorsement document is
+   * about one endorsement, and there may be many on a policy.
+   */
+  endorsement_id?: string;
 }
 
 function jsonResponse(corsHeaders: HeadersInit, body: unknown, status: number) {
@@ -91,6 +99,9 @@ serve(async (req) => {
       return jsonResponse(corsHeaders, { error: `kind must be one of: ${KINDS.join(', ')}` }, 400);
     }
     const kind = body.kind;
+    if (kind === 'endorsement_note' && !body.endorsement_id) {
+      return jsonResponse(corsHeaders, { error: 'endorsement_id is required for an endorsement note' }, 400);
+    }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -123,6 +134,34 @@ serve(async (req) => {
 
     if (hasInsurance !== true || callerTenantId !== pol.tenant_id) {
       return jsonResponse(corsHeaders, { error: 'You are not authorized to document this policy' }, 403);
+    }
+
+    // --- The endorsement, for the one kind that documents a single one ---
+    //
+    // Read as the service role and re-checked against the policy just loaded: the row
+    // must belong to THIS policy and this tenant, or an id from another client's book
+    // would render into this client's document.
+    let endorsement: {
+      endorsement_no: string | null; status: string; effective_date: string;
+      reason: string; posting_date: string | null;
+      calculation: Record<string, unknown> | null;
+    } | null = null;
+    if (kind === 'endorsement_note') {
+      const { data: e, error: eError } = await admin
+        .from('ins_policy_endorsements')
+        .select('endorsement_no, status, effective_date, reason, posting_date, calculation, policy_id, tenant_id')
+        .eq('id', body.endorsement_id!)
+        .maybeSingle();
+      if (eError) return jsonResponse(corsHeaders, { error: eError.message }, 500);
+      if (!e || e.policy_id !== pol.id || e.tenant_id !== pol.tenant_id) {
+        return jsonResponse(corsHeaders, { error: 'Endorsement not found on this policy' }, 404);
+      }
+      // A document is evidence, so it is only ever issued for a posted endorsement.
+      // Draft, withdrawn and rejected proposals have no number and no money.
+      if (e.status !== 'posted') {
+        return jsonResponse(corsHeaders, { error: `Only a posted endorsement can be documented (this one is ${e.status})` }, 400);
+      }
+      endorsement = e;
     }
 
     // --- Risks, only where the document shows them ---
@@ -206,6 +245,59 @@ serve(async (req) => {
       }
       y -= 6;
       drawText(`Total sum insured on schedule: ${money(total, pol.currency)}`, { useBold: true });
+    } else if (kind === 'endorsement_note') {
+      // The endorsement's own figures, then the policy's position after it. Both come
+      // from what the posting stored, never recomputed here: the document has to say
+      // what the ledger says.
+      const calc = (endorsement!.calculation ?? {}) as Record<string, unknown>;
+      const num = (v: unknown) => Number(v ?? 0);
+      drawText('Endorsement', { useBold: true, size: 12 });
+      y -= 2;
+      drawText(`Number: ${endorsement!.endorsement_no ?? '-'}`, { useBold: true });
+      drawText(`Effective date: ${day(endorsement!.effective_date)}`);
+      drawText(`Posted: ${day(endorsement!.posting_date)}`);
+      drawText(`Reason: ${endorsement!.reason}`);
+      y -= 6;
+
+      drawText('Change to the premium', { useBold: true, size: 12 });
+      y -= 2;
+      const delta = num(calc.premium_delta);
+      drawText(`${delta >= 0 ? 'Additional premium' : 'Return premium'}: ${money(Math.abs(delta), pol.currency)}`);
+      const cdelta = num(calc.commission_delta);
+      drawText(`${cdelta >= 0 ? 'Additional commission' : 'Commission returned'}: ${money(Math.abs(cdelta), pol.currency)}  (at ${Number(calc.commission_rate_pct ?? pol.commission_rate_pct).toFixed(2)}%)`);
+      y -= 6;
+
+      const shares = Array.isArray(calc.shares) ? (calc.shares as Record<string, unknown>[]) : [];
+      if (shares.length > 0) {
+        drawText('By insurer', { useBold: true, size: 12 });
+        y -= 2;
+        for (const sh of shares) {
+          const d = num(sh.premium_delta);
+          if (d === 0) continue;
+          drawText(`- ${(sh.basis as string) ?? 'agreed'}: ${money(d, pol.currency)} premium, ${money(num(sh.commission_delta), pol.currency)} commission`, { size: 10 });
+        }
+        y -= 6;
+      }
+
+      const changes = Array.isArray(calc.changes) ? (calc.changes as Record<string, unknown>[]) : [];
+      if (changes.length > 0) {
+        drawText('Changes to the policy record', { useBold: true, size: 12 });
+        y -= 2;
+        for (const c of changes) {
+          drawText(`${String(c.field).replace(/_/g, ' ')}: ${JSON.stringify(c.before)} -> ${JSON.stringify(c.after)}`, { size: 10 });
+        }
+        y -= 6;
+      }
+
+      // The policy row itself is never mutated by an endorsement, so the document must
+      // not imply it was: these are the original terms, still in force.
+      drawText('Policy as bound (the endorsement does not rewrite these)', { useBold: true, size: 12 });
+      y -= 2;
+      drawText(`Gross premium at bind: ${money(pol.gross_premium, pol.currency)}`, { size: 10 });
+      drawText(`Commission at bind: ${money(pol.commission_amount, pol.currency)}`, { size: 10 });
+      drawText(`Net premium to insurers at bind: ${money(pol.net_premium_to_insurer, pol.currency)}`, { size: 10 });
+      y -= 6;
+      drawText('This endorsement was approved by an independent Finance checker before it posted.', { size: 9, color: [0.4, 0.4, 0.4] });
     } else {
       drawText('Premium breakdown', { useBold: true, size: 12 });
       y -= 2;
@@ -237,7 +329,10 @@ serve(async (req) => {
     const pdfBytes = await pdfDoc.save();
 
     // --- Upload to the shared private bucket (tenant folder) ---
-    const filePath = `${pol.tenant_id}/insurance/insurance_policy/${pol.id}/${pol.policy_no}-${kind}-${stamp()}.pdf`;
+    const nameSuffix = kind === 'endorsement_note'
+      ? `${endorsement!.endorsement_no ?? 'endorsement'}-${kind}`
+      : kind;
+    const filePath = `${pol.tenant_id}/insurance/insurance_policy/${pol.id}/${pol.policy_no}-${nameSuffix}-${stamp()}.pdf`;
     const { error: uploadError } = await admin.storage
       .from(BUCKET)
       .upload(filePath, pdfBytes, { contentType: 'application/pdf', upsert: true });

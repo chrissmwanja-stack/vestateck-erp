@@ -11,9 +11,10 @@ import {
 import { errorText, rows, rpc, table } from '../db';
 import {
   buildChanges, buildTerms, decideEndorsement, formatSigned, isLive, prepareEndorsement, previewEndorsement,
+  approveEndorsementCancellation, prepareEndorsementCancellation, unwindPosition,
   proposeEndorsement, reviewPosition, statusTone, withdrawEndorsement,
   type EndorsementCalculation, type EndorsementChangesDraft, type EndorsementPosition, type EndorsementRow,
-  type EndorsementTermsDraft,
+  type EndorsementTermsDraft, type EndorsementUnwindPosition,
 } from './workflow';
 
 interface GlAccountOption {
@@ -52,6 +53,13 @@ export default function EndorsementsPanel({
 
   const [withdrawRow, setWithdrawRow] = useState<EndorsementRow | null>(null);
   const [withdrawReason, setWithdrawReason] = useState('');
+  // E4: cancelling a posted endorsement. The eligibility is fetched when the dialog
+  // opens rather than guessed from the row, because only the server knows whether
+  // the money has moved.
+  const [cancelRow, setCancelRow] = useState<EndorsementRow | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelPosition, setCancelPosition] = useState<EndorsementUnwindPosition | null>(null);
+  const [cancelPosLoading, setCancelPosLoading] = useState(false);
   const [prepareRow, setPrepareRow] = useState<EndorsementRow | null>(null);
   const [prepareClearing, setPrepareClearing] = useState('');
   const [decideRow, setDecideRow] = useState<EndorsementRow | null>(null);
@@ -143,6 +151,57 @@ export default function EndorsementsPanel({
       setWithdrawRow(null);
       setWithdrawReason('');
       setNotice('Endorsement withdrawn.');
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openCancel = async (row: EndorsementRow) => {
+    setCancelRow(row);
+    setCancelReason('');
+    setCancelPosition(null);
+    setCancelPosLoading(true);
+    setError(null);
+    try {
+      setCancelPosition(await unwindPosition(row.id));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setCancelPosLoading(false);
+    }
+  };
+
+  const runCancel = async () => {
+    if (!cancelRow) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await prepareEndorsementCancellation(cancelRow.id, cancelReason);
+      // The document needs a second, independent Finance person; say so plainly
+      // rather than leaving the row looking unchanged.
+      setNotice('Cancellation prepared. An independent Finance checker must approve it before anything is reversed.');
+      setCancelRow(null);
+      setCancelReason('');
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runApproveCancel = async () => {
+    if (!cancelRow) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await approveEndorsementCancellation(cancelRow.id, cancelReason);
+      setNotice('Endorsement cancelled. The policy is back to its bound position.');
+      setCancelRow(null);
+      setCancelReason('');
       await load();
     } catch (e) {
       setError(errorText(e));
@@ -289,6 +348,14 @@ export default function EndorsementsPanel({
                             Review
                           </Button>
                         )}
+                        {/* E4. Finance-only, like every other money action here: the RPCs
+                            assert it too, but offering the button to someone who cannot
+                            use it wastes their time. */}
+                        {showFinanceTools && row.status === 'posted' && (
+                          <Button size="small" color="warning" onClick={() => void openCancel(row)}>
+                            Cancel
+                          </Button>
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -414,6 +481,70 @@ export default function EndorsementsPanel({
           <Button onClick={() => setWithdrawRow(null)}>Cancel</Button>
           <Button color="warning" variant="contained" onClick={runWithdraw} disabled={busy || withdrawReason.trim().length < 5}>
             Withdraw
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* E4: cancel a posted endorsement. The dialog leads with what the server
+          says about the position, because the reasons are the useful part -- an
+          approver who cannot unwind needs to know which movement to reverse first. */}
+      <Dialog open={Boolean(cancelRow)} onClose={() => setCancelRow(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Cancel endorsement {cancelRow?.endorsement_no ?? ''}</DialogTitle>
+        <DialogContent>
+          {cancelPosLoading ? (
+            <CircularProgress size={24} sx={{ my: 2 }} />
+          ) : cancelPosition ? (
+            <Stack spacing={1.5} sx={{ mt: 1 }}>
+              {cancelPosition.eligible ? (
+                <Alert severity="info">
+                  This reverses the endorsement in full and returns the policy to its bound
+                  position. {cancelPosition.open_amount_to_clear
+                    ? `It will clear ${formatSigned(cancelPosition.open_amount_to_clear, cancelPosition.currency ?? '')} of open items.`
+                    : ''}
+                </Alert>
+              ) : (
+                <Alert severity="warning">
+                  <Typography variant="subtitle2" gutterBottom>This endorsement cannot be cancelled yet</Typography>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {(cancelPosition.reasons ?? []).map((r) => <li key={r}>{r}</li>)}
+                  </ul>
+                </Alert>
+              )}
+              {cancelPosition.eligible && (
+                <>
+                  <TextField
+                    label="Why is it being cancelled? (at least 5 characters)"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    Preparing is not approving. A second Finance person must approve before any
+                    journal is posted -- if this is you, the approve step will refuse it.
+                  </Typography>
+                </>
+              )}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelRow(null)}>Close</Button>
+          <Button
+            color="warning"
+            disabled={busy || !cancelPosition?.eligible || cancelReason.trim().length < 5}
+            onClick={() => void runCancel()}
+          >
+            Prepare cancellation
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={busy || !cancelPosition?.eligible || cancelReason.trim().length < 5}
+            onClick={() => void runApproveCancel()}
+          >
+            Approve (independent checker)
           </Button>
         </DialogActions>
       </Dialog>

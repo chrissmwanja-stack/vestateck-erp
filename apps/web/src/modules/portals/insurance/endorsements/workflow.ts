@@ -3,7 +3,11 @@
 // inputs and presents the returned calculation.
 import { rpc } from '../db';
 
-export type EndorsementStatus = 'proposed' | 'prepared' | 'posting' | 'posted' | 'rejected' | 'withdrawn';
+export type EndorsementStatus =
+  | 'proposed' | 'prepared' | 'posting' | 'posted' | 'rejected' | 'withdrawn'
+  // E4: posted and then unwound. Distinct from 'withdrawn' (which never posted
+  // anything) because the two must be distinguishable in the history for ever.
+  | 'cancelled';
 
 export interface EndorsementShareCalc {
   insurer_id: string;
@@ -98,6 +102,8 @@ export function statusTone(status: EndorsementStatus): 'success' | 'primary' | '
       return 'warning';
     case 'rejected':
       return 'error';
+    // A cancelled endorsement is not a failure -- it is an endorsement that was
+    // undone -- so it is grey rather than red, the same as a withdrawal.
     default:
       return 'default';
   }
@@ -166,6 +172,47 @@ export async function decideEndorsement(
     p_decision: decision,
     p_review_note: reviewNote,
     p_accept_manual_exception: acceptException,
+  });
+}
+
+/** Whether a posted endorsement can be unwound, and why not when it cannot. */
+export interface EndorsementUnwindPosition {
+  eligible: boolean;
+  already_cancelled: boolean;
+  endorsement_id?: string;
+  endorsement_no?: string | null;
+  policy_no?: string;
+  currency?: string;
+  premium_delta?: number;
+  commission_delta?: number;
+  open_amount_to_clear?: number;
+  /** Plain sentences for the screen: each names the step that unblocks it. */
+  reasons: string[];
+}
+
+export async function unwindPosition(endorsementId: string): Promise<EndorsementUnwindPosition> {
+  return rpc<EndorsementUnwindPosition>('ins_endorsement_unwind_position', {
+    p_endorsement_id: endorsementId,
+  });
+}
+
+export async function prepareEndorsementCancellation(
+  id: string,
+  reason: string,
+): Promise<EndorsementRow> {
+  return rpc<EndorsementRow>('ins_prepare_endorsement_cancellation', {
+    p_endorsement_id: id,
+    p_reason: reason,
+  });
+}
+
+export async function approveEndorsementCancellation(
+  id: string,
+  reviewNote: string,
+): Promise<EndorsementRow> {
+  return rpc<EndorsementRow>('ins_approve_endorsement_cancellation', {
+    p_endorsement_id: id,
+    p_review_note: reviewNote,
   });
 }
 
