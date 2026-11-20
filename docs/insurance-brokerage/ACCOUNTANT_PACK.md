@@ -444,6 +444,58 @@ Commission Receivable (posting role `commission_receivable`). It also means the 
 premium and the insurer's payable are the same amount, so the trust account holds the
 whole premium until remitted, and commission income does not depend on remittance at all.
 
+### 5.15 Cancelling an endorsement (E4, 19 November 2026)
+
+> **Status: built and tested. The reversal arithmetic is the part to check.**
+
+A posted endorsement can now be cancelled, which is what makes it possible to cancel a policy that
+has one. Until this, a policy with any posted endorsement could not be cancelled at all -- the system
+refused, because a return endorsement leaves a credit note on the premium item and the cancellation
+engine will not run over one.
+
+**The shape, and why.** Rather than teach the cancellation engine about endorsements, the endorsement
+is unwound first as its own document (numbered `ENDC-0000-0000`), and only then does the ordinary
+cancellation run, on a policy whose position is once again the position at bind. Nothing about the
+cancellation engine changed.
+
+**What the cancellation posts, for an endorsement that added premium.** Suppose an endorsement added
+100,000 premium at 10% commission: at posting it debited the client receivable 100,000, credited the
+insurer payable 90,000 and credited unearned commission 10,000. The cancellation does the opposite:
+
+| | Debit | Credit |
+|---|---|---|
+| Client receivable | | 100,000 |
+| Insurer payable | 90,000 | |
+| Unearned commission | 10,000 | |
+| Endorsement clearing | | 10,000 |
+
+and a matching credit note against the clearing account debits clearing 10,000, leaving it at zero.
+(In practice the client and insurer legs are written by those credit notes, and the journal carries
+the commission leg; the net effect is the table above.)
+
+**For an endorsement that returned premium**, its credit notes are voided -- restoring what the
+premium item showed before -- and the clawback journal is mirrored line for line at the original
+rates, so a foreign policy keeps its history rather than being re-priced.
+
+**Three things to confirm:**
+
+1. **Voiding a credit note is the right inverse of raising one.** It leaves both documents in the
+   ledger, each dated, rather than deleting the refund. The client's statement shows the note and its
+   void.
+2. **The commission goes back to unearned (`2020`), not to income.** The endorsement's commission was
+   credited to unearned when it posted and had not been earned, so un-earning it means debiting
+   unearned. If your treatment of an endorsement's commission differs from the bind commission's,
+   say so -- the software currently treats them identically.
+3. **A cancellation is refused once the money has moved.** If any item the endorsement created has
+   been settled, or a note belonging to something else credits it, or the commission has been
+   transferred to the agent, the system refuses and names the movement to reverse first. It never
+   nudges a settled position. That is deliberate, but it does mean an endorsement paid by the client
+   and then disputed needs a settlement reversal before it can be cancelled -- worth confirming that
+   is the procedure you want.
+
+**Ordering.** Only the newest posted endorsement with a premium change can be cancelled, and the
+sequence is newest-first. Reasons are in `ROADMAP.md` under "E4 delivered".
+
 ## 6. Reporting
 
 - Broker fee tax report: `ins_broker_fee_tax_report` (a view). Broker-fee credit rows for cancellations are dated at posting.
@@ -472,6 +524,7 @@ Sections 5.6 to 5.9 were added after the 11 October review. They summarise the p
 | **Section 5.13 (commission recognition: which insurers are placement / collection / settlement)** | | |
 | **Section 5.14 (gross remittance and commission receivable; the s.90(3) set-off question)** | | |
 | **Section 5.13b (statutory charges: the two unverified rates, and whether enforcement should be required)** | | |
+| **Section 5.15 (cancelling an endorsement: void rather than delete, commission back to unearned, refusal once the money has moved)** | | |
 
 Accountant name: ______________________ Date: ____________ Signature: ______________________
 
@@ -489,6 +542,10 @@ Each item below is the software's current design and needs the accountant's conf
   `on_insurer_settlement` were joined by `on_premium_collection`, which earns the commission on the
   client's receipt that covers the premium, earns nothing on a part payment, and un-earns on a void.
   `over_policy_term` remains unimplemented and unselectable. Section 5.13.
+- **Endorsement cancellation** (`20261120235910`): an endorsement is unwound as its own approved
+  document (`ENDC-`) before a policy can be cancelled; its credit notes are voided, its items cleared
+  through the endorsement clearing account, and the commission it booked returned to unearned.
+  Section 5.15. Needs the accountant's confirmation of the three points listed there.
 - **Gross remittance** (`20261117200000`): the insurer payable is booked for the whole premium with
   commission as a receivable (1110), per the owner's decision that commission is never netted off
   what an insurer is owed. Netting survives as a legal-review-gated configuration, not a default.

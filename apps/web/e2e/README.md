@@ -8,6 +8,16 @@ against a real Supabase backend (no mocking):
   5,000,000 threshold must route Project Manager → Deputy General Manager
   → Finance before a PO appears; checks Finance sees nothing early.
 - **Finance** (supplier invoice → cash/bank settlement).
+- **Bank adjustments (D4e)** (`bank-adjustments.spec.ts`) — three serial tests with
+  two real finance users (`fin.maker@test.local`, `fin.checker@test.local`): the
+  maker proposes an adjustment against an unmatched statement line, the maker's
+  own Approve is disabled, a *different* user approves, and the register shows it
+  posted and not self-approved; a rejected proposal is reworked as a linked
+  adjustment; and the unusual-account report flags a posting outside the usual
+  accounts. It uses the seeded PEARL-OPERATING statement lines `D4E-CHARGE-1` and
+  `D4E-INTEREST-1` and the seeded accounts 5000 General Expense and 4100 Brokerage
+  Fees & Other Income. It consumes both lines, so a rerun on the same database
+  needs `supabase db reset`.
 - **Payroll disbursement** (run → approval → disbursement).
 - **Payroll approval: reject** (run → submit → approver rejects with a
   reason → HR sees the rejection and the reason).
@@ -140,6 +150,29 @@ Traces, screenshots, and video are captured only on failure
   the same month will hit whatever duplicate-period validation the
   backend applies — clear out the prior test run first, or run it once
   per month.
+- **MUI Autocompletes: locate by role, not by label.** `getByLabel('X')` on an
+  Autocomplete matches the input and, once the popup is open, also its
+  `<ul role="listbox">`, which is `aria-labelledby` the same label. A `fill()`
+  after a `click()` then fails Playwright's strict mode ("resolved to 2
+  elements"). Use `getByRole('combobox', { name: 'X' })` and pick the result with
+  `getByRole('option', ...)`.
+- **Switching users inside one test: sign out and wait for `/login`.** If the
+  previous session is still live, `/login` redirects back into the app while the
+  form is being filled, and the field "was detached from the DOM".
+  `logout()` in `utils/auth.ts` only waits for the Email field to appear;
+  `bank-adjustments.spec.ts` uses `signOutIfSignedIn()`, which also waits for
+  the `/login` URL and the Sign in button (`insurance-import.spec.ts` has its
+  own wait for the same reason).
+- **"Unmatched" screens do not show matched rows.** After an action that matches
+  a statement line, assert the row is *gone* (`toHaveCount(0)`), and first wait
+  for a row that must still be there, so the check cannot pass before the table
+  has loaded. Asserting that the row says "matched" waits for a row that never
+  comes.
+- **Build locators from free text with an escaped RegExp.** Reasons and
+  descriptions contain characters such as `(`, which `new RegExp(text)` turns
+  into a capture group. Use the `literal()` helper in `bank-adjustments.spec.ts`,
+  or pass a plain string (Playwright matches strings as a case-insensitive
+  substring).
 - `fullyParallel: false` / `workers: 1` in `playwright.config.ts` is
   deliberate: each spec is a single multi-role workflow moving one
   record through several approval stages, not independent parallelizable

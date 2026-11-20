@@ -185,7 +185,7 @@ Generated types (`packages/shared/src/database.types.ts`) were regenerated on 17
 2. Insured-risk register and certificate stock.
 3. Document pack, first set, with the shared document store.
 4. Production book, statements of account, aged balances, unremitted funds.
-5. Endorsements -- proposals (E1), posting (E2) and the foreign legs (E3) built; cancel-of-endorsement-items + the pack document (E4) remains. **Sized 19 November 2026** -- see E4 below; it is an engine change, not a removed guard.
+5. Endorsements -- proposals (E1), posting (E2), the foreign legs (E3) and cancellation of posted endorsement items (E4) built 19 November 2026 (`20261120235910`, and the `generate-ins-doc` edge function). The pack document that E4 was paired with is built too. See "E4 delivered" below for what changed and what the tests forced.
 6. Agents and sub-agents.
 7. Quotation and placement pipeline.
 8. Bulk renewals and renewal outcomes.
@@ -201,9 +201,9 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 | # | Gap | Status | Where |
 |---|---|---|---|
 | 1 | Insured-risk register and certificate stock | Built | `20261017100000` |
-| 2 | Endorsements | E1 to E3 built (proposals, posting, foreign legs); **E4 open** (see the sizing note below -- there are two blockers, not one) | `20261021220000`, `20261021230000`, `20261022100000` |
+| 2 | Endorsements | Built: E1 to E3 (proposals, posting, foreign legs) and **E4** (cancelling posted endorsement items, so the ordinary cancellation can run) | `20261021220000`, `20261021230000`, `20261022100000`, `20261120235910` |
 | 3 | Quotation and placement | Built; placement fix | `20261106170000`, `20261107120000` |
-| 4 | Document pack | First set built (`generate-ins-doc`, shared document store); needs a first look on a real policy; co-insurer schedule open | `20261021100000` |
+| 4 | Document pack | First set built (`generate-ins-doc`, shared document store) plus the endorsement confirmation note (`endorsement_note` in `generate-ins-doc`, no migration needed -- `documents.doc_kind` is free text); needs a first look on a real policy; co-insurer schedule open | `20261021100000`, `supabase/functions/generate-ins-doc` |
 | 5 | Production book and reporting | Production book, client statements, aged balances, premiums trend built; server-side as-of and pagination open | `20261021120000` |
 | 6 | Agents and sub-agents | **Built end to end** 18 Nov 2026: accrual, terms, register, maker-checker payments, withholding at payment, period returns and statements (`20261117240000`, `20261117250000`, `20261118120000`, `20261118140000`, `20261118160000`, `20261118180000`). See section 7c. | `20261017150000`, `20261117240000`, `20261117250000`, `20261118120000` to `20261118180000` |
 | 7 | Commission rate matrix | Built | `20261020210000` |
@@ -404,6 +404,47 @@ This is a multi-step build with its own maker/checker and its own tests. It is n
 pass: the commission work above is complete and verified, and folding an untested rewrite of the
 cancellation engine into the same delivery would put a working money path at risk to save a round
 trip.
+
+### E4 delivered (19 November 2026)
+
+Built as the sizing note proposed: endorsements are unwound as their own approved document, and the
+cancellation engine was not touched. `20261120235910` adds three functions --
+`ins_endorsement_unwind_position` (read-only eligibility, returning reasons rather than raising,
+because the screen asks before offering the action), `ins_prepare_endorsement_cancellation` (Finance
+maker) and `ins_approve_endorsement_cancellation` (independent Finance checker).
+
+**All three blockers are gone, and the third one was the arithmetic.** The reversal is built from what
+was actually posted rather than re-derived: the endorsement's own credit notes are voided (which is
+what frees the premium item, blocker 2), its client and insurer items are closed by credit notes
+against the endorsement's own stored clearing account (the E2/E3 idiom, so the client item is credited
+and the insurer item debited by exactly what they held), the return side's clawback journal is
+mirrored line for line at its original rates, and the residue left in clearing -- which is the
+commission the endorsement booked -- goes back to unearned. A hard check refuses to post if that
+residue does not equal the endorsement's commission, so an unexplained difference fails closed rather
+than being absorbed into an account.
+
+**Four things the tests forced that are worth keeping:**
+
+1. **An endorsement's commission entry can only be earned by settling its insurer item.** The
+   settlement trigger matches on `source_open_item_id`; the collection trigger matches policy-level
+   entries only. An earned entry therefore always means a settled item, which the eligibility check
+   already refuses -- so there is no un-earning branch. Writing one would have left a code path that
+   can never run while reading as though it can; the refusal names the settlement to void instead.
+2. **"Newest first" is decided by `endorsement_no`, not a timestamp.** `posting_date` is a date and
+   `proposed_at` is `now()`, which is transaction start: several endorsements posted in one sitting
+   tie on both, and the id tiebreak orders them at random. The first version of this ordered by
+   timestamp and the test caught it.
+3. **An endorsement's own credit notes cannot block its own cancellation** -- voiding them is what
+   the cancellation does. Only settlement, or a note belonging to something else, locks an item.
+4. **The two cross-guards make "cancellation in flight" unreachable** in the unwind position: each
+   side refuses to be created while the other is live. That check stays as defence, and the test pins
+   the guards themselves rather than contriving a state no sequence of operations can produce.
+
+**Found on the way:** `journal_entries.source_type` and `ins_policy_endorsement_events.event` are
+both closed lists, and both needed extending for the new document type and its two events.
+
+**Still open on item 4:** the co-insurer schedule, and endorsements netted on the statement.
+
 
 ## 8. Design defaults (change on request)
 

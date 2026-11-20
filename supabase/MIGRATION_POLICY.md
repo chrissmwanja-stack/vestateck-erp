@@ -108,12 +108,43 @@ reconstruction, not the original — see its own header note).
     ever regains table access.
 
 11. **Every new migration filename starts with a valid UTC timestamp.**
-    `YYYYMMDDHHMMSS_snake_case_name.sql`, with a real calendar date and an
-    hour of 00-23. `20261117240000`, `20261117250000` and `20261117260000`
-    used hour 24, which the Supabase CLI cannot parse (`migration list` shows
-    the raw version instead of a date). They are applied, so they stay as they
-    are; do not rename them. For an end-of-day slot use `235900`.
+    `YYYYMMDDHHMMSS_snake_case_name.sql`, with a real calendar date and every
+    field in range: hour 00-23, minute 00-59, second 00-59. `20261117240000`,
+    `20261117250000` and `20261117260000` used hour 24, which the Supabase CLI
+    cannot parse (`migration list` shows the raw version instead of a date).
+    They are applied, so they stay as they are; do not rename them. For an
+    end-of-day slot use `235900`.
+
+    The suffix is a *time*, not a counter. Four migrations on
+    `feat/ins-accounting-acceptance` were numbered `20261120006000` to
+    `20261120009000` after `005000`, which reads as minutes 60 to 90; the
+    series only worked up to `005000`. They were renamed before merging, to
+    `20261120235900` to `20261120235903`. To get several ordered slots on one
+    day, step the hour (`010000`, `020000`, ...) or count up from `235900`
+    (`235900`, `235901`, ...).
+
     `scripts/check-migration-policy.sh` enforces this on new migration files.
+    It validates the whole value with `date(1)`, not just the digit count.
+
+12. **Do not leave a trigger function without a trigger.** A function that
+    `RETURNS trigger` can only be checked against the table its trigger is
+    on. The "Static plpgsql lint (plpgsql_check)" step in
+    `.github/workflows/foundation-checks.yml` does that, and for a trigger
+    function with *no* trigger attached it raises `missing trigger relation`
+    and fails the whole step. When a migration stops using a trigger function,
+    drop it in that migration or the next:
+    `drop function if exists public.<name>();`. Rule 8 is about columns and
+    tables; dropping an unused function loses no data and is allowed. This
+    happened with `ins_snapshot_bind_config_commission_only()`, left behind by
+    `20261120235903` and removed by `20261120235905`.
+
+    The way into that state is worth knowing. Two PostgreSQL behaviours were
+    measured in that series (see the comments in `20261120235902` and
+    `20261120235903`): `alter function ... rename to` does **not** repoint the
+    triggers that call the function, and a trigger function cannot be called
+    from another function ("trigger functions can only be called as
+    triggers"). So to extend a trigger function, rewrite it as one function with
+    `create or replace`; do not wrap a renamed copy of the original.
 
 ## Checklist for every new migration
 
@@ -137,6 +168,16 @@ learn it than doing it here.
    A test must fail by `RAISE EXCEPTION`; a `NOTICE: FAIL` fails the CI scan too.
 5. **Check the web build:** `npm run build` (type errors from a changed
    `database.types.ts` show up here, not in the SQL jobs).
+6. **Before you push a long-lived branch, diff it against `main`:**
+   `git fetch origin && git merge origin/main`, then
+   `git diff --stat origin/main` and read the file list. Every file in it
+   should be one you meant to change. A branch built from an out-of-date
+   working tree can commit old copies of files and silently revert fixes that
+   are already on `main`. That happened on `feat/ins-accounting-acceptance`:
+   `BankAdjustmentsPanel.tsx` went back to a foreign-key name that does not
+   exist (so the panel's account picker loaded empty) and
+   `bank-adjustments.spec.ts` went back to a version without the e2e fixes.
+   Restore such a file with `git checkout origin/main -- <path>`.
 
 ## What this does not cover
 
