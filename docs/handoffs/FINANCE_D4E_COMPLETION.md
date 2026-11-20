@@ -127,11 +127,53 @@ import a statement first. The spec consumes both lines; a second run on the same
 database needs `supabase db reset` (same contract as
 `insurance-cash-commission.spec.ts`).
 
-**These specs have not been executed** — this environment has no Docker, so no
-local Supabase stack and no browser. They typecheck (`tsc -p e2e/tsconfig.json`)
-and follow the existing specs' selectors and login helper. Run
-`npm run test:e2e -- bank-adjustments` against a fresh stack before relying on
-them.
+**Status.** This section was first written before the specs had run: the
+authoring environment had no Docker, so no local Supabase stack and no browser.
+They have since run in CI and needed several fixes, all in the spec, apart from
+one stale copy of the panel on a later branch. See "What the e2e CI runs found"
+below. To reproduce locally, run
+`npm run test:e2e -- bank-adjustments` against a fresh stack.
+
+#### What the e2e CI runs found
+
+Each failure only appeared once the one before it was fixed, because the three
+tests run serially and the first stops at its first broken step.
+
+1. **Autocomplete locator (strict mode).** `pickCounterAccount` used
+   `getByLabel('Other side of the entry')`. After the click the popup's listbox
+   carries the same label, so `fill()` saw two elements and failed. Now
+   `getByRole('combobox', { name })`, also for "Add an account" and "Bank
+   Account".
+2. **No sign-out between users.** Step 2 logged the checker in on the page the
+   maker was still signed in on; `/login` redirected into the app mid-fill and
+   the password field detached. `openReconciliationAs` now calls
+   `signOutIfSignedIn()` first, which waits for `/login` and the Sign in button.
+3. **Wrong final assertion.** The statement table reads
+   `v_bank_statement_unmatched`, so a matched line disappears from it; the spec
+   waited for a `D4E-CHARGE-1` row to say "matched". It now asserts the
+   `Ref: D4E-CHARGE-1` row is absent, after waiting for the still-unmatched
+   `Ref: D4E-INTEREST-1` row so the check cannot pass on a table that has not
+   loaded.
+4. **Unescaped regex.** The reworked reason is `"<reason> (corrected)"` and was
+   passed to `new RegExp(...)`, where the parentheses are a capture group, so the
+   row never matched. A `literal()` helper now escapes dynamic reasons.
+5. **Stale copies on `feat/ins-accounting-acceptance`.** One commit on that
+   branch committed pre-merge copies of `BankAdjustmentsPanel.tsx` and
+   `bank-adjustments.spec.ts`, reverting fixes already on `main`. The panel's
+   embed named `bank_adjustments_statement_line_id_fkey`, which does not exist
+   (the constraint is `bank_adjustments_bank_statement_line_id_fkey`). Its
+   `load()` returns on an adjustments error *before* it sets the account list, so
+   the failed query showed up as an empty counter-account picker and a spec
+   failure reading "General Expense is not in the seeded chart of accounts". The
+   seed was fine. Both files were restored from `main`.
+
+Verification: after fixes 1 to 3, test 1 passed in CI. Fix 4 addressed the
+failure in test 2. The CI run after it was not reviewed when this was written,
+so confirm tests 2 and 3 are green.
+
+One thing left as it is: `load()` still skips the account list when the
+adjustments query fails. Loading the two independently would make that failure
+mode show as a load error instead of an empty picker.
 
 ---
 
