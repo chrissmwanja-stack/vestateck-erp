@@ -132,7 +132,7 @@ Traces, screenshots, and video are captured only on failure
 
 ## Not covered yet
 
-- **Insurance Brokerage** has three specs: `insurance-import.spec.ts` (in-force import), `insurance-cash-commission.spec.ts` (bind → receipt → remittance → commission) and `insurance-claim-payment.spec.ts` (claim paid through the brokerage). Still not covered: the insurer-pays-direct claim mode, voiding a payment, repudiation, cancellation, endorsements, independent bank reconciliation by the third finance user, and rejecting a cash request. Document generation cannot be covered while the CI stack does not serve edge functions.
+- **Insurance Brokerage** has three specs: `insurance-import.spec.ts` (in-force import), `insurance-cash-commission.spec.ts` (bind → receipt → remittance → commission) and `insurance-claim-payment.spec.ts` (claim paid through the brokerage). Still not covered: the insurer-pays-direct claim mode, voiding a payment, repudiation, cancellation, endorsements, independent bank reconciliation by the third finance user, and rejecting a cash request. Also uncovered, added 20 November 2026: statutory charges, commission recognition modes, agent commission payment and endorsement cancellation. Each gap is tracked against its PR in `docs/insurance-brokerage/INSURANCE_ACCEPTANCE_PLAN.md` section 4. Document generation cannot be covered while the CI stack does not serve edge functions.
 
 ## Notes on how these are written
 

@@ -27,7 +27,10 @@ Last reviewed: 17 November 2026 against `main` at `0d550eb`. When a doc and the 
 
 | File | What it is | Status |
 |---|---|---|
-| `ROADMAP.md` | Decisions, accountant caveats, work plan, status snapshot (section 7b) | Current |
+| `INSURANCE_IMPLEMENTATION_STATUS.md` | What is implemented, and the test that covers it | **Operational reference**; updated in every insurance PR |
+| `INSURANCE_ACCEPTANCE_PLAN.md` | Gates that must pass before production, with owners and evidence | **Operational reference** |
+| `INSURANCE_DECISIONS_REGISTER.md` | Accounting, legal and regulatory decisions, owners, approval status | **Operational reference** |
+| `ROADMAP.md` | Detailed history: decisions, accountant caveats, work plan, design notes | Detailed history; where it disagrees with the three files above, they win |
 | `ANALYSIS.md` | Original design draft | Historical; the roadmap wins on conflict |
 | `ACCOUNTANT_PACK.md` | Treatments and ledger map for the accountant | Draft, **not signed off**; section 9 lists changes since 16 October |
 | `CURRENCY_REVIEW.md` | Currency touchpoint review (A3) | Closed 21 October |
