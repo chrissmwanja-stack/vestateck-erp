@@ -8805,6 +8805,12 @@ export type Database = {
         Row: {
           accounting_mappings: Json | null
           calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           changes: Json
           checked_at: string | null
           checked_by: string | null
@@ -8833,6 +8839,12 @@ export type Database = {
         Insert: {
           accounting_mappings?: Json | null
           calculation: Json
+          cancellation_journal_id?: string | null
+          cancellation_no?: string | null
+          cancellation_note?: string | null
+          cancellation_operation_txid?: number | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           changes?: Json
           checked_at?: string | null
           checked_by?: string | null
@@ -8861,6 +8873,12 @@ export type Database = {
         Update: {
           accounting_mappings?: Json | null
           calculation?: Json
+          cancellation_journal_id?: string | null
+          cancellation_no?: string | null
+          cancellation_note?: string | null
+          cancellation_operation_txid?: number | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           changes?: Json
           checked_at?: string | null
           checked_by?: string | null
@@ -19094,6 +19112,49 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_approve_endorsement_cancellation: {
+        Args: { p_endorsement_id: string; p_review_note: string }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_approve_insurer_product_rate: {
         Args: { p_id: string }
         Returns: {
@@ -19715,6 +19776,12 @@ export type Database = {
         Returns: {
           accounting_mappings: Json | null
           calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           changes: Json
           checked_at: string | null
           checked_by: string | null
@@ -19847,6 +19914,10 @@ export type Database = {
       }
       ins_endorsement_review_position: {
         Args: { p_policy_id: string }
+        Returns: Json
+      }
+      ins_endorsement_unwind_position: {
+        Args: { p_endorsement_id: string }
         Returns: Json
       }
       ins_ensure_client_account: {
@@ -20349,6 +20420,49 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: Json
       }
+      ins_prepare_endorsement_cancellation: {
+        Args: { p_endorsement_id: string; p_reason: string }
+        Returns: {
+          accounting_mappings: Json | null
+          calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          changes: Json
+          checked_at: string | null
+          checked_by: string | null
+          commission_entry_ids: Json
+          credit_note_ids: Json
+          effective_date: string
+          endorsement_no: string | null
+          id: string
+          insurer_terms: Json
+          journal_entry_id: string | null
+          manual_exception_accepted: boolean
+          operation_txid: number | null
+          policy_id: string
+          posting_date: string | null
+          premium_item_id: string | null
+          prepared_at: string | null
+          prepared_by: string | null
+          proposed_at: string
+          proposed_by: string
+          reason: string
+          request_key: string
+          review_note: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_prepare_policy_cancellation: {
         Args: { p_cancellation_id: string; p_clearing_gl_account_id: string }
         Returns: {
@@ -20391,6 +20505,12 @@ export type Database = {
         Returns: {
           accounting_mappings: Json | null
           calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           changes: Json
           checked_at: string | null
           checked_by: string | null
@@ -20505,6 +20625,12 @@ export type Database = {
         Returns: {
           accounting_mappings: Json | null
           calculation: Json
+          cancellation_journal_id: string | null
+          cancellation_no: string | null
+          cancellation_note: string | null
+          cancellation_operation_txid: number | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           changes: Json
           checked_at: string | null
           checked_by: string | null
