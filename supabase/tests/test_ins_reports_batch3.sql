@@ -12,6 +12,10 @@
 -- claim; the ageing total equals the register total, grouped by insurer and by
 -- product line; another company sees none of these claims.
 --
+-- Same-timestamp ordering: the fixture writes every event and revision in one
+-- transaction, so they tie on now(). The register must still pick the latest status
+-- and the final reserve (a chain of two revisions, then a status chain).
+--
 -- NOT covered here (implemented, but no scenario yet): a claim notified with a
 -- back-dated notified date, a payment voided after the as-at date, brokerage-
 -- managed claims (insurer receipt and client payout), ageing beyond the first
@@ -142,6 +146,9 @@ begin
   ca := ins_create_claim(p1.id, current_date, current_date, 'Fire damage', null, 500000);
   -- cb: assessing, reserve revised 300,000 -> 400,000 (policy 1, Fire)
   cb := ins_create_claim(p1.id, current_date, current_date, 'Water damage', null, 300000);
+  -- two revisions in one transaction share a timestamp: the latest is found by the
+  -- chain (previous_amount), not by the random id (20261121130000)
+  cb := ins_revise_claim_reserve(cb.id, 350000, 'First loss adjuster estimate');
   cb := ins_revise_claim_reserve(cb.id, 400000, 'Loss adjuster estimate');
   cb := ins_transition_claim(cb.id, 'assessing', null);
   -- cc: approved for 200,000 and part paid 50,000 (policy 2, Marine)
