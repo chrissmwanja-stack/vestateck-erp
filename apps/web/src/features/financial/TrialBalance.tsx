@@ -1,3 +1,4 @@
+import { businessToday } from '../../lib/businessDate';
 import { useEffect, useState } from 'react';
 import {
   Box,
@@ -33,7 +34,7 @@ interface TrialBalanceRow {
 // cannot change a historical report. See migration
 // 20261117120000_fin_as_at_reporting_and_void_netting.sql.
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return businessToday();
 }
 
 export default function TrialBalance() {

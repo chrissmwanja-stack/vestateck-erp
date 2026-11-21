@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, TextField } from '@mui/material';
 import ListToolbar from '../../ListToolbar';
@@ -8,7 +9,6 @@ import { Add } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { allRows, errorText, table } from '../../db';
 import { formatMoney, POLICY_DISPLAY_STATUS_LABEL, type PolicyDisplayStatus } from '../../logic';
-import { localIsoDate } from '../../fx';
 import type { Policy } from '../../types';
 import { EmptyRow, ErrorBanner, PageHeader, PolicyStatusChip } from '../../shared';
 
@@ -34,7 +34,7 @@ export default function PoliciesList() {
             .order('created_at', { ascending: false })
             .order('id');
           // 'expired' is not stored: it is an active policy whose expiry date has passed.
-          const today = localIsoDate();
+          const today = businessToday();
           if (status === 'expired') q = q.eq('status', 'active').lt('expiry_date', today);
           else if (status === 'active') q = q.eq('status', 'active').gte('expiry_date', today);
           else if (status !== 'all') q = q.eq('status', status);

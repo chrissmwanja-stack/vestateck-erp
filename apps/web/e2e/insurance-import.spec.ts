@@ -1,5 +1,8 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 
+// The app dates everything by the Africa/Kampala business day (src/lib/businessDate.ts), so the spec must too.
+const businessToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+
 /**
  * In-force portfolio import (docs/insurance-brokerage/IN_FORCE_IMPORT.md,
  * build order step 5): upload a canonical-template workbook, stage, validate,
@@ -72,7 +75,7 @@ const REMITTANCE = 200_000;
  *  describe them. `controlOverrides` lets a scenario record totals that
  *  disagree with the book. */
 async function bookWorkbook(policyNo: string, controlOverrides: Record<string, string | number> = {}) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessToday();
   return buildWorkbook({
     policies: [{
       legacy_policy_no: policyNo,
@@ -110,7 +113,7 @@ async function stageWorkbook(page: Page, label: string, workbook: Buffer) {
   await page.goto('/insurance/admin/import');
   await expect(page.getByText('In-force portfolio import')).toBeVisible({ timeout: 30_000 });
   await page.getByLabel('Batch label').fill(label);
-  await page.getByLabel('Cut-over date').fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel('Cut-over date').fill(businessToday());
   // The MUI button is a <label> wrapping a hidden <input type=file>; target the input.
   await page.locator('input[type="file"]').setInputFiles({
     name: 'book.xlsx',

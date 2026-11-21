@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Stack, Switch, Table, TableBody, TableCell,
@@ -6,7 +7,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import { CANCELLATION_REGISTER_COLUMNS, monthStartIso, type CancellationRegisterLine } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -16,7 +16,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 export default function CancellationRegister() {
   const navigate = useNavigate();
   const [from, setFrom] = useState(monthStartIso());
-  const [to, setTo] = useState(localIsoDate());
+  const [to, setTo] = useState(businessToday());
   const [imported, setImported] = useState(false);
   const [items, setItems] = useState<CancellationRegisterLine[]>([]);
   const [loading, setLoading] = useState(true);

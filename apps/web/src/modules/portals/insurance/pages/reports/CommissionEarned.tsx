@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, MenuItem, Stack, Switch, Table, TableBody, TableCell,
@@ -5,7 +6,6 @@ import {
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   REPORT_GROUPS, commissionEarnedColumns, groupLabel, monthStartIso, type CommissionEarnedLine, type ReportGroupBy,
@@ -16,7 +16,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // Commission still deferred is not income and is not shown. Read-only.
 export default function CommissionEarned() {
   const [from, setFrom] = useState(monthStartIso());
-  const [to, setTo] = useState(localIsoDate());
+  const [to, setTo] = useState(businessToday());
   const [groupBy, setGroupBy] = useState<ReportGroupBy>('month');
   const [includeImported, setIncludeImported] = useState(false);
   const [items, setItems] = useState<CommissionEarnedLine[]>([]);

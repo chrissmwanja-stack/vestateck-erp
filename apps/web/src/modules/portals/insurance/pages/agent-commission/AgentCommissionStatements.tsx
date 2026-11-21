@@ -1,3 +1,4 @@
+import { businessTodayDate } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell,
@@ -60,7 +61,7 @@ const AgentCommissionStatements = () => {
     if (!id) return;
     setLoading(true);
     try {
-      const bounds = statementPeriodBounds(p, new Date());
+      const bounds = statementPeriodBounds(p, businessTodayDate());
       const data = await rpc<AgentStatement>('ins_agent_commission_statement', {
         p_intermediary_id: id,
         p_from: bounds.from,
@@ -86,7 +87,7 @@ const AgentCommissionStatements = () => {
 
   const download = () => {
     if (!statement) return;
-    const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const today = businessTodayDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const pdf = buildAgentStatementPdf(statement, today);
     const safe = statement.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '');
     downloadTextFile(`${safe}-statement-${statement.from ?? 'all'}-${statement.to ?? 'all'}.pdf`, pdf);

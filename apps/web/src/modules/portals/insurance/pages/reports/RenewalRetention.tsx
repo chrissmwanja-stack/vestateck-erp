@@ -1,3 +1,4 @@
+import { businessToday, businessYearStart } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, MenuItem, Stack, Switch, Table, TableBody, TableCell,
@@ -5,7 +6,6 @@ import {
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney } from '../../logic';
 import {
   CANCELLATION_GROUPS, cancellationGroupLabel, formatPct, renewalRetentionColumns, type CancellationGroupBy, type RenewalRetentionLine,
@@ -15,8 +15,8 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // Renewal retention for policies that expired in the period, grouped. The server computes the percentages from the
 // same rows the Renewals report lists. Read-only.
 export default function RenewalRetention() {
-  const [from, setFrom] = useState(`${new Date().getFullYear()}-01-01`);
-  const [to, setTo] = useState(localIsoDate());
+  const [from, setFrom] = useState(businessYearStart());
+  const [to, setTo] = useState(businessToday());
   const [groupBy, setGroupBy] = useState<CancellationGroupBy>('month');
   const [imported, setImported] = useState(true);
   const [items, setItems] = useState<RenewalRetentionLine[]>([]);

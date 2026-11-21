@@ -1,3 +1,4 @@
+import { businessToday } from '../../lib/businessDate';
 import { useCallback, useEffect, useState, FormEvent } from 'react';
 import {
   Alert,
@@ -64,7 +65,7 @@ interface DisburseFormState {
   description: string;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessToday();
 
 const emptyForm = (): DisburseFormState => ({
   payment_method: 'bank',

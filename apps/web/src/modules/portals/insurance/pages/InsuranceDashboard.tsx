@@ -1,10 +1,10 @@
+import { businessToday } from '../../../../lib/businessDate';
 import { useEffect, useState } from 'react';
 import { Alert, Box, Card, CardContent, CircularProgress, Grid, Stack, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useMyModuleAccess } from '../../../../features/navigation/useMyModuleAccess';
 import { allRows, rpc, table } from '../db';
 import { remittanceFacts, type RemittanceRow } from '../remittance';
-import { localIsoDate } from '../fx';
 import { formatMoney, formatMoneyByCurrency, isClaimOpen, isInForce, renewalBucket, sumByCurrency } from '../logic';
 import { dashboardAlerts, FINANCE_CASH_PATH, REGULATORY_RULES_PATH, REMITTANCE_REPORT_PATH, type DashboardAlert } from '../dashboardAlerts';
 import type { Claim, Policy, RenewalRow } from '../types';
@@ -39,7 +39,7 @@ export default function InsuranceDashboard() {
       try {
         // allRows pages through every row: a plain select stops at the API row cap and would
         // understate every figure below once a company grows past it.
-        const today = localIsoDate();
+        const today = businessToday();
         const [policies, claims, renewals, pendingCash, commission, settings, remittance] = await Promise.all([
           allRows<Pick<Policy, 'status' | 'gross_premium' | 'commission_amount' | 'currency' | 'expiry_date'>>(
             () => table('ins_policies').select('status, gross_premium, commission_amount, currency, expiry_date').in('status', ['active', 'renewed']).order('id'),

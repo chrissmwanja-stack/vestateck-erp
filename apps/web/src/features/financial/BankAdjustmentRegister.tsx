@@ -1,3 +1,4 @@
+import { businessToday } from '../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -162,7 +163,7 @@ export default function BankAdjustmentRegister() {
     const scope = filter === 'all' ? 'all' : filter;
     const account = bankAccount.trim() ? `-${bankAccount.trim().replace(/[^A-Za-z0-9-]+/g, '_')}` : '';
     download(
-      `bank-adjustment-register-${scope}${account}-${new Date().toISOString().slice(0, 10)}.csv`,
+      `bank-adjustment-register-${scope}${account}-${businessToday()}.csv`,
       toCsv(visible)
     );
   }

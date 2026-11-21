@@ -1,3 +1,4 @@
+import { businessToday, businessTodayDate } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -58,7 +59,7 @@ const AgentCommissionWht = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const lastMonth = useMemo(() => monthBounds(previousMonth(new Date())), []);
+  const lastMonth = useMemo(() => monthBounds(previousMonth(businessTodayDate())), []);
   const [prepareOpen, setPrepareOpen] = useState(false);
   const [period, setPeriod] = useState({ start: lastMonth.start, end: lastMonth.end });
   const [prepareError, setPrepareError] = useState<string | null>(null);
@@ -154,7 +155,7 @@ const AgentCommissionWht = () => {
     run(() => rpc('ins_wht_approve_remittance', { p_id: r.id }), 'Return approved. It is ready to pay.');
 
   const openPay = (r: WhtRemittance) => {
-    setPayment({ bank_account_id: '', paid_on: new Date().toISOString().slice(0, 10), reference: '' });
+    setPayment({ bank_account_id: '', paid_on: businessToday(), reference: '' });
     setPayError(null);
     setPaying(r);
   };
@@ -341,8 +342,8 @@ const AgentCommissionWht = () => {
             <Typography variant="caption" color="text.secondary">
               Last month, {lastMonth.label}, is filled in because a return is filed for a period that has closed.
             </Typography>
-            {prepareWarning(period.end, new Date()) && (
-              <Alert severity="warning">{prepareWarning(period.end, new Date())}</Alert>
+            {prepareWarning(period.end, businessTodayDate()) && (
+              <Alert severity="warning">{prepareWarning(period.end, businessTodayDate())}</Alert>
             )}
             <Alert severity="info">
               The amount is whatever tax was withheld on payments dated inside this period and is not already on

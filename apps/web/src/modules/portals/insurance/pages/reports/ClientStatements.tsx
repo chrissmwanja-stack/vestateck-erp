@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, Table, TableBody, TableCell,
@@ -9,7 +10,7 @@ import { formatMoney, formatMoneyByCurrency } from '../../logic';
 import { agedBalances, AGING_BUCKETS, AGING_LABEL, type AgingBucket, type StatementRow } from '../../reports';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessToday();
 
 // Statement of account and aged balances, both from ins_client_statement (one
 // row per written policy: billed on bind, cash actually received -- posted

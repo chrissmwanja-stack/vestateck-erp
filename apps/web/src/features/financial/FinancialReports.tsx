@@ -1,3 +1,4 @@
+import { addDaysIso } from '../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState, FormEvent } from 'react';
 import {
   Alert,
@@ -172,9 +173,8 @@ export default function FinancialReports() {
       if (activeFilters.dateFrom) supplierQuery = supplierQuery.gte('invoice_date', activeFilters.dateFrom);
       if (activeFilters.dateTo) {
         // Inclusive end date: add 23:59:59 or next day
-        const nextDay = new Date(activeFilters.dateTo);
-        nextDay.setDate(nextDay.getDate() + 1);
-        supplierQuery = supplierQuery.lt('invoice_date', nextDay.toISOString().slice(0, 10));
+        const nextDay = addDaysIso(activeFilters.dateTo, 1);
+        supplierQuery = supplierQuery.lt('invoice_date', nextDay);
       }
       const { data: supplierRows, error: supplierErr } = await supplierQuery;
       if (supplierErr) throw supplierErr;
@@ -202,9 +202,8 @@ export default function FinancialReports() {
       if (activeFilters.organizationId) receivableQuery = receivableQuery.eq('organization_id', activeFilters.organizationId);
       if (activeFilters.dateFrom) receivableQuery = receivableQuery.gte('invoice_date', activeFilters.dateFrom);
       if (activeFilters.dateTo) {
-        const nextDay = new Date(activeFilters.dateTo);
-        nextDay.setDate(nextDay.getDate() + 1);
-        receivableQuery = receivableQuery.lt('invoice_date', nextDay.toISOString().slice(0, 10));
+        const nextDay = addDaysIso(activeFilters.dateTo, 1);
+        receivableQuery = receivableQuery.lt('invoice_date', nextDay);
       }
       const { data: receivableRows, error: receivableErr } = await receivableQuery;
       if (receivableErr) throw receivableErr;
@@ -229,9 +228,8 @@ export default function FinancialReports() {
       let cashBankQuery = supabase.from('cash_bank_transactions').select('transaction_type, payment_method, amount, transaction_date').limit(5000);
       if (activeFilters.dateFrom) cashBankQuery = cashBankQuery.gte('transaction_date', activeFilters.dateFrom);
       if (activeFilters.dateTo) {
-        const nextDay = new Date(activeFilters.dateTo);
-        nextDay.setDate(nextDay.getDate() + 1);
-        cashBankQuery = cashBankQuery.lt('transaction_date', nextDay.toISOString().slice(0, 10));
+        const nextDay = addDaysIso(activeFilters.dateTo, 1);
+        cashBankQuery = cashBankQuery.lt('transaction_date', nextDay);
       }
       const { data: cbRows, error: cbErr } = await cashBankQuery;
       if (cbErr) throw cbErr;
@@ -256,9 +254,8 @@ export default function FinancialReports() {
         .limit(5000);
       if (activeFilters.dateFrom) expenditureQuery = expenditureQuery.gte('slip_date', activeFilters.dateFrom);
       if (activeFilters.dateTo) {
-        const nextDay = new Date(activeFilters.dateTo);
-        nextDay.setDate(nextDay.getDate() + 1);
-        expenditureQuery = expenditureQuery.lt('slip_date', nextDay.toISOString().slice(0, 10));
+        const nextDay = addDaysIso(activeFilters.dateTo, 1);
+        expenditureQuery = expenditureQuery.lt('slip_date', nextDay);
       }
       const { data: expRows, error: expErr } = await expenditureQuery;
       if (expErr) throw expErr;

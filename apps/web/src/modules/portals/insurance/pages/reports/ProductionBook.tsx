@@ -1,3 +1,4 @@
+import { businessToday, businessYearStart } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, Table, TableBody, TableCell,
@@ -10,8 +11,8 @@ import { groupProduction, premiumTrend, PRODUCTION_GROUPERS, shortMonth, type Pr
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import Typography from '@mui/material/Typography';
 
-const firstOfYear = () => `${new Date().getFullYear()}-01-01`;
-const today = () => new Date().toISOString().slice(0, 10);
+const firstOfYear = () => businessYearStart();
+const today = () => businessToday();
 
 // The production book: business written in a period (bound policies, reversed
 // ones excluded by the view), grouped by any reporting dimension -- client,

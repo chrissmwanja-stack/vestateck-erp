@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -13,7 +14,7 @@ import type {
   CommissionEntry, CommissionPosition, CommissionStatus, CommissionTransfer, TransferBankAccount,
 } from '../../types';
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => businessToday();
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (

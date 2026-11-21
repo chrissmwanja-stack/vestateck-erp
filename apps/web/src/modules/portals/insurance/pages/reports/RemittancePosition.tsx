@@ -1,10 +1,10 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Table, TableBody,
   TableCell, TableHead, TableRow, TextField,
 } from '@mui/material';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney } from '../../logic';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<PositionStatus, string> = {
 };
 
 export default function RemittancePosition() {
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [items, setItems] = useState<PositionRow[]>([]);
   const [filter, setFilter] = useState<'all' | PositionStatus>('all');
   const [loading, setLoading] = useState(true);

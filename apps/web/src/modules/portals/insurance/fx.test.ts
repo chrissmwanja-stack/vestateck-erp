@@ -4,7 +4,6 @@ import {
   canWithdrawFxRate,
   formatFxRate,
   isValidFxWithdrawReason,
-  localIsoDate,
   validateFxRateEntry,
   type FxRateInput,
 } from './fx';
@@ -91,9 +90,5 @@ describe('display helpers', () => {
     expect(formatFxRate(3700.5)).toBe('3700.5');
     expect(formatFxRate(1.0)).toBe('1');
     expect(formatFxRate(0.0001234567)).toBe('0.0001234567');
-  });
-
-  it('builds the local date as yyyy-mm-dd', () => {
-    expect(localIsoDate(new Date(2026, 9, 6, 23, 59))).toBe('2026-10-06');
   });
 });

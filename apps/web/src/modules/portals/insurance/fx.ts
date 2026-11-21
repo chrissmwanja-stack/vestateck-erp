@@ -98,10 +98,3 @@ export function formatFxRate(rate: number): string {
   return rate.toLocaleString('en-UG', { maximumFractionDigits: FX_MAX_DECIMALS, useGrouping: false });
 }
 
-/** Today's date in the user's local timezone, as yyyy-mm-dd. */
-export function localIsoDate(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}

@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../lib/businessDate';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -20,7 +21,6 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { rpc, errorText } from '../db';
-import { policyCashToday } from '../policyCash';
 import {
   CASH_KINDS,
   cashActions,
@@ -149,7 +149,7 @@ export default function CancellationCashPanel({
         p_bank_account_id: bank,
         p_to_bank_account_id: pairedCash(kind) ? destination : null,
         p_amount: amount,
-        p_cash_date: policyCashToday(),
+        p_cash_date: businessToday(),
         p_reference: reference.trim(),
         p_notes: notes.trim(),
       };

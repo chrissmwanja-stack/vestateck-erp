@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent,
@@ -7,8 +8,13 @@ import { Link as RouterLink } from 'react-router-dom';
 import { errorText, rpc } from '../../db';
 import { formatMoney } from '../../logic';
 import {
-  policyCashActions, policyCashToday, validatePolicyCashInput, type PolicyCashBank,
-  type PolicyCashDecision, type PolicyCashKind, type PolicyCashPosition, type PolicyCashRequest,
+  policyCashActions,
+  validatePolicyCashInput,
+  type PolicyCashBank,
+  type PolicyCashDecision,
+  type PolicyCashKind,
+  type PolicyCashPosition,
+  type PolicyCashRequest,
 } from '../../policyCash';
 
 interface Props { policyId: string; mode?: 'view' | 'finance' }
@@ -23,7 +29,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
   const [amount, setAmount] = useState('');
   const [shareId, setShareId] = useState('');
   const [bankId, setBankId] = useState('');
-  const [date, setDate] = useState(policyCashToday());
+  const [date, setDate] = useState(businessToday());
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [decision, setDecision] = useState<{ request: PolicyCashRequest; action: PolicyCashDecision } | null>(null);
@@ -54,7 +60,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
 
   const canPrepare = mode === 'finance' && Boolean(position?.can_prepare);
   const open = (newKind: PolicyCashKind) => {
-    setKind(newKind); setShareId(''); setAmount(''); setBankId(''); setDate(policyCashToday()); setReference(''); setNotes('');
+    setKind(newKind); setShareId(''); setAmount(''); setBankId(''); setDate(businessToday()); setReference(''); setNotes('');
     setError(null); requestKey.current = null;
   };
   const hasShares = Boolean(position?.shares?.length);
@@ -64,7 +70,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
   const submit = async () => {
     if (!kind) return;
     if (kind === 'remittance' && hasShares && !shareId) { setError('Choose the insurer receiving this remittance.'); return; }
-    const invalid = validatePolicyCashInput(amount, date, bankId, maximum, policyCashToday());
+    const invalid = validatePolicyCashInput(amount, date, bankId, maximum, businessToday());
     if (invalid) { setError(invalid); return; }
     setBusy(true); setError(null);
     requestKey.current ??= crypto.randomUUID();
@@ -170,7 +176,7 @@ export default function PolicyCashPanel({ policyId, mode = 'view' }: Props) {
             {banks.map((b) => <MenuItem key={b.id} value={b.id}>{b.name} ({b.currency})</MenuItem>)}
           </TextField>
           <TextField label="Amount" value={amount} onChange={(e) => edit(() => setAmount(e.target.value))} inputProps={{ inputMode: 'decimal' }} disabled={busy} />
-          <TextField label="Cash date" type="date" value={date} onChange={(e) => edit(() => setDate(e.target.value))} InputLabelProps={{ shrink: true }} inputProps={{ max: policyCashToday() }} disabled={busy} />
+          <TextField label="Cash date" type="date" value={date} onChange={(e) => edit(() => setDate(e.target.value))} InputLabelProps={{ shrink: true }} inputProps={{ max: businessToday() }} disabled={busy} />
           <TextField label="Bank reference" value={reference} onChange={(e) => edit(() => setReference(e.target.value))} disabled={busy} />
           <TextField label="Notes" multiline value={notes} onChange={(e) => edit(() => setNotes(e.target.value))} disabled={busy} />
         </Stack>

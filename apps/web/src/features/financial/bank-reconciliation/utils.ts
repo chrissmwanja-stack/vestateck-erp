@@ -1,19 +1,17 @@
+import { addDaysIso, addMonthsIso, businessToday } from '../../../lib/businessDate';
 // Matching looks up to this many days either side of the statement date
 // (fin_bank_line_candidates), so the book-side lists reach that far past
 // the statement window or a candidate just outside it would be invisible.
 export const MATCH_WINDOW_DAYS = 5;
 
-export const today = () => new Date().toISOString().slice(0, 10);
-export const monthAgo = () => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 10);
-};
+export const today = () => businessToday();
+export const monthAgo = () => addMonthsIso(businessToday(), -1);
 export const shiftDate = (iso: string, days: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  try {
+    return addDaysIso(iso, days);
+  } catch {
+    return iso;
+  }
 };
 export const fmt = (n: number | null | undefined) => (n == null ? '—' : Number(n).toLocaleString());
 

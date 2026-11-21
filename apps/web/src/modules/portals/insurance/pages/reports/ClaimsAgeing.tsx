@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField,
@@ -5,7 +6,6 @@ import {
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   CLAIMS_GROUPS, CLAIM_AGE_BUCKET_LABEL, claimsAgeingColumns, type ClaimAgeingLine, type ClaimsGroupBy,
@@ -15,7 +15,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // How long open claims have been unresolved, as at a date. Built on the claims register on the server, so the totals
 // here are the register's totals, grouped by age (days since the claim was notified).
 export default function ClaimsAgeing() {
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [groupBy, setGroupBy] = useState<ClaimsGroupBy>('none');
   const [rows, setRows] = useState<ClaimAgeingLine[]>([]);
   const [loading, setLoading] = useState(true);

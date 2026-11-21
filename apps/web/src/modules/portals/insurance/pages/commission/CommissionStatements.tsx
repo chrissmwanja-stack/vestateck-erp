@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, Table, TableBody, TableCell,
@@ -12,7 +13,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import { projectInsurerStatementPolicy } from '../../cancellation/statementProjection';
 import type { CommissionEntry, CommissionStatement, CommissionStatementRow, Policy } from '../../types';
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => businessToday();
 const monthStartIso = () => `${todayIso().slice(0, 8)}01`;
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {

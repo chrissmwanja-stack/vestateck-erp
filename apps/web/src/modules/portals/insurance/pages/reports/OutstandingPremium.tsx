@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
@@ -6,7 +7,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import { AGE_BUCKETS, AGE_BUCKET_LABEL, OUTSTANDING_COLUMNS, type AgeBucket, type OutstandingLine } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -15,7 +15,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // open items. Aged from the due date. Read-only; reproducible for any past date.
 export default function OutstandingPremium() {
   const navigate = useNavigate();
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [items, setItems] = useState<OutstandingLine[]>([]);
   const [bucket, setBucket] = useState<'all' | AgeBucket>('all');
   const [loading, setLoading] = useState(true);

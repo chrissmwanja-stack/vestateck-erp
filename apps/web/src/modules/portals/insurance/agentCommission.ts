@@ -1,3 +1,4 @@
+import { businessTodayDate } from '../../../lib/businessDate';
 // Agent commission: what the brokerage owes its sub-agents and referral partners.
 // Distinct from the brokerage's own commission from insurers (logic.ts / CommissionPage).
 //
@@ -946,7 +947,7 @@ export const runResultText = (run: AccrualRunResult): string => {
 };
 
 /** Default period for a run: the current month, as a manager would expect. */
-export const monthPeriod = (today = new Date()): { from: string; to: string } => {
+export const monthPeriod = (today = businessTodayDate()): { from: string; to: string } => {
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, '0');
   const last = new Date(y, today.getMonth() + 1, 0).getDate();
