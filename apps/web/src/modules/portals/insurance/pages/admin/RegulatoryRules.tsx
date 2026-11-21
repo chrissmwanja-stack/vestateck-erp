@@ -1,9 +1,9 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, CircularProgress, Tab, Tabs } from '@mui/material';
 import { allRows, errorText, rows, table } from '../../db';
 import { useMyModuleAccess } from '../../../../../features/navigation/useMyModuleAccess';
 import { supabase } from '../../../../../lib/supabaseClient';
-import { localIsoDate } from '../../fx';
 import type { ApprovalAssignment, ParamDefinition, RegulatoryParameter } from '../../regulatory';
 import { ErrorBanner, PageHeader } from '../../shared';
 import ApproversPanel from './regulatory/ApproversPanel';
@@ -31,7 +31,7 @@ export default function RegulatoryRules() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'parameters' | 'approvers'>('parameters');
-  const today = localIsoDate();
+  const today = businessToday();
 
   const isCompanyAdmin = Boolean(access?.isCompanyAdmin || access?.isPlatformAdmin);
   const insuranceRoles = access?.rolesByModule.get('insurance') ?? new Set<string>();

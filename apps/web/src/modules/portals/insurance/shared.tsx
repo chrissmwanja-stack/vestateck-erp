@@ -1,6 +1,6 @@
+import { businessToday } from '../../../lib/businessDate';
 import type { ReactNode } from 'react';
 import { Alert, Box, Chip, Typography } from '@mui/material';
-import { localIsoDate } from './fx';
 import { CLAIM_STATUS_LABEL, COMMISSION_STATUS_LABEL, POLICY_DISPLAY_STATUS_LABEL, policyDisplayStatus, type PolicyDisplayStatus } from './logic';
 import type { ClaimStatus, CommissionStatus, PolicyStatus } from './types';
 
@@ -51,7 +51,7 @@ const COMMISSION_COLOR: Record<CommissionStatus, 'default' | 'primary' | 'succes
 
 /** Pass `expiryDate` so an active policy past its expiry shows as Expired. */
 export function PolicyStatusChip({ status, expiryDate }: { status: PolicyStatus; expiryDate?: string | null }) {
-  const shown: PolicyDisplayStatus = expiryDate ? policyDisplayStatus({ status, expiry_date: expiryDate }, localIsoDate()) : status;
+  const shown: PolicyDisplayStatus = expiryDate ? policyDisplayStatus({ status, expiry_date: expiryDate }, businessToday()) : status;
   return <Chip size="small" label={POLICY_DISPLAY_STATUS_LABEL[shown]} color={POLICY_COLOR[shown]} variant={shown === 'draft' ? 'outlined' : 'filled'} />;
 }
 

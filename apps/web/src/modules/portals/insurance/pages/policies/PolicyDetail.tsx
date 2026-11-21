@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText,
@@ -163,7 +164,7 @@ const PolicyDetail = () => {
           : undefined;
   const split = commissionSplit(policy.gross_premium, policy.commission_rate_pct);
   const term = policyTermDays(policy.inception_date, policy.expiry_date);
-  const daysLeft = daysBetween(new Date().toISOString().slice(0, 10), policy.expiry_date);
+  const daysLeft = daysBetween(businessToday(), policy.expiry_date);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1100 }}>

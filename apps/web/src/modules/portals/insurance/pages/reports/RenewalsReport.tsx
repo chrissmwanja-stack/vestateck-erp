@@ -1,3 +1,4 @@
+import { addDaysIso, businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, FormControlLabel, MenuItem, Stack, Switch, Table, TableBody,
@@ -6,18 +7,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   RENEWALS_COLUMNS, RENEWAL_OUTCOMES, RENEWAL_OUTCOME_LABEL, type RenewalLine, type RenewalOutcome,
 } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
-
-function addDaysIso(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return localIsoDate(d);
-}
 
 const outcomeColor = (o: RenewalOutcome): 'success' | 'default' | 'warning' | 'error' =>
   o === 'renewed' ? 'success' : o === 'upcoming' ? 'default' : o === 'unresolved' ? 'warning' : 'error';
@@ -26,8 +20,8 @@ const outcomeColor = (o: RenewalOutcome): 'success' | 'default' | 'warning' | 'e
 // a renewal bound later changes the result for an earlier period.
 export default function RenewalsReport() {
   const navigate = useNavigate();
-  const [from, setFrom] = useState(localIsoDate());
-  const [to, setTo] = useState(addDaysIso(60));
+  const [from, setFrom] = useState(businessToday());
+  const [to, setTo] = useState(addDaysIso(businessToday(), 60));
   const [imported, setImported] = useState(true);
   const [outcome, setOutcome] = useState<'all' | RenewalOutcome>('all');
   const [items, setItems] = useState<RenewalLine[]>([]);

@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, MenuItem, Stack, Switch, Table, TableBody, TableCell,
@@ -5,7 +6,6 @@ import {
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import { CANCELLATION_GROUPS, cancellationColumns, cancellationGroupLabel, monthStartIso, type CancellationGroupBy, type CancellationLine } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -14,7 +14,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // counted on the posting date. Read-only; the server does all the arithmetic.
 export default function CancellationsReport() {
   const [from, setFrom] = useState(monthStartIso());
-  const [to, setTo] = useState(localIsoDate());
+  const [to, setTo] = useState(businessToday());
   const [groupBy, setGroupBy] = useState<CancellationGroupBy>('product_line');
   const [imported, setImported] = useState(false);
   const [items, setItems] = useState<CancellationLine[]>([]);

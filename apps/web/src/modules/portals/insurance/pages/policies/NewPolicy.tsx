@@ -1,3 +1,4 @@
+import { addDaysIso, addYearsIso, businessToday } from '../../../../../lib/businessDate';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -8,13 +9,8 @@ import type { AgentOption, InsClient, Insurer, InsurerProductRate, OrgOption, Po
 import { KYC_LABEL } from '../../clientKyc';
 import { ErrorBanner, PageHeader } from '../../shared';
 
-const today = () => new Date().toISOString().slice(0, 10);
-const oneYearOn = () => {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
-};
+const today = () => businessToday();
+const oneYearOn = () => addDaysIso(addYearsIso(businessToday(), 1), -1);
 
 // Creates a DRAFT policy, or edits one when the route has an id. Binding (premium booking) is a separate,
 // deliberate step on the detail page. Only drafts can be edited; the server locks a policy once it is bound.

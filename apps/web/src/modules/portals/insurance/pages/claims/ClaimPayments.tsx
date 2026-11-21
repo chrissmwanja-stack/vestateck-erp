@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
@@ -19,7 +20,7 @@ interface Props {
   onChanged: () => void;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => businessToday();
 
 // How a claim gets paid, and the actions that follow from it. The server decides
 // everything (ins_record_claim_payment / _receipt / _payout / ins_void_claim_payment);

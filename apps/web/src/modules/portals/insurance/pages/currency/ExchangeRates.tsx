@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText,
@@ -8,8 +9,14 @@ import { useMyModuleAccess } from '../../../../../features/navigation/useMyModul
 import { supabase } from '../../../../../lib/supabaseClient';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 import {
-  FX_STATUS_LABEL, canApproveFxRate, canWithdrawFxRate, formatFxRate, isValidFxWithdrawReason, localIsoDate,
-  validateFxRateEntry, type FxRate, type FxRateInput,
+  FX_STATUS_LABEL,
+  canApproveFxRate,
+  canWithdrawFxRate,
+  formatFxRate,
+  isValidFxWithdrawReason,
+  validateFxRateEntry,
+  type FxRate,
+  type FxRateInput,
 } from '../../fx';
 
 interface Lookup {
@@ -19,7 +26,7 @@ interface Lookup {
   error: string | null;
 }
 
-const EMPTY_FORM: FxRateInput = { currency: '', rateDate: localIsoDate(), rate: '', source: '' };
+const EMPTY_FORM: FxRateInput = { currency: '', rateDate: businessToday(), rate: '', source: '' };
 
 // Exchange rates for the company. Rates are functional-currency units per 1 unit of the
 // foreign currency. The server decides every rule (fx_rates_guard, fx_rate_approve,
@@ -40,7 +47,7 @@ export default function ExchangeRates() {
   const [saving, setSaving] = useState(false);
 
   const [lookup, setLookup] = useState<Lookup | null>(null);
-  const [lookupDate, setLookupDate] = useState(localIsoDate());
+  const [lookupDate, setLookupDate] = useState(businessToday());
   const [lookupCurrency, setLookupCurrency] = useState('');
 
   const [withdrawing, setWithdrawing] = useState<FxRate | null>(null);
@@ -87,7 +94,7 @@ export default function ExchangeRates() {
   }, [load]);
 
   const functionalUpper = functional.toUpperCase();
-  const today = useMemo(() => localIsoDate(), []);
+  const today = useMemo(() => businessToday(), []);
 
   const submit = async () => {
     const result = validateFxRateEntry(form, functional, today);

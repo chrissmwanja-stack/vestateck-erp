@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Step,
@@ -276,7 +277,7 @@ export default function ImportWizard() {
           <Stack spacing={2}>
             <TextField label="Batch label" value={label} onChange={(e) => setLabel(e.target.value)} fullWidth />
             <TextField label="Cut-over date" type="date" InputLabelProps={{ shrink: true }}
-              inputProps={{ max: new Date().toISOString().slice(0, 10) }}
+              inputProps={{ max: businessToday() }}
               value={cutOver} onChange={(e) => setCutOver(e.target.value)} fullWidth />
             <Button variant="outlined" component="label">
               {file ? file.name : 'Choose workbook / CSV…'}

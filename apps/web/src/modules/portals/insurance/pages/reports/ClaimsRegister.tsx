@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow,
@@ -6,7 +7,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   CLAIMS_REGISTER_COLUMNS, CLAIM_AGE_BUCKET_LABEL, CLAIM_STATUS_LABEL, type ClaimRegisterLine, type ClaimsScope,
@@ -17,7 +17,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // outstanding on that date. Read-only; status, reserve and payments are reproducible for any past date.
 export default function ClaimsRegister() {
   const navigate = useNavigate();
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [scope, setScope] = useState<ClaimsScope>('open');
   const [items, setItems] = useState<ClaimRegisterLine[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -140,7 +141,7 @@ const AgentCommissionPayments = () => {
   }, [accruals, payments]);
 
   const openPropose = () => {
-    setForm({ accrual_id: '', bank_account_id: '', paid_on: new Date().toISOString().slice(0, 10), note: '' });
+    setForm({ accrual_id: '', bank_account_id: '', paid_on: businessToday(), note: '' });
     setFormError(null);
     setProposeOpen(true);
   };

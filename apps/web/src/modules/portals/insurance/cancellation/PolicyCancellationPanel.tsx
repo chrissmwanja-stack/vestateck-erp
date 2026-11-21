@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../lib/businessDate';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -20,7 +21,6 @@ import {
   Typography,
 } from '@mui/material';
 import { errorText, rpc } from '../db';
-import { policyCashToday } from '../policyCash';
 import { cents, money } from './calculation';
 import CancellationCashPanel from './CancellationCashPanel';
 import {
@@ -175,7 +175,7 @@ export default function PolicyCancellationPanel({
   const [busy, setBusy] = useState(false);
   const [offset, setOffset] = useState(0);
   const [form, setForm] = useState(false);
-  const [effective, setEffective] = useState(policyCashToday());
+  const [effective, setEffective] = useState(businessToday());
   const [reason, setReason] = useState('');
   const [terms, setTerms] = useState<Record<string, TermsDraft>>({});
   const [charges, setCharges] = useState<Record<string, ChargeDraft>>({});
@@ -273,7 +273,7 @@ export default function PolicyCancellationPanel({
       ),
     );
     setReason('');
-    setEffective(policyCashToday());
+    setEffective(businessToday());
     setPreview(null);
     setForm(true);
   };

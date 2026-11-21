@@ -25,6 +25,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { businessDateOf, businessToday } from '../_shared/businessDate.ts';
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -71,7 +72,8 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 const stamp = () => new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
 const money = (v: number | null | undefined, cur: string) =>
   `${cur} ${Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const day = (d: string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : '-');
+// A plain yyyy-mm-dd date passes through; a timestamp is dated by the Africa/Kampala business day.
+const day = (d: string | null | undefined) => (d ? (/^\d{4}-\d{2}-\d{2}$/.test(d) ? d : businessDateOf(d)) : '-');
 
 serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -215,7 +217,7 @@ serve(async (req) => {
     drawText(`Policy: ${pol.policy_no}`, { useBold: true });
     drawText(`Product: ${line}`);
     drawText(`Period: ${day(pol.inception_date)} to ${day(pol.expiry_date)}  (${pol.status}, ${pol.transaction_type})`);
-    drawText(`Generated: ${new Date().toISOString().slice(0, 10)}  (template ins_${kind} v${TEMPLATE_VERSION})`, { size: 9, color: [0.4, 0.4, 0.4] });
+    drawText(`Generated: ${businessToday()}  (template ins_${kind} v${TEMPLATE_VERSION})`, { size: 9, color: [0.4, 0.4, 0.4] });
     y -= 10;
 
     drawText('Insured', { useBold: true });

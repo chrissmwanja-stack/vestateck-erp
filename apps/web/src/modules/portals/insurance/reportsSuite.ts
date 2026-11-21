@@ -1,3 +1,4 @@
+import { businessMonthStart } from '../../../lib/businessDate';
 import type { ReportExportColumn } from '../../../lib/reportExport';
 
 // Types, labels and export columns for the server-side management reports
@@ -16,9 +17,7 @@ export const REPORT_GROUPS: { value: ReportGroupBy; label: string }[] = [
 
 export const groupLabel = (g: ReportGroupBy): string => REPORT_GROUPS.find((x) => x.value === g)?.label ?? g;
 
-export function monthStartIso(now: Date = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-}
+export const monthStartIso = (now: Date = new Date()): string => businessMonthStart(now);
 
 export interface ProductionLine {
   group_key: string;

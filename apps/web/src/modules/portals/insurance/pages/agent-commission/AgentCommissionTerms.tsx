@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Grid, MenuItem,
@@ -15,7 +16,7 @@ import {
 interface AgentRef { id: string; name: string; category: string }
 interface PersonRef { id: string; name: string | null; email: string | null }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => businessToday();
 const blankForm = (): TermFormInput & { intermediary_id: string; product_line_id: string; source_ref: string } => ({
   intermediary_id: '', basis: '', rate_pct: '', fixed_amount: '', tier_from_amount: '', tier_to_amount: '',
   product_line_id: '', effective_from: todayIso(), effective_to: '', source_ref: '',

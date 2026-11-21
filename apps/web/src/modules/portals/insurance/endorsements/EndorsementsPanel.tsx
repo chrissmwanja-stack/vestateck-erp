@@ -1,6 +1,7 @@
 // Endorsements on a policy: the propose dialog (insurance managers), the
 // endorsements list, and the Finance maker/checker controls. The money math is
 // server-side; this panel only shapes the request and shows the calculation.
+import { businessToday } from '../../../../lib/businessDate';
 import EndorsementNotes from './EndorsementNotes';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -23,7 +24,7 @@ interface GlAccountOption {
   name: string;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessToday();
 
 export default function EndorsementsPanel({
   policyId,

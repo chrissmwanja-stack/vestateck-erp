@@ -66,8 +66,3 @@ export function validatePolicyCashInput(amount: string, date: string, bankId: st
   return null;
 }
 
-/** Use the user's local calendar date, not UTC (which can be yesterday). */
-export function policyCashToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}

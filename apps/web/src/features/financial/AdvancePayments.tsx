@@ -1,3 +1,4 @@
+import { businessToday } from '../../lib/businessDate';
 import { useEffect, useState } from 'react';
 import {
   Box,
@@ -55,7 +56,7 @@ const emptyForm = {
   amount: '',
   paymentMethod: 'bank' as 'cash' | 'bank',
   bankAccount: '',
-  paymentDate: new Date().toISOString().slice(0, 10),
+  paymentDate: businessToday(),
   description: '',
 };
 

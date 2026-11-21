@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow,
@@ -5,7 +6,6 @@ import {
 } from '@mui/material';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import { REPORT_GROUPS, collectedColumns, groupLabel, monthStartIso, type CollectedLine, type ReportGroupBy } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
@@ -14,7 +14,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // A receipt that was voided on or before the end of the period is not counted. Read-only.
 export default function PremiumCollected() {
   const [from, setFrom] = useState(monthStartIso());
-  const [to, setTo] = useState(localIsoDate());
+  const [to, setTo] = useState(businessToday());
   const [groupBy, setGroupBy] = useState<ReportGroupBy>('month');
   const [items, setItems] = useState<CollectedLine[]>([]);
   const [loading, setLoading] = useState(true);

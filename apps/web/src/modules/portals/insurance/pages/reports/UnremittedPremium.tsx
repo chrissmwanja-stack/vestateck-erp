@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
@@ -5,7 +6,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { allRows, errorText, rows, rpc, table } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   REMITTANCE_EXPORT_COLUMNS, REMITTANCE_STATUS_LABEL, REMITTANCE_STATUS_ORDER, chunk, daysPastDeadline, remittanceExportRows, remittanceFacts, sortRemittanceRows,
@@ -27,7 +27,7 @@ const STATUS_COLOR: Record<RemittanceStatus, 'error' | 'warning' | 'success' | '
 // remittance deadline taken from the approved regulatory rule. The report is read-only.
 export default function UnremittedPremium() {
   const navigate = useNavigate();
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [items, setItems] = useState<RemittanceRow[]>([]);
   const [insurers, setInsurers] = useState<Map<string, string>>(new Map());
   const [policyFacts, setPolicyFacts] = useState<Map<string, { currency: string; client: string }>>(new Map());

@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -43,7 +44,7 @@ const STATUS_COLOR: Record<IntermediaryStatus, 'default' | 'primary' | 'success'
   terminated: 'default',
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessToday();
 const orNull = (v: string) => (v.trim() === '' ? null : v.trim());
 
 // Agents and sub-agents: external intermediaries, not employees. Nothing here posts;

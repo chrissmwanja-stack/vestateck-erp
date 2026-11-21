@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField,
@@ -6,7 +7,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
 import { errorText, rpc } from '../../db';
-import { localIsoDate } from '../../fx';
 import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
 import {
   AGE_BUCKETS, AGE_BUCKET_LABEL, COMMISSION_RECEIVABLE_COLUMNS, type AgeBucket, type CommissionReceivableLine,
@@ -17,7 +17,7 @@ import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 // receivable open items. Only insurers settled on the gross basis appear here. Read-only; reproducible for any past date.
 export default function CommissionReceivable() {
   const navigate = useNavigate();
-  const [asOf, setAsOf] = useState(localIsoDate());
+  const [asOf, setAsOf] = useState(businessToday());
   const [items, setItems] = useState<CommissionReceivableLine[]>([]);
   const [bucket, setBucket] = useState<'all' | AgeBucket>('all');
   const [loading, setLoading] = useState(true);

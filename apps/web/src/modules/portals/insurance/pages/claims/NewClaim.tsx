@@ -1,3 +1,4 @@
+import { businessToday } from '../../../../../lib/businessDate';
 import { useEffect, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, TextField } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { formatMoney } from '../../logic';
 import type { Policy } from '../../types';
 import { ErrorBanner, PageHeader } from '../../shared';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessToday();
 
 // Notifies a loss against a bound policy. Assessment and decisions happen on the claim detail page.
 export default function NewClaim() {
