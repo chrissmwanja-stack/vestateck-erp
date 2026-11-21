@@ -1,5 +1,7 @@
 # Insurance Brokerage: Roadmap and Decisions
 
+> **Detailed history, not the operational reference.** Current status is in `INSURANCE_IMPLEMENTATION_STATUS.md`, production gates in `INSURANCE_ACCEPTANCE_PLAN.md`, and decision and approval status in `INSURANCE_DECISIONS_REGISTER.md`. Where this file disagrees with them, they win. Known stale passages: section 7b ("statutory charge catalogue not started"), section 7c ("policy creation does not call the resolver"; the payable accounts now exist, `20261120004000` and `20261120005000`), and the "Not yet built" list in section 9a (excess, closing-rate revaluation and commission receivable are built).
+
 Status: working document, first written 16 October 2026, status updated 17 October 2026 and again 7 November 2026 (see section 7b); the agent commission section was rewritten on 18 November 2026 (section 7c). Suggested repo path: `docs/insurance-brokerage/ROADMAP.md`.
 
 Sources: the IBS User Manual (Adelphi, Release 1.0, 2010), a clone of `vestateck-erp` at `ad159c7`, the accountant guidance in `Accountant.pdf`, and the existing docs `ANALYSIS.md`, `ACCOUNTANT_PACK.md` and `POLICY_REVERSAL.md`.

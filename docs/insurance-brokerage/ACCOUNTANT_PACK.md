@@ -1,6 +1,6 @@
 # Insurance Brokerage: Accountant Sign-off Pack
 
-Status: **draft for accountant review. Not approved.** Nothing in this pack is an accounting sign-off. Until the accountant signs section 8, the treatments below are the software's current design, not agreed policy.
+Status: **draft for accountant review. Not approved.** The register of decisions and who has approved them is `INSURANCE_DECISIONS_REGISTER.md`; each row of section 8 maps to its ids there. Section 4 question 3 conflicts with section 5.14 (register id DR-29). Nothing in this pack is an accounting sign-off. Until the accountant signs section 8, the treatments below are the software's current design, not agreed policy.
 
 Prepared 16 October 2026 from the repo at `origin/main` 9f73349 plus the work on `security/hardening-consolidated`. It draws on `ANALYSIS.md` (the design draft), `POLICY_REVERSAL.md` and the migrations named in each section.
 

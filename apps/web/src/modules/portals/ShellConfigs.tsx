@@ -536,6 +536,9 @@ export const insuranceNodes: TreeNode[] = [
     children: [
       { id: "ins-unremitted-premium", label: "Unremitted Premium", icon: <BarChart fontSize="small" />, to: "/insurance/reports/unremitted-premium" },
       { id: "ins-production-book", label: "Production Book", icon: <BarChart fontSize="small" />, to: "/insurance/reports/production-book" },
+      { id: "ins-production", label: "Production (net)", icon: <BarChart fontSize="small" />, to: "/insurance/reports/production" },
+      { id: "ins-premium-collected", label: "Premium Collected", icon: <BarChart fontSize="small" />, to: "/insurance/reports/premium-collected" },
+      { id: "ins-outstanding-premium", label: "Outstanding Premium", icon: <BarChart fontSize="small" />, to: "/insurance/reports/outstanding-premium" },
       { id: "ins-client-statements", label: "Statements & Aged Balances", icon: <BarChart fontSize="small" />, to: "/insurance/reports/client-statements" },
     ],
   },

@@ -39,6 +39,9 @@ const RemittancePosition = lazy(() => import('../modules/portals/insurance/pages
 const ImportWizard = lazy(() => import('../modules/portals/insurance/pages/admin/ImportWizard'));
 const InsurerStatements = lazy(() => import('../modules/portals/insurance/pages/reports/InsurerStatements'));
 const ProductionBook = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionBook'));
+const ProductionReport = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionReport'));
+const PremiumCollected = lazy(() => import('../modules/portals/insurance/pages/reports/PremiumCollected'));
+const OutstandingPremium = lazy(() => import('../modules/portals/insurance/pages/reports/OutstandingPremium'));
 const ClientStatements = lazy(() => import('../modules/portals/insurance/pages/reports/ClientStatements'));
 
 export const insuranceRoutes = (
@@ -84,6 +87,9 @@ export const insuranceRoutes = (
       <Route path="/insurance/reports/insurer-statements" element={<InsurerStatements />} />
       {/* Reports read views that re-check tenant and insurance access on every query; open to every insurance role. */}
       <Route path="/insurance/reports/production-book" element={<ProductionBook />} />
+      <Route path="/insurance/reports/production" element={<ProductionReport />} />
+      <Route path="/insurance/reports/premium-collected" element={<PremiumCollected />} />
+      <Route path="/insurance/reports/outstanding-premium" element={<OutstandingPremium />} />
       <Route path="/insurance/reports/client-statements" element={<ClientStatements />} />
 
       <Route element={<RequireModule module="insurance" roles={INS_ADMIN_ROLES} />}>

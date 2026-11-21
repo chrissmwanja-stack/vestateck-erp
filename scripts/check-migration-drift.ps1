@@ -30,7 +30,12 @@
 
 [CmdletBinding()]
 param(
-    [string]$MigrationsPath = "supabase/migrations"
+    [string]$MigrationsPath = "supabase/migrations",
+
+    # Pinned to match CI. A bare `supabase` on PATH can be a newer major version:
+    # 3.x defaults `migrations list` to the LOCAL stack, 2.x to the linked remote,
+    # which made this script compare files against the wrong database.
+    [string]$SupabaseCliVersion = "2.114.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,7 +58,7 @@ if (-not (Test-Path $MigrationsPath)) {
     exit 2
 }
 
-Write-Section "Running 'supabase migrations list'"
+Write-Section "Running 'supabase migrations list' (CLI $SupabaseCliVersion, linked remote)"
 
 # $ErrorActionPreference = "Stop" (set above) means ANY ErrorRecord
 # terminates the script immediately -- and `2>&1` on a native command
@@ -64,7 +69,7 @@ Write-Section "Running 'supabase migrations list'"
 # so relax ErrorActionPreference just for this one call, then restore it.
 $prevEAP = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
-$raw = (supabase migrations list 2>&1 | Out-String)
+$raw = (npx --yes supabase@$SupabaseCliVersion migrations list 2>&1 | Out-String)
 $exitCode = $LASTEXITCODE
 $ErrorActionPreference = $prevEAP
 
