@@ -6,6 +6,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { reportError } from "../../../../../lib/errorTracking";
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from "../../../../../lib/reportExport";
 import type { Tables, TablesInsert } from "@erp-platform/shared";
+import { businessToday } from "../../../../../lib/businessDate";
 
 type Initiative = Tables<"sustainability_initiatives"> & { sustainability_initiative_categories: { name: string } | null };
 type Category = Pick<Tables<"sustainability_initiative_categories">, "id" | "name">;
@@ -130,7 +131,7 @@ export default function InitiativesList() {
       { header: "Start", accessor: (r) => r.start_date || "-" },
       { header: "End", accessor: (r) => r.end_date || "-" },
     ];
-    exportReportToExcel(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}`, "Initiatives", cols, initiatives);
+    exportReportToExcel(`sustainability-initiatives-${businessToday()}`, "Initiatives", cols, initiatives);
   };
   const handlePdf = () => {
     const cols: ReportExportColumn<Initiative>[] = [
@@ -140,7 +141,7 @@ export default function InitiativesList() {
       { header: "Target/Curr", accessor: (r) => `${r.current_value ?? "-"} / ${r.target_value ?? "-"}` },
       { header: "Progress", accessor: (r) => `${getProgress(r.current_value, r.target_value).toFixed(0)}%` },
     ];
-    exportReportToPdf(`sustainability-initiatives-${new Date().toISOString().slice(0,10)}.pdf`, "Sustainability Initiatives", cols, initiatives);
+    exportReportToPdf(`sustainability-initiatives-${businessToday()}.pdf`, "Sustainability Initiatives", cols, initiatives);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;

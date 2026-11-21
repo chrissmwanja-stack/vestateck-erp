@@ -3,6 +3,7 @@ import { Box, Card, CardContent, CircularProgress, Grid, Typography, Button, Lin
 import { supabase } from "../../../../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as ReTooltip, LineChart, Line, XAxis, YAxis } from "recharts";
+import { addDaysIso, businessToday } from "../../../../lib/businessDate";
 
 const STATUS_COLORS: Record<string, string> = {
   available: "#2e7d32",
@@ -60,7 +61,7 @@ export default function MachineDashboard() {
       const ops = (opsLogsRes.data as any[]) || [];
       const byDate: Record<string, number> = {};
       for (let i=6; i>=0; i--) {
-        const d = new Date(Date.now() - i*24*60*60*1000).toISOString().slice(0,10);
+        const d = addDaysIso(businessToday(), -i);
         byDate[d] = 0;
       }
       ops.forEach((o: any) => {

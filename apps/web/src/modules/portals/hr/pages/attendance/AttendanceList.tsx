@@ -4,11 +4,12 @@ import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface Employee { id: string; first_name: string; last_name: string; }
 interface Attendance { id: string; employee_id: string; attendance_date: string; check_in: string | null; check_out: string | null; status: string; notes: string | null; hr_employees?: { first_name: string; last_name: string } | null; }
 
-const emptyForm = { employee_id: "", attendance_date: new Date().toISOString().slice(0, 10), check_in: "", check_out: "", status: "present", notes: "" };
+const emptyForm = { employee_id: "", attendance_date: businessToday(), check_in: "", check_out: "", status: "present", notes: "" };
 
 export default function AttendanceList() {
   const { session } = useAuth();

@@ -21,6 +21,7 @@ import {
 import { Download, FileDownload, Refresh } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface ProjectRow {
   id: string;
@@ -160,7 +161,7 @@ export default function ProjectStatusReport() {
       { header: "Progress % (done/total)", accessor: (r: ComputedRow) => r.progress.toFixed(1) },
       { header: "End Date", accessor: (r: ComputedRow) => (r.endDate ? new Date(r.endDate).toLocaleDateString() : "-") },
     ];
-    exportReportToExcel(`pmo-project-status-${new Date().toISOString().slice(0, 10)}`, "Project Status", cols as any, filtered);
+    exportReportToExcel(`pmo-project-status-${businessToday()}`, "Project Status", cols as any, filtered);
   };
 
   const handleExportPdf = () => {
@@ -175,7 +176,7 @@ export default function ProjectStatusReport() {
       { header: "End", accessor: (r: ComputedRow) => (r.endDate ? new Date(r.endDate).toLocaleDateString() : "-") },
     ];
     exportReportToPdf(
-      `pmo-project-status-${new Date().toISOString().slice(0, 10)}.pdf`,
+      `pmo-project-status-${businessToday()}.pdf`,
       "Project Status Report",
       cols as any,
       filtered,

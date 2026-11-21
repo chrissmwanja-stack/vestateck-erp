@@ -3,6 +3,7 @@ import { Box, Card, CardContent, CircularProgress, Grid, Typography, Button } fr
 import { supabase } from "../../../../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
+import { addDaysIso, businessToday } from "../../../../lib/businessDate";
 
 
 
@@ -20,9 +21,9 @@ export default function HRDashboard() {
       supabase.from("departments").select("id", { count: "exact", head: true }).eq("is_active", true),
       supabase.from("hr_leave_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("hr_job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
-      supabase.from("hr_attendance").select("id", { count: "exact", head: true }).eq("attendance_date", new Date().toISOString().slice(0, 10)),
+      supabase.from("hr_attendance").select("id", { count: "exact", head: true }).eq("attendance_date", businessToday()),
       supabase.from("hr_employees").select("departments(name)"),
-      supabase.from("hr_attendance").select("attendance_date, status").gte("attendance_date", new Date(Date.now() - 6*24*60*60*1000).toISOString().slice(0,10)).order("attendance_date"),
+      supabase.from("hr_attendance").select("attendance_date, status").gte("attendance_date", addDaysIso(businessToday(), -6)).order("attendance_date"),
     ]);
 
     setStats({
@@ -48,7 +49,7 @@ export default function HRDashboard() {
     const week = (attWeekRes.data as any[]) || [];
     const byDate: Record<string, { present:number; absent:number; late:number }> = {};
     for (let i=6; i>=0; i--) {
-      const d = new Date(Date.now() - i*24*60*60*1000).toISOString().slice(0,10);
+      const d = addDaysIso(businessToday(), -i);
       byDate[d] = { present:0, absent:0, late:0 };
     }
     week.forEach((r: any) => {

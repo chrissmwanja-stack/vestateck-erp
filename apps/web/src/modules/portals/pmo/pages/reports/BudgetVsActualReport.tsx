@@ -21,6 +21,7 @@ import {
 import { Download, FileDownload, Refresh } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface ProjectRow {
   id: string;
@@ -135,7 +136,7 @@ export default function BudgetVsActualReport() {
       { header: "Tasks", accessor: (r: ComputedRow) => r.taskCount },
       { header: "Milestones", accessor: (r: ComputedRow) => r.milestoneCount },
     ];
-    exportReportToExcel(`pmo-budget-vs-actual-${new Date().toISOString().slice(0, 10)}`, "Budget vs Actual", cols as any, filtered);
+    exportReportToExcel(`pmo-budget-vs-actual-${businessToday()}`, "Budget vs Actual", cols as any, filtered);
   };
 
   const handleExportPdf = () => {
@@ -149,7 +150,7 @@ export default function BudgetVsActualReport() {
       { header: "Util %", accessor: (r: ComputedRow) => `${r.utilization.toFixed(1)}%` },
     ];
     exportReportToPdf(
-      `pmo-budget-vs-actual-${new Date().toISOString().slice(0, 10)}.pdf`,
+      `pmo-budget-vs-actual-${businessToday()}.pdf`,
       "Budget vs Actual Report",
       cols as any,
       filtered,

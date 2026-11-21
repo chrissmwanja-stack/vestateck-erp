@@ -41,6 +41,7 @@ import {
   type DirectoryUser,
   type UserKind,
 } from './usersDirectory';
+import { businessToday } from '../../lib/businessDate';
 
 // /admin/users -- every person on the platform, across every company.
 //
@@ -170,7 +171,7 @@ export default function PlatformUsersDirectory() {
           variant="outlined"
           startIcon={<DownloadIcon />}
           disabled={rows.length === 0}
-          onClick={() => downloadCsv(`users-${new Date().toISOString().slice(0, 10)}.csv`, usersToCsv(rows))}
+          onClick={() => downloadCsv(`users-${businessToday()}.csv`, usersToCsv(rows))}
         >
           Export page (CSV)
         </Button>

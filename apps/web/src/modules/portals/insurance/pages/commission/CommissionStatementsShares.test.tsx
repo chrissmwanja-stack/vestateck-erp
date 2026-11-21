@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CommissionStatements from './CommissionStatements';
+import { businessToday } from '../../../../../lib/businessDate';
 const { from } = vi.hoisted(() => ({ from: vi.fn() }));
 vi.mock('../../../../../lib/supabaseClient', () => ({ supabase: { from } }));
 vi.mock('../../../../../lib/reportExport', () => ({
@@ -19,7 +20,7 @@ const chain = (data: unknown[]) => {
 };
 describe('non-lead insurer commission statement', () => {
   it('projects the selected co-insurer allocation rather than the lead or full policy totals', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = businessToday();
     from.mockImplementation((name: string) => {
       if (name === 'ins_insurers') return chain([{ id: 'beta', name: 'Beta' }]);
       if (name === 'ins_policies')

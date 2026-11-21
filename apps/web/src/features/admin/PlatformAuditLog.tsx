@@ -27,6 +27,7 @@ import { ExpandLess, ExpandMore, Refresh, VerifiedUser, Download } from '@mui/ic
 import { Link as RouterLink } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Json } from '@erp-platform/shared';
+import { businessToday } from '../../lib/businessDate';
 
 // /admin/audit -- every privileged platform action, plus impersonation
 // history. Reads two platform-admin-gated RPCs added in
@@ -186,7 +187,7 @@ function ActionsTab({ tenants }: { tenants: TenantOption[] }) {
 
   const exportCsv = () => {
     download(
-      `platform-audit-${new Date().toISOString().slice(0, 10)}.csv`,
+      `platform-audit-${businessToday()}.csv`,
       toCsv(rows as unknown as Record<string, unknown>[], [
         'created_at',
         'actor_email',
@@ -481,7 +482,7 @@ function ImpersonationTab({ tenants }: { tenants: TenantOption[] }) {
           disabled={rows.length === 0}
           onClick={() =>
             download(
-              `impersonation-history-${new Date().toISOString().slice(0, 10)}.csv`,
+              `impersonation-history-${businessToday()}.csv`,
               toCsv(rows as unknown as Record<string, unknown>[], [
                 'started_at',
                 'ended_at',

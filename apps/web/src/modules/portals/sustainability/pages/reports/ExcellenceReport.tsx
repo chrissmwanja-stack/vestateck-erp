@@ -5,6 +5,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as ReTooltip } from "recharts";
+import { businessToday } from "../../../../../lib/businessDate";
 
 const COLORS = ["#2e7d32", "#1976d2", "#ed6c02", "#9e9e9e"];
 
@@ -55,7 +56,7 @@ export default function ExcellenceReport() {
       { header: "Score", accessor: (r: any) => r.score },
       { header: "Value", accessor: (r: any) => r.value },
     ];
-    exportReportToExcel(`excellence-scorecard-${new Date().toISOString().slice(0,10)}`, "Excellence", cols as any, rows);
+    exportReportToExcel(`excellence-scorecard-${businessToday()}`, "Excellence", cols as any, rows);
   };
   const handlePdf = () => {
     const rows = [
@@ -67,7 +68,7 @@ export default function ExcellenceReport() {
       { header: "Score", accessor: (r: any) => r.score },
       { header: "Value", accessor: (r: any) => r.value },
     ];
-    exportReportToPdf(`excellence-scorecard-${new Date().toISOString().slice(0,10)}.pdf`, "Excellence Scorecard", cols as any, rows, `Avg Progress ${stats.avgProgress.toFixed(0)}% • ${stats.completed}/${stats.total} completed`);
+    exportReportToPdf(`excellence-scorecard-${businessToday()}.pdf`, "Excellence Scorecard", cols as any, rows, `Avg Progress ${stats.avgProgress.toFixed(0)}% • ${stats.completed}/${stats.total} completed`);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;

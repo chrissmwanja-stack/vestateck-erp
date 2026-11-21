@@ -4,8 +4,9 @@ import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { reportError } from "../../../../../lib/errorTracking";
 import { useAuth } from "../../../../../lib/authContext";
+import { businessToday } from "../../../../../lib/businessDate";
 
-const emptyForm = { machine_id: "", log_date: new Date().toISOString().slice(0, 10), fuel_liters: "", cost: "", notes: "" };
+const emptyForm = { machine_id: "", log_date: businessToday(), fuel_liters: "", cost: "", notes: "" };
 
 export default function FuelLogs() {
   const { session } = useAuth();

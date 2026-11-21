@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CommissionStatements from './CommissionStatements';
+import { businessToday } from '../../../../../lib/businessDate';
 
 // Statement screen: reads the insurer's bound policies and commission ledger, shows each policy with its commission status, labels pre-deferral policies
 // as legacy, totals by status, and refuses an inverted period before querying.
@@ -18,7 +19,7 @@ vi.mock('../../../../../lib/reportExport', () => ({
   exportReportToPdf: (...args: unknown[]) => mockPdf(...args),
 }));
 
-const today = new Date().toISOString().slice(0, 10);
+const today = businessToday();
 const boundAt = `${today}T08:00:00Z`;
 
 const policy = (over: Record<string, unknown>) => ({

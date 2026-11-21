@@ -20,6 +20,7 @@ import {
 import { Download, FileDownload, Refresh, Warning } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface AllocationRow {
   id: string;
@@ -185,7 +186,7 @@ export default function ResourceUtilization() {
       { header: "Available", accessor: (r: EmpUtil) => r.availableHours },
       { header: "Status", accessor: (r: EmpUtil) => r.status },
     ];
-    exportReportToExcel(`pmo-resource-utilization-${new Date().toISOString().slice(0, 10)}`, "Utilization", cols as any, utilization);
+    exportReportToExcel(`pmo-resource-utilization-${businessToday()}`, "Utilization", cols as any, utilization);
   };
 
   const handleExportPdf = () => {
@@ -199,7 +200,7 @@ export default function ResourceUtilization() {
       { header: "Status", accessor: (r: EmpUtil) => r.status },
     ];
     exportReportToPdf(
-      `pmo-resource-utilization-${new Date().toISOString().slice(0, 10)}.pdf`,
+      `pmo-resource-utilization-${businessToday()}.pdf`,
       "Resource Utilization",
       cols as any,
       utilization,

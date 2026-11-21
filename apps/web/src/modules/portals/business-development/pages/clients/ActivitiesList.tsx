@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { businessNowLocalInput } from "../../../../../lib/businessDate";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -7,7 +8,7 @@ import { useAuth } from "../../../../../lib/authContext";
 interface Client { id: string; name: string; }
 interface Activity { id: string; tenant_id: string; type: string; subject: string; description: string | null; client_id: string | null; activity_date: string; created_at: string; bd_clients?: { name: string } | null; }
 
-const emptyForm = { type: "call" as 'call'|'meeting'|'email'|'note'|'site_visit', subject: "", description: "", client_id: "", activity_date: new Date().toISOString().slice(0, 16) };
+const emptyForm = { type: "call" as 'call'|'meeting'|'email'|'note'|'site_visit', subject: "", description: "", client_id: "", activity_date: businessNowLocalInput() };
 
 export default function ActivitiesList() {
   const { session } = useAuth();
