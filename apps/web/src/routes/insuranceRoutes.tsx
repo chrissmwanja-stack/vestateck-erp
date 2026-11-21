@@ -42,6 +42,11 @@ const ProductionBook = lazy(() => import('../modules/portals/insurance/pages/rep
 const ProductionReport = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionReport'));
 const PremiumCollected = lazy(() => import('../modules/portals/insurance/pages/reports/PremiumCollected'));
 const OutstandingPremium = lazy(() => import('../modules/portals/insurance/pages/reports/OutstandingPremium'));
+const CommissionEarned = lazy(() => import('../modules/portals/insurance/pages/reports/CommissionEarned'));
+const CommissionReceivable = lazy(() => import('../modules/portals/insurance/pages/reports/CommissionReceivable'));
+const CancellationsReport = lazy(() => import('../modules/portals/insurance/pages/reports/CancellationsReport'));
+const ClaimsRegister = lazy(() => import('../modules/portals/insurance/pages/reports/ClaimsRegister'));
+const ClaimsAgeing = lazy(() => import('../modules/portals/insurance/pages/reports/ClaimsAgeing'));
 const ClientStatements = lazy(() => import('../modules/portals/insurance/pages/reports/ClientStatements'));
 
 export const insuranceRoutes = (
@@ -90,6 +95,11 @@ export const insuranceRoutes = (
       <Route path="/insurance/reports/production" element={<ProductionReport />} />
       <Route path="/insurance/reports/premium-collected" element={<PremiumCollected />} />
       <Route path="/insurance/reports/outstanding-premium" element={<OutstandingPremium />} />
+      <Route path="/insurance/reports/commission-earned" element={<CommissionEarned />} />
+      <Route path="/insurance/reports/commission-receivable" element={<CommissionReceivable />} />
+      <Route path="/insurance/reports/cancellations" element={<CancellationsReport />} />
+      <Route path="/insurance/reports/claims-register" element={<ClaimsRegister />} />
+      <Route path="/insurance/reports/claims-ageing" element={<ClaimsAgeing />} />
       <Route path="/insurance/reports/client-statements" element={<ClientStatements />} />
 
       <Route element={<RequireModule module="insurance" roles={INS_ADMIN_ROLES} />}>

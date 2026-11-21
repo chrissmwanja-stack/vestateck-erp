@@ -58,6 +58,8 @@ Confirmer: **Compliance adviser**.
 | E6 | Backup and restore drill recorded in `docs/OPERATIONS.md`, and a staging project exercised with the module | Open | Not verified in this pass |
 | E7 | Local UAT tenant (Pearl Risk Brokers Ltd, `seed.sql` section 6) walked end to end by someone other than the builder | Open | |
 | E8 | `test_ins_reports_batch1.sql` passes in CI, and every report total in it ties to the AR control balance | Open | Passed locally on PostgreSQL 16 on 21 Nov 2026; CI run not yet recorded |
+| E9 | `test_ins_reports_batch2.sql` passes on a fresh stack, and commission earned ties to the commission income ledger | Open | Written 21 Nov 2026 and parse-checked only; not yet run against the full stack. Receivable with rows has no scenario yet |
+| E10 | `test_ins_reports_batch3.sql` passes on a fresh stack, and the claims register ties to the paid amount and reserve history on the claim records | Open | Written 21 Nov 2026; not yet run against any database. Back-dated claims and voided payments have no scenario yet |
 
 ## 4. Playwright coverage (blocking unless excepted)
 

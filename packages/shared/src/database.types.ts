@@ -20905,6 +20905,126 @@ export type Database = {
         Returns: string
       }
       ins_renewal_notification_sweep: { Args: never; Returns: number }
+      ins_report_cancellation_register: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          cancellation_id: string
+          cancellation_no: string
+          client_name: string
+          commission_clawback: number
+          currency: string
+          effective_date: string
+          insurer_name: string
+          policy_id: string
+          policy_no: string
+          posting_date: string
+          product_line_name: string
+          reason: string
+          retained_commission: number
+          return_premium: number
+          total_insurer_credit: number
+        }[]
+      }
+      ins_report_cancellations: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_include_imported?: boolean
+          p_to: string
+        }
+        Returns: {
+          cancellation_count: number
+          commission_clawback: number
+          currency: string
+          group_key: string
+          group_label: string
+          retained_commission: number
+          return_premium: number
+          total_insurer_credit: number
+        }[]
+      }
+      ins_report_claims_ageing: {
+        Args: { p_as_of?: string; p_group_by?: string }
+        Returns: {
+          age_bucket: string
+          claim_count: number
+          currency: string
+          group_key: string
+          group_label: string
+          oldest_age_days: number
+          outstanding_total: number
+          reserve_total: number
+        }[]
+      }
+      ins_report_claims_register: {
+        Args: { p_as_of?: string; p_scope?: string }
+        Returns: {
+          age_bucket: string
+          age_days: number
+          approved_amount: number
+          claim_id: string
+          claim_no: string
+          client_id: string
+          client_name: string
+          currency: string
+          days_since_activity: number
+          insurer_claim_ref: string
+          insurer_id: string
+          insurer_name: string
+          is_open: boolean
+          loss_date: string
+          notified_date: string
+          outstanding_amount: number
+          paid_as_at: number
+          policy_id: string
+          policy_no: string
+          product_line_id: string
+          product_line_name: string
+          reserve_as_at: number
+          status_as_at: string
+        }[]
+      }
+      ins_report_commission_earned: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_include_imported?: boolean
+          p_to: string
+        }
+        Returns: {
+          cancellations: number
+          currency: string
+          endorsements: number
+          group_key: string
+          group_label: string
+          net_earned: number
+          other: number
+          placement: number
+          policy_count: number
+          recognised: number
+          reversed: number
+        }[]
+      }
+      ins_report_commission_receivable: {
+        Args: { p_as_of?: string }
+        Returns: {
+          age_bucket: string
+          billed: number
+          credited: number
+          currency: string
+          days_overdue: number
+          document_date: string
+          document_no: string
+          due_date: string
+          insurer_id: string
+          insurer_name: string
+          open_item_id: string
+          outstanding: number
+          policy_id: string
+          policy_no: string
+          received: number
+        }[]
+      }
       ins_report_outstanding_premium: {
         Args: { p_as_of?: string }
         Returns: {
@@ -20952,6 +21072,54 @@ export type Database = {
           new_business: number
           policy_count: number
           reversals: number
+        }[]
+      }
+      ins_report_renewal_retention: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_include_imported?: boolean
+          p_to: string
+        }
+        Returns: {
+          currency: string
+          due_count: number
+          expiring_premium: number
+          group_key: string
+          group_label: string
+          lost_count: number
+          renewed_count: number
+          renewed_premium: number
+          retention_count_pct: number
+          retention_premium_pct: number
+          unresolved_count: number
+          upcoming_count: number
+        }[]
+      }
+      ins_report_renewals: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          branch_id: string
+          branch_name: string
+          client_id: string
+          client_name: string
+          currency: string
+          days_to_expiry: number
+          expiring_premium: number
+          expiry_date: string
+          insurer_id: string
+          insurer_name: string
+          outcome: string
+          outcome_reason: string
+          policy_id: string
+          policy_no: string
+          product_line_id: string
+          product_line_name: string
+          renewal_policy_id: string
+          renewal_policy_no: string
+          renewal_premium: number
         }[]
       }
       ins_reverse_policy: {

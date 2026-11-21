@@ -220,6 +220,21 @@ begin
   perform pg_temp.assert((select count(*)=2 from ins_report_production(current_date,current_date,'product_line')),'both lines still listed');
   perform pg_temp.assert((select net_written=400 from ins_report_production(current_date,current_date,'product_line') where group_label='Marine'),
     'the cancelled line nets to 400');
+
+  -- Batch 4 (20261121120000): the cancellations report reads the same posted
+  -- cancellation, so its return premium must equal what production deducted.
+  perform pg_temp.assert((select cancellation_count=1 and return_premium=200
+                            from ins_report_cancellations(current_date,current_date,'client')),
+    'cancellations report: one cancellation, 200 return premium');
+  perform pg_temp.assert((select sum(return_premium) from ins_report_cancellations(current_date,current_date,'product_line'))
+                         = -(select sum(cancellations) from ins_report_production(current_date,current_date,'product_line')),
+    'cancellations report return premium equals the cancellations column of production');
+  perform pg_temp.assert((select count(*)=1 and sum(return_premium)=200 from ins_report_cancellations(current_date,current_date,'insurer')),
+    'insurer grouping: the one insurer carries the 200');
+  perform pg_temp.assert((select count(*)=0 from ins_report_cancellations(current_date+1,current_date+1,'month')),
+    'a period with no posted cancellation returns nothing');
+  perform pg_temp.expect_error('select * from ins_report_cancellations(current_date,current_date,''nonsense'')',
+    'INS_REPORT_INPUT','cancellations: invalid grouping is rejected');
   select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(current_date);
   reset role;
   perform pg_temp.assert(v_sum=1000,'after the cancellation credit: 1,000 outstanding (600 + 400)');
