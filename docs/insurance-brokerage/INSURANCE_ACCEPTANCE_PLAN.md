@@ -57,6 +57,7 @@ Confirmer: **Compliance adviser**.
 | E5 | `generate-ins-doc` run once on a real policy on the deployed stack; output reviewed | Open | CI cannot cover it |
 | E6 | Backup and restore drill recorded in `docs/OPERATIONS.md`, and a staging project exercised with the module | Open | Not verified in this pass |
 | E7 | Local UAT tenant (Pearl Risk Brokers Ltd, `seed.sql` section 6) walked end to end by someone other than the builder | Open | |
+| E8 | `test_ins_reports_batch1.sql` passes in CI, and every report total in it ties to the AR control balance | Open | Passed locally on PostgreSQL 16 on 21 Nov 2026; CI run not yet recorded |
 
 ## 4. Playwright coverage (blocking unless excepted)
 
@@ -77,6 +78,7 @@ covers it manually.
 | P8 | Statutory charges: price, acknowledge, bind refuses if the catalogue moved | Money collected for others | | Open |
 | P9 | Commission recognition modes (placement, collection, settlement) | Three accounting paths | | Open |
 | P10 | Agent commission payment with maker-checker and WHT | Tax at payment | | Open |
+| P11 | Reports batch 1: run each of the three reports on seeded data and check the figures against the AR control account | The reports are only trusted if a person has seen them agree with the ledger | | Open |
 
 P8 to P10 are not in `apps/web/e2e/README.md`'s uncovered list; they were added here because the
 features shipped after that list was written.

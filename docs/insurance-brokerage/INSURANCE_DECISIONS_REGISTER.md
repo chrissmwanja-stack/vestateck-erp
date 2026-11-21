@@ -89,6 +89,19 @@ id in its description.
 | DR-32 | Ten-year record retention (s.106 as cited in accountant answer 27; which Act is not confirmed) | Regulatory | Compliance adviser | **Unverified** | |
 | DR-33 | IRA circular for brokers dated 10 July 2026, returns and client-money reporting | Regulatory | Compliance adviser | **Unverified** | |
 
+### Management reporting definitions
+
+Proposed 21 November 2026 as the basis for the insurance reporting suite; the owner approved building
+on them. They govern management reports, not postings, but the accountant should still confirm them so
+that "written", "collected" and "outstanding" mean one thing everywhere.
+
+| ID | Definition | Type | Decider | Status | Built in | Next step |
+|---|---|---|---|---|---|---|
+| DR-35 | Net written premium = premium bound, plus posted endorsement premium, less the premium of an endorsement later cancelled (E4), less return premium of posted cancellations, less the remaining net premium of a reversed policy. Each movement is dated by the day it took effect. Premium only: broker fees, charges and VAT are excluded | Accounting | Owner, then Accountant | Owner-decided | `ins_report_production` (`20261121090000`) | Accountant to confirm movement dating (bind date versus inception date) |
+| DR-36 | Imported in-force policies are excluded from production by default, because opening a book is not writing it. A parameter includes them | Accounting | Owner | Owner-decided | `ins_report_production` | |
+| DR-37 | Premium collected = receipts allocated to the client premium receivables (bind and endorsement), dated by settlement date. These receivables carry the whole client invoice, so the figure includes charges and VAT billed with the premium | Accounting | Owner, then Accountant | Owner-decided | `ins_report_premium_collected` | Accountant to confirm whether collections should be split into premium, fees and VAT |
+| DR-38 | Outstanding premium = billed less received less credited, as at a date, from the receivable open items. An event dated after the as-at date is ignored; a settlement or credit note voided after that date still counts as it did on it. Age runs from the due date, or the document date when there is none | Accounting | Owner | Owner-decided | `ins_report_outstanding_premium` | |
+
 ## Sign-off tracking
 
 The signature form is `ACCOUNTANT_PACK.md` section 8 and stays unsigned until an accountant signs it.
