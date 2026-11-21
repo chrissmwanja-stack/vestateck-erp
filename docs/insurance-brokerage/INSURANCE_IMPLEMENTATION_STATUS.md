@@ -5,8 +5,8 @@
 `INSURANCE_DECISIONS_REGISTER.md`) or what must pass before production (see
 `INSURANCE_ACCEPTANCE_PLAN.md`).
 
-Last reconciled: 20 November 2026, against branch `feat/ins-accounting-acceptance` at `cb46e8b`
-(9 commits ahead of `main`; `main` has no commits the branch lacks).
+Last reconciled: 21 November 2026, against `main` at `134da84`. The work formerly on
+`feat/ins-accounting-acceptance` is on `main` (PRs #33 to #38).
 
 ## How to read this file
 
@@ -23,14 +23,15 @@ Last reconciled: 20 November 2026, against branch `feat/ins-accounting-acceptanc
 row in the same PR. Dates and migration numbers are evidence, not narrative: put the story in
 `ROADMAP.md`.
 
-## Branch state
+## Merge state
 
-| Item | On `main` | On `feat/ins-accounting-acceptance` |
-|---|---|---|
-| Commission recognition declared cases (`20261120001000`) | Yes | Yes |
-| Statutory charge catalogue, accounts, on-policy pricing, enforcement setting (`20261120002000` to `20261120235905`) | Yes | Yes |
-| **Endorsement cancellation, E4** (`20261120235910`) | **No** | Yes |
-| Regenerated `database.types.ts` for E4 (3 RPCs, 6 `cancellation_*` columns) | No | Needed: the committed file lacked these and failed `tsc -b` and the types-drift check |
+| Item | On `main` |
+|---|---|
+| Commission recognition declared cases (`20261120001000`) | Yes |
+| Statutory charge catalogue, accounts, on-policy pricing, enforcement setting (`20261120002000` to `20261120235905`) | Yes |
+| Endorsement cancellation, E4 (`20261120235910`), with its RPCs and `cancellation_*` columns in `database.types.ts` | Yes |
+| Reports batches 1 to 4 (`20261121090000` to `20261121130000`) | Yes |
+| Business-day dating: `ins_local_date()`, `ins_local_today()` and the report change (`20261121140000`, types in `7802c5f`), then the application functions (`20261121150000`) | Yes |
 
 ## Implemented
 
@@ -45,7 +46,7 @@ row in the same PR. Dates and migration numbers are evidence, not narrative: put
 | Premium cash, remittances, unremitted-premium report | Built, tested | `test_ins_policy_cash.sql`, `test_ins_unremitted_premium.sql`, `test-ins-policy-cash-concurrency.ts` | Premium age in the unremitted report: not built (accountant answer 26) |
 | Renewals, bulk drafts, outcomes, notices | Built, tested | `test_ins_renewal_outcomes.sql`, `test_ins_renewal_notices.sql` | |
 | Endorsements E1 to E3 (proposals, posting, foreign legs) | Built, tested | `test_endorsement_proposals.sql`, `test_endorsement_posting.sql` | Endorsements netted on the statement: open |
-| **Endorsement cancellation E4** | Built, tested (branch only) | `20261120235910`, `test_endorsement_cancellation.sql` | Newest-first only; refused once money has moved. Not merged to `main`. No Playwright spec |
+| **Endorsement cancellation E4** | Built, tested | `20261120235910`, `test_endorsement_cancellation.sql` | Newest-first only; refused once money has moved. No Playwright spec |
 | Policy cancellation (pro-rata, approval, refund cash) | Built, tested | `test_ins_cancellation_calculation.sql`, `_cash.sql`, `_posting.sql`, three concurrency scripts | No Playwright spec |
 | Policy reversal (reverse and re-issue) | Built, tested | `test_ins_policy_reversal.sql`, `POLICY_REVERSAL.md` | v1 restricted |
 | Commission: deferred at bind, recognition modes `at_placement`, `on_premium_collection`, `on_insurer_settlement`; per-share gross settlement basis | Built, tested | `20261117200000`, `20261117210000`, `20261119240000`, `20261120001000`; `test_ins_commission*.sql`, `test_ins_settlement_basis.sql` | `over_policy_term`: **Not started**, unselectable. Which insurer agreement uses which mode is a decision, not a build |
@@ -59,9 +60,11 @@ row in the same PR. Dates and migration numbers are evidence, not narrative: put
 | Insurer statement reconciliation | Built, tested | `20261106220000`, `test_ins_insurer_statements.sql` | Read-only; entry screen to improve |
 | Production book, client statements, aged balances | Built, tested | `test_ins_production_statement.sql` | Ageing is done in the browser; server-side as-of and pagination: open |
 | Reports batch 1: production netted for endorsements, cancellations and reversals; premium collected; outstanding premium as at a date. Server functions and three screens (`/insurance/reports/production`, `/premium-collected`, `/outstanding-premium`) with Excel and PDF export | Built, tested | `20261121090000_ins_reports_batch1.sql`, `test_ins_reports_batch1.sql` (each total is tied to the AR control balance); `ProductionReport.test.tsx`, `PremiumCollected.test.tsx`, `OutstandingPremium.test.tsx` | Definitions DR-35 to DR-38. Not exercised by a scenario yet: endorsements and E4 in production, policy reversal, a void dated after the as-at date, imported policies. Insurer grouping is not offered (co-insurance needs the share basis). The older Production Book and the dashboard still compute in the browser and still exclude cancelled business; they are not yet replaced |
-| Reports batch 2: commission earned (read from the commission income account, by route, with a month, client, product line, branch or agent grouping) and commission receivable (as at a date, from the commission receivable open items). Server functions and two screens (`/insurance/reports/commission-earned`, `/commission-receivable`) with Excel and PDF export | Built, partly tested | `20261121100000_ins_reports_batch2_commission.sql`, `test_ins_reports_batch2.sql` (earned at placement, ledger tie-out, after a cancellation, receivable empty on the net basis; **not yet run on the full stack**); `CommissionEarned.test.tsx`, `CommissionReceivable.test.tsx` | Definitions DR-39, DR-40. Not exercised by a scenario yet: commission on insurer settlement or premium collection and its reversal, endorsements, imported policies, and receivable with rows (needs the gross-basis fixture in `test_ins_settlement_basis.sql`). Insurer grouping is not offered |
-| Reports batch 3: claims register (status, reserve, approved, paid and outstanding as at a date, open or all claims) and claims ageing (open claims by age bucket, optionally by insurer or product line, built on the register). Server functions and two screens (`/insurance/reports/claims-register`, `/claims-ageing`) with Excel and PDF export | Built, partly tested | `20261121110000_ins_reports_batch3_claims.sql`, `test_ins_reports_batch3.sql` (**not yet run against a database**); `ClaimsRegister.test.tsx`, `ClaimsAgeing.test.tsx` (passing) | Definitions DR-41, DR-42. Not exercised by a scenario yet: a back-dated claim, a payment voided after the as-at date, brokerage-managed claims, ageing beyond the first bucket, co-insured policies |
-| Reports still to build | Not started | | Cancellations, statutory charges, claims register and ageing, renewal retention, insurer performance, and a dashboard on one summary function |
+| Reports batch 2: commission earned (read from the commission income account, by route, with a month, client, product line, branch or agent grouping) and commission receivable (as at a date, from the commission receivable open items). Server functions and two screens (`/insurance/reports/commission-earned`, `/commission-receivable`) with Excel and PDF export | Built, partly tested | `20261121100000_ins_reports_batch2_commission.sql`, `test_ins_reports_batch2.sql` (earned at placement, ledger tie-out, after a cancellation, receivable empty on the net basis; run record: acceptance plan E9); `CommissionEarned.test.tsx`, `CommissionReceivable.test.tsx` | Definitions DR-39, DR-40. Not exercised by a scenario yet: commission on insurer settlement or premium collection and its reversal, endorsements, imported policies, and receivable with rows (needs the gross-basis fixture in `test_ins_settlement_basis.sql`). Insurer grouping is not offered |
+| Reports batch 3: claims register (status, reserve, approved, paid and outstanding as at a date, open or all claims) and claims ageing (open claims by age bucket, optionally by insurer or product line, built on the register). Server functions and two screens (`/insurance/reports/claims-register`, `/claims-ageing`) with Excel and PDF export | Built, partly tested | `20261121110000_ins_reports_batch3_claims.sql`, `20261121130000_ins_reports_batch3_claims_tiebreak.sql`, `test_ins_reports_batch3.sql` (run record: acceptance plan E10); `ClaimsRegister.test.tsx`, `ClaimsAgeing.test.tsx` (passing) | Definitions DR-41, DR-42. Not exercised by a scenario yet: a back-dated claim, a payment voided after the as-at date, brokerage-managed claims, ageing beyond the first bucket, co-insured policies |
+| Reports batch 4: cancellations (posted cancellations with return premium, commission clawed back and retained, and insurer credit), the cancellation register, renewals due (with outcome) and renewal retention. Server functions `ins_report_cancellations`, `ins_report_cancellation_register`, `ins_report_renewals`, `ins_report_renewal_retention` and four screens (`/insurance/reports/cancellations`, `/cancellation-register`, `/renewals`, `/renewal-retention`) | Built, tested | `20261121120000_ins_reports_batch4_cancellations_renewals.sql`, `test_ins_reports_batch4.sql` (run record: acceptance plan E11); `CancellationsReport.test.tsx`, `CancellationRegister.test.tsx`, `RenewalsReport.test.tsx`, `RenewalRetention.test.tsx` | Definitions DR-43 to DR-45. Renewal outcomes are not kept as history, so renewals has no as-at date |
+| Reports still to build | Not started | | Statutory charges, insurer performance, and a dashboard on one summary function |
+| Business day: dates follow Africa/Kampala. `ins_local_date(timestamptz)` and `ins_local_today()` date report timestamps and default as-at dates (`20261121140000`: 7 report functions). `20261121150000` moves 52 application functions to the same helpers (107 expressions): 37 `ins_*` functions, 8 insurance-path functions, and 7 shared finance functions that void or raise settlements and credit notes, plus three insurance column defaults | Built, tested | `20261121140000_ins_reports_kampala_dating.sql`, `20261121150000_ins_app_dates_kampala.sql`; 12 SQL test files call `ins_local_today()` (reports batches 1 to 4, cancellation, claim payments, commission recognition, import staging, policy cash, policy reversal) | Decision DR-46. No test calls `ins_local_date()` directly. The 7 shared finance functions now date by the Kampala day for every module. Still on the UTC date: 14 non-insurance functions (generic finance reports, `void_journal_entry`, FX revaluation and rate lookup, accounting settings, regulatory parameters, maintenance, sustainability, payroll) and four column defaults |
 | Multi-currency (own-currency bind and settle, realised and unrealised FX, revaluation, FX bank reconciliation) | Built | `CURRENCY_REVIEW.md` | No real tenant uses it yet; not accountant-signed |
 | In-force portfolio import and opening balances | Built, tested | `20261107140000` to `20261111100000`, `test_ins_import_*.sql`, `insurance-import.spec.ts` | |
 | Document pack (`generate-ins-doc`), shared document store | Built, untested end to end | `supabase/functions/generate-ins-doc` | Not exercised in CI (the CI stack does not serve edge functions); needs a first look on a real policy |
@@ -90,3 +93,9 @@ Corrected in the same change as this file, or flagged here for the next reader:
 - `ACCOUNTANT_PACK.md` section 4 question 3 (net-of-commission, "the current design assumes yes")
   contradicts section 5.14 (gross remittance with commission receivable is the decided basis). Logged as
   DR-29 in the decisions register for the owner and accountant to close.
+
+At the 21 November 2026 reconciliation, corrected: the branch table and E4 row in this file (E4 is on
+`main`); the `README.md` insurance row (same) and its Playwright count (twelve specs, not eleven;
+`bank-adjustments.spec.ts` was missing); the review stamp and hand-off note in `docs/README.md`; the
+status of DR-28 in the decisions register; and the evidence for gates E1, E2, E9 and E10 in the
+acceptance plan.

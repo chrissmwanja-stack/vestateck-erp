@@ -82,7 +82,7 @@ id in its description.
 
 | ID | Decision or question | Type | Decider | Status | Next step |
 |---|---|---|---|---|---|
-| DR-28 | Endorsement cancellation (E4): void credit notes rather than delete; commission returns to unearned (2020), not income; refuse once money has moved (settlement reversal first) | Accounting | Accountant | Draft design, not approved; E4 is on the branch, not `main` | Pack 5.15, three points |
+| DR-28 | Endorsement cancellation (E4): void credit notes rather than delete; commission returns to unearned (2020), not income; refuse once money has moved (settlement reversal first) | Accounting | Accountant | Draft design, not approved; E4 is built and on `main` | Pack 5.15, three points |
 | DR-29 | Pack section 4 question 3 (does the insurer remit only the net? "current design assumes yes") contradicts DR-13 (gross is the decided basis) | Accounting | Owner, Accountant | **Inconsistent documents** | Close question 3 as superseded by DR-13, or reopen DR-13 |
 | DR-30 | Claim withdrawal, overpayment and recovery (accountant answer 22 is one line). Principle recorded: a linked adjustment, never an overwrite | Accounting | Accountant | Open | Needs real input before it is built |
 | DR-31 | In-force import, Option A: earned commission to cut-over goes to opening balances, only the unearned remainder deferred; new accounts 3900 (opening balance clearing) and 3200 (retained earnings role) | Accounting | Accountant | Owner-decided, built, not approved | Pack section 9 |
@@ -108,6 +108,14 @@ that "written", "collected" and "outstanding" mean one thing everywhere.
 | DR-43 | Cancelled business = posted policy cancellations dated by posting date, with return premium, commission clawed back, commission retained and the total insurer credit taken from the per-insurer adjustment rows. Proposed, prepared, rejected and withdrawn cancellations are not shown. Return premium equals the cancellations column of production for the same period and imported-policy setting (DR-36). A co-insured cancellation splits by insurer | Accounting | Owner | Owner-decided | `ins_report_cancellations`, `ins_report_cancellation_register` (`20261121120000`) | Accountant to confirm |
 | DR-44 | Due for renewal = bound policies, active or renewed, whose expiry date falls in the period. Cancelled or reversed policies are in the cancellation report instead. Imported in-force policies are included by default, because they are the book that has to renew. Outcome = renewed when a bound policy has this one as its renewal_of_id; otherwise the recorded outcome (lost, declined, lapsed); otherwise upcoming if not yet expired, else unresolved. The report shows the position today; renewal outcomes are not kept as history, so there is no as-at date | Renewals | Owner | Owner-decided | `ins_report_renewals` (`20261121120000`) | Owner to confirm the imported-policy default |
 | DR-45 | Renewal retention = renewed / (due less upcoming), by count; and renewal premium / expiring premium of the same matured policies. A policy not yet expired cannot have been lost, so it is left out of both denominators. Premium retention can exceed 100 when renewal premiums are higher. Built on the renewals function, so the counts are its rows, grouped | Renewals | Owner | Owner-decided | `ins_report_renewal_retention` (`20261121120000`) | Owner to confirm the definition of retention |
+
+### Business day
+
+Recorded 21 November 2026 from the migrations that implement it.
+
+| ID | Definition | Type | Decider | Status | Built in | Next step |
+|---|---|---|---|---|---|---|
+| DR-46 | The business day is Africa/Kampala (UTC+3, no daylight saving), set in two helpers: `ins_local_date(timestamptz)` and `ins_local_today()`. Reports date timestamps by it, and 52 application functions use it for "today", future-date checks and posting dates (policy, cancellation, endorsement, claim, quote and commission functions, charge pricing, and the shared receipt and credit-note void and raise functions). A per-company time zone later means changing the two helpers. Not covered: 14 non-insurance functions and four column defaults, which still use the UTC date | Accounting | Owner, then Accountant | Built, decision recorded in the migrations; approval not recorded | `20261121140000_ins_reports_kampala_dating.sql`, `20261121150000_ins_app_dates_kampala.sql` | Accountant to confirm that posting dates, and void and raise dates on shared finance functions, follow the Kampala day. Owner to decide whether the remaining 14 functions move |
 
 ## Sign-off tracking
 

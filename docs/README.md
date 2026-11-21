@@ -1,6 +1,6 @@
 # Documentation index
 
-Last reviewed: 17 November 2026 against `main` at `0d550eb`. When a doc and the code disagree, the code and its tests win; fix the doc in the same change.
+Last reviewed: 21 November 2026 against `main` at `134da84`. When a doc and the code disagree, the code and its tests win; fix the doc in the same change.
 
 ## Root and platform
 
@@ -21,7 +21,7 @@ Last reviewed: 17 November 2026 against `main` at `0d550eb`. When a doc and the 
 | `SECURITY.md` | How to report a vulnerability, and what is in scope |
 | `.github/dependabot.yml` | Weekly dependency update PRs (npm and GitHub Actions) |
 
-`docs/handoffs/` holds two TypeScript hand-off notes for the insurance cancellation work (`CANCELLATION_APPROVAL_HANDOFF.ts`, `CANCELLATION_CASH_HANDOFF.ts`); they are history, not maintained docs.
+`docs/handoffs/` holds point-in-time hand-off notes: seven Finance notes (`FINANCE_A_PERIOD_CONTROLS.md`, `FINANCE_B_AUDIT_TRAIL.md`, `FINANCE_C_BANK_SUGGEST_CONFIRM.md`, `FINANCE_D_AS_AT_REPORTING.md`, `FINANCE_D4E_COMPLETION.md`, `FINANCE_E_END_TO_END_TRACE.md`, `FINANCE_E1_PROCUREMENT_SUBLEDGER.md`) written as each Finance item was finished (migrations dated 17 to 19 November 2026), and two TypeScript notes for the insurance cancellation work (`CANCELLATION_APPROVAL_HANDOFF.ts`, `CANCELLATION_CASH_HANDOFF.ts`). They are history, not maintained docs: where one disagrees with the code, the code wins.
 
 ## Insurance Brokerage (`docs/insurance-brokerage/`)
 
@@ -61,3 +61,4 @@ Described in the root `README.md` ("Testing & CI"): migration policy, merge-conf
 - Put a dated status line at the top of any working document and update it when you change the work it describes.
 - Counts (migrations, test files) go stale first. Recount before quoting them: `ls supabase/migrations | wc -l`, `ls supabase/tests/*.sql | wc -l`.
 - Nothing in `docs/insurance-brokerage/` is an accounting or legal sign-off unless a signed section says so.
+- Insurance dates follow the Africa/Kampala business day (decision DR-46). Use `ins_local_today()` and `ins_local_date(timestamptz)` rather than `current_date` or a bare `::date` in insurance code. Some non-insurance functions still use the UTC date; the list is in the header of migration `20261121150000`.

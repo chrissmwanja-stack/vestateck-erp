@@ -551,6 +551,13 @@ Each item below is the software's current design and needs the accountant's conf
   what an insurer is owed. Netting survives as a legal-review-gated configuration, not a default.
   Section 5.14.
 - **In-force portfolio import** (`IN_FORCE_IMPORT.md`, section 3): earned commission up to cut-over is carried in opening balances and only the unearned remainder is deferred, under the existing event-based rule (Option A); full billed amount and receipts to date are migrated without re-posting cash; migrated policies keep accounting-policy version 1. Built (all five steps, `20261107140000` to `20261111100000`), not accountant-approved. New accounts and posting roles for review: account 3900 Opening Balance Clearing (equity, role `opening_balance_clearing`, template default, backfilled to existing insurance tenants by `20261109090000`) and a `retained_earnings` role that receives earned commission up to cut-over (account 3200 per `IN_FORCE_IMPORT.md` section 4).
+- **Business day** (`20261121140000`, `20261121150000`): dates follow Africa/Kampala (UTC+3) instead of
+  the database's UTC date. Before this, anything recorded between 00:00 and 03:00 Kampala time was dated
+  the previous day: a policy bound at 01:00 counted as written the day before, a posting date was stamped
+  a day early, and a receipt posted minutes earlier could not be voided. The change covers the reports,
+  52 application functions and, because a receipt must be voidable on the date it was posted, the shared
+  finance functions that void or raise settlements and credit notes, which now apply to every module.
+  Please confirm this is the right posting-date rule. Decision DR-46.
 
 ## 10. Pointers for the reviewer
 

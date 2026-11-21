@@ -5,7 +5,7 @@ and who confirms each gate.
 **Not authoritative for:** what is built (`INSURANCE_IMPLEMENTATION_STATUS.md`) or the approval
 status of a decision (`INSURANCE_DECISIONS_REGISTER.md`; gates here cite its `DR-` ids).
 
-Last reconciled: 20 November 2026. Every gate below is **Open** unless a dated evidence link says
+Last reconciled: 21 November 2026, against `main` at `134da84`. Every gate below is **Open** unless a dated evidence link says
 otherwise. Nobody has recorded a pass yet.
 
 ## Rules
@@ -50,16 +50,18 @@ Confirmer: **Compliance adviser**.
 
 | Gate | Criterion | Status | Evidence |
 |---|---|---|---|
-| E1 | Branch `feat/ins-accounting-acceptance` merged to `main` through a PR with all required checks green (migration-policy, repo-hygiene, build, test, lint-ratchets, db-shadow-replay, insurance-concurrency, e2e) | Open | |
-| E2 | `database.types.ts` regenerated for E4 and the generated-types drift check passes on the merge commit | Open | The committed file lacked the 3 E4 RPCs and 6 `cancellation_*` columns; a corrected file was prepared on 20 Nov 2026 |
+| E1 | Branch `feat/ins-accounting-acceptance` merged to `main` through a PR with all required checks green (migration-policy, repo-hygiene, build, test, lint-ratchets, db-shadow-replay, insurance-concurrency, e2e) | Open | Merged into `main` by PRs #33 to #38 (merge commits on `main`). CI run URLs are not recorded here; add them to close this gate |
+| E2 | `database.types.ts` regenerated for E4 and the generated-types drift check passes on the merge commit | Open | Regenerated on `main` in `80490f2` (E4) and `7802c5f` (`ins_local_date`, `ins_local_today`). The drift check result on the current merge commit is not recorded |
 | E3 | Full SQL suite (`supabase/tests/*.sql`) passes on a fresh stack, including `test_endorsement_cancellation.sql` | Open | |
 | E4 | Security catalog tests pass: `test_ins_security_hardening.sql`, `test_ins_authz_catalog.sql`, cross-tenant reads, writes and views | Open | |
 | E5 | `generate-ins-doc` run once on a real policy on the deployed stack; output reviewed | Open | CI cannot cover it |
 | E6 | Backup and restore drill recorded in `docs/OPERATIONS.md`, and a staging project exercised with the module | Open | Not verified in this pass |
 | E7 | Local UAT tenant (Pearl Risk Brokers Ltd, `seed.sql` section 6) walked end to end by someone other than the builder | Open | |
 | E8 | `test_ins_reports_batch1.sql` passes in CI, and every report total in it ties to the AR control balance | Open | Passed locally on PostgreSQL 16 on 21 Nov 2026; CI run not yet recorded |
-| E9 | `test_ins_reports_batch2.sql` passes on a fresh stack, and commission earned ties to the commission income ledger | Open | Written 21 Nov 2026 and parse-checked only; not yet run against the full stack. Receivable with rows has no scenario yet |
-| E10 | `test_ins_reports_batch3.sql` passes on a fresh stack, and the claims register ties to the paid amount and reserve history on the claim records | Open | Written 21 Nov 2026; not yet run against any database. Back-dated claims and voided payments have no scenario yet |
+| E9 | `test_ins_reports_batch2.sql` passes on a fresh stack, and commission earned ties to the commission income ledger | Open | Written 21 Nov 2026 and merged. An earlier note said it was only parse-checked; no run record has been entered since. Receivable with rows has no scenario yet |
+| E10 | `test_ins_reports_batch3.sql` passes on a fresh stack, and the claims register ties to the paid amount and reserve history on the claim records | Open | Written 21 Nov 2026 and merged. An earlier note said it had not been run; no run record has been entered since. Back-dated claims and voided payments have no scenario yet |
+| E11 | `test_ins_reports_batch4.sql` passes on a fresh stack, and the return premium in the cancellations report ties to the cancellations column of production for the same period (DR-43) | Open | Added 21 Nov 2026; no run record |
+| E12 | The SQL suite passes both outside and inside the 21:00 to 24:00 UTC window, when the UTC date and the Kampala date differ (DR-46) | Open | Added 21 Nov 2026. Before `20261121150000` the report tests failed in that window. A run inside the window is not recorded |
 
 ## 4. Playwright coverage (blocking unless excepted)
 
