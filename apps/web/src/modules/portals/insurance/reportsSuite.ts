@@ -100,3 +100,64 @@ export const OUTSTANDING_COLUMNS: ReportExportColumn<OutstandingLine>[] = [
   { header: 'Days overdue', accessor: (r) => Number(r.days_overdue), align: 'right' },
   { header: 'Age', accessor: (r) => AGE_BUCKET_LABEL[r.age_bucket] ?? r.age_bucket },
 ];
+
+// ---- Batch 2: commission earned (period) and commission receivable (as at) ----
+
+export interface CommissionEarnedLine {
+  group_key: string;
+  group_label: string;
+  currency: string;
+  placement: number;
+  recognised: number;
+  reversed: number;
+  cancellations: number;
+  endorsements: number;
+  other: number;
+  net_earned: number;
+  policy_count: number;
+}
+
+export interface CommissionReceivableLine {
+  open_item_id: string;
+  policy_id: string;
+  policy_no: string;
+  insurer_id: string | null;
+  insurer_name: string | null;
+  currency: string;
+  document_no: string;
+  document_date: string;
+  due_date: string | null;
+  billed: number;
+  received: number;
+  credited: number;
+  outstanding: number;
+  days_overdue: number;
+  age_bucket: AgeBucket;
+}
+
+export const commissionEarnedColumns = (groupHeader: string): ReportExportColumn<CommissionEarnedLine>[] => [
+  { header: groupHeader, accessor: (r) => r.group_label },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'At placement', accessor: (r) => Number(r.placement), align: 'right' },
+  { header: 'On settlement or collection', accessor: (r) => Number(r.recognised), align: 'right' },
+  { header: 'Reversed', accessor: (r) => Number(r.reversed), align: 'right' },
+  { header: 'Cancellations', accessor: (r) => Number(r.cancellations), align: 'right' },
+  { header: 'Endorsements', accessor: (r) => Number(r.endorsements), align: 'right' },
+  { header: 'Other', accessor: (r) => Number(r.other), align: 'right' },
+  { header: 'Net earned', accessor: (r) => Number(r.net_earned), align: 'right' },
+  { header: 'Policies', accessor: (r) => Number(r.policy_count), align: 'right' },
+];
+
+export const COMMISSION_RECEIVABLE_COLUMNS: ReportExportColumn<CommissionReceivableLine>[] = [
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Policy', accessor: (r) => r.policy_no },
+  { header: 'Document', accessor: (r) => r.document_no },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Billed', accessor: (r) => Number(r.billed), align: 'right' },
+  { header: 'Received', accessor: (r) => Number(r.received), align: 'right' },
+  { header: 'Credited', accessor: (r) => Number(r.credited), align: 'right' },
+  { header: 'Outstanding', accessor: (r) => Number(r.outstanding), align: 'right' },
+  { header: 'Due', accessor: (r) => r.due_date ?? r.document_date },
+  { header: 'Days overdue', accessor: (r) => Number(r.days_overdue), align: 'right' },
+  { header: 'Age', accessor: (r) => AGE_BUCKET_LABEL[r.age_bucket] ?? r.age_bucket },
+];

@@ -20905,6 +20905,47 @@ export type Database = {
         Returns: string
       }
       ins_renewal_notification_sweep: { Args: never; Returns: number }
+      ins_report_commission_earned: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_include_imported?: boolean
+          p_to: string
+        }
+        Returns: {
+          cancellations: number
+          currency: string
+          endorsements: number
+          group_key: string
+          group_label: string
+          net_earned: number
+          other: number
+          placement: number
+          policy_count: number
+          recognised: number
+          reversed: number
+        }[]
+      }
+      ins_report_commission_receivable: {
+        Args: { p_as_of?: string }
+        Returns: {
+          age_bucket: string
+          billed: number
+          credited: number
+          currency: string
+          days_overdue: number
+          document_date: string
+          document_no: string
+          due_date: string
+          insurer_id: string
+          insurer_name: string
+          open_item_id: string
+          outstanding: number
+          policy_id: string
+          policy_no: string
+          received: number
+        }[]
+      }
       ins_report_outstanding_premium: {
         Args: { p_as_of?: string }
         Returns: {
