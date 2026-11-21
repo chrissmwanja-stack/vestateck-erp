@@ -103,12 +103,12 @@ begin
   -- scheduled in the future so it is NOT overdue.
   insert into maintenance_requests (tenant_id, machine_id, type, description, status, requested_by, assigned_to, scheduled_date)
   values (v_tenant_a, v_machine_a, 'corrective', 'Hydraulic leak on boom', 'scheduled',
-         v_requester, v_assignee, current_date + 7);
+         v_requester, v_assignee, public.business_today() + 7);
 
   -- Request 2: overdue probe (scheduled yesterday, still open).
   insert into maintenance_requests (tenant_id, machine_id, type, description, status, requested_by, assigned_to, scheduled_date)
   values (v_tenant_a, v_machine_a, 'preventive', '500-hour service', 'scheduled',
-         v_requester, v_assignee, current_date - 3);
+         v_requester, v_assignee, public.business_today() - 3);
 
   -- Handle -> id lookup for claim impersonation. Once
   -- "set local role authenticated" is active, app_users subqueries go
@@ -222,7 +222,7 @@ declare
   v_req public.maintenance_requests%rowtype;
 begin
   v_req := transition_maintenance_request(v_req_id, 'completed', 'Replaced boom hose and seals', 450000);
-  if v_req.status <> 'completed' or v_req.completed_date <> current_date then
+  if v_req.status <> 'completed' or v_req.completed_date <> public.business_today() then
     raise exception 'FAIL: completion did not set status/completed_date';
   end if;
   if v_req.actual_cost <> 450000 then
@@ -247,7 +247,7 @@ begin
   if v_entry_id is null then
     raise exception 'FAIL: no journal entry posted for completed maintenance';
   end if;
-  if (select entry_date from journal_entries where id = v_entry_id) <> current_date then
+  if (select entry_date from journal_entries where id = v_entry_id) <> public.business_today() then
     raise exception 'FAIL: journal entry_date is not the completion date';
   end if;
   select coalesce(sum(debit), 0), coalesce(sum(credit), 0) into v_debit, v_credit
@@ -306,12 +306,12 @@ begin
   -- costed fuel (tenant A, still acting as the manager) -> GL entry
   insert into fuel_logs (id, tenant_id, machine_id, log_date, fuel_liters, cost)
   values (v_fuel_id, (select id from test_identities where handle = 'tenant_a'),
-          (select id from test_identities where handle = 'machine_a'), current_date, 42, 210000);
+          (select id from test_identities where handle = 'machine_a'), public.business_today(), 42, 210000);
 
   -- uncosted fuel (tenant A) -> no entry
   insert into fuel_logs (id, tenant_id, machine_id, log_date, fuel_liters)
   values (v_cheap_id, (select id from test_identities where handle = 'tenant_a'),
-          (select id from test_identities where handle = 'machine_a'), current_date, 10);
+          (select id from test_identities where handle = 'machine_a'), public.business_today(), 10);
 
   -- costed fuel (tenant B, no posting rules; act as tenant B's
   -- requester so the fuel_logs RLS WITH CHECK passes) -> inserts fine,
@@ -320,7 +320,7 @@ begin
     json_build_object('sub', (select id from test_identities where handle = 'b_requester'))::text, true);
   insert into fuel_logs (id, tenant_id, machine_id, log_date, fuel_liters, cost)
   values (v_b_id, (select id from test_identities where handle = 'tenant_b'),
-          (select id from test_identities where handle = 'machine_b'), current_date, 30, 90000);
+          (select id from test_identities where handle = 'machine_b'), public.business_today(), 30, 90000);
 
   -- remember the ids for the owner-side verification below
   create temp table if not exists machine_fuel_probe_ids(a uuid, b uuid, c uuid) on commit drop;

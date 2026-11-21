@@ -55,18 +55,18 @@ begin
   -- same one: no reader, no proposal.
   perform pg_temp.jwt(i.adm);
   perform pg_temp.expect_error(
-    $q$select public.acct_setting_propose('ins.commission_recognition', 'over_policy_term', current_date, 'planned option attempt')$q$,
+    $q$select public.acct_setting_propose('ins.commission_recognition', 'over_policy_term', public.business_today(), 'planned option attempt')$q$,
     'ACCT_SETTING_VALUE_NOT_ALLOWED', 'planned value rejected');
 
   -- (3) minimum effective date: today for a fresh company, then the day after an approved choice
-  perform pg_temp.assert(pg_temp.scalar($q$select public.acct_setting_min_effective_date('ins.commission_earning')$q$)::date = current_date,
+  perform pg_temp.assert(pg_temp.scalar($q$select public.acct_setting_min_effective_date('ins.commission_earning')$q$)::date = public.business_today(),
     'min effective date is today with no history');
   perform pg_temp.expect_error($q$select public.acct_setting_min_effective_date('no.such.key')$q$, 'ACCT_SETTING_UNKNOWN', 'min date unknown key');
-  perform public.acct_setting_propose('ins.commission_earning', 'deferred_over_time', current_date, 'stabilisation test choice');
+  perform public.acct_setting_propose('ins.commission_earning', 'deferred_over_time', public.business_today(), 'stabilisation test choice');
   select id into cid from public.company_accounting_settings where setting_key = 'ins.commission_earning' and status = 'draft' limit 1;
   perform pg_temp.jwt(i.mgr);
   perform public.acct_setting_approve(cid);
-  perform pg_temp.assert(pg_temp.scalar($q$select public.acct_setting_min_effective_date('ins.commission_earning')$q$)::date = current_date + 1,
+  perform pg_temp.assert(pg_temp.scalar($q$select public.acct_setting_min_effective_date('ins.commission_earning')$q$)::date = public.business_today() + 1,
     'min effective date moves past the approved choice');
 
   -- (4) acct_assert_reviewed contract
@@ -75,7 +75,7 @@ begin
   perform pg_temp.expect_error($q$select public.acct_assert_reviewed('no.such.key')$q$, 'ACCT_UNKNOWN_KEY', 'assert_reviewed unknown key');
   perform pg_temp.expect_error($q$select public.acct_assert_reviewed('ins.insurer_remittance_basis')$q$, 'ACCT_LEGAL_UNREVIEWED', 'legal key with nothing configured');
   perform pg_temp.jwt(i.adm);
-  perform public.acct_setting_propose('ins.agent_commission_taxable', 'taxable', current_date, 'stabilisation legal key');
+  perform public.acct_setting_propose('ins.agent_commission_taxable', 'taxable', public.business_today(), 'stabilisation legal key');
   select id into cid from public.company_accounting_settings where setting_key = 'ins.agent_commission_taxable' and status = 'draft' limit 1;
   perform pg_temp.jwt(i.mgr);
   perform public.acct_setting_approve(cid);

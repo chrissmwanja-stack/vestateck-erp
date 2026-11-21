@@ -59,19 +59,19 @@ begin
 
   -- A: lapsed but still marked valid -> must flip
   insert into sustainability_certifications (tenant_id, name, standard, issue_date, expiry_date, status, created_by)
-  values (v_tenant, 'Lapsed ISO 14001', 'ISO 14001', current_date - 400, current_date - 1, 'valid', v_member);
+  values (v_tenant, 'Lapsed ISO 14001', 'ISO 14001', public.business_today() - 400, public.business_today() - 1, 'valid', v_member);
 
   -- B: expires in 10 days -> must remind once
   insert into sustainability_certifications (tenant_id, name, standard, issue_date, expiry_date, status, created_by)
-  values (v_tenant, 'Due Soon ISO 45001', 'ISO 45001', current_date - 355, current_date + 10, 'valid', v_member);
+  values (v_tenant, 'Due Soon ISO 45001', 'ISO 45001', public.business_today() - 355, public.business_today() + 10, 'valid', v_member);
 
   -- C: far future -> untouched
   insert into sustainability_certifications (tenant_id, name, standard, expiry_date, status, created_by)
-  values (v_tenant, 'Far Future Cert', null, current_date + 200, 'valid', v_member);
+  values (v_tenant, 'Far Future Cert', null, public.business_today() + 200, 'valid', v_member);
 
   -- D: already expired -> untouched, no notification
   insert into sustainability_certifications (tenant_id, name, standard, expiry_date, status, created_by)
-  values (v_tenant, 'Already Lapsed', null, current_date - 5, 'expired', v_member);
+  values (v_tenant, 'Already Lapsed', null, public.business_today() - 5, 'expired', v_member);
 
   -- Handle -> id lookup (see test_machine_maintenance_workflow.sql for why)
   create temp table if not exists test_identities(handle text primary key, id uuid not null) on commit drop;
