@@ -5,6 +5,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface Agg { name: string; count: number; active: number; onLeave: number; }
 
@@ -58,7 +59,7 @@ export default function HeadcountReport() {
       { header: "Active", accessor: (r: Agg) => r.active },
       { header: "On Leave", accessor: (r: Agg) => r.onLeave },
     ];
-    exportReportToExcel(`headcount-by-dept-${new Date().toISOString().slice(0,10)}`, "By Department", cols as any, byDept);
+    exportReportToExcel(`headcount-by-dept-${businessToday()}`, "By Department", cols as any, byDept);
   };
   const handleExcelPos = () => {
     const cols = [
@@ -67,7 +68,7 @@ export default function HeadcountReport() {
       { header: "Active", accessor: (r: Agg) => r.active },
       { header: "On Leave", accessor: (r: Agg) => r.onLeave },
     ];
-    exportReportToExcel(`headcount-by-position-${new Date().toISOString().slice(0,10)}`, "By Position", cols as any, byPosition);
+    exportReportToExcel(`headcount-by-position-${businessToday()}`, "By Position", cols as any, byPosition);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;

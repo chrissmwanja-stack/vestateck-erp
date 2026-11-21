@@ -26,6 +26,13 @@ const formatter = new Intl.DateTimeFormat('en-US', {
   day: '2-digit',
 });
 
+const timeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: BUSINESS_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** The business-day calendar date (yyyy-mm-dd) of an instant. */
@@ -39,6 +46,16 @@ export function businessDateOf(instant: Date | string | number): string {
 
 /** Today's business-day date, yyyy-mm-dd. Pass `now` only in tests. */
 export const businessToday = (now: Date = new Date()): string => businessDateOf(now);
+
+/** Now on the business-day clock as yyyy-mm-ddThh:mm, the value an <input type="datetime-local"> takes. */
+export function businessNowLocalInput(now: Date = new Date()): string {
+  const p: Record<string, string> = {};
+  for (const part of timeFormatter.formatToParts(now)) p[part.type] = part.value;
+  return `${businessToday(now)}T${p.hour}:${p.minute}`;
+}
+
+/** The business-day month, yyyy-mm. */
+export const businessMonth = (now: Date = new Date()): string => businessToday(now).slice(0, 7);
 
 /** First day of the business-day month, yyyy-mm-dd. */
 export const businessMonthStart = (now: Date = new Date()): string => `${businessToday(now).slice(0, 8)}01`;

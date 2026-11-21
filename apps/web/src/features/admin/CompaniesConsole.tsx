@@ -16,6 +16,7 @@ import { RevokeInviteDialog } from "./RevokeInviteDialog";
 import { SuspendReactivateDialog } from "./SuspendReactivateDialog";
 import { ModulesDialog } from "./ModulesDialog";
 import { useModuleRegistry } from "../../lib/useModuleRegistry";
+import { businessToday } from "../../lib/businessDate";
 
 function usePlatformAdminAccess() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null);
@@ -336,7 +337,7 @@ export default function CompaniesConsole() {
           size="small"
           startIcon={<DownloadIcon />}
           disabled={filteredRows.length === 0}
-          onClick={() => downloadCsv(`companies-${new Date().toISOString().slice(0, 10)}.csv`, companiesToCsv(filteredRows))}
+          onClick={() => downloadCsv(`companies-${businessToday()}.csv`, companiesToCsv(filteredRows))}
         >
           Export CSV
         </Button>

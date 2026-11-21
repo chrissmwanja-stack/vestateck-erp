@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import TrialBalance from './TrialBalance';
+import { businessToday } from '../../lib/businessDate';
 
 // TrialBalance reads currency off the URL (?ccy=USD, defaulting to UGX) and an
 // optional as-at date (?asOf=YYYY-MM-DD, defaulting to today), calls
@@ -90,7 +91,7 @@ function activate(setupResult: ReturnType<typeof setup>) {
 }
 
 function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return businessToday();
 }
 
 function renderScreen(initialEntry = '/trial-balance') {

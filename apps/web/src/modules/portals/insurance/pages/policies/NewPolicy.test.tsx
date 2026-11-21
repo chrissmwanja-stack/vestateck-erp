@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import NewPolicy from './NewPolicy';
+import { businessToday } from '../../../../../lib/businessDate';
 
 // New policy form: the currency field offers the company's currency first, then only
 // currencies that have an approved exchange rate. A policy in another currency can be
@@ -238,7 +239,7 @@ describe('NewPolicy branch, agent and rate matrix', () => {
   });
 
   it('ignores a matrix rate that has already expired', async () => {
-    const year = new Date().getFullYear();
+    const year = Number(businessToday().slice(0, 4));
     matrixRates = [
       { insurer_id: 'i1', product_line_id: 'p1', rate: 30, effective_from: `${year - 1}-01-01`, effective_to: `${year - 1}-12-31` },
     ];
@@ -252,7 +253,7 @@ describe('NewPolicy branch, agent and rate matrix', () => {
   });
 
   it('uses the later of two overlapping approved rates', async () => {
-    const year = new Date().getFullYear();
+    const year = Number(businessToday().slice(0, 4));
     matrixRates = [
       { insurer_id: 'i1', product_line_id: 'p1', rate: 12, effective_from: `${year}-01-01`, effective_to: null },
       { insurer_id: 'i1', product_line_id: 'p1', rate: 15, effective_from: `${year}-06-01`, effective_to: null },

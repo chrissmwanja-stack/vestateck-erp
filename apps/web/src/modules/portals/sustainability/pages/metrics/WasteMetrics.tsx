@@ -6,6 +6,7 @@ import { useAuth } from "../../../../../lib/authContext";
 import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from "../../../../../lib/reportExport";
 import type { Tables, TablesInsert } from "@erp-platform/shared";
 import { LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { businessToday } from "../../../../../lib/businessDate";
 
 type MetricType = Pick<Tables<"sustainability_metric_types">, "id" | "name" | "unit">;
 type Metric = Tables<"sustainability_metrics"> & { sustainability_metric_types: { name: string; unit: string | null } | null };
@@ -13,7 +14,7 @@ type Metric = Tables<"sustainability_metrics"> & { sustainability_metric_types: 
 // The API returns an embedded to-one relation as an object, but older responses wrapped it in an array.
 const toOne = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
-const emptyForm = { metric_type_id: "", value: "", recorded_date: new Date().toISOString().slice(0, 10), notes: "" };
+const emptyForm = { metric_type_id: "", value: "", recorded_date: businessToday(), notes: "" };
 
 export default function WasteMetrics() {
   const { session } = useAuth();
@@ -104,7 +105,7 @@ export default function WasteMetrics() {
       { header: "Unit", accessor: (r) => r.sustainability_metric_types?.unit || "kg" },
       { header: "Notes", accessor: (r) => r.notes || "-" },
     ];
-    exportReportToExcel(`waste-metrics-${new Date().toISOString().slice(0,10)}`, "Waste", cols, metrics);
+    exportReportToExcel(`waste-metrics-${businessToday()}`, "Waste", cols, metrics);
   };
   const handlePdf = () => {
     const cols: ReportExportColumn<Metric>[] = [
@@ -114,7 +115,7 @@ export default function WasteMetrics() {
       { header: "Unit", accessor: (r) => r.sustainability_metric_types?.unit || "kg" },
       { header: "Notes", accessor: (r) => (r.notes || "-").slice(0,40) },
     ];
-    exportReportToPdf(`waste-metrics-${new Date().toISOString().slice(0,10)}.pdf`, "Waste Generated Report", cols, metrics, `Total ${total.toLocaleString()} kg • Avg ${avg.toFixed(2)} • ${metrics.length} records`);
+    exportReportToPdf(`waste-metrics-${businessToday()}.pdf`, "Waste Generated Report", cols, metrics, `Total ${total.toLocaleString()} kg • Avg ${avg.toFixed(2)} • ${metrics.length} records`);
   };
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;

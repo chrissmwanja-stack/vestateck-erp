@@ -5,6 +5,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { useToast } from "../../../../../lib/toastContext";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
+import { businessMonth } from "../../../../../lib/businessDate";
 
 interface Attendance { id: string; status: string; attendance_date: string; hr_employees?: { first_name: string; last_name: string; departments?: { name: string } | null } | null; }
 
@@ -12,7 +13,7 @@ export default function AttendanceReport() {
   const { showError } = useToast();
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [dateFilter, setDateFilter] = useState<string>(businessMonth()); // YYYY-MM
 
   const fetchReport = useCallback(async () => {
     setLoading(true);

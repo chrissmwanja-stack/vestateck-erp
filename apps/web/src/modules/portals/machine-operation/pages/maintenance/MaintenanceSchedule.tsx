@@ -3,6 +3,7 @@ import { Box, Card, CardContent, Chip, CircularProgress, Table, TableBody, Table
 import { CheckCircle } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useToast } from "../../../../../lib/toastContext";
+import { businessToday } from "../../../../../lib/businessDate";
 
 export default function MaintenanceSchedule() {
   const { showError } = useToast();
@@ -40,7 +41,7 @@ export default function MaintenanceSchedule() {
 
   if (loading) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessToday();
   const overdue = schedule.filter(s => s.scheduled_date && s.scheduled_date < today).length;
 
   return (

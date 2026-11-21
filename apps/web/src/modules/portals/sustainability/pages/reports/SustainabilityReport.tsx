@@ -4,6 +4,7 @@ import { FileDownload, Download } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exportReportToExcel, exportReportToPdf } from "../../../../../lib/reportExport";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from "recharts";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface MetricAgg {
   metric: string;      // metric type name (falls back to the raw category)
@@ -70,7 +71,7 @@ export default function SustainabilityReport() {
       { header: "Unit", accessor: (r: MetricAgg) => r.unit || "-" },
       { header: "Period", accessor: (_: MetricAgg) => rangeLabel },
     ];
-    exportReportToExcel(`sustainability-report-${fileTag}-${new Date().toISOString().slice(0,10)}`, "Sustainability Report", cols as any, aggs);
+    exportReportToExcel(`sustainability-report-${fileTag}-${businessToday()}`, "Sustainability Report", cols as any, aggs);
   };
   const handlePdf = () => {
     const cols = [
@@ -81,7 +82,7 @@ export default function SustainabilityReport() {
       { header: "Avg", accessor: (r: MetricAgg) => r.avg.toFixed(2) },
       { header: "Unit", accessor: (r: MetricAgg) => r.unit || "-" },
     ];
-    exportReportToPdf(`sustainability-report-${fileTag}-${new Date().toISOString().slice(0,10)}.pdf`, `Sustainability Report — ${rangeLabel}`, cols as any, aggs);
+    exportReportToPdf(`sustainability-report-${fileTag}-${businessToday()}.pdf`, `Sustainability Report — ${rangeLabel}`, cols as any, aggs);
   };
 
   if (loading && aggs.length === 0) return <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}><CircularProgress /></Box>;

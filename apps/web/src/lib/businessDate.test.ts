@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BUSINESS_TIME_ZONE, addDaysIso, addMonthsIso, addYearsIso, businessDateOf, businessMonthStart, businessToday,
-  businessTodayDate, businessYearStart,
+  businessTodayDate, businessYearStart, businessNowLocalInput, businessMonth,
 } from './businessDate';
 
 const at = (iso: string) => new Date(iso);
@@ -36,6 +36,19 @@ describe('business day (Africa/Kampala)', () => {
     expect(businessMonthStart(at('2026-11-30T21:30:00Z'))).toBe('2026-12-01');
     expect(businessYearStart(at('2026-12-31T21:30:00Z'))).toBe('2027-01-01');
     expect(businessYearStart(at('2026-06-15T10:00:00Z'))).toBe('2026-01-01');
+  });
+});
+
+describe('datetime-local and month values', () => {
+  it('formats the Kampala wall clock for a datetime-local input', () => {
+    expect(businessNowLocalInput(at('2026-11-21T21:05:00Z'))).toBe('2026-11-22T00:05');
+    expect(businessNowLocalInput(at('2026-11-21T20:59:00Z'))).toBe('2026-11-21T23:59');
+    expect(businessNowLocalInput(at('2026-06-15T12:30:00Z'))).toBe('2026-06-15T15:30');
+  });
+
+  it('gives the Kampala month', () => {
+    expect(businessMonth(at('2026-11-30T21:30:00Z'))).toBe('2026-12');
+    expect(businessMonth(at('2026-11-30T20:30:00Z'))).toBe('2026-11');
   });
 });
 
@@ -87,20 +100,22 @@ describe('the edge-function copy', () => {
   });
 });
 
-// Guard: the insurance and finance code must not rebuild "today" from UTC or from
-// the browser's own zone. Use businessToday() and the other helpers in businessDate.ts.
-describe('no UTC or browser-zone "today" in insurance and finance code', () => {
-  const roots = ['src/modules/portals/insurance', 'src/features/financial', '../../supabase/functions/generate-ins-doc'];
+// Guard: no screen, test or edge function may rebuild "today" from UTC or from the
+// browser's own zone. Use businessToday() and the other helpers in businessDate.ts.
+describe('no UTC or browser-zone "today" anywhere in the web app or the edge functions', () => {
+  const roots = ['src', '../../supabase/functions'];
+  const exempt = /(^|[\\/])businessDate(\.test)?\.ts$/;
   const banned: Array<[RegExp, string]> = [
     [/new Date\(\)\s*\.toISOString\(\)\s*\.(slice|substring|split)\(/, 'new Date().toISOString().slice(...) is the UTC date'],
     [/new Date\(\)\s*\.get(FullYear|Month|Date)\(/, 'new Date().getFullYear()/getMonth()/getDate() is the browser zone'],
+    [/Date\.now\(\)[^;\n]*\.toISOString\(\)\s*\.(slice|substring|split)\(/, 'Date.now() - n days ... toISOString().slice(...) is the UTC date; use addDaysIso(businessToday(), -n)'],
     [/\blocalIsoDate\b|\bpolicyCashToday\b/, 'use businessToday() from lib/businessDate'],
   ];
   const walk = (dir: string): string[] =>
     readdirSync(dir).flatMap((n) => {
       const p = join(dir, n);
       if (statSync(p).isDirectory()) return n === 'node_modules' ? [] : walk(p);
-      return /\.(ts|tsx)$/.test(n) && !/\.test\.tsx?$/.test(n) ? [p] : [];
+      return /\.(ts|tsx)$/.test(n) && !exempt.test(p) ? [p] : [];
     });
 
   it('finds none', () => {

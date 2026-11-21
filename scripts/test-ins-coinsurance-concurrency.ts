@@ -78,14 +78,14 @@ function fixture(): Context {
     source.split(marker)[0] +
       `
     perform pg_temp.jwt(maker); set local role authenticated;
-    q1:=ins_submit_policy_cash_request(draft.id,'receipt',trust,400,current_date,gen_random_uuid());
-    q2:=ins_submit_policy_cash_request(draft.id,'receipt',trust,204.50,current_date,gen_random_uuid());
+    q1:=ins_submit_policy_cash_request(draft.id,'receipt',trust,400,public.ins_local_today(),gen_random_uuid());
+    q2:=ins_submit_policy_cash_request(draft.id,'receipt',trust,204.50,public.ins_local_today(),gen_random_uuid());
     perform pg_temp.jwt(checker); q1:=ins_decide_policy_cash_request(q1.id,'approve'); q2:=ins_decide_policy_cash_request(q2.id,'approve');
     perform pg_temp.jwt(maker);
-    qa:=ins_submit_policy_share_cash_request(draft.id,a,trust,300,current_date,gen_random_uuid());
-    qb:=ins_submit_policy_share_cash_request(draft.id,a,trust,300,current_date,gen_random_uuid());
-    outq:=ins_submit_policy_share_cash_request(draft.id,b,trust,200,current_date,gen_random_uuid());
-    select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',current_date,'amount',204.50)));
+    qa:=ins_submit_policy_share_cash_request(draft.id,a,trust,300,public.ins_local_today(),gen_random_uuid());
+    qb:=ins_submit_policy_share_cash_request(draft.id,a,trust,300,public.ins_local_today(),gen_random_uuid());
+    outq:=ins_submit_policy_share_cash_request(draft.id,b,trust,200,public.ins_local_today(),gen_random_uuid());
+    select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',public.ins_local_today(),'amount',204.50)));
     reset role;
     perform set_config('ins_cash.test_context',json_build_object('tenant',ta,'policy',draft.id,'bank',trust,
       'maker',maker,'checker',checker,'reconciler',reconciler,'receipt',q2.settlement_id,'first',qa.id,'second',qb.id,'third',outq.id,'share_a',a,'share_b',b,'line',receipt_line)::text,true);

@@ -75,7 +75,7 @@ function fixture(earned = false): Context {
   const extra = earned
     ? `
  perform pg_temp.jwt(maker); set local role authenticated;
- qa:=ins_submit_policy_share_cash_request(draft.id,a,trust,600,current_date,gen_random_uuid());
+ qa:=ins_submit_policy_share_cash_request(draft.id,a,trust,600,public.ins_local_today(),gen_random_uuid());
  perform pg_temp.jwt(checker); qa:=ins_decide_policy_cash_request(qa.id,'approve');
  perform pg_temp.jwt(maker); cancellation:=ins_prepare_policy_cancellation(cancellation.id,clearing);
  reset role;
@@ -157,11 +157,11 @@ async function race(first: string, second: string, error: string | null) {
 const approve = (c: Context, checker = c.checker) =>
   `${asUser(checker)} select ins_decide_policy_cancellation(${quote(c.cancellation)},'approve','Reviewed cancellation race fixture',true)`;
 const claim = (c: Context) =>
-  `${asUser(c.manager)} select ins_create_claim(${quote(c.policy)},current_date,current_date,'Claim arriving during cancellation',null,100)`;
+  `${asUser(c.manager)} select ins_create_claim(${quote(c.policy)},public.ins_local_today(),public.ins_local_today(),'Claim arriving during cancellation',null,100)`;
 const voidReceipt = (c: Context) =>
   `${asUser(c.maker)} select fin_void_settlement(${quote(c.receipt)},'Receipt correction racing cancellation')`;
 const transfer = (c: Context) =>
-  `${asUser(c.manager)} select ins_transfer_earned_commission(${quote(c.bank)},${quote(c.operating)},current_date,array[${quote(c.entry)}::uuid],'Commission transfer racing cancellation')`;
+  `${asUser(c.manager)} select ins_transfer_earned_commission(${quote(c.bank)},${quote(c.operating)},public.ins_local_today(),array[${quote(c.entry)}::uuid],'Commission transfer racing cancellation')`;
 const status = (c: Context) =>
   sql(
     `select status from ins_policy_cancellations where id=${quote(c.cancellation)}`,

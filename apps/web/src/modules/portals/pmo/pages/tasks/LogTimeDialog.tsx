@@ -4,6 +4,7 @@ import {
 } from "@mui/material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
+import { businessToday } from "../../../../../lib/businessDate";
 
 // Shared "log time" dialog for TasksList (per-task) and ProjectBudgetPanel
 // (project-level). Inserts into pmo_time_entries directly -- RLS lets a
@@ -29,7 +30,7 @@ export default function LogTimeDialog({
 }) {
   const { session } = useAuth();
   const [hours, setHours] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => businessToday());
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

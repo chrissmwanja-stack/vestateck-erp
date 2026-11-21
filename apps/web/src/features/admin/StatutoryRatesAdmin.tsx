@@ -28,6 +28,7 @@ import type { Database } from '@erp-platform/shared';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/authContext';
 import { resolveTenantId } from '../../lib/ResolveTenantId';
+import { businessToday } from '../../lib/businessDate';
 
 type RateType = 'paye' | 'nssf_employee' | 'nssf_employer';
 type RateInsert = Database['public']['Tables']['statutory_rate_tables']['Insert'];
@@ -99,7 +100,7 @@ export default function StatutoryRatesAdmin() {
 
   function openSeedConfirm() {
     setSeedError(null);
-    setSeedDate(new Date().toISOString().slice(0, 10));
+    setSeedDate(businessToday());
     setSeedConfirmOpen(true);
   }
 
@@ -120,7 +121,7 @@ export default function StatutoryRatesAdmin() {
 
   function openNewRow() {
     setSaveError(null);
-    setForm({ ...emptyForm, effective_date: new Date().toISOString().slice(0, 10) });
+    setForm({ ...emptyForm, effective_date: businessToday() });
     setShowForm(true);
   }
 

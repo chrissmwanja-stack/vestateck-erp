@@ -8,6 +8,7 @@ import {
 import { Add, Delete, History } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useAuth } from "../../../../../lib/authContext";
+import { businessToday } from "../../../../../lib/businessDate";
 
 interface CostEntry {
   id: string;
@@ -62,7 +63,7 @@ export default function ProjectBudgetPanel({
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ description: "", category: "other", amount: "", entry_date: new Date().toISOString().slice(0, 10), reference_no: "" });
+  const [form, setForm] = useState({ description: "", category: "other", amount: "", entry_date: businessToday(), reference_no: "" });
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -115,7 +116,7 @@ export default function ProjectBudgetPanel({
     setSaving(false);
     if (error) { setError(error.message); return; }
     setAddOpen(false);
-    setForm({ description: "", category: "other", amount: "", entry_date: new Date().toISOString().slice(0, 10), reference_no: "" });
+    setForm({ description: "", category: "other", amount: "", entry_date: businessToday(), reference_no: "" });
     fetchAll();
   };
 
