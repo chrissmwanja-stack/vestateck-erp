@@ -180,7 +180,7 @@ declare i fin_open_items%rowtype; checker uuid; claims text := current_setting('
 begin
   select * into i from fin_open_items where id=p_item;
   if i.source_type not in ('ins_policy_premium','ins_policy_insurer') then
-    return fin_record_settlement(p_bank,p_dir,p_party,p_amount,current_date,
+    return fin_record_settlement(p_bank,p_dir,p_party,p_amount,public.ins_local_today(),
       jsonb_build_array(jsonb_build_object('open_item_id',p_item,'amount',p_amount)));
   end if;
   if p_party<>i.party_account_id then raise exception 'test fixture party mismatch'; end if;
@@ -195,7 +195,7 @@ begin
     insert into finance_team_members(tenant_id,user_id,role) values(i.tenant_id,checker,'finance');
   end if;
   q := ins_submit_policy_cash_request(i.source_id,case p_dir when 'in' then 'receipt' else 'remittance' end,
-    p_bank,p_amount,current_date,gen_random_uuid());
+    p_bank,p_amount,public.ins_local_today(),gen_random_uuid());
   perform pg_temp.jwt(checker);
   q := ins_decide_policy_cash_request(q.id,'approve');
   select * into s from fin_settlements where id=q.settlement_id;
@@ -412,7 +412,7 @@ begin
   insert into ins_product_lines (tenant_id, code, name) values (v_tb, 'MOTOR', 'Motor B') returning id into v_pl_b;
   insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_tb, 'BETA', 'Beta Assurance', 10) returning id into v_insr_b;
   cb := ins_register_client('Beta Client', 'corporate', null, null, null, 'medium');
-  pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, current_date, current_date + 365, 1000000, 100000, 10);
+  pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, public.ins_local_today(), public.ins_local_today() + 365, 1000000, 100000, 10);
   reset role;
 
   -------------------------------------------------------------------
@@ -438,15 +438,15 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(v_ta,'MOTOR','Motor') returning id into v_pl;
   insert into ins_insurers(tenant_id,code,name) values(v_ta,'ALPHA','Alpha') returning id into v_insr;
   c1:=ins_register_client('Reversal test client');
-  p1:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date-10,current_date+355,5000000,1000000,10);
+  p1:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today()-10,public.ins_local_today()+355,5000000,1000000,10);
   perform pg_temp.motor_cert(p1.id); p1:=pg_temp.approve_and_bind(p1.id);
   reset role;
-  insert into accounting_periods(tenant_id,period_start,period_end,status) values(v_ta,current_date-10,current_date-10,'closed');
+  insert into accounting_periods(tenant_id,period_start,period_end,status) values(v_ta,public.ins_local_today()-10,public.ins_local_today()-10,'closed');
   -- Use the template's real control flag, not permissive test fixtures.
   update gl_accounts set is_control_account=true where id=g_unear;
   perform pg_temp.jwt(u_fin);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select fin_raise_credit_note(''ar_control'',%L,1000000,current_date,%L,%L::jsonb,''normal note'')',
+  perform pg_temp.expect_error(format('select fin_raise_credit_note(''ar_control'',%L,1000000,public.ins_local_today(),%L,%L::jsonb,''normal note'')',
     (select party_account_id from ins_clients where id=c1.id),g_unear,
     jsonb_build_array(jsonb_build_object('open_item_id',(select id from fin_open_items where source_id=p1.id and source_type='ins_policy_premium'),'amount',1000000))),
     'CREDIT_NOTE_OFFSET','ordinary credit notes cannot bypass control offsets');
@@ -464,7 +464,7 @@ begin
   perform pg_temp.assert(rev.id=again.id,'equivalent retry returns original result');
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Correct premium'',true,%L)',p1.id,req),'INS_REVERSAL_DUPLICATE','conflicting retry');
   reset role;
-  perform pg_temp.assert(rev.accounting_treatment='deferred' and rev.reversal_date=current_date
+  perform pg_temp.assert(rev.accounting_treatment='deferred' and rev.reversal_date=public.ins_local_today()
     and rev.replacement_policy_id is null and rev.outcome='posted','current-date reversal-only record');
   perform pg_temp.assert((select status from ins_policies where id=p1.id)='reversed','original inactive');
   perform pg_temp.assert(not exists(select gl_account_id from journal_entry_lines
@@ -482,9 +482,9 @@ begin
   perform pg_temp.expect_error(format('select void_journal_entry(%L,''Undo one side'')',rev.premium_journal_entry_id),'INS_REVERSAL_JOURNAL_LOCKED','independent journal void');
   reset role;
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  perform pg_temp.expect_error(format('select pg_temp.newclaim(%L,current_date,current_date,''Late claim'',0)',p1.id),'INS_POLICY_UNAVAILABLE','claim after reversal');
+  perform pg_temp.expect_error(format('select pg_temp.newclaim(%L,public.ins_local_today(),public.ins_local_today(),''Late claim'',0)',p1.id),'INS_POLICY_UNAVAILABLE','claim after reversal');
   perform pg_temp.expect_error(format('select ins_create_renewal_draft(%L)',p1.id),'INS_RENEWAL_STATE','renewal after reversal');
-  p_d:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10);
+  p_d:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,10);
   perform pg_temp.motor_cert(p_d.id); p_d:=pg_temp.approve_and_bind(p_d.id);
   rev:=ins_reverse_policy(p_d.id,'Replacement requested',true,gen_random_uuid());
   reset role;
@@ -494,19 +494,19 @@ begin
 
   -- Any claim and either direction of renewal chain blocks.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
-  cl1:=pg_temp.newclaim(p_x.id,current_date,current_date,'Existing claim',0);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
+  cl1:=pg_temp.newclaim(p_x.id,public.ins_local_today(),public.ins_local_today(),'Existing claim',0);
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Has a claim'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_CLAIM','claim blocker');
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   p_ren:=ins_create_renewal_draft(p_x.id);
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Has a renewal'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_RENEWAL','renewal blocker');
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,0); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,0); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   rev:=ins_reverse_policy(p_x.id,'Zero commission correction',false,gen_random_uuid());
   perform pg_temp.assert(rev.accounting_treatment='none','zero commission represented explicitly');
   reset role;
   raise notice 'PASS: claims, renewals, zero commission';
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,10);
   p_x:=pg_temp.legacy_bind(p_x.id);
   rev:=ins_reverse_policy(p_x.id,'Legacy journal correction',false,gen_random_uuid());
   perform pg_temp.assert(rev.accounting_treatment='legacy','legacy detected from historical bind journal');
@@ -516,7 +516,7 @@ begin
 
   -- Effective payment blocks, fully voided movement allows reversal.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,1000000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,1000000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   reset role;
   select party_account_id into v_pcli from ins_clients where id=c1.id;
   select party_account_id into v_pins from ins_insurers where id=v_insr;
@@ -530,7 +530,7 @@ begin
   reset role;
   perform pg_temp.jwt(u_mgr); set local role authenticated;
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Paid policy'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_MOVEMENT','posted allocations block');
-  tr:=ins_transfer_earned_commission(v_trust_bank,v_oper_bank,current_date);
+  tr:=ins_transfer_earned_commission(v_trust_bank,v_oper_bank,public.ins_local_today());
   perform ins_void_commission_transfer(tr.id,'Undo test transfer');
   reset role;
   perform pg_temp.jwt(u_fin); set local role authenticated;
@@ -545,7 +545,7 @@ begin
 
   -- Reissue validation failure rolls back both notes and reversal row.
   perform pg_temp.jwt(u_mgr); set local role authenticated;
-  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,current_date,current_date+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
+  p_x:=pg_temp.newpol(c1.id,v_insr,v_pl,public.ins_local_today(),public.ins_local_today()+365,5000000,200000,10); perform pg_temp.motor_cert(p_x.id); p_x:=pg_temp.approve_and_bind(p_x.id);
   update ins_insurers set is_active=false where id=v_insr;
   reset role;
   cnt:=pg_temp.n_journals(v_ta);
@@ -556,7 +556,7 @@ begin
     and (select status from ins_policies where id=p_x.id)='active','failed reissue leaves nothing behind');
   update ins_insurers set is_active=true where id=v_insr;
   perform pg_temp.jwt(u_fin); set local role authenticated;
-  cn:=fin_raise_credit_note('ar_control',v_pcli,20000,current_date,g_inc,
+  cn:=fin_raise_credit_note('ar_control',v_pcli,20000,public.ins_local_today(),g_inc,
     jsonb_build_array(jsonb_build_object('open_item_id',
       (select id from fin_open_items where source_id=p_x.id and source_type='ins_policy_premium'),'amount',20000)), 'Ordinary adjustment');
   reset role;
@@ -565,7 +565,7 @@ begin
     'INS_REVERSAL_MOVEMENT','posted credit application blocks reversal');
   reset role;
 
-  insert into accounting_periods(tenant_id,period_start,period_end,status) values(v_ta,current_date,current_date,'closed');
+  insert into accounting_periods(tenant_id,period_start,period_end,status) values(v_ta,public.ins_local_today(),public.ins_local_today(),'closed');
   perform pg_temp.jwt(u_mgr); set local role authenticated;
   perform pg_temp.expect_error(format('select ins_reverse_policy(%L,''Closed period'',false,%L)',p_x.id,gen_random_uuid()),'INS_REVERSAL_PERIOD','current period blocker');
   reset role;

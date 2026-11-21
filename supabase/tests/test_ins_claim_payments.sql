@@ -173,19 +173,19 @@ language sql security definer as $$
 $$;
 create function pg_temp.newpol(p_client uuid, p_insurer uuid, p_line uuid, p_gross numeric, p_rate numeric)
 returns public.ins_policies language sql as $$
-  select * from public.ins_create_policy(p_client, p_insurer, p_line, current_date, current_date + 365,
+  select * from public.ins_create_policy(p_client, p_insurer, p_line, public.ins_local_today(), public.ins_local_today() + 365,
                                          50000000, 'UGX', p_gross, p_rate, null, null)
 $$;
 create function pg_temp.pay(p_bank uuid, p_dir text, p_party uuid, p_item uuid, p_amount numeric)
 returns public.fin_settlements language sql as $$
-  select * from public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, current_date,
+  select * from public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('open_item_id', p_item, 'amount', p_amount)))
 $$;
 
 
 create function pg_temp.newclaim(p_policy uuid, p_reserve numeric)
 returns public.ins_claims language sql as $$
-  select * from public.ins_create_claim(p_policy, current_date, current_date, 'Collision damage', null, p_reserve)
+  select * from public.ins_create_claim(p_policy, public.ins_local_today(), public.ins_local_today(), 'Collision damage', null, p_reserve)
 $$;
 
 -- Registers-then-approves must be two people (segregation of duties). The caller
@@ -344,19 +344,19 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mem);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date, ''REF'')', cl_d.id),
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), ''REF'')', cl_d.id),
                                'INS_FORBIDDEN', 'a member recording a claim payment');
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 0, current_date, ''REF'')', cl_d.id), 'INS_AMOUNT', 'zero payment');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 1000001, current_date, ''REF'')', cl_d.id), 'INS_AMOUNT', 'payment above the approved amount');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date + 1, ''REF'')', cl_d.id), 'INS_DATE', 'future payment date');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date - 5, ''REF'')', cl_d.id), 'INS_DATE', 'payment dated before the claim was notified');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date, '' '')', cl_d.id), 'INS_REFERENCE_REQUIRED', 'payment with no insurer reference');
-  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, current_date)', cl_d.id, v_trust_bank), 'INS_CLAIM_MODE', 'a receipt on an insurer-direct claim');
-  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, current_date)', cl_d.id, v_trust_bank), 'INS_CLAIM_MODE', 'a payout on an insurer-direct claim');
-  pay1 := ins_record_claim_payment(cl_d.id, 400000, current_date, 'ALPHA-ADV-001', 'First instalment');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 0, public.ins_local_today(), ''REF'')', cl_d.id), 'INS_AMOUNT', 'zero payment');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 1000001, public.ins_local_today(), ''REF'')', cl_d.id), 'INS_AMOUNT', 'payment above the approved amount');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today() + 1, ''REF'')', cl_d.id), 'INS_DATE', 'future payment date');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today() - 5, ''REF'')', cl_d.id), 'INS_DATE', 'payment dated before the claim was notified');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), '' '')', cl_d.id), 'INS_REFERENCE_REQUIRED', 'payment with no insurer reference');
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, public.ins_local_today())', cl_d.id, v_trust_bank), 'INS_CLAIM_MODE', 'a receipt on an insurer-direct claim');
+  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, public.ins_local_today())', cl_d.id, v_trust_bank), 'INS_CLAIM_MODE', 'a payout on an insurer-direct claim');
+  pay1 := ins_record_claim_payment(cl_d.id, 400000, public.ins_local_today(), 'ALPHA-ADV-001', 'First instalment');
   reset role;
   select * into cl_d from ins_claims where id = cl_d.id;
   perform pg_temp.assert(cl_d.paid_amount = 400000 and cl_d.status = 'approved' and cl_d.settled_at is null,
@@ -366,7 +366,7 @@ begin
                          'an insurer-direct payment posts nothing and has no settlement');
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  pay2 := ins_record_claim_payment(cl_d.id, 600000, current_date, 'ALPHA-ADV-002');
+  pay2 := ins_record_claim_payment(cl_d.id, 600000, public.ins_local_today(), 'ALPHA-ADV-002');
   reset role;
   select * into cl_d from ins_claims where id = cl_d.id;
   perform pg_temp.assert(cl_d.paid_amount = 1000000 and cl_d.status = 'settled' and cl_d.settled_at is not null,
@@ -392,7 +392,7 @@ begin
                          'voiding a payment on a settled claim returns it to approved with the lower paid amount');
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  pay2 := ins_record_claim_payment(cl_d.id, 600000, current_date, 'ALPHA-ADV-003');
+  pay2 := ins_record_claim_payment(cl_d.id, 600000, public.ins_local_today(), 'ALPHA-ADV-003');
   reset role;
   select * into cl_d from ins_claims where id = cl_d.id;
   perform pg_temp.assert(cl_d.status = 'settled' and cl_d.paid_amount = 1000000, 'the replacement payment settles the claim again');
@@ -406,7 +406,7 @@ begin
   cl_x := pg_temp.newclaim(pa.id, 500000);
   cl_x := pg_temp.approved(cl_x.id, 500000);
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''settled'')', cl_x.id), 'INS_CLAIM_PAYMENT_REQUIRED', 'settling an unpaid claim by hand');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date, ''REF'')',
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), ''REF'')',
                                       (pg_temp.newclaim(pa.id, 1)).id), 'INS_CLAIM_STATE', 'a payment on a claim that is not approved');
   cl_d := ins_transition_claim(cl_d.id, 'closed', 'File closed');
   perform pg_temp.expect_error(format('select ins_void_claim_payment(%L, ''Too late to change'')', pay2.id), 'INS_CLAIM_CLOSED', 'voiding a payment on a closed claim');
@@ -429,9 +429,9 @@ begin
   set local role authenticated;
   perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, null)', cl_b.id), 'INS_NOTE_REQUIRED',
                                'recognition needs the insurer confirmation');
-  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, current_date)', cl_b.id, v_trust_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, public.ins_local_today())', cl_b.id, v_trust_bank),
                                'INS_CLAIM_NOT_RECOGNISED', 'no receipt before the receivable is recognised');
-  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, current_date)', cl_b.id, v_trust_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, public.ins_local_today())', cl_b.id, v_trust_bank),
                                'INS_CLAIM_NOT_RECOGNISED', 'no payout before the payable is recognised');
   cl_b := ins_recognise_claim_receivable(cl_b.id, 'ALPHA-CONF-1');
   perform pg_temp.expect_error(format('select ins_recognise_claim_receivable(%L, %L)', cl_b.id, 'ALPHA-CONF-2'), 'INS_CLAIM_RECOGNISED',
@@ -481,26 +481,26 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_fin);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select fin_record_settlement(%L, ''in'', %L, 100, current_date, %L::jsonb)',
+  perform pg_temp.expect_error(format('select fin_record_settlement(%L, ''in'', %L, 100, public.ins_local_today(), %L::jsonb)',
                                       v_trust_bank, v_pins, jsonb_build_array(jsonb_build_object('open_item_id', v_item_ins, 'amount', 100))::text),
                                'settled from the claim', 'Finance settling a claim receivable from the generic screen');
-  perform pg_temp.expect_error(format('select fin_record_settlement(%L, ''out'', %L, 100, current_date, %L::jsonb)',
+  perform pg_temp.expect_error(format('select fin_record_settlement(%L, ''out'', %L, 100, public.ins_local_today(), %L::jsonb)',
                                       v_trust_bank, v_pcli, jsonb_build_array(jsonb_build_object('open_item_id', v_item_cli, 'amount', 100))::text),
                                'settled from the claim', 'Finance settling a claim payable from the generic screen');
   reset role;
   perform pg_temp.jwt(u_mem);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, current_date)', cl_b.id, v_trust_bank), 'INS_FORBIDDEN', 'a member recording a receipt');
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, public.ins_local_today())', cl_b.id, v_trust_bank), 'INS_FORBIDDEN', 'a member recording a receipt');
   reset role;
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, current_date)', cl_b.id, v_trust_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 100, public.ins_local_today())', cl_b.id, v_trust_bank),
                                'INS_CLAIM_FUNDS_NOT_RECEIVED', 'paying the client before the insurer has paid');
-  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, current_date)', cl_b.id, v_oper_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 100, public.ins_local_today())', cl_b.id, v_oper_bank),
                                'INS_BANK_KIND', 'receiving claim money into an operating account');
-  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 1000001, current_date)', cl_b.id, v_trust_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_receipt(%L, %L, 1000001, public.ins_local_today())', cl_b.id, v_trust_bank),
                                'INS_AMOUNT', 'receiving more than the insurer owes');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date, ''REF'')', cl_b.id),
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), ''REF'')', cl_b.id),
                                'INS_CLAIM_MODE', 'a direct payment on a brokerage-managed claim');
   reset role;
   raise notice 'PASS: claim items cannot be settled from Finance and funds must arrive before they are paid out';
@@ -510,7 +510,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  r1 := ins_record_claim_receipt(cl_b.id, v_trust_bank, 600000, current_date, 'BETA-RCPT-1', 'First remittance');
+  r1 := ins_record_claim_receipt(cl_b.id, v_trust_bank, 600000, public.ins_local_today(), 'BETA-RCPT-1', 'First remittance');
   reset role;
   perform pg_temp.assert(pg_temp.bal(v_ta, g_trust) = 600000 and pg_temp.bal(v_ta, g_crec) = 400000 and pg_temp.bal(v_ta, g_cpay) = -1000000
                          and r1.kind = 'insurer_receipt' and r1.settlement_id is not null
@@ -523,9 +523,9 @@ begin
                          'a receipt alone does not mark the client as paid; 600,000 is held for them');
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 700000, current_date)', cl_b.id, v_trust_bank),
+  perform pg_temp.expect_error(format('select ins_record_claim_payout(%L, %L, 700000, public.ins_local_today())', cl_b.id, v_trust_bank),
                                'INS_CLAIM_FUNDS_NOT_RECEIVED', 'paying out more than has been received');
-  o1 := ins_record_claim_payout(cl_b.id, v_trust_bank, 600000, current_date, 'BETA-OUT-1');
+  o1 := ins_record_claim_payout(cl_b.id, v_trust_bank, 600000, public.ins_local_today(), 'BETA-OUT-1');
   reset role;
   perform pg_temp.assert(pg_temp.bal(v_ta, g_trust) = 0 and pg_temp.bal(v_ta, g_cpay) = -400000
                          and (select direction from fin_settlements where id = o1.settlement_id) = 'out',
@@ -557,8 +557,8 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  r2 := ins_record_claim_receipt(cl_b.id, v_trust_bank, 400000, current_date, 'BETA-RCPT-2');
-  o2 := ins_record_claim_payout(cl_b.id, v_trust_bank, 400000, current_date, 'BETA-OUT-2');
+  r2 := ins_record_claim_receipt(cl_b.id, v_trust_bank, 400000, public.ins_local_today(), 'BETA-RCPT-2');
+  o2 := ins_record_claim_payout(cl_b.id, v_trust_bank, 400000, public.ins_local_today(), 'BETA-OUT-2');
   reset role;
   select * into cl_b from ins_claims where id = cl_b.id;
   perform pg_temp.assert(cl_b.status = 'settled' and cl_b.paid_amount = 1000000 and cl_b.settled_at is not null
@@ -646,7 +646,7 @@ begin
   perform pg_temp.jwt(u_mgr);
 
   -- A payment blocks un-approval.
-  r1 := ins_record_claim_payment(cl_u.id, 50000, current_date, 'ALPHA-UNAP-1');
+  r1 := ins_record_claim_payment(cl_u.id, 50000, public.ins_local_today(), 'ALPHA-UNAP-1');
   perform pg_temp.expect_error(format('select ins_transition_claim(%L, ''assessing'', ''change of mind'')', cl_u.id),
                                'INS_CLAIM_PAID', 'un-approving after a payment');
 
@@ -671,7 +671,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
-  perform pg_temp.expect_state(format('insert into ins_claim_payments (tenant_id, claim_id, kind, amount, payment_date) values (%L, %L, ''insurer_direct'', 1, current_date)', v_ta, cl_b.id),
+  perform pg_temp.expect_state(format('insert into ins_claim_payments (tenant_id, claim_id, kind, amount, payment_date) values (%L, %L, ''insurer_direct'', 1, public.ins_local_today())', v_ta, cl_b.id),
                                '42501', 'writing a claim payment directly');
   perform pg_temp.expect_state(format('update ins_claim_payments set amount = 1 where id = %L', pay1.id), '42501', 'editing a claim payment directly');
   reset role;
@@ -679,11 +679,11 @@ begin
   set local role authenticated;
   select count(*) into v_n from ins_claim_payments;
   perform pg_temp.assert(v_n = 0, 'tenant B sees none of tenant A''s claim payments');
-  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, current_date, ''REF'')', cl_x.id), 'INS_NOT_FOUND', 'tenant B recording against tenant A''s claim');
+  perform pg_temp.expect_error(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), ''REF'')', cl_x.id), 'INS_NOT_FOUND', 'tenant B recording against tenant A''s claim');
   perform pg_temp.expect_error(format('select ins_void_claim_payment(%L, ''Not your payment'')', pay1.id), 'INS_NOT_FOUND', 'tenant B voiding tenant A''s payment');
   reset role;
   set local role anon;
-  perform pg_temp.expect_state(format('select ins_record_claim_payment(%L, 100, current_date, ''REF'')', cl_x.id), '42501', 'anon recording a payment');
+  perform pg_temp.expect_state(format('select ins_record_claim_payment(%L, 100, public.ins_local_today(), ''REF'')', cl_x.id), '42501', 'anon recording a payment');
   perform pg_temp.expect_state('select * from ins_claim_payments', '42501', 'anon reading claim payments');
   reset role;
   perform pg_temp.assert('insurer_claim_receivable' = any (platform_gl_posting_roles())

@@ -141,11 +141,11 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MOTOR','Motor') returning id into line_id;
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
-  p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   perform pg_temp.motor_cert(p.id); p:=pg_temp.approve_and_bind(p.id);
-  p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p2:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   perform pg_temp.motor_cert(p2.id); p2:=pg_temp.approve_and_bind(p2.id);
-  draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  draft:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';
   select id into payable_item from fin_open_items where source_id=p.id and source_type='ins_policy_insurer';
@@ -155,16 +155,16 @@ begin
   perform pg_temp.assert(not can_access_insurance(),'Finance cash workflow does not require Insurance membership');
   perform pg_temp.assert((select count(*) from ins_policy_cash_policies())=2,'Finance has a narrow policy lookup');
   perform pg_temp.assert((select count(*) from ins_policy_cash_bank_accounts())=1,'only mapped active client-money banks offered');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''remittance'',%L,1,current_date,%L)',p.id,trust,gen_random_uuid()),'INS_CASH_CAP','unfunded remittance');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,current_date,%L)',draft.id,trust,gen_random_uuid()),'INS_CASH_STATE','draft policy');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,current_date,%L)',p.id,operating,gen_random_uuid()),'INS_CASH_BANK','operating bank');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,current_date,%L)',p.id,otherbank,gen_random_uuid()),'INS_CASH_BANK','cross-tenant bank');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,current_date+1,%L)',p.id,trust,gen_random_uuid()),'INS_CASH_DATE','future date');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1.001,current_date,%L)',p.id,trust,gen_random_uuid()),'INS_CASH_INPUT','precision is not silently rounded');
-  q:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,current_date,key,'PREMIUM-001','partial client collection');
-  retry:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,current_date,key,'PREMIUM-001','partial client collection');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''remittance'',%L,1,public.ins_local_today(),%L)',p.id,trust,gen_random_uuid()),'INS_CASH_CAP','unfunded remittance');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,public.ins_local_today(),%L)',draft.id,trust,gen_random_uuid()),'INS_CASH_STATE','draft policy');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,public.ins_local_today(),%L)',p.id,operating,gen_random_uuid()),'INS_CASH_BANK','operating bank');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,public.ins_local_today(),%L)',p.id,otherbank,gen_random_uuid()),'INS_CASH_BANK','cross-tenant bank');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,public.ins_local_today()+1,%L)',p.id,trust,gen_random_uuid()),'INS_CASH_DATE','future date');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1.001,public.ins_local_today(),%L)',p.id,trust,gen_random_uuid()),'INS_CASH_INPUT','precision is not silently rounded');
+  q:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,public.ins_local_today(),key,'PREMIUM-001','partial client collection');
+  retry:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,public.ins_local_today(),key,'PREMIUM-001','partial client collection');
   perform pg_temp.assert(q.id=retry.id and q.status='pending' and q.settlement_id is null,'submission is idempotent and does not post');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,401,current_date,%L)',p.id,trust,key),'INS_CASH_RETRY_CONFLICT','key cannot change payload');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,401,public.ins_local_today(),%L)',p.id,trust,key),'INS_CASH_RETRY_CONFLICT','key cannot change payload');
   perform pg_temp.expect_error(format('select ins_decide_policy_cash_request(%L,''approve'')',q.id),'INS_CASH_SELF_APPROVAL','maker cannot approve');
   perform pg_temp.expect_error(format('select ins_decide_policy_cash_request(%L,''reject'',''not allowed'')',q.id),'INS_CASH_SELF_APPROVAL','maker cannot reject as checker');
   v:=ins_policy_cash_position(p.id);
@@ -175,7 +175,7 @@ begin
 
   perform pg_temp.jwt(manager); set local role authenticated;
   perform pg_temp.expect_error(format('select ins_decide_policy_cash_request(%L,''approve'')',q.id),'INS_CASH_FORBIDDEN','Insurance manager cannot approve cash');
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,current_date,%L)',p.id,trust,gen_random_uuid()),'INS_CASH_FORBIDDEN','Insurance manager cannot prepare cash');
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''receipt'',%L,1,public.ins_local_today(),%L)',p.id,trust,gen_random_uuid()),'INS_CASH_FORBIDDEN','Insurance manager cannot prepare cash');
   perform pg_temp.expect_error('select ins_policy_cash_bank_accounts()','INS_CASH_FORBIDDEN','no Insurance-only bank cash authority');
   v:=ins_policy_cash_position(p.id);
   perform pg_temp.assert(not (v->>'can_prepare')::boolean and jsonb_array_length(v->'requests')=1,'Insurance reads status only');
@@ -193,12 +193,12 @@ begin
 
   -- Direct generic Finance recording must roll back its entire settlement.
   perform pg_temp.jwt(maker); set local role authenticated;
-  perform pg_temp.expect_error(format('select fin_record_settlement(%L,''in'',%L,10,current_date,%L::jsonb)',trust,(select party_account_id from fin_open_items where id=premium_item),
+  perform pg_temp.expect_error(format('select fin_record_settlement(%L,''in'',%L,10,public.ins_local_today(),%L::jsonb)',trust,(select party_account_id from fin_open_items where id=premium_item),
     jsonb_build_array(jsonb_build_object('open_item_id',premium_item,'amount',10))), 'INS_CASH_APPROVAL_REQUIRED','generic receipt bypass');
-  perform pg_temp.expect_error(format('select fin_record_settlement(%L,''out'',%L,10,current_date,%L::jsonb)',trust,
+  perform pg_temp.expect_error(format('select fin_record_settlement(%L,''out'',%L,10,public.ins_local_today(),%L::jsonb)',trust,
     (select party_account_id from fin_open_items where id=payable_item),jsonb_build_array(jsonb_build_object('open_item_id',payable_item,'amount',10))),
     'INS_CASH_APPROVAL_REQUIRED','generic remittance bypass');
-  perform pg_temp.expect_state(format('select ins_policy_cash_validate(%L,''receipt'',%L,1,current_date)',p.id,trust),'42501','private helper');
+  perform pg_temp.expect_state(format('select ins_policy_cash_validate(%L,''receipt'',%L,1,public.ins_local_today())',p.id,trust),'42501','private helper');
   perform pg_temp.expect_state(format('update ins_policy_cash_requests set status=''posting'',checker_id=%L,operation_txid=txid_current() where id=%L',checker,q.id),'42501','forged approval context');
   reset role;
   perform pg_temp.assert((select count(*) from fin_settlements where tenant_id=ta)=n and (select count(*) from journal_entries where tenant_id=ta)=j,'bypass attempts leave no settlements or journals');
@@ -215,9 +215,9 @@ begin
   raise notice 'PASS: generic bypass closure, atomic posting, idempotent approval and exact partial-funding cap';
 
   perform pg_temp.jwt(maker); set local role authenticated;
-  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''remittance'',%L,1,current_date,%L)',p2.id,trust,gen_random_uuid()),'INS_CASH_CAP','cannot use another policy collections');
-  outq:=ins_submit_policy_cash_request(p.id,'remittance',trust,350,current_date,gen_random_uuid());
-  stale:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,current_date,gen_random_uuid());
+  perform pg_temp.expect_error(format('select ins_submit_policy_cash_request(%L,''remittance'',%L,1,public.ins_local_today(),%L)',p2.id,trust,gen_random_uuid()),'INS_CASH_CAP','cannot use another policy collections');
+  outq:=ins_submit_policy_cash_request(p.id,'remittance',trust,350,public.ins_local_today(),gen_random_uuid());
+  stale:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,public.ins_local_today(),gen_random_uuid());
   perform pg_temp.jwt(checker);
   outq:=ins_decide_policy_cash_request(outq.id,'approve');
   perform pg_temp.expect_error(format('select ins_decide_policy_cash_request(%L,''approve'')',stale.id),'INS_CASH_CAP','approval rechecks funds consumed by another request');
@@ -233,13 +233,13 @@ begin
 
   -- Both manual and auto paths require a THIRD distinct Finance actor.
   perform pg_temp.jwt(maker); set local role authenticated;
-  select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',current_date,'amount',400)));
-  select id into payment_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',current_date,'amount',-350)));
-  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',current_date,current_date)=0,'maker auto-match skips both movements');
+  select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',public.ins_local_today(),'amount',400)));
+  select id into payment_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',public.ins_local_today(),'amount',-350)));
+  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',public.ins_local_today(),public.ins_local_today())=0,'maker auto-match skips both movements');
   perform pg_temp.expect_error(format('select match_bank_statement_line_to_settlement(%L,%L)',receipt_line,q.settlement_id),'INS_CASH_THIRD_PERSON','maker cannot reconcile receipt');
   perform pg_temp.expect_error(format('select match_bank_statement_line_to_settlement(%L,%L)',payment_line,outq.settlement_id),'INS_CASH_THIRD_PERSON','maker cannot reconcile remittance');
   perform pg_temp.jwt(checker);
-  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',current_date,current_date)=0,'checker auto-match skips both movements');
+  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',public.ins_local_today(),public.ins_local_today())=0,'checker auto-match skips both movements');
   perform pg_temp.expect_error(format('select match_bank_statement_line_to_settlement(%L,%L)',receipt_line,q.settlement_id),'INS_CASH_THIRD_PERSON','checker/poster cannot reconcile');
   perform pg_temp.jwt(reconciler);
   rec:=match_bank_statement_line_to_settlement(receipt_line,q.settlement_id);
@@ -255,7 +255,7 @@ begin
   perform pg_temp.expect_error(format('select unmatch_bank_reconciliation(%L)',rec.id),'INS_CASH_THIRD_PERSON','maker cannot remove independent reconciliation');
   perform pg_temp.jwt(reconciler);
   perform unmatch_bank_reconciliation(rec.id);
-  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',current_date,current_date)=2,'independent Finance auto-matches both movements');
+  perform pg_temp.assert(auto_match_bank_statement('PREMIUM-TRUST',public.ins_local_today(),public.ins_local_today())=2,'independent Finance auto-matches both movements');
   v:=ins_policy_cash_position(p.id);
   perform pg_temp.assert((select count(*) from jsonb_array_elements(v->'requests') r where (r->>'reconciled')::boolean)=2,'Insurance/Finance status exposes reconciliation');
   reset role;
@@ -276,9 +276,9 @@ begin
 
   -- Approval failure must leave the request pending, no journal, no partial cash.
   perform pg_temp.jwt(maker); set local role authenticated;
-  broken:=ins_submit_policy_cash_request(p.id,'receipt',trust,100,current_date,gen_random_uuid());
-  bankq:=ins_submit_policy_cash_request(p.id,'receipt',trust,200,current_date,gen_random_uuid());
-  rejected:=ins_submit_policy_cash_request(p.id,'receipt',trust,25,current_date,gen_random_uuid());
+  broken:=ins_submit_policy_cash_request(p.id,'receipt',trust,100,public.ins_local_today(),gen_random_uuid());
+  bankq:=ins_submit_policy_cash_request(p.id,'receipt',trust,200,public.ins_local_today(),gen_random_uuid());
+  rejected:=ins_submit_policy_cash_request(p.id,'receipt',trust,25,public.ins_local_today(),gen_random_uuid());
   perform pg_temp.jwt(checker);
   perform pg_temp.expect_error(format('select ins_decide_policy_cash_request(%L,''reject'',''no'')',rejected.id),'INS_CASH_REASON','rejection requires reason');
   rejected:=ins_decide_policy_cash_request(rejected.id,'reject','incorrect bank reference');
@@ -316,7 +316,7 @@ begin
 
   -- Reversal of a policy invalidates previously submitted requests at approval.
   perform pg_temp.jwt(maker); set local role authenticated;
-  stale:=ins_submit_policy_cash_request(p2.id,'receipt',trust,100,current_date,gen_random_uuid());
+  stale:=ins_submit_policy_cash_request(p2.id,'receipt',trust,100,public.ins_local_today(),gen_random_uuid());
   perform pg_temp.jwt(manager);
   perform ins_reverse_policy(p2.id,'issued in error',false,gen_random_uuid());
   perform pg_temp.jwt(checker);

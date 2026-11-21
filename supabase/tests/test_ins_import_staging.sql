@@ -149,27 +149,27 @@ declare
   b   uuid;
   n   integer;
   rep jsonb;
-  today text := to_char(current_date, 'YYYY-MM-DD');
+  today text := to_char(public.ins_local_today(), 'YYYY-MM-DD');
 begin
   select * into i from pg_temp.q_ids;
 
   -- access: only insurance managers
   perform pg_temp.jwt(i.out);
-  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', current_date)$q$,
+  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', public.ins_local_today())$q$,
     'INS_ACCESS_DENIED', 'outsider create batch');
   perform pg_temp.jwt(i.mem);
-  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', current_date)$q$,
+  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', public.ins_local_today())$q$,
     'INS_ACCESS_DENIED', 'non-manager member create batch');
   perform pg_temp.expect_error($q$select public.ins_import_save_profile('p', '{}'::jsonb)$q$,
     'INS_ACCESS_DENIED', 'non-manager save profile');
 
   -- batch creation rules
   perform pg_temp.jwt(i.mgr);
-  perform pg_temp.expect_error($q$select public.ins_import_create_batch('  ', current_date)$q$,
+  perform pg_temp.expect_error($q$select public.ins_import_create_batch('  ', public.ins_local_today())$q$,
     'INS_IMPORT_LABEL_REQUIRED', 'blank label');
-  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', current_date + 1)$q$,
+  perform pg_temp.expect_error($q$select public.ins_import_create_batch('x', public.ins_local_today() + 1)$q$,
     'INS_IMPORT_CUTOVER_INVALID', 'future cut-over');
-  select id into b from public.ins_import_create_batch('Legacy load', current_date - 7);
+  select id into b from public.ins_import_create_batch('Legacy load', public.ins_local_today() - 7);
   perform pg_temp.assert(pg_temp.scalar(format('select status from public.ins_import_batches where id = %L', b)) = 'staged',
     'new batch is staged');
   perform pg_temp.assert(pg_temp.scalar(format('select accounting_policy_version::text from public.ins_import_batches where id = %L', b)) = '1',
@@ -297,7 +297,7 @@ begin
     'INS_IMPORT_PROFILE_INVALID', 'profile mapping must be an object');
 
   -- RPC-only write discipline: direct DML as an API user is refused
-  perform pg_temp.expect_state(format($q$insert into public.ins_import_batches (tenant_id, label, cut_over_date) values (%L, 'direct', current_date)$q$, i.ta),
+  perform pg_temp.expect_state(format($q$insert into public.ins_import_batches (tenant_id, label, cut_over_date) values (%L, 'direct', public.ins_local_today())$q$, i.ta),
     '42501', 'direct insert into batches');
   perform pg_temp.expect_state(format($q$insert into public.ins_import_rows (tenant_id, batch_id, sheet, line, raw) values (%L, %L, 'policies', 99, '{}'::jsonb)$q$, i.ta, b),
     '42501', 'direct insert into rows');

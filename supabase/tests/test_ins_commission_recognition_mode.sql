@@ -111,7 +111,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', p_maker, 'role', 'authenticated')::text, true);
   q := public.ins_submit_policy_cash_request(p_policy, 'remittance', p_bank, p_amount,
-        current_date, gen_random_uuid(), 'remit', 'test remittance');
+        public.ins_local_today(), gen_random_uuid(), 'remit', 'test remittance');
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_checker, 'role', 'authenticated')::text, true);
@@ -173,7 +173,7 @@ begin
   perform pg_temp.jwt(admin1);
   set local role authenticated;
   v_setting := (public.acct_setting_propose(
-    'ins.commission_recognition', 'at_placement', current_date,
+    'ins.commission_recognition', 'at_placement', public.ins_local_today(),
     'Broker recognises commission when the policy is placed (test fixture).')).id;
   reset role;
   perform pg_temp.jwt(admin2);
@@ -215,7 +215,7 @@ begin
   -- The tenant setting applies: commission earned at bind, income credited now,
   -- unearned empty. This is the whole point of the item.
   c := ins_register_client('Placement client', 'corporate', null, null, null, 'low');
-  p := ins_create_policy(c.id, v_insurer, v_line, current_date, current_date + 365,
+  p := ins_create_policy(c.id, v_insurer, v_line, public.ins_local_today(), public.ins_local_today() + 365,
                          5000000, 'UGX', 1000000, 10, null, null, 'Earn at placement', null);
   pol_place := p.id;
   perform pg_temp.one_share(pol_place, v_insurer, 10);
@@ -254,7 +254,7 @@ begin
   perform pg_temp.jwt(maker);
   set local role authenticated;
   perform public.ins_submit_policy_cash_request(pol_place, 'receipt', v_bank, 1000000,
-    current_date, gen_random_uuid(), 'receipt', 'client pays');
+    public.ins_local_today(), gen_random_uuid(), 'receipt', 'client pays');
   reset role;
   perform pg_temp.jwt(checker);
   set local role authenticated;
@@ -314,7 +314,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   c := ins_register_client('Override client', 'corporate', null, null, null, 'low');
-  p := ins_create_policy(c.id, v_insurer, v_line, current_date, current_date + 365,
+  p := ins_create_policy(c.id, v_insurer, v_line, public.ins_local_today(), public.ins_local_today() + 365,
                          3000000, 'UGX', 600000, 10, null, null, 'Override: wait for settlement', null);
   pol_override := p.id;
   perform public.ins_set_policy_commission_recognition(pol_override, 'on_insurer_settlement');
@@ -355,7 +355,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   c := ins_register_client('Refusal client', 'corporate', null, null, null, 'low');
-  p := ins_create_policy(c.id, v_insurer, v_line, current_date, current_date + 365,
+  p := ins_create_policy(c.id, v_insurer, v_line, public.ins_local_today(), public.ins_local_today() + 365,
                          1000000, 'UGX', 200000, 10, null, null, 'Refusal fixture', null);
   -- on_premium_collection gained a reader in 20261119240000 (the receipt
   -- trigger), so it is now a legal override. What stays refused is
@@ -374,7 +374,7 @@ begin
   perform pg_temp.jwt(admin1);
   set local role authenticated;
   perform pg_temp.expect_error(
-    $q$select public.acct_setting_propose('ins.commission_recognition', 'over_policy_term', current_date, 'attempting an unimplemented value')$q$,
+    $q$select public.acct_setting_propose('ins.commission_recognition', 'over_policy_term', public.ins_local_today(), 'attempting an unimplemented value')$q$,
     'ACCT_SETTING_VALUE_NOT_ALLOWED',
     '§5 choosing over_policy_term, which nothing implements');
   reset role;
@@ -394,7 +394,7 @@ begin
     -- posted today (ACCT_SETTING_BACKDATED). The policy below incepts tomorrow
     -- for the same reason.
     v_gross_setting := (public.acct_setting_propose(
-      'ins.insurer_remittance_basis', 'gross_premium', current_date + 1,
+      'ins.insurer_remittance_basis', 'gross_premium', public.ins_local_today() + 1,
       'Broker remits the full premium (test fixture).')).id;
     reset role;
     perform pg_temp.jwt(admin2);
@@ -407,7 +407,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   c := ins_register_client('Gross override client', 'corporate', null, null, null, 'low');
-  p := ins_create_policy(c.id, v_insurer, v_line, current_date + 1, current_date + 366,
+  p := ins_create_policy(c.id, v_insurer, v_line, public.ins_local_today() + 1, public.ins_local_today() + 366,
                          2000000, 'UGX', 500000, 10, null, null, 'Gross beats the override', null);
   pol_gross := p.id;
   perform public.ins_set_policy_commission_recognition(pol_gross, 'on_insurer_settlement');
