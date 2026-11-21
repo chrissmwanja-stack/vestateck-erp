@@ -161,3 +161,135 @@ export const COMMISSION_RECEIVABLE_COLUMNS: ReportExportColumn<CommissionReceiva
   { header: 'Days overdue', accessor: (r) => Number(r.days_overdue), align: 'right' },
   { header: 'Age', accessor: (r) => AGE_BUCKET_LABEL[r.age_bucket] ?? r.age_bucket },
 ];
+
+// ---- Batch 3: claims register and claims ageing (as at a date) ----
+
+export const CLAIM_AGE_BUCKETS = ['0-30', '31-60', '61-90', '91-180', '180+'] as const;
+export type ClaimAgeBucket = (typeof CLAIM_AGE_BUCKETS)[number];
+export type ClaimBucket = ClaimAgeBucket | 'closed';
+
+export const CLAIM_AGE_BUCKET_LABEL: Record<ClaimBucket, string> = {
+  '0-30': '0-30 days',
+  '31-60': '31-60 days',
+  '61-90': '61-90 days',
+  '91-180': '91-180 days',
+  '180+': 'Over 180 days',
+  closed: 'Closed',
+};
+
+export const CLAIM_STATUS_LABEL: Record<string, string> = {
+  notified: 'Notified',
+  assessing: 'Assessing',
+  approved: 'Approved',
+  settled: 'Settled',
+  repudiated: 'Repudiated',
+  closed: 'Closed',
+};
+
+export type ClaimsScope = 'open' | 'all';
+export type ClaimsGroupBy = 'none' | 'insurer' | 'product_line';
+
+export const CLAIMS_GROUPS: { value: ClaimsGroupBy; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'insurer', label: 'Insurer' },
+  { value: 'product_line', label: 'Product line' },
+];
+
+export interface ClaimRegisterLine {
+  claim_id: string;
+  claim_no: string;
+  insurer_claim_ref: string | null;
+  policy_id: string;
+  policy_no: string;
+  client_id: string | null;
+  client_name: string | null;
+  insurer_id: string | null;
+  insurer_name: string | null;
+  product_line_id: string | null;
+  product_line_name: string | null;
+  currency: string;
+  loss_date: string;
+  notified_date: string;
+  status_as_at: string;
+  is_open: boolean;
+  reserve_as_at: number;
+  approved_amount: number | null;
+  paid_as_at: number;
+  outstanding_amount: number;
+  age_days: number;
+  days_since_activity: number;
+  age_bucket: ClaimBucket;
+}
+
+export interface ClaimAgeingLine {
+  group_key: string;
+  group_label: string;
+  currency: string;
+  age_bucket: ClaimAgeBucket;
+  claim_count: number;
+  reserve_total: number;
+  outstanding_total: number;
+  oldest_age_days: number;
+}
+
+export const CLAIMS_REGISTER_COLUMNS: ReportExportColumn<ClaimRegisterLine>[] = [
+  { header: 'Claim', accessor: (r) => r.claim_no },
+  { header: 'Insurer ref', accessor: (r) => r.insurer_claim_ref ?? '' },
+  { header: 'Policy', accessor: (r) => r.policy_no },
+  { header: 'Client', accessor: (r) => r.client_name ?? '-' },
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Product line', accessor: (r) => r.product_line_name ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Loss date', accessor: (r) => r.loss_date },
+  { header: 'Notified', accessor: (r) => r.notified_date },
+  { header: 'Status', accessor: (r) => CLAIM_STATUS_LABEL[r.status_as_at] ?? r.status_as_at },
+  { header: 'Reserve', accessor: (r) => Number(r.reserve_as_at), align: 'right' },
+  { header: 'Approved', accessor: (r) => (r.approved_amount == null ? '' : Number(r.approved_amount)), align: 'right' },
+  { header: 'Paid', accessor: (r) => Number(r.paid_as_at), align: 'right' },
+  { header: 'Outstanding', accessor: (r) => Number(r.outstanding_amount), align: 'right' },
+  { header: 'Age (days)', accessor: (r) => Number(r.age_days), align: 'right' },
+  { header: 'Days since activity', accessor: (r) => Number(r.days_since_activity), align: 'right' },
+];
+
+export const claimsAgeingColumns = (groupHeader: string): ReportExportColumn<ClaimAgeingLine>[] => [
+  { header: groupHeader, accessor: (r) => r.group_label },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Age', accessor: (r) => CLAIM_AGE_BUCKET_LABEL[r.age_bucket] ?? r.age_bucket },
+  { header: 'Claims', accessor: (r) => Number(r.claim_count), align: 'right' },
+  { header: 'Reserve', accessor: (r) => Number(r.reserve_total), align: 'right' },
+  { header: 'Outstanding', accessor: (r) => Number(r.outstanding_total), align: 'right' },
+  { header: 'Oldest (days)', accessor: (r) => Number(r.oldest_age_days), align: 'right' },
+];
+
+// ---- Batch 4: cancellations (period) ----
+
+export type CancellationGroupBy = ReportGroupBy | 'insurer';
+
+export const CANCELLATION_GROUPS: { value: CancellationGroupBy; label: string }[] = [
+  ...REPORT_GROUPS,
+  { value: 'insurer', label: 'Insurer' },
+];
+
+export const cancellationGroupLabel = (g: CancellationGroupBy): string =>
+  CANCELLATION_GROUPS.find((x) => x.value === g)?.label ?? g;
+
+export interface CancellationLine {
+  group_key: string;
+  group_label: string;
+  currency: string;
+  cancellation_count: number;
+  return_premium: number;
+  commission_clawback: number;
+  retained_commission: number;
+  total_insurer_credit: number;
+}
+
+export const cancellationColumns = (groupHeader: string): ReportExportColumn<CancellationLine>[] => [
+  { header: groupHeader, accessor: (r) => r.group_label },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Cancellations', accessor: (r) => Number(r.cancellation_count), align: 'right' },
+  { header: 'Return premium', accessor: (r) => Number(r.return_premium), align: 'right' },
+  { header: 'Commission clawed back', accessor: (r) => Number(r.commission_clawback), align: 'right' },
+  { header: 'Commission retained', accessor: (r) => Number(r.retained_commission), align: 'right' },
+  { header: 'Insurer credit', accessor: (r) => Number(r.total_insurer_credit), align: 'right' },
+];

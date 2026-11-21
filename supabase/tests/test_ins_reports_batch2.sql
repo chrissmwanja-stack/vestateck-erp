@@ -177,9 +177,10 @@ begin
   reset role;
   perform pg_temp.assert(pg_temp.income_balance(income_gl)=60,'the ledger holds 60 of commission income');
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select sum(net_earned) from ins_report_commission_earned(current_date,current_date,'month',true))=pg_temp.income_balance(income_gl),
-    'with imported policies included, earned equals the commission income ledger');
+  select sum(net_earned) as net into r from ins_report_commission_earned(current_date,current_date,'month',true);
   reset role;
+  perform pg_temp.assert(r.net = pg_temp.income_balance(income_gl),
+    'with imported policies included, earned equals the commission income ledger');
 
   -- ---------------------------------------------------------------
   -- After a posted cancellation: whatever it does to income, the report follows the ledger
