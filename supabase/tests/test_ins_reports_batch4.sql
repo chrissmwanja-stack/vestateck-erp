@@ -125,13 +125,13 @@ begin
   --   r2 Marine 2,000 expires in 40 days -> recorded as lost
   --   r3 Fire     500 expires in 50 days -> upcoming, nothing recorded
   --   r4 Fire   9,000 expires in 200 days -> outside the window
-  r1 := ins_create_policy(c.id,insurer,line_id,current_date-300,current_date+30,5000000,'UGX',1000,10,null,null);
+  r1 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today()-300,public.ins_local_today()+30,5000000,'UGX',1000,10,null,null);
   r1 := pg_temp.approve_and_bind(r1.id);
-  r2 := ins_create_policy(c.id,insurer,line2,current_date-290,current_date+40,5000000,'UGX',2000,10,null,null);
+  r2 := ins_create_policy(c.id,insurer,line2,public.ins_local_today()-290,public.ins_local_today()+40,5000000,'UGX',2000,10,null,null);
   r2 := pg_temp.approve_and_bind(r2.id);
-  r3 := ins_create_policy(c.id,insurer,line_id,current_date-280,current_date+50,5000000,'UGX',500,10,null,null);
+  r3 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today()-280,public.ins_local_today()+50,5000000,'UGX',500,10,null,null);
   r3 := pg_temp.approve_and_bind(r3.id);
-  r4 := ins_create_policy(c.id,insurer,line_id,current_date-165,current_date+200,5000000,'UGX',9000,10,null,null);
+  r4 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today()-165,public.ins_local_today()+200,5000000,'UGX',9000,10,null,null);
   r4 := pg_temp.approve_and_bind(r4.id);
 
   rn := ins_create_renewal_draft(r1.id);
@@ -139,14 +139,14 @@ begin
   perform ins_record_renewal_outcome(r2.id,'lost','Went to a competitor');
 
   -- Cancellation fixture: one policy bound today and cancelled today, 200 returned.
-  pc := ins_create_policy(c.id,insurer,line2,current_date,current_date+365,5000000,'UGX',600,10,null,null);
+  pc := ins_create_policy(c.id,insurer,line2,public.ins_local_today(),public.ins_local_today()+365,5000000,'UGX',600,10,null,null);
   pc := pg_temp.approve_and_bind(pc.id);
   reset role;
 
   terms := jsonb_build_array(jsonb_build_object('insurer_id',insurer,'terms',
     jsonb_build_object('method','manual_review','contract_reference','Alpha agreed cancellation','manual_return_premium','200')));
   perform pg_temp.jwt(mgr); set local role authenticated;
-  cx := ins_submit_policy_cancellation(pc.id,current_date,terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
+  cx := ins_submit_policy_cancellation(pc.id,public.ins_local_today(),terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
   perform pg_temp.jwt(maker);
   cx := ins_prepare_policy_cancellation(cx.id,clearing);
   perform pg_temp.jwt(checker);
@@ -158,52 +158,52 @@ begin
   -- Access
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(outsider); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_cancellation_register(current_date,current_date)','INS_FORBIDDEN','register needs insurance access');
-  perform pg_temp.expect_error('select * from ins_report_renewals(current_date,current_date+60)','INS_FORBIDDEN','renewals need insurance access');
-  perform pg_temp.expect_error('select * from ins_report_renewal_retention(current_date,current_date+60)','INS_FORBIDDEN','retention needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today())','INS_FORBIDDEN','register needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60)','INS_FORBIDDEN','renewals need insurance access');
+  perform pg_temp.expect_error('select * from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60)','INS_FORBIDDEN','retention needs insurance access');
   reset role;
   perform pg_temp.jwt(other_mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_cancellation_register(current_date,current_date)),'another company sees none of our cancellations');
-  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(current_date,current_date+365)),'another company sees none of our renewals');
-  perform pg_temp.assert((select count(*)=0 from ins_report_renewal_retention(current_date,current_date+365)),'another company sees no retention rows of ours');
+  perform pg_temp.assert((select count(*)=0 from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today())),'another company sees none of our cancellations');
+  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+365)),'another company sees none of our renewals');
+  perform pg_temp.assert((select count(*)=0 from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+365)),'another company sees no retention rows of ours');
   reset role;
   set local role anon;
-  perform pg_temp.expect_error('select * from ins_report_cancellation_register(current_date,current_date)','permission denied','anonymous cannot run the register');
-  perform pg_temp.expect_error('select * from ins_report_renewals(current_date,current_date+60)','permission denied','anonymous cannot run renewals');
-  perform pg_temp.expect_error('select * from ins_report_renewal_retention(current_date,current_date+60)','permission denied','anonymous cannot run retention');
+  perform pg_temp.expect_error('select * from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today())','permission denied','anonymous cannot run the register');
+  perform pg_temp.expect_error('select * from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60)','permission denied','anonymous cannot run renewals');
+  perform pg_temp.expect_error('select * from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60)','permission denied','anonymous cannot run retention');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Input validation
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_cancellation_register(current_date+1,current_date)','INS_REPORT_INPUT','register period must run forwards');
-  perform pg_temp.expect_error('select * from ins_report_cancellation_register(null,current_date)','INS_REPORT_INPUT','register needs a start date');
-  perform pg_temp.expect_error('select * from ins_report_renewals(current_date+1,current_date)','INS_REPORT_INPUT','renewals period must run forwards');
-  perform pg_temp.expect_error('select * from ins_report_renewal_retention(current_date+1,current_date)','INS_REPORT_INPUT','retention period must run forwards');
-  perform pg_temp.expect_error('select * from ins_report_renewal_retention(current_date,current_date+60,''bogus'')','INS_REPORT_INPUT','retention grouping must be one offered');
+  perform pg_temp.expect_error('select * from ins_report_cancellation_register(public.ins_local_today()+1,public.ins_local_today())','INS_REPORT_INPUT','register period must run forwards');
+  perform pg_temp.expect_error('select * from ins_report_cancellation_register(null,public.ins_local_today())','INS_REPORT_INPUT','register needs a start date');
+  perform pg_temp.expect_error('select * from ins_report_renewals(public.ins_local_today()+1,public.ins_local_today())','INS_REPORT_INPUT','renewals period must run forwards');
+  perform pg_temp.expect_error('select * from ins_report_renewal_retention(public.ins_local_today()+1,public.ins_local_today())','INS_REPORT_INPUT','retention period must run forwards');
+  perform pg_temp.expect_error('select * from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,''bogus'')','INS_REPORT_INPUT','retention grouping must be one offered');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Cancellation register
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=1 from ins_report_cancellation_register(current_date,current_date)),
+  perform pg_temp.assert((select count(*)=1 from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today())),
     'register: one posted cancellation today');
-  perform pg_temp.assert((select policy_no=pc.policy_no and currency='UGX' and return_premium=200 and posting_date=current_date
+  perform pg_temp.assert((select policy_no=pc.policy_no and currency='UGX' and return_premium=200 and posting_date=public.ins_local_today()
                             and cancellation_no is not null and insurer_name='Alpha' and product_line_name='Marine' and client_name is not null
-                            from ins_report_cancellation_register(current_date,current_date)),
+                            from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today())),
     'register row names the policy, insurer, product line and client, and carries 200 return premium');
-  perform pg_temp.assert((select count(*)=0 from ins_report_cancellation_register(current_date+1,current_date+1)),
+  perform pg_temp.assert((select count(*)=0 from ins_report_cancellation_register(public.ins_local_today()+1,public.ins_local_today()+1)),
     'register: nothing in a period with no posted cancellation');
   perform pg_temp.assert((select row(sum(return_premium),sum(commission_clawback),sum(retained_commission),sum(total_insurer_credit))
-                            from ins_report_cancellation_register(current_date,current_date))
+                            from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today()))
                          is not distinct from
                          (select row(sum(return_premium),sum(commission_clawback),sum(retained_commission),sum(total_insurer_credit))
-                            from ins_report_cancellations(current_date,current_date,'insurer')),
+                            from ins_report_cancellations(public.ins_local_today(),public.ins_local_today(),'insurer')),
     'register totals equal the cancellations summary: return premium, clawback, retained commission, insurer credit');
-  perform pg_temp.assert((select sum(return_premium) from ins_report_cancellation_register(current_date,current_date))
-                         = -(select sum(cancellations) from ins_report_production(current_date,current_date,'month')),
+  perform pg_temp.assert((select sum(return_premium) from ins_report_cancellation_register(public.ins_local_today(),public.ins_local_today()))
+                         = -(select sum(cancellations) from ins_report_production(public.ins_local_today(),public.ins_local_today(),'month')),
     'register return premium equals the cancellations column of production');
   reset role;
 
@@ -211,23 +211,23 @@ begin
   -- Renewals
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=3 from ins_report_renewals(current_date,current_date+60)),
+  perform pg_temp.assert((select count(*)=3 from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60)),
     'renewals: three policies expire in the next 60 days, the one expiring in 200 days is left out');
-  perform pg_temp.assert((select count(*)=4 from ins_report_renewals(current_date,current_date+250)),
+  perform pg_temp.assert((select count(*)=4 from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+250)),
     'renewals: a wider window adds the policy expiring in 200 days');
   perform pg_temp.assert((select outcome='renewed' and renewal_policy_no=rn.policy_no and renewal_premium=1000 and expiring_premium=1000
                             and days_to_expiry=30 and currency='UGX'
-                            from ins_report_renewals(current_date,current_date+60) where policy_id=r1.id),
+                            from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where policy_id=r1.id),
     'renewed policy: outcome renewed, linked to the bound renewal and its premium');
   perform pg_temp.assert((select outcome='lost' and outcome_reason='Went to a competitor' and renewal_policy_no is null and renewal_premium is null
-                            from ins_report_renewals(current_date,current_date+60) where policy_id=r2.id),
+                            from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where policy_id=r2.id),
     'policy recorded as lost: outcome lost with the reason, no renewal');
   perform pg_temp.assert((select outcome='upcoming' and outcome_reason is null and renewal_policy_no is null
-                            from ins_report_renewals(current_date,current_date+60) where policy_id=r3.id),
+                            from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where policy_id=r3.id),
     'policy not yet expired and with nothing recorded is upcoming');
-  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(current_date,current_date+60) where policy_id=rn.id),
+  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where policy_id=rn.id),
     'the renewal policy itself expires later and is not in this window');
-  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(current_date,current_date+60) where policy_id=pc.id),
+  perform pg_temp.assert((select count(*)=0 from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where policy_id=pc.id),
     'the cancelled policy never reaches expiry and is not listed');
   reset role;
 
@@ -238,26 +238,26 @@ begin
   perform pg_temp.assert((select count(*)=1 and min(due_count)=3 and min(renewed_count)=1 and min(lost_count)=1
                             and min(unresolved_count)=0 and min(upcoming_count)=1
                             and min(expiring_premium)=3500 and min(renewed_premium)=1000
-                            from ins_report_renewal_retention(current_date,current_date+60,'insurer')),
+                            from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,'insurer')),
     'retention by insurer: 3 due, 1 renewed, 1 lost, 1 upcoming, 3,500 expiring, 1,000 renewed');
   perform pg_temp.assert((select retention_count_pct=50.0 and retention_premium_pct=33.3
-                            from ins_report_renewal_retention(current_date,current_date+60,'insurer')),
+                            from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,'insurer')),
     'retention by insurer: 1 of the 2 matured policies renewed (50.0%), 1,000 of 3,000 matured premium (33.3%)');
   perform pg_temp.assert((select due_count=2 and renewed_count=1 and upcoming_count=1 and expiring_premium=1500
                             and retention_count_pct=100.0 and retention_premium_pct=100.0
-                            from ins_report_renewal_retention(current_date,current_date+60,'product_line') where group_label='Fire'),
+                            from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,'product_line') where group_label='Fire'),
     'retention for Fire: upcoming policy is left out of both denominators, so 100.0% and 100.0%');
   perform pg_temp.assert((select due_count=1 and lost_count=1 and retention_count_pct=0.0 and retention_premium_pct=0.0
-                            from ins_report_renewal_retention(current_date,current_date+60,'product_line') where group_label='Marine'),
+                            from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,'product_line') where group_label='Marine'),
     'retention for Marine: the only policy was lost, so 0.0% and 0.0%');
-  select count(*) into v_reg_n from ins_report_renewals(current_date,current_date+60);
+  select count(*) into v_reg_n from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60);
   select coalesce(sum(due_count),0), coalesce(sum(renewed_count),0) into v_due, v_renewed
-    from ins_report_renewal_retention(current_date,current_date+60,'product_line');
+    from ins_report_renewal_retention(public.ins_local_today(),public.ins_local_today()+60,'product_line');
   perform pg_temp.assert(v_due = v_reg_n, 'retention due counts add up to the renewals rows');
-  perform pg_temp.assert(v_renewed = (select count(*) from ins_report_renewals(current_date,current_date+60) where outcome='renewed'),
+  perform pg_temp.assert(v_renewed = (select count(*) from ins_report_renewals(public.ins_local_today(),public.ins_local_today()+60) where outcome='renewed'),
     'retention renewed counts equal the renewed rows');
   perform pg_temp.assert((select retention_count_pct is null and retention_premium_pct is null and due_count=1 and upcoming_count=1
-                            from ins_report_renewal_retention(current_date+45,current_date+55,'insurer')),
+                            from ins_report_renewal_retention(public.ins_local_today()+45,public.ins_local_today()+55,'insurer')),
     'a window where nothing has expired yet has no percentage, not 0%');
   reset role;
 

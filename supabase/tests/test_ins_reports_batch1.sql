@@ -124,9 +124,9 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MARINE','Marine') returning id into line2;
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c := ins_register_client('Reports client','corporate',null,null,null,'low');
-  p1 := ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p1 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   p1 := pg_temp.approve_and_bind(p1.id);
-  p2 := ins_create_policy(c.id,insurer,line2,current_date,current_date+365,30000,'UGX',600,10,null,null);
+  p2 := ins_create_policy(c.id,insurer,line2,public.ins_local_today(),public.ins_local_today()+365,30000,'UGX',600,10,null,null);
   p2 := pg_temp.approve_and_bind(p2.id);
   reset role;
 
@@ -134,16 +134,16 @@ begin
   -- Access
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(outsider); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_production(current_date,current_date)','INS_FORBIDDEN','production needs insurance access');
-  perform pg_temp.expect_error('select * from ins_report_premium_collected(current_date,current_date)','INS_FORBIDDEN','collected needs insurance access');
-  perform pg_temp.expect_error('select * from ins_report_outstanding_premium(current_date)','INS_FORBIDDEN','outstanding needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_production(public.ins_local_today(),public.ins_local_today())','INS_FORBIDDEN','production needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_premium_collected(public.ins_local_today(),public.ins_local_today())','INS_FORBIDDEN','collected needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_outstanding_premium(public.ins_local_today())','INS_FORBIDDEN','outstanding needs insurance access');
   reset role;
   perform pg_temp.jwt(other_mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*) from ins_report_production(current_date,current_date))=0,'another company sees none of this production');
-  perform pg_temp.assert((select count(*) from ins_report_outstanding_premium(current_date))=0,'another company sees none of these debtors');
+  perform pg_temp.assert((select count(*) from ins_report_production(public.ins_local_today(),public.ins_local_today()))=0,'another company sees none of this production');
+  perform pg_temp.assert((select count(*) from ins_report_outstanding_premium(public.ins_local_today()))=0,'another company sees none of these debtors');
   reset role;
   set local role anon;
-  perform pg_temp.expect_error('select * from ins_report_production(current_date,current_date)','permission denied','anonymous cannot run reports');
+  perform pg_temp.expect_error('select * from ins_report_production(public.ins_local_today(),public.ins_local_today())','permission denied','anonymous cannot run reports');
   reset role;
 
   -- ---------------------------------------------------------------
@@ -151,50 +151,50 @@ begin
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
   perform pg_temp.assert((select count(*)=2 and sum(new_business)=1600 and sum(net_written)=1600 and sum(policy_count)=2
-                            from ins_report_production(current_date,current_date,'product_line')),
+                            from ins_report_production(public.ins_local_today(),public.ins_local_today(),'product_line')),
     'two product lines, 1,600 written, two policies');
-  perform pg_temp.assert((select count(*)=1 and sum(net_written)=1600 and sum(policy_count)=2 from ins_report_production(current_date,current_date,'client')),
+  perform pg_temp.assert((select count(*)=1 and sum(net_written)=1600 and sum(policy_count)=2 from ins_report_production(public.ins_local_today(),public.ins_local_today(),'client')),
     'grouped by client: one row');
-  perform pg_temp.assert((select count(*)=1 and min(group_key)=to_char(current_date,'YYYY-MM') from ins_report_production(current_date,current_date,'month')),
+  perform pg_temp.assert((select count(*)=1 and min(group_key)=to_char(public.ins_local_today(),'YYYY-MM') from ins_report_production(public.ins_local_today(),public.ins_local_today(),'month')),
     'grouped by month');
-  perform pg_temp.assert((select count(*)=0 from ins_report_production(current_date+1,current_date+2)),'nothing written outside the period');
-  perform pg_temp.expect_error('select * from ins_report_production(current_date,current_date,''insurer'')','INS_REPORT_INPUT','insurer grouping is not offered yet');
-  perform pg_temp.expect_error('select * from ins_report_production(current_date+1,current_date)','INS_REPORT_INPUT','period must run forwards');
+  perform pg_temp.assert((select count(*)=0 from ins_report_production(public.ins_local_today()+1,public.ins_local_today()+2)),'nothing written outside the period');
+  perform pg_temp.expect_error('select * from ins_report_production(public.ins_local_today(),public.ins_local_today(),''insurer'')','INS_REPORT_INPUT','insurer grouping is not offered yet');
+  perform pg_temp.expect_error('select * from ins_report_production(public.ins_local_today()+1,public.ins_local_today())','INS_REPORT_INPUT','period must run forwards');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Outstanding premium before any cash: ties to the ledger
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(current_date);
+  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(public.ins_local_today());
   reset role;
   perform pg_temp.assert(n=2 and v_sum=1600,'before cash: two debtors, 1,600 outstanding');
   perform pg_temp.assert(v_sum = pg_temp.ar_balance(ar_gl),'outstanding premium equals the AR control balance');
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_outstanding_premium(current_date-1)),'as at the day before binding nothing was billed');
-  perform pg_temp.assert((select bool_and(age_bucket='current' and days_overdue=0) from ins_report_outstanding_premium(current_date)),'a fresh invoice is current');
+  perform pg_temp.assert((select count(*)=0 from ins_report_outstanding_premium(public.ins_local_today()-1)),'as at the day before binding nothing was billed');
+  perform pg_temp.assert((select bool_and(age_bucket='current' and days_overdue=0) from ins_report_outstanding_premium(public.ins_local_today())),'a fresh invoice is current');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Premium collected: an approved receipt
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(maker); set local role authenticated;
-  q := ins_submit_policy_cash_request(p1.id,'receipt',trust,400,current_date,gen_random_uuid(),'REP-R1','partial client collection');
+  q := ins_submit_policy_cash_request(p1.id,'receipt',trust,400,public.ins_local_today(),gen_random_uuid(),'REP-R1','partial client collection');
   reset role;
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(current_date,current_date)),'a pending receipt is not collected');
+  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(public.ins_local_today(),public.ins_local_today())),'a pending receipt is not collected');
   reset role;
   perform pg_temp.jwt(checker); set local role authenticated;
   q := ins_decide_policy_cash_request(q.id,'approve',null);
   reset role;
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=1 and sum(collected)=400 and sum(receipt_count)=1 from ins_report_premium_collected(current_date,current_date,'month')),
+  perform pg_temp.assert((select count(*)=1 and sum(collected)=400 and sum(receipt_count)=1 from ins_report_premium_collected(public.ins_local_today(),public.ins_local_today(),'month')),
     'an approved receipt is collected: 400, one receipt');
-  perform pg_temp.assert((select count(*)=1 and sum(collected)=400 from ins_report_premium_collected(current_date,current_date,'product_line')),
+  perform pg_temp.assert((select count(*)=1 and sum(collected)=400 from ins_report_premium_collected(public.ins_local_today(),public.ins_local_today(),'product_line')),
     'collected by product line: only the line that was paid');
-  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(current_date+1,current_date+2)),'nothing collected outside the period');
+  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(public.ins_local_today()+1,public.ins_local_today()+2)),'nothing collected outside the period');
   perform pg_temp.assert((select received_amount=400 from ins_client_statement where policy_id=p1.id),'collected agrees with the client statement');
-  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(current_date);
+  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(public.ins_local_today());
   reset role;
   perform pg_temp.assert(n=2 and v_sum=1200,'after the receipt: 1,200 outstanding');
   perform pg_temp.assert(v_sum = pg_temp.ar_balance(ar_gl),'outstanding still equals the AR control balance after a receipt');
@@ -205,7 +205,7 @@ begin
   terms := jsonb_build_array(jsonb_build_object('insurer_id',insurer,'terms',
     jsonb_build_object('method','manual_review','contract_reference','Alpha agreed cancellation','manual_return_premium','200')));
   perform pg_temp.jwt(mgr); set local role authenticated;
-  cx := ins_submit_policy_cancellation(p2.id,current_date,terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
+  cx := ins_submit_policy_cancellation(p2.id,public.ins_local_today(),terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
   perform pg_temp.jwt(maker);
   cx := ins_prepare_policy_cancellation(cx.id,clearing);
   perform pg_temp.jwt(checker);
@@ -214,28 +214,28 @@ begin
   perform pg_temp.assert(cx.status='posted','the cancellation posted');
 
   perform pg_temp.jwt(mgr); set local role authenticated;
-  select * into r from ins_report_production(current_date,current_date,'client');
+  select * into r from ins_report_production(public.ins_local_today(),public.ins_local_today(),'client');
   perform pg_temp.assert(r.new_business=1600 and r.cancellations=-200 and r.net_written=1400 and r.policy_count=2,
     'production nets the return premium: 1,600 written, 200 returned, 1,400 net');
-  perform pg_temp.assert((select count(*)=2 from ins_report_production(current_date,current_date,'product_line')),'both lines still listed');
-  perform pg_temp.assert((select net_written=400 from ins_report_production(current_date,current_date,'product_line') where group_label='Marine'),
+  perform pg_temp.assert((select count(*)=2 from ins_report_production(public.ins_local_today(),public.ins_local_today(),'product_line')),'both lines still listed');
+  perform pg_temp.assert((select net_written=400 from ins_report_production(public.ins_local_today(),public.ins_local_today(),'product_line') where group_label='Marine'),
     'the cancelled line nets to 400');
 
   -- Batch 4 (20261121120000): the cancellations report reads the same posted
   -- cancellation, so its return premium must equal what production deducted.
   perform pg_temp.assert((select cancellation_count=1 and return_premium=200
-                            from ins_report_cancellations(current_date,current_date,'client')),
+                            from ins_report_cancellations(public.ins_local_today(),public.ins_local_today(),'client')),
     'cancellations report: one cancellation, 200 return premium');
-  perform pg_temp.assert((select sum(return_premium) from ins_report_cancellations(current_date,current_date,'product_line'))
-                         = -(select sum(cancellations) from ins_report_production(current_date,current_date,'product_line')),
+  perform pg_temp.assert((select sum(return_premium) from ins_report_cancellations(public.ins_local_today(),public.ins_local_today(),'product_line'))
+                         = -(select sum(cancellations) from ins_report_production(public.ins_local_today(),public.ins_local_today(),'product_line')),
     'cancellations report return premium equals the cancellations column of production');
-  perform pg_temp.assert((select count(*)=1 and sum(return_premium)=200 from ins_report_cancellations(current_date,current_date,'insurer')),
+  perform pg_temp.assert((select count(*)=1 and sum(return_premium)=200 from ins_report_cancellations(public.ins_local_today(),public.ins_local_today(),'insurer')),
     'insurer grouping: the one insurer carries the 200');
-  perform pg_temp.assert((select count(*)=0 from ins_report_cancellations(current_date+1,current_date+1,'month')),
+  perform pg_temp.assert((select count(*)=0 from ins_report_cancellations(public.ins_local_today()+1,public.ins_local_today()+1,'month')),
     'a period with no posted cancellation returns nothing');
-  perform pg_temp.expect_error('select * from ins_report_cancellations(current_date,current_date,''nonsense'')',
+  perform pg_temp.expect_error('select * from ins_report_cancellations(public.ins_local_today(),public.ins_local_today(),''nonsense'')',
     'INS_REPORT_INPUT','cancellations: invalid grouping is rejected');
-  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(current_date);
+  select count(*), coalesce(sum(outstanding),0) into n, v_sum from ins_report_outstanding_premium(public.ins_local_today());
   reset role;
   perform pg_temp.assert(v_sum=1000,'after the cancellation credit: 1,000 outstanding (600 + 400)');
   perform pg_temp.assert(v_sum = pg_temp.ar_balance(ar_gl),'outstanding equals the AR control balance after a credit note');
@@ -244,11 +244,11 @@ begin
   -- Voiding the receipt puts the debt back and removes the collection
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(checker); set local role authenticated;
-  perform fin_void_settlement(q.settlement_id,'Receipt entered in error',current_date);
+  perform fin_void_settlement(q.settlement_id,'Receipt entered in error',public.ins_local_today());
   reset role;
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(current_date,current_date)),'a receipt voided the same day is not collected');
-  select coalesce(sum(outstanding),0) into v_sum from ins_report_outstanding_premium(current_date);
+  perform pg_temp.assert((select count(*)=0 from ins_report_premium_collected(public.ins_local_today(),public.ins_local_today())),'a receipt voided the same day is not collected');
+  select coalesce(sum(outstanding),0) into v_sum from ins_report_outstanding_premium(public.ins_local_today());
   reset role;
   perform pg_temp.assert(v_sum=1400,'after the void: 1,400 outstanding (1,000 + 400)');
   perform pg_temp.assert(v_sum = pg_temp.ar_balance(ar_gl),'outstanding equals the AR control balance after a void');

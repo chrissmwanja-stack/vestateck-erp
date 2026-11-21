@@ -128,11 +128,11 @@ begin
   c := ins_register_client('Commission reports client','corporate',null,null,null,'low');
 
   -- p1 keeps the default mode: commission (10% of 1,000 = 100) is DEFERRED at bind.
-  p1 := ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p1 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   p1 := pg_temp.approve_and_bind(p1.id);
 
   -- p2 is set to earn its commission at placement (10% of 600 = 60) before it is approved.
-  p2 := ins_create_policy(c.id,insurer,line2,current_date,current_date+365,30000,'UGX',600,10,null,null);
+  p2 := ins_create_policy(c.id,insurer,line2,public.ins_local_today(),public.ins_local_today()+365,30000,'UGX',600,10,null,null);
   perform ins_set_policy_commission_recognition(p2.id,'at_placement');
   p2 := pg_temp.approve_and_bind(p2.id);
   reset role;
@@ -141,23 +141,23 @@ begin
   -- Access
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(outsider); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_commission_earned(current_date,current_date)','INS_FORBIDDEN','earned needs insurance access');
-  perform pg_temp.expect_error('select * from ins_report_commission_receivable(current_date)','INS_FORBIDDEN','receivable needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today())','INS_FORBIDDEN','earned needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_commission_receivable(public.ins_local_today())','INS_FORBIDDEN','receivable needs insurance access');
   reset role;
   perform pg_temp.jwt(other_mgr); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_commission_earned(current_date,current_date)','INS_POSTING_RULE_MISSING','another company has no commission income rule, so it sees none of ours');
+  perform pg_temp.expect_error('select * from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today())','INS_POSTING_RULE_MISSING','another company has no commission income rule, so it sees none of ours');
   reset role;
   set local role anon;
-  perform pg_temp.expect_error('select * from ins_report_commission_earned(current_date,current_date)','permission denied','anonymous cannot run the earned report');
-  perform pg_temp.expect_error('select * from ins_report_commission_receivable(current_date)','permission denied','anonymous cannot run the receivable report');
+  perform pg_temp.expect_error('select * from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today())','permission denied','anonymous cannot run the earned report');
+  perform pg_temp.expect_error('select * from ins_report_commission_receivable(public.ins_local_today())','permission denied','anonymous cannot run the receivable report');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Input validation
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_commission_earned(current_date+1,current_date)','INS_REPORT_INPUT','period must run forwards');
-  perform pg_temp.expect_error('select * from ins_report_commission_earned(current_date,current_date,''insurer'')','INS_REPORT_INPUT','insurer grouping is not offered yet');
+  perform pg_temp.expect_error('select * from ins_report_commission_earned(public.ins_local_today()+1,public.ins_local_today())','INS_REPORT_INPUT','period must run forwards');
+  perform pg_temp.expect_error('select * from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),''insurer'')','INS_REPORT_INPUT','insurer grouping is not offered yet');
   perform pg_temp.expect_error('select * from ins_report_commission_receivable(null)','INS_REPORT_INPUT','an as-at date is required');
   reset role;
 
@@ -166,18 +166,18 @@ begin
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
   perform pg_temp.assert((select count(*)=1 and sum(placement)=60 and sum(net_earned)=60 and sum(policy_count)=1
-                            from ins_report_commission_earned(current_date,current_date,'month')),
+                            from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),'month')),
     'only the at-placement commission is earned: 60 on one policy; the deferred 100 is not income');
   perform pg_temp.assert((select count(*)=1 and min(group_label)='Marine' and sum(net_earned)=60
-                            from ins_report_commission_earned(current_date,current_date,'product_line')),
+                            from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),'product_line')),
     'grouped by product line: only Marine earned');
-  perform pg_temp.assert((select count(*)=1 and sum(net_earned)=60 from ins_report_commission_earned(current_date,current_date,'client')),
+  perform pg_temp.assert((select count(*)=1 and sum(net_earned)=60 from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),'client')),
     'grouped by client: one row');
-  perform pg_temp.assert((select count(*)=0 from ins_report_commission_earned(current_date+1,current_date+2)),'nothing earned outside the period');
+  perform pg_temp.assert((select count(*)=0 from ins_report_commission_earned(public.ins_local_today()+1,public.ins_local_today()+2)),'nothing earned outside the period');
   reset role;
   perform pg_temp.assert(pg_temp.income_balance(income_gl)=60,'the ledger holds 60 of commission income');
   perform pg_temp.jwt(mgr); set local role authenticated;
-  select sum(net_earned) as net into r from ins_report_commission_earned(current_date,current_date,'month',true);
+  select sum(net_earned) as net into r from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),'month',true);
   reset role;
   perform pg_temp.assert(r.net = pg_temp.income_balance(income_gl),
     'with imported policies included, earned equals the commission income ledger');
@@ -188,7 +188,7 @@ begin
   terms := jsonb_build_array(jsonb_build_object('insurer_id',insurer,'terms',
     jsonb_build_object('method','manual_review','contract_reference','Alpha agreed cancellation','manual_return_premium','200')));
   perform pg_temp.jwt(mgr); set local role authenticated;
-  cx := ins_submit_policy_cancellation(p2.id,current_date,terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
+  cx := ins_submit_policy_cancellation(p2.id,public.ins_local_today(),terms,'[]'::jsonb,'Insurer-approved cancellation',gen_random_uuid());
   perform pg_temp.jwt(maker);
   cx := ins_prepare_policy_cancellation(cx.id,clearing);
   perform pg_temp.jwt(checker);
@@ -198,7 +198,7 @@ begin
 
   perform pg_temp.jwt(mgr); set local role authenticated;
   select sum(net_earned) as net, sum(placement+recognised+reversed+cancellations+endorsements+other) as parts into r
-    from ins_report_commission_earned(current_date,current_date,'month',true);
+    from ins_report_commission_earned(public.ins_local_today(),public.ins_local_today(),'month',true);
   reset role;
   perform pg_temp.assert(r.net = pg_temp.income_balance(income_gl),'after the cancellation, earned still equals the commission income ledger');
   perform pg_temp.assert(r.net = r.parts,'the bucket columns add up to the net earned');
@@ -207,7 +207,7 @@ begin
   -- Receivable: the default settlement basis is net, so nothing is owed by insurers
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_commission_receivable(current_date)),
+  perform pg_temp.assert((select count(*)=0 from ins_report_commission_receivable(public.ins_local_today())),
     'under the net basis the broker withholds commission, so no insurer owes any');
   reset role;
 

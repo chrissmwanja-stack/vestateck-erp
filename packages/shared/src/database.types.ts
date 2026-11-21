@@ -20182,6 +20182,8 @@ export type Database = {
         }
         Returns: number
       }
+      ins_local_date: { Args: { p_ts: string }; Returns: string }
+      ins_local_today: { Args: never; Returns: string }
       ins_log_claim_correspondence: {
         Args: {
           p_body?: string
