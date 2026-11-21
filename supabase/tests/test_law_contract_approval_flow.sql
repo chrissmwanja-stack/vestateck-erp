@@ -308,7 +308,7 @@ begin
   if (select status from law_regulatory_filings where id = v_filing_id) <> 'filed' then
     raise exception 'FAIL: pending -> filed did not apply';
   end if;
-  if (select filing_date from law_regulatory_filings where id = v_filing_id) <> current_date then
+  if (select filing_date from law_regulatory_filings where id = v_filing_id) <> public.business_today() then
     raise exception 'FAIL: filing_date was not auto-set on -> filed';
   end if;
 

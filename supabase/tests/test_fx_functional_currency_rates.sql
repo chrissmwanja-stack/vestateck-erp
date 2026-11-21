@@ -148,7 +148,7 @@ begin
     $q$insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (get_my_tenant_id(), 'UGX', date '2026-10-01', 1, 'x')$q$,
     'FX_RATE_CURRENCY', 'rate for the functional currency');
   perform pg_temp.expect_error(
-    $q$insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (get_my_tenant_id(), 'USD', current_date + 1, 3700, 'x')$q$,
+    $q$insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (get_my_tenant_id(), 'USD', public.business_today() + 1, 3700, 'x')$q$,
     'FX_RATE_FUTURE', 'future-dated rate');
   perform pg_temp.expect_error(
     $q$insert into fx_rates (tenant_id, currency, rate_date, rate, source, status, approved_by, approved_at)
