@@ -87,7 +87,7 @@ function fixture(): Context {
 }
 function proposal(c: Context, kind = 'refund', amount = '100'): string {
   return sql(
-    `begin; ${asUser(c.maker)} select (ins_submit_cancellation_cash(${quote(c.cancellation)},${quote(kind)},${kind === 'remittance' ? quote(c.adjustment) : 'null'},${quote(c.bank)},null,${amount},current_date,'RACE-CASH','Verified race cash purpose',gen_random_uuid())).id; commit;`,
+    `begin; ${asUser(c.maker)} select (ins_submit_cancellation_cash(${quote(c.cancellation)},${quote(kind)},${kind === 'remittance' ? quote(c.adjustment) : 'null'},${quote(c.bank)},null,${amount},public.ins_local_today(),'RACE-CASH','Verified race cash purpose',gen_random_uuid())).id; commit;`,
   )
     .split('\n')
     .find((s) => /^[0-9a-f-]{36}$/.test(s))!;
@@ -232,7 +232,7 @@ for (const matchFirst of [true, false]) {
     .split('\n')
     .find((s) => /^[0-9a-f-]{36}$/.test(s))!;
   const line = sql(
-    `begin; ${asUser(c.reconciler)} select id from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',current_date,'amount',-100))); commit;`,
+    `begin; ${asUser(c.reconciler)} select id from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',public.ins_local_today(),'amount',-100))); commit;`,
   )
     .split('\n')
     .find((s) => /^[0-9a-f-]{36}$/.test(s))!;
@@ -252,7 +252,7 @@ for (const matchFirst of [true, false]) {
 {
   const c = fixture(),
     id = proposal(c);
-  const depletion = `set local request.jwt.claims=${quote(JSON.stringify({ sub: c.checker, role: 'authenticated' }))}; select post_journal_entry(${quote(c.tenant)},'manual',gen_random_uuid(),current_date,'Bank depletion racing refund',jsonb_build_array(jsonb_build_object('gl_account_id',${quote(c.operating_gl)},'debit',1209),jsonb_build_object('gl_account_id',${quote(c.bank_gl)},'credit',1209)))`;
+  const depletion = `set local request.jwt.claims=${quote(JSON.stringify({ sub: c.checker, role: 'authenticated' }))}; select post_journal_entry(${quote(c.tenant)},'manual',gen_random_uuid(),public.ins_local_today(),'Bank depletion racing refund',jsonb_build_array(jsonb_build_object('gl_account_id',${quote(c.operating_gl)},'debit',1209),jsonb_build_object('gl_account_id',${quote(c.bank_gl)},'credit',1209)))`;
   await race(depletion, approve(c, id), 'INS_CXL_CASH_FUNDS');
   console.log(
     'PASS: concurrent manual bank book reduction is visible before refund approval',
@@ -263,7 +263,7 @@ for (const withdrawalFirst of [true, false]) {
     remit = proposal(c, 'remittance', '300');
   sql(`begin; ${approve(c, remit)}; commit;`);
   const withdrawal = sql(
-    `begin; ${asUser(c.maker)} select(ins_submit_cancellation_cash(${quote(c.cancellation)},'commission_withdrawal',${quote(c.adjustment)},${quote(c.bank)},${quote(c.operating)},30,current_date,'NET-COMMISSION','Verified retained commission',gen_random_uuid())).id; commit;`,
+    `begin; ${asUser(c.maker)} select(ins_submit_cancellation_cash(${quote(c.cancellation)},'commission_withdrawal',${quote(c.adjustment)},${quote(c.bank)},${quote(c.operating)},30,public.ins_local_today(),'NET-COMMISSION','Verified retained commission',gen_random_uuid())).id; commit;`,
   )
     .split('\n')
     .find((x) => /^[0-9a-f-]{36}$/.test(x))!;

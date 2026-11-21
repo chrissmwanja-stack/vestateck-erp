@@ -31,12 +31,12 @@ assert.equal(source.split(marker).length, 2, 'SQL fixture marker missing or dupl
 function fixture(): Context {
   const output = sql(source.split(marker)[0] + `
     perform pg_temp.jwt(maker); set local role authenticated;
-    q:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,current_date,gen_random_uuid());
+    q:=ins_submit_policy_cash_request(p.id,'receipt',trust,400,public.ins_local_today(),gen_random_uuid());
     perform pg_temp.jwt(checker); q:=ins_decide_policy_cash_request(q.id,'approve');
     perform pg_temp.jwt(maker);
-    outq:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,current_date,gen_random_uuid());
-    stale:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,current_date,gen_random_uuid());
-    select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',current_date,'amount',400)));
+    outq:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,public.ins_local_today(),gen_random_uuid());
+    stale:=ins_submit_policy_cash_request(p.id,'remittance',trust,300,public.ins_local_today(),gen_random_uuid());
+    select id into receipt_line from import_bank_statement_lines('PREMIUM-TRUST',jsonb_build_array(jsonb_build_object('statement_date',public.ins_local_today(),'amount',400)));
     reset role;
     perform set_config('ins_cash.test_context',json_build_object('tenant',ta,'policy',p.id,'bank',trust,
       'maker',maker,'checker',checker,'reconciler',reconciler,'receipt',q.settlement_id,'first',outq.id,'second',stale.id,'line',receipt_line)::text,true);
