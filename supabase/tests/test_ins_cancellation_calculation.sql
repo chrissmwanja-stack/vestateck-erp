@@ -145,11 +145,11 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MOTOR','Motor') returning id into line_id;
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
-  p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   perform pg_temp.motor_cert(p.id); p:=pg_temp.approve_and_bind(p.id);
-  p2:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  p2:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   perform pg_temp.motor_cert(p2.id); p2:=pg_temp.approve_and_bind(p2.id);
-  draft:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
+  draft:=ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   reset role;
   select id into premium_item from fin_open_items where source_id=p.id and source_type='ins_policy_premium';
   select id into payable_item from fin_open_items where source_id=p.id and source_type='ins_policy_insurer';
@@ -209,7 +209,7 @@ begin
   select count(*) into before_journals from journal_entries;
   select count(*) into before_settlements from fin_settlements;
   perform pg_temp.jwt(maker); set local role authenticated;
-  quote:=ins_preview_policy_cancellation(draft.id,current_date,terms_input,charge_input);
+  quote:=ins_preview_policy_cancellation(draft.id,public.ins_local_today(),terms_input,charge_input);
   perform pg_temp.assert(quote->>'invoice_credit'='604.50','return premium, charges, broker fee and original VAT reconcile');
   perform pg_temp.assert((quote->>'receivable_credit')::numeric=604.5 and (quote->>'client_refund_due')::numeric=0,'uncollected premiums produce a receivable credit, not cash refund');
   perform pg_temp.assert(quote->>'stage'='calculation_only' and not (quote->>'payment_authorized')::boolean and quote->>'funding_status'='not_checked','calculation cannot authorize a cancellation or payment');
@@ -221,45 +221,45 @@ begin
     jsonb_build_object('insurer_id',insurer,'refund_amount','60','basis','Alpha full refund allowed'),
     jsonb_build_object('insurer_id',beta,'refund_amount','0','basis','Beta charge non-refundable'))) else x end)
    into v from jsonb_array_elements(charge_input) x;
-  report:=ins_preview_policy_cancellation(draft.id,current_date,terms_input,v);
+  report:=ins_preview_policy_cancellation(draft.id,public.ins_local_today(),terms_input,v);
   perform pg_temp.assert((select (x->>'pass_through_refund')::numeric=60 from jsonb_array_elements(report->'insurers') x where x->>'insurer_id'=insurer::text)
    and (select (x->>'pass_through_refund')::numeric=25 from jsonb_array_elements(report->'insurers') x where x->>'insurer_id'=beta::text),'recipient-specific terms override a pooled proportional charge refund');
   perform pg_temp.assert((select (x->>'refund_vat')::numeric=4.5 from jsonb_array_elements(quote->'charges') x where x->>'kind'='broker_fee'),'VAT credit follows original charged VAT, not a current rate');
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,''[]''::jsonb)',draft.id,terms_input),'INS_CANCELLATION_REVIEW_REQUIRED','every charge requires explicit refund/retention decision');
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,''[]''::jsonb,%L::jsonb)',draft.id,charge_input),'INS_CANCELLATION_REVIEW_REQUIRED','every original insurer requires its own terms');
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date+1,%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_CANCELLATION_INPUT','future cancellations not treated as current');
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,%L::jsonb)',draft.id,terms_input,jsonb_set(charge_input,'{0,legal_basis_confirmed}','false')),'INS_CANCELLATION_REVIEW_REQUIRED','charge retention/refund basis requires confirmation');
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,%L::jsonb)',draft.id,terms_input,jsonb_set(charge_input,'{0,refund_amount}','"9999"')),'INS_CANCELLATION_INPUT','charge over-refund blocked');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,''[]''::jsonb)',draft.id,terms_input),'INS_CANCELLATION_REVIEW_REQUIRED','every charge requires explicit refund/retention decision');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),''[]''::jsonb,%L::jsonb)',draft.id,charge_input),'INS_CANCELLATION_REVIEW_REQUIRED','every original insurer requires its own terms');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today()+1,%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_CANCELLATION_INPUT','future cancellations not treated as current');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,%L::jsonb)',draft.id,terms_input,jsonb_set(charge_input,'{0,legal_basis_confirmed}','false')),'INS_CANCELLATION_REVIEW_REQUIRED','charge retention/refund basis requires confirmation');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,%L::jsonb)',draft.id,terms_input,jsonb_set(charge_input,'{0,refund_amount}','"9999"')),'INS_CANCELLATION_INPUT','charge over-refund blocked');
   reset role;
   perform pg_temp.assert((select count(*) from journal_entries)=before_journals and (select count(*) from fin_settlements)=before_settlements,'preview creates neither journals nor settlements');
   perform pg_temp.assert((select snapshot from ins_policy_financial_snapshots where policy_id=draft.id)=snap and (select status from ins_policies where id=draft.id)='active','original policy and snapshots remain unchanged');
 
   -- Stale previews are not durable promises: each call uses actual collections.
   perform pg_temp.jwt(maker); set local role authenticated;
-  q:=ins_submit_policy_cash_request(draft.id,'receipt',trust,604.5,current_date,gen_random_uuid(),'Partial collection');
+  q:=ins_submit_policy_cash_request(draft.id,'receipt',trust,604.5,public.ins_local_today(),gen_random_uuid(),'Partial collection');
   perform pg_temp.jwt(checker);
   q:=ins_decide_policy_cash_request(q.id,'approve',null);
-  quote:=ins_preview_policy_cancellation(draft.id,current_date,terms_input,charge_input);
+  quote:=ins_preview_policy_cancellation(draft.id,public.ins_local_today(),terms_input,charge_input);
   perform pg_temp.assert((quote->>'receivable_credit')::numeric=604.5 and (quote->>'client_refund_due')::numeric=0,'half paid, half credited leaves no cash refund');
   perform pg_temp.jwt(maker);
-  q:=ins_submit_policy_cash_request(draft.id,'receipt',trust,604.5,current_date,gen_random_uuid(),'Remaining collection');
+  q:=ins_submit_policy_cash_request(draft.id,'receipt',trust,604.5,public.ins_local_today(),gen_random_uuid(),'Remaining collection');
   perform pg_temp.jwt(checker);
   q:=ins_decide_policy_cash_request(q.id,'approve',null);
-  quote:=ins_preview_policy_cancellation(draft.id,current_date,terms_input,charge_input);
+  quote:=ins_preview_policy_cancellation(draft.id,public.ins_local_today(),terms_input,charge_input);
   perform pg_temp.assert((quote->>'receivable_credit')::numeric=0 and (quote->>'client_refund_due')::numeric=604.5 and not (quote->>'payment_authorized')::boolean,'fully collected policy has refund liability estimate, not automatic payment authority');
   perform pg_temp.expect_state('select platform_ins_cancellation_money(''1'')','42501','private money helper not executable by client');
-  perform pg_temp.expect_state(format('select platform_ins_calculate_insurer_cancellation(''{}'',''{}'',current_date,current_date,current_date)'),'42501','private calculator cannot bypass authorized RPC');
+  perform pg_temp.expect_state(format('select platform_ins_calculate_insurer_cancellation(''{}'',''{}'',public.ins_local_today(),public.ins_local_today(),public.ins_local_today())'),'42501','private calculator cannot bypass authorized RPC');
   perform pg_temp.jwt(outsider);
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_FORBIDDEN','ordinary unauthorized actor denied');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_FORBIDDEN','ordinary unauthorized actor denied');
   perform pg_temp.jwt(other_fin);
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_NOT_FOUND','cross-tenant Finance cannot access a policy');
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_NOT_FOUND','cross-tenant Finance cannot access a policy');
   reset role;
   set local role anon;
-  perform pg_temp.expect_state(format('select ins_preview_policy_cancellation(%L,current_date,''[]'',''[]'')',draft.id),'42501','anonymous preview denied');
+  perform pg_temp.expect_state(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),''[]'',''[]'')',draft.id),'42501','anonymous preview denied');
   reset role;
   perform pg_temp.jwt(manager); set local role authenticated;
-  cn:=ins_create_claim(draft.id,current_date,current_date,'Existing claim blocks cancellation',null,100);
-  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,current_date,%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_CANCELLATION_CLAIM','any existing claim blocks cancellation v1');
+  cn:=ins_create_claim(draft.id,public.ins_local_today(),public.ins_local_today(),'Existing claim blocks cancellation',null,100);
+  perform pg_temp.expect_error(format('select ins_preview_policy_cancellation(%L,public.ins_local_today(),%L::jsonb,%L::jsonb)',draft.id,terms_input,charge_input),'INS_CANCELLATION_CLAIM','any existing claim blocks cancellation v1');
   reset role;
   -- Original restricted reversal remains restricted.
   perform pg_temp.jwt(manager); set local role authenticated;
