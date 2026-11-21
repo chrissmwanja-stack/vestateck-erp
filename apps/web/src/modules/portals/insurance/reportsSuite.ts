@@ -293,3 +293,124 @@ export const cancellationColumns = (groupHeader: string): ReportExportColumn<Can
   { header: 'Commission retained', accessor: (r) => Number(r.retained_commission), align: 'right' },
   { header: 'Insurer credit', accessor: (r) => Number(r.total_insurer_credit), align: 'right' },
 ];
+
+// ---- Batch 4: cancellation register, renewals and renewal retention ----
+
+export interface CancellationRegisterLine {
+  cancellation_id: string;
+  cancellation_no: string;
+  policy_id: string;
+  policy_no: string;
+  client_name: string | null;
+  insurer_name: string | null;
+  product_line_name: string | null;
+  currency: string;
+  reason: string | null;
+  effective_date: string;
+  posting_date: string;
+  return_premium: number;
+  commission_clawback: number;
+  retained_commission: number;
+  total_insurer_credit: number;
+}
+
+export const CANCELLATION_REGISTER_COLUMNS: ReportExportColumn<CancellationRegisterLine>[] = [
+  { header: 'Cancellation', accessor: (r) => r.cancellation_no },
+  { header: 'Policy', accessor: (r) => r.policy_no },
+  { header: 'Client', accessor: (r) => r.client_name ?? '-' },
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Product line', accessor: (r) => r.product_line_name ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Reason', accessor: (r) => r.reason ?? '' },
+  { header: 'Effective', accessor: (r) => r.effective_date },
+  { header: 'Posted', accessor: (r) => r.posting_date },
+  { header: 'Return premium', accessor: (r) => Number(r.return_premium), align: 'right' },
+  { header: 'Commission clawed back', accessor: (r) => Number(r.commission_clawback), align: 'right' },
+  { header: 'Commission retained', accessor: (r) => Number(r.retained_commission), align: 'right' },
+  { header: 'Insurer credit', accessor: (r) => Number(r.total_insurer_credit), align: 'right' },
+];
+
+export type RenewalOutcome = 'renewed' | 'lost' | 'declined' | 'lapsed' | 'upcoming' | 'unresolved';
+
+export const RENEWAL_OUTCOMES: RenewalOutcome[] = ['renewed', 'upcoming', 'unresolved', 'lost', 'declined', 'lapsed'];
+
+export const RENEWAL_OUTCOME_LABEL: Record<RenewalOutcome, string> = {
+  renewed: 'Renewed',
+  upcoming: 'Upcoming',
+  unresolved: 'Not resolved',
+  lost: 'Lost',
+  declined: 'Declined',
+  lapsed: 'Lapsed',
+};
+
+export interface RenewalLine {
+  policy_id: string;
+  policy_no: string;
+  client_id: string | null;
+  client_name: string | null;
+  insurer_id: string | null;
+  insurer_name: string | null;
+  product_line_id: string | null;
+  product_line_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  agent_id: string | null;
+  agent_name: string | null;
+  currency: string;
+  expiry_date: string;
+  days_to_expiry: number;
+  expiring_premium: number;
+  outcome: RenewalOutcome;
+  outcome_reason: string | null;
+  renewal_policy_id: string | null;
+  renewal_policy_no: string | null;
+  renewal_premium: number | null;
+}
+
+export const RENEWALS_COLUMNS: ReportExportColumn<RenewalLine>[] = [
+  { header: 'Policy', accessor: (r) => r.policy_no },
+  { header: 'Client', accessor: (r) => r.client_name ?? '-' },
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Product line', accessor: (r) => r.product_line_name ?? '-' },
+  { header: 'Branch', accessor: (r) => r.branch_name ?? '-' },
+  { header: 'Agent', accessor: (r) => r.agent_name ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Expiry', accessor: (r) => r.expiry_date },
+  { header: 'Days to expiry', accessor: (r) => Number(r.days_to_expiry), align: 'right' },
+  { header: 'Expiring premium', accessor: (r) => Number(r.expiring_premium), align: 'right' },
+  { header: 'Outcome', accessor: (r) => RENEWAL_OUTCOME_LABEL[r.outcome] ?? r.outcome },
+  { header: 'Reason', accessor: (r) => r.outcome_reason ?? '' },
+  { header: 'Renewal policy', accessor: (r) => r.renewal_policy_no ?? '' },
+  { header: 'Renewal premium', accessor: (r) => (r.renewal_premium == null ? '' : Number(r.renewal_premium)), align: 'right' },
+];
+
+export interface RenewalRetentionLine {
+  group_key: string;
+  group_label: string;
+  currency: string;
+  due_count: number;
+  renewed_count: number;
+  lost_count: number;
+  unresolved_count: number;
+  upcoming_count: number;
+  expiring_premium: number;
+  renewed_premium: number;
+  retention_count_pct: number | null;
+  retention_premium_pct: number | null;
+}
+
+export const formatPct = (v: number | null | undefined): string => (v == null ? '-' : `${Number(v).toFixed(1)}%`);
+
+export const renewalRetentionColumns = (groupHeader: string): ReportExportColumn<RenewalRetentionLine>[] => [
+  { header: groupHeader, accessor: (r) => r.group_label },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Due', accessor: (r) => Number(r.due_count), align: 'right' },
+  { header: 'Renewed', accessor: (r) => Number(r.renewed_count), align: 'right' },
+  { header: 'Lost', accessor: (r) => Number(r.lost_count), align: 'right' },
+  { header: 'Not resolved', accessor: (r) => Number(r.unresolved_count), align: 'right' },
+  { header: 'Upcoming', accessor: (r) => Number(r.upcoming_count), align: 'right' },
+  { header: 'Expiring premium', accessor: (r) => Number(r.expiring_premium), align: 'right' },
+  { header: 'Renewed premium', accessor: (r) => Number(r.renewed_premium), align: 'right' },
+  { header: 'Retention (count)', accessor: (r) => formatPct(r.retention_count_pct), align: 'right' },
+  { header: 'Retention (premium)', accessor: (r) => formatPct(r.retention_premium_pct), align: 'right' },
+];
