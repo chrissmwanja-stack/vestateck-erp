@@ -137,26 +137,26 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MARINE','Marine') returning id into line2;
   insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
   c := ins_register_client('Claims reports client','corporate',null,null,null,'low');
-  p1 := ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,5000000,'UGX',1000,10,null,null);
+  p1 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,5000000,'UGX',1000,10,null,null);
   p1 := pg_temp.approve_and_bind(p1.id);
-  p2 := ins_create_policy(c.id,insurer,line2,current_date,current_date+365,5000000,'UGX',600,10,null,null);
+  p2 := ins_create_policy(c.id,insurer,line2,public.ins_local_today(),public.ins_local_today()+365,5000000,'UGX',600,10,null,null);
   p2 := pg_temp.approve_and_bind(p2.id);
 
   -- ca: notified, reserve 500,000 (policy 1, Fire)
-  ca := ins_create_claim(p1.id, current_date, current_date, 'Fire damage', null, 500000);
+  ca := ins_create_claim(p1.id, public.ins_local_today(), public.ins_local_today(), 'Fire damage', null, 500000);
   -- cb: assessing, reserve revised 300,000 -> 400,000 (policy 1, Fire)
-  cb := ins_create_claim(p1.id, current_date, current_date, 'Water damage', null, 300000);
+  cb := ins_create_claim(p1.id, public.ins_local_today(), public.ins_local_today(), 'Water damage', null, 300000);
   -- two revisions in one transaction share a timestamp: the latest is found by the
   -- chain (previous_amount), not by the random id (20261121130000)
   cb := ins_revise_claim_reserve(cb.id, 350000, 'First loss adjuster estimate');
   cb := ins_revise_claim_reserve(cb.id, 400000, 'Loss adjuster estimate');
   cb := ins_transition_claim(cb.id, 'assessing', null);
   -- cc: approved for 200,000 and part paid 50,000 (policy 2, Marine)
-  cc := ins_create_claim(p2.id, current_date, current_date, 'Cargo loss', null, 250000);
+  cc := ins_create_claim(p2.id, public.ins_local_today(), public.ins_local_today(), 'Cargo loss', null, 250000);
   cc := pg_temp.approved(cc.id, 200000, appr);
-  pay := ins_record_claim_payment(cc.id, 50000, current_date, 'ALPHA-CLM-001');
+  pay := ins_record_claim_payment(cc.id, 50000, public.ins_local_today(), 'ALPHA-CLM-001');
   -- cd: repudiated (policy 2, Marine)
-  cd := ins_create_claim(p2.id, current_date, current_date, 'Late notification', null, 100000);
+  cd := ins_create_claim(p2.id, public.ins_local_today(), public.ins_local_today(), 'Late notification', null, 100000);
   cd := ins_transition_claim(cd.id, 'assessing', null);
   perform set_config('request.jwt.claims', json_build_object('sub', appr, 'role', 'authenticated')::text, true);
   cd := ins_transition_claim(cd.id, 'repudiated', 'Excluded peril');
@@ -166,16 +166,16 @@ begin
   -- Access
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(outsider); set local role authenticated;
-  perform pg_temp.expect_error('select * from ins_report_claims_register(current_date)','INS_FORBIDDEN','register needs insurance access');
-  perform pg_temp.expect_error('select * from ins_report_claims_ageing(current_date)','INS_FORBIDDEN','ageing needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_claims_register(public.ins_local_today())','INS_FORBIDDEN','register needs insurance access');
+  perform pg_temp.expect_error('select * from ins_report_claims_ageing(public.ins_local_today())','INS_FORBIDDEN','ageing needs insurance access');
   reset role;
   perform pg_temp.jwt(other_mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=0 from ins_report_claims_register(current_date,'all')),'another company sees none of our claims');
-  perform pg_temp.assert((select count(*)=0 from ins_report_claims_ageing(current_date)),'another company sees no ageing rows of ours');
+  perform pg_temp.assert((select count(*)=0 from ins_report_claims_register(public.ins_local_today(),'all')),'another company sees none of our claims');
+  perform pg_temp.assert((select count(*)=0 from ins_report_claims_ageing(public.ins_local_today())),'another company sees no ageing rows of ours');
   reset role;
   set local role anon;
-  perform pg_temp.expect_error('select * from ins_report_claims_register(current_date)','permission denied','anonymous cannot run the register');
-  perform pg_temp.expect_error('select * from ins_report_claims_ageing(current_date)','permission denied','anonymous cannot run the ageing report');
+  perform pg_temp.expect_error('select * from ins_report_claims_register(public.ins_local_today())','permission denied','anonymous cannot run the register');
+  perform pg_temp.expect_error('select * from ins_report_claims_ageing(public.ins_local_today())','permission denied','anonymous cannot run the ageing report');
   reset role;
 
   -- ---------------------------------------------------------------
@@ -183,37 +183,37 @@ begin
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
   perform pg_temp.expect_error('select * from ins_report_claims_register(null)','INS_REPORT_INPUT','an as-at date is required');
-  perform pg_temp.expect_error('select * from ins_report_claims_register(current_date,''bogus'')','INS_REPORT_INPUT','scope must be open or all');
-  perform pg_temp.expect_error('select * from ins_report_claims_ageing(current_date,''client'')','INS_REPORT_INPUT','client grouping is not offered');
+  perform pg_temp.expect_error('select * from ins_report_claims_register(public.ins_local_today(),''bogus'')','INS_REPORT_INPUT','scope must be open or all');
+  perform pg_temp.expect_error('select * from ins_report_claims_ageing(public.ins_local_today(),''client'')','INS_REPORT_INPUT','client grouping is not offered');
   reset role;
 
   -- ---------------------------------------------------------------
   -- Register
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  perform pg_temp.assert((select count(*)=3 from ins_report_claims_register(current_date)),
+  perform pg_temp.assert((select count(*)=3 from ins_report_claims_register(public.ins_local_today())),
     'open scope: notified, assessing and approved claims are open, the repudiated one is not');
-  perform pg_temp.assert((select count(*)=4 from ins_report_claims_register(current_date,'all')),
+  perform pg_temp.assert((select count(*)=4 from ins_report_claims_register(public.ins_local_today(),'all')),
     'scope all adds the repudiated claim');
   perform pg_temp.assert((select reserve_as_at=500000 and outstanding_amount=500000 and status_as_at='notified'
-                            from ins_report_claims_register(current_date) where claim_id=ca.id),
+                            from ins_report_claims_register(public.ins_local_today()) where claim_id=ca.id),
     'notified claim: outstanding is its reserve');
   perform pg_temp.assert((select reserve_as_at=400000 and outstanding_amount=400000 and status_as_at='assessing'
-                            from ins_report_claims_register(current_date) where claim_id=cb.id),
+                            from ins_report_claims_register(public.ins_local_today()) where claim_id=cb.id),
     'assessing claim: outstanding is the revised reserve, not the initial one');
   perform pg_temp.assert((select status_as_at='approved' and approved_amount=200000 and paid_as_at=50000 and outstanding_amount=150000
-                            from ins_report_claims_register(current_date) where claim_id=cc.id),
+                            from ins_report_claims_register(public.ins_local_today()) where claim_id=cc.id),
     'approved claim: outstanding is approved less paid');
   perform pg_temp.assert((select status_as_at='repudiated' and outstanding_amount=0 and not is_open and age_bucket='closed'
-                            from ins_report_claims_register(current_date,'all') where claim_id=cd.id),
+                            from ins_report_claims_register(public.ins_local_today(),'all') where claim_id=cd.id),
     'repudiated claim owes nothing and is not open');
   select paid_amount into v_paid_claim from ins_claims where id=cc.id;
-  perform pg_temp.assert((select paid_as_at = v_paid_claim from ins_report_claims_register(current_date) where claim_id=cc.id),
+  perform pg_temp.assert((select paid_as_at = v_paid_claim from ins_report_claims_register(public.ins_local_today()) where claim_id=cc.id),
     'paid as at ties to the paid amount on the claim');
   perform pg_temp.assert((select policy_no=p1.policy_no and insurer_name='Alpha' and product_line_name='Fire' and currency='UGX' and client_name is not null
-                            from ins_report_claims_register(current_date) where claim_id=ca.id),
+                            from ins_report_claims_register(public.ins_local_today()) where claim_id=ca.id),
     'the row names the policy, insurer, product line, client and currency');
-  perform pg_temp.assert((select count(*)=0 from ins_report_claims_register(current_date-1,'all')),
+  perform pg_temp.assert((select count(*)=0 from ins_report_claims_register(public.ins_local_today()-1,'all')),
     'as at a date before the claims were notified, nothing is listed');
   reset role;
 
@@ -221,19 +221,19 @@ begin
   -- Ageing ties to the register
   -- ---------------------------------------------------------------
   perform pg_temp.jwt(mgr); set local role authenticated;
-  select coalesce(sum(outstanding_amount),0) into v_reg from ins_report_claims_register(current_date);
-  select coalesce(sum(outstanding_total),0) into v_age from ins_report_claims_ageing(current_date);
+  select coalesce(sum(outstanding_amount),0) into v_reg from ins_report_claims_register(public.ins_local_today());
+  select coalesce(sum(outstanding_total),0) into v_age from ins_report_claims_ageing(public.ins_local_today());
   perform pg_temp.assert(v_reg = 1050000, 'register outstanding is 500,000 + 400,000 + 150,000');
   perform pg_temp.assert(v_age = v_reg, 'ageing total equals the register total');
-  perform pg_temp.assert((select count(*)=1 and min(age_bucket)='0-30' and sum(claim_count)=3 from ins_report_claims_ageing(current_date)),
+  perform pg_temp.assert((select count(*)=1 and min(age_bucket)='0-30' and sum(claim_count)=3 from ins_report_claims_ageing(public.ins_local_today())),
     'all three open claims were notified today, so they sit in the first bucket');
-  perform pg_temp.assert((select count(*)=1 and min(group_label)='Alpha' and sum(outstanding_total)=1050000 from ins_report_claims_ageing(current_date,'insurer')),
+  perform pg_temp.assert((select count(*)=1 and min(group_label)='Alpha' and sum(outstanding_total)=1050000 from ins_report_claims_ageing(public.ins_local_today(),'insurer')),
     'grouped by insurer: one insurer, same total');
-  perform pg_temp.assert((select count(*)=2 and sum(outstanding_total)=1050000 from ins_report_claims_ageing(current_date,'product_line')),
+  perform pg_temp.assert((select count(*)=2 and sum(outstanding_total)=1050000 from ins_report_claims_ageing(public.ins_local_today(),'product_line')),
     'grouped by product line: Fire and Marine, same total');
-  perform pg_temp.assert((select outstanding_total=900000 from ins_report_claims_ageing(current_date,'product_line') where group_label='Fire'),
+  perform pg_temp.assert((select outstanding_total=900000 from ins_report_claims_ageing(public.ins_local_today(),'product_line') where group_label='Fire'),
     'Fire holds the notified and assessing claims');
-  perform pg_temp.assert((select outstanding_total=150000 from ins_report_claims_ageing(current_date,'product_line') where group_label='Marine'),
+  perform pg_temp.assert((select outstanding_total=150000 from ins_report_claims_ageing(public.ins_local_today(),'product_line') where group_label='Marine'),
     'Marine holds the part-paid approved claim');
   reset role;
 
