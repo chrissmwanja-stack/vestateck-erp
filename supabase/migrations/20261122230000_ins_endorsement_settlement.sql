@@ -103,7 +103,7 @@ begin
                                   where r.settlement_id = s.id and r.tenant_id = s.tenant_id)
          ) order by s.settlement_date, s.settlement_no), '[]'::jsonb)
     into v_settlements
-    from (select distinct s.id, s.settlement_no, s.direction, s.amount, s.currency, s.settlement_date,
+    from (select distinct s.id, s.tenant_id, s.settlement_no, s.direction, s.amount, s.currency, s.settlement_date,
                  s.reference, s.status, s.party_account_id, a.name as party_name
             from public.fin_settlements s
             join public.fin_allocations al on al.settlement_id = s.id and al.tenant_id = s.tenant_id
