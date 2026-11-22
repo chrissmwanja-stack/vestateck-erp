@@ -1,149 +1,69 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductionBook from './ProductionBook';
 
-// The production book screen: reads the ins_production_book view, groups by the
-// chosen dimension, totals per currency, and offers Excel/PDF export.
-
-const mockFrom = vi.fn();
-
-
-// Deterministic money strings: en-UG ICU renders UGX as "USh 1,500" (and can
-// vary by ICU build), so pin the formatter to "<CODE> <amount>" for tests.
-class FixedNumberFormat {
-  constructor(_locale: string | undefined, opts?: { currency?: string; maximumFractionDigits?: number }) {
-    const digits = opts?.maximumFractionDigits ?? 2;
-    const code = opts?.currency ?? 'UGX';
-    this.format = (n: number) => `${code} ${n.toLocaleString('en', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
-  }
-  format!: (n: number) => string;
-}
-vi.stubGlobal('Intl', { ...globalThis.Intl, NumberFormat: FixedNumberFormat as unknown as typeof Intl.NumberFormat });
-
-vi.mock('../../../../../lib/supabaseClient', () => ({
-  supabase: { from: (name: string) => mockFrom(name), rpc: vi.fn() },
+const mockExcel = vi.fn();
+const mockPdf = vi.fn();
+vi.mock('../../../../../lib/reportExport', () => ({
+  exportReportToExcel: (...a: unknown[]) => mockExcel(...a),
+  exportReportToPdf: (...a: unknown[]) => mockPdf(...a),
 }));
 
-let book: {
-  policy_id: string; policy_no: string; client_name: string; insurer_name: string;
-  branch_name: string | null; agent_name: string | null; product_line_name: string;
-  transaction_type: string; status: string; bound_date: string; currency: string;
-  gross_premium: number; commission_amount: number; net_premium_to_insurer: number;
-}[] = [];
+let report: unknown[] = [];
+const rpcMock = vi.fn((_fn: string, _args: Record<string, unknown>) => Promise.resolve({ data: report, error: null }));
+vi.mock('../../../../../lib/supabaseClient', () => ({
+  supabase: { rpc: (fn: string, args: Record<string, unknown>) => rpcMock(fn, args) },
+}));
 
-function builder(result: () => { data: unknown; error: { message: string } | null }) {
-  const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'gte', 'lte', 'order']) chain[m] = vi.fn(() => chain);
-  (chain as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve(result());
-  return chain;
-}
-
-beforeEach(() => {
-  book = [];
-  mockFrom.mockReset();
-  mockFrom.mockImplementation((name: string) => {
-    if (name === 'tenant_ledger_settings') return builder(() => ({ data: [{ functional_currency: 'UGX' }], error: null }));
-    return builder(() => ({ data: book, error: null }));
-  });
+const line = (over: Record<string, unknown>) => ({
+  group_key: 'k1', group_label: 'Motor', currency: 'UGX', new_business: 1000, endorsements: 100, cancellations: -200, reversals: 0,
+  net_written: 900, policy_count: 2, ...over,
 });
 
-describe('ProductionBook', () => {
-  it('groups written business by client with per-currency totals and a grand total', async () => {
-    book = [
-      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: 'Kampala', agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
-      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: 'Kampala', agent_name: null, product_line_name: 'Motor', transaction_type: 'renewal', status: 'active', bound_date: '2026-10-05', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
-      { policy_id: 'p3', policy_no: 'POL-3', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: null, agent_name: 'Jane', product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-07', currency: 'USD', gross_premium: 200, commission_amount: 20, net_premium_to_insurer: 180 },
-    ];
-    render(<ProductionBook />);
-    await screen.findByText('Acme');
-    expect(screen.getByText('Beta')).toBeInTheDocument();
-    // Default grouping is by client: two groups + the total row.
-    expect(screen.getByText('Total (3 policies)')).toBeInTheDocument();
-    // Acme row: 2 policies, 1500 gross.
-    const acmeRow = screen.getByText('Acme').closest('tr');
-    expect(acmeRow).toHaveTextContent('2');
-    expect(acmeRow).toHaveTextContent('UGX 1,500.00');
+beforeEach(() => {
+  mockExcel.mockReset(); mockPdf.mockReset(); rpcMock.mockClear();
+  report = [line({}), line({ group_key: 'k2', group_label: 'Marine', net_written: 400, new_business: 400, endorsements: 0, cancellations: 0, policy_count: 1 }),
+    line({ group_key: 'k3', group_label: 'Marine', currency: 'USD', net_written: 250.5, new_business: 250.5, endorsements: 0, cancellations: 0, policy_count: 1 })];
+});
+
+const mount = () => render(<MemoryRouter><ProductionBook /></MemoryRouter>);
+
+describe('Production Book', () => {
+  it('asks the server for the period, grouping and imported flag', async () => {
+    mount();
+    await screen.findByText('Net written premium:');
+    expect(rpcMock).toHaveBeenCalledWith('ins_report_production', expect.objectContaining({ p_group_by: 'product_line', p_include_imported: false }));
+    const args = rpcMock.mock.calls[0][1] as { p_from: string; p_to: string };
+    expect(args.p_from).toMatch(/^\d{4}-\d{2}-01$/);
+    expect(args.p_to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('regroups by another dimension and shows unassigned values as their own group', async () => {
-    book = [
-      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
-      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: 'Kampala', agent_name: 'Jane', product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-05', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
-    ];
-    render(<ProductionBook />);
-    await screen.findByText('Acme');
-    await userEvent.click(screen.getByLabelText('Group by'));
-    await userEvent.click(await screen.findByRole('option', { name: 'Agent' }));
-    expect(await screen.findByText('Jane')).toBeInTheDocument();
-    expect(screen.getByText('No agent')).toBeInTheDocument();
+  it('shows the rows and totals each currency separately', async () => {
+    mount();
+    await screen.findByText('Net written premium:');
+    expect(screen.getAllByText('Marine')).toHaveLength(2);
+    const totals = (document.body.textContent ?? '').replace(/\s+/g, ' ');
+    expect(totals).toContain('Net written premium: USh 1,300 US$250.50'); // UGX 900 + 400, USD on its own
+    expect(totals).not.toContain('1,550'); // never added across currencies
   });
 
-  it('says when nothing was written in the period', async () => {
-    render(<ProductionBook />);
-    expect(await screen.findByText(/no business was written in this period/i)).toBeInTheDocument();
-    expect(screen.getByText(/a policy appears here once it is bound/i)).toBeInTheDocument();
+  it('exports every row shown, with the group heading the user chose', async () => {
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Export Excel' }));
+    const [name, sheet, columns, rows] = mockExcel.mock.calls[0];
+    expect(name).toMatch(/^production-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}$/);
+    expect(sheet).toBe('Production');
+    expect(rows).toHaveLength(3);
+    expect(columns[0].header).toBe('Product line');
+    expect(columns[6].accessor(rows[0])).toBe(900);
   });
 
-  it('surfaces read errors from the view', async () => {
-    mockFrom.mockImplementation((name: string) => {
-      if (name === 'tenant_ledger_settings') return builder(() => ({ data: [], error: null }));
-      return builder(() => ({ data: null, error: { message: 'INS_FORBIDDEN: no' } }));
-    });
-    render(<ProductionBook />);
-    expect(await screen.findByText(/no$/)).toBeInTheDocument();
-  });
-
-  it('shows the written-premium trend by month with per-currency bars', async () => {
-    book = [
-      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-09-15', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
-      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'renewal', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
-      { policy_id: 'p3', policy_no: 'POL-3', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: null, agent_name: 'Jane', product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-07', currency: 'USD', gross_premium: 200, commission_amount: 20, net_premium_to_insurer: 180 },
-    ];
-    render(<ProductionBook />);
-    await screen.findByText('Acme');
-    expect(screen.getByLabelText('Written premium trend')).toBeInTheDocument();
-    // One bar per month per currency, currencies never merged.
-    expect(screen.getByTestId('trend-bar-2026-09-UGX')).toBeInTheDocument();
-    expect(screen.getByTestId('trend-bar-2026-10-UGX')).toBeInTheDocument();
-    expect(screen.getByTestId('trend-bar-2026-10-USD')).toBeInTheDocument();
-    expect(screen.queryByTestId('trend-bar-2026-09-USD')).not.toBeInTheDocument();
-    // The tooltip carries the month, the per-currency total and the policy count.
-    expect(screen.getByTestId('trend-bar-2026-10-UGX')).toHaveAttribute('title', expect.stringContaining('Oct 2026'));
-    expect(screen.getByTestId('trend-bar-2026-10-USD').getAttribute('title')).toContain('USD 200.00');
-    expect(screen.getByText('2 policies')).toBeInTheDocument();
-    expect(screen.getByText('Sep 2026')).toBeInTheDocument();
-  });
-
-  it('hides the trend strip when nothing was written', async () => {
-    render(<ProductionBook />);
-    await screen.findByText(/no business was written/i);
-    expect(screen.queryByLabelText('Written premium trend')).not.toBeInTheDocument();
-  });
-
-  it('groups the table by month when chosen', async () => {
-    book = [
-      { policy_id: 'p1', policy_no: 'POL-1', client_name: 'Acme', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Motor', transaction_type: 'new_business', status: 'active', bound_date: '2026-09-15', currency: 'UGX', gross_premium: 1000, commission_amount: 100, net_premium_to_insurer: 900 },
-      { policy_id: 'p2', policy_no: 'POL-2', client_name: 'Beta', insurer_name: 'Jubilee', branch_name: null, agent_name: null, product_line_name: 'Fire', transaction_type: 'new_business', status: 'active', bound_date: '2026-10-01', currency: 'UGX', gross_premium: 500, commission_amount: 50, net_premium_to_insurer: 450 },
-    ];
-    render(<ProductionBook />);
-    await screen.findByText('Acme');
-    await userEvent.click(screen.getByLabelText('Group by'));
-    await userEvent.click(await screen.findByRole('option', { name: 'Month' }));
-    expect(await screen.findByText('2026-09')).toBeInTheDocument();
-    expect(screen.getByText('2026-10')).toBeInTheDocument();
-  });
-
-  it('offers the exports', async () => {
-    render(<ProductionBook />);
-    await screen.findByText(/no business was written/i);
-    expect(screen.getByRole('button', { name: 'Excel' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'PDF' })).toBeInTheDocument();
-  });
-
-  it('queries the ins_production_book view once per load', async () => {
-    render(<ProductionBook />);
-    await screen.findByText(/no business was written/i);
-    expect(mockFrom.mock.calls.filter(([t]) => t === 'ins_production_book')).toHaveLength(1);
+  it('offers no export when nothing was written', async () => {
+    report = [];
+    mount();
+    await screen.findByText('No premium was written in this period.');
+    expect(screen.queryByRole('button', { name: 'Export Excel' })).not.toBeInTheDocument();
   });
 });

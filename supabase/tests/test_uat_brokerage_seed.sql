@@ -38,7 +38,17 @@ begin
   end if;
 
   select count(*) into n from app_users where tenant_id = v_t;
-  if n <> 6 then raise exception 'FAIL: UAT tenant users: expected 6, got %', n; end if;
+  if n <> 8 then raise exception 'FAIL: UAT tenant users: expected 8, got %', n; end if;
+
+  -- Two hybrid users (insurance manager + Finance member) drive the endorsement
+  -- settlement e2e (b107 maker, b108 checker); they must hold both authorities.
+  select count(*) into n from staff_roles s
+   where s.tenant_id = v_t and s.module = 'insurance' and s.role = 'manager'
+     and s.user_id in ('00000000-0000-0000-0000-00000000b107',
+                       '00000000-0000-0000-0000-00000000b108')
+     and exists (select 1 from finance_team_members f
+                  where f.tenant_id = s.tenant_id and f.user_id = s.user_id and f.role = 'finance');
+  if n <> 2 then raise exception 'FAIL: UAT hybrid insurance-manager + finance users: expected 2, got %', n; end if;
 
   -- Three distinct Finance users are needed for the third-person rule
   -- (INS_CASH_THIRD_PERSON / INS_CXL_CASH_THIRD_PERSON): maker, checker, reconciler.
