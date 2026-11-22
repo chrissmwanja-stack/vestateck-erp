@@ -6073,6 +6073,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ins_claim_approval_history: {
+        Row: {
+          claim_id: string
+          created_at: string
+          effective_at: string
+          id: string
+          kind: string
+          new_amount: number | null
+          note: string | null
+          previous_amount: number | null
+          reason: string
+          revised_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          effective_at?: string
+          id?: string
+          kind: string
+          new_amount?: number | null
+          note?: string | null
+          previous_amount?: number | null
+          reason: string
+          revised_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          effective_at?: string
+          id?: string
+          kind?: string
+          new_amount?: number | null
+          note?: string | null
+          previous_amount?: number | null
+          reason?: string
+          revised_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_approval_history_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_claim_approval_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_correspondence: {
         Row: {
           body: string | null

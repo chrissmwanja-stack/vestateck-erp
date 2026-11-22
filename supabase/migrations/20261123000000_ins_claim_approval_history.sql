@@ -80,6 +80,7 @@ alter table public.ins_claim_approval_history enable row level security;
 
 create policy ins_claim_approval_history_select on public.ins_claim_approval_history
   for select
+  to authenticated
   using ((tenant_id = public.get_my_tenant_id()) and public.can_access_insurance());
 
 -- ---------------------------------------------------------------------
