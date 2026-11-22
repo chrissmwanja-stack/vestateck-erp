@@ -21209,6 +21209,25 @@ export type Database = {
           received: number
         }[]
       }
+      ins_report_insurer_performance: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          cancelled_policy_count: number
+          claim_count: number
+          claims_incurred: number
+          claims_outstanding: number
+          claims_paid: number
+          commission: number
+          commission_pct: number
+          currency: string
+          insurer_id: string
+          insurer_name: string
+          loss_ratio_pct: number
+          open_claim_count: number
+          policy_count: number
+          premium_placed: number
+        }[]
+      }
       ins_report_outstanding_premium: {
         Args: { p_as_of?: string }
         Returns: {
