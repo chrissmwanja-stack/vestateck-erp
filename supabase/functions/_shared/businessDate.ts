@@ -54,6 +54,31 @@ export function businessNowLocalInput(now: Date = new Date()): string {
   return `${businessToday(now)}T${p.hour}:${p.minute}`;
 }
 
+/** Any instant as business-day wall clock, yyyy-mm-ddThh:mm, for filling an <input type="datetime-local">. */
+export const businessLocalInputOf = (instant: Date | string | number): string =>
+  businessNowLocalInput(new Date(instant));
+
+/**
+ * The fixed UTC offset of BUSINESS_TIME_ZONE. Africa/Kampala has no daylight saving, so
+ * one offset is exact for every date; a test checks it against Intl. If the zone ever
+ * gains daylight saving, or becomes a per-company setting, replace this with a lookup
+ * per instant.
+ */
+export const BUSINESS_UTC_OFFSET = '+03:00';
+
+/**
+ * An <input type="datetime-local"> value, read as business-day wall clock, as the instant
+ * it means (ISO string, UTC). The inverse of businessLocalInputOf(). Never use
+ * `new Date(value)` for this: that reads the value in the browser's own zone, which is
+ * wrong for anyone outside Uganda.
+ */
+export function businessLocalInputToIso(value: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/.exec(value);
+  const d = m ? new Date(`${m[1]}T${m[2]}:${m[3] ?? '00'}${BUSINESS_UTC_OFFSET}`) : null;
+  if (!d || Number.isNaN(d.getTime())) throw new RangeError(`Not a datetime-local value: ${value}`);
+  return d.toISOString();
+}
+
 /** The business-day month, yyyy-mm. */
 export const businessMonth = (now: Date = new Date()): string => businessToday(now).slice(0, 7);
 

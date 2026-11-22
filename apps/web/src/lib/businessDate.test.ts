@@ -2,8 +2,20 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  BUSINESS_TIME_ZONE, addDaysIso, addMonthsIso, addYearsIso, businessDateOf, businessMonthStart, businessToday,
-  businessTodayDate, businessYearStart, businessNowLocalInput, businessMonth,
+  BUSINESS_TIME_ZONE,
+  addDaysIso,
+  addMonthsIso,
+  addYearsIso,
+  businessDateOf,
+  businessMonthStart,
+  businessToday,
+  businessTodayDate,
+  businessYearStart,
+  businessNowLocalInput,
+  businessMonth,
+  businessLocalInputOf,
+  businessLocalInputToIso,
+  BUSINESS_UTC_OFFSET,
 } from './businessDate';
 
 const at = (iso: string) => new Date(iso);
@@ -49,6 +61,57 @@ describe('datetime-local and month values', () => {
   it('gives the Kampala month', () => {
     expect(businessMonth(at('2026-11-30T21:30:00Z'))).toBe('2026-12');
     expect(businessMonth(at('2026-11-30T20:30:00Z'))).toBe('2026-11');
+  });
+});
+
+describe('datetime-local values round-trip in the business zone', () => {
+  it('reads an instant as Kampala wall clock', () => {
+    expect(businessLocalInputOf('2026-11-21T22:00:00Z')).toBe('2026-11-22T01:00');
+    expect(businessLocalInputOf(at('2026-11-21T22:00:00Z'))).toBe('2026-11-22T01:00');
+  });
+
+  it('turns a datetime-local value back into the same instant', () => {
+    expect(businessLocalInputToIso('2026-11-22T01:00')).toBe('2026-11-21T22:00:00.000Z');
+    expect(businessLocalInputToIso('2026-11-22T01:00:30')).toBe('2026-11-21T22:00:30.000Z');
+  });
+
+  it('opening and saving an unchanged activity does not move it', () => {
+    for (const iso of ['2026-11-21T22:00:00Z', '2026-06-15T12:30:00Z', '2026-12-31T21:00:00Z', '2027-01-01T00:00:00Z']) {
+      expect(businessLocalInputToIso(businessLocalInputOf(iso))).toBe(new Date(iso).toISOString());
+    }
+  });
+
+  it('does not depend on the zone of the machine it runs on', () => {
+    // The same value means the same instant, whatever TZ the browser or CI uses.
+    const original = process.env.TZ;
+    try {
+      for (const tz of ['UTC', 'America/New_York', 'Pacific/Auckland', 'Africa/Kampala']) {
+        process.env.TZ = tz;
+        expect(businessLocalInputToIso('2026-07-01T09:15')).toBe('2026-07-01T06:15:00.000Z');
+      }
+    } finally {
+      if (original === undefined) delete process.env.TZ; else process.env.TZ = original;
+    }
+  });
+
+  it('rejects malformed values', () => {
+    expect(() => businessLocalInputToIso('')).toThrow(RangeError);
+    expect(() => businessLocalInputToIso('2026-11-22')).toThrow(RangeError);
+    expect(() => businessLocalInputToIso('2026-13-40T99:99')).toThrow(RangeError);
+  });
+
+  it('keeps BUSINESS_UTC_OFFSET equal to what Intl says for BUSINESS_TIME_ZONE, all year', () => {
+    for (const month of ['01', '04', '07', '10', '12']) {
+      const instant = new Date(`2026-${month}-15T12:00:00Z`);
+      const wall = new Intl.DateTimeFormat('en-GB', {
+        timeZone: BUSINESS_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      }).format(instant);
+      const sign = BUSINESS_UTC_OFFSET[0] === '-' ? -1 : 1;
+      const [oh, om] = BUSINESS_UTC_OFFSET.slice(1).split(':').map(Number);
+      const expectedMinutes = (12 * 60 + sign * (oh * 60 + om)) % (24 * 60);
+      const [wh, wm] = wall.split(':').map(Number);
+      expect(wh * 60 + wm).toBe(expectedMinutes);
+    }
   });
 });
 
@@ -109,6 +172,7 @@ describe('no UTC or browser-zone "today" anywhere in the web app or the edge fun
     [/new Date\(\)\s*\.toISOString\(\)\s*\.(slice|substring|split)\(/, 'new Date().toISOString().slice(...) is the UTC date'],
     [/new Date\(\)\s*\.get(FullYear|Month|Date)\(/, 'new Date().getFullYear()/getMonth()/getDate() is the browser zone'],
     [/Date\.now\(\)[^;\n]*\.toISOString\(\)\s*\.(slice|substring|split)\(/, 'Date.now() - n days ... toISOString().slice(...) is the UTC date; use addDaysIso(businessToday(), -n)'],
+    [/\.toISOString\(\)\s*\.slice\(0,\s*(7|16)\)/, 'toISOString().slice(0, 7|16) is the UTC month or datetime; use businessMonth(), businessNowLocalInput() or businessLocalInputOf()'],
     [/\blocalIsoDate\b|\bpolicyCashToday\b/, 'use businessToday() from lib/businessDate'],
   ];
   const walk = (dir: string): string[] =>

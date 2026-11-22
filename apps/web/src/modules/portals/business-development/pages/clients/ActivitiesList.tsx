@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { businessNowLocalInput } from "../../../../../lib/businessDate";
+import { businessLocalInputOf, businessLocalInputToIso, businessNowLocalInput } from "../../../../../lib/businessDate";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, MenuItem, Grid, IconButton, Tooltip, Alert } from "@mui/material";
 import { Add, Edit, Delete } from "@mui/icons-material";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -42,7 +42,7 @@ export default function ActivitiesList() {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(null); setOpen(true); };
   const openEdit = (row: Activity) => {
     setEditing(row);
-    const dt = row.activity_date ? new Date(row.activity_date).toISOString().slice(0,16) : "";
+    const dt = row.activity_date ? businessLocalInputOf(row.activity_date) : "";
     setForm({ type: row.type as any, subject: row.subject || "", description: row.description || "", client_id: row.client_id || "", activity_date: dt });
     setError(null);
     setOpen(true);
@@ -57,7 +57,7 @@ export default function ActivitiesList() {
       subject: form.subject.trim(),
       description: form.description.trim() || null,
       client_id: form.client_id || null,
-      activity_date: form.activity_date ? new Date(form.activity_date).toISOString() : new Date().toISOString(),
+      activity_date: form.activity_date ? businessLocalInputToIso(form.activity_date) : new Date().toISOString(),
       created_by: session?.user?.id,
     };
     const tenant_id = (session?.user?.user_metadata as any)?.tenant_id || activities[0]?.tenant_id;
