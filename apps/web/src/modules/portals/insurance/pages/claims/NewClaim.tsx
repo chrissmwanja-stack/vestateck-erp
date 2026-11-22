@@ -33,7 +33,7 @@ export default function NewClaim() {
         setPolicies(
           await rows<Policy>(
             table('ins_policies')
-              .select('id, policy_no, status, currency, sum_insured, expiry_date, ins_clients(bd_clients(name))')
+              .select('id, policy_no, status, currency, sum_insured, inception_date, expiry_date, ins_clients(bd_clients(name))')
               .in('status', ['active', 'renewed'])
               .order('expiry_date', { ascending: false }),
           ),
