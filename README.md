@@ -323,11 +323,13 @@ through the insurance flows.
   inserts and status changes by a client are refused even where RLS would allow
   the row. The flag stays on for the rest of the transaction; the SQL test clears
   it before probing the guards.
-- Insurance dates follow the Africa/Kampala business day, not the database's UTC date. Two
-  helpers, `ins_local_date(timestamptz)` and `ins_local_today()`, hold the rule in one place;
-  reports and 52 application functions call them. A bare `current_date` or `::date` in insurance
-  code would date records between 00:00 and 03:00 Kampala time to the previous day. See DR-46
-  in `docs/insurance-brokerage/INSURANCE_DECISIONS_REGISTER.md`.
+- The platform's business day is Africa/Kampala, not the database's UTC date. Two helpers,
+  `business_date(timestamptz)` and `business_today()`, hold the rule in one place for SQL
+  (`ins_local_date()` and `ins_local_today()` delegate to them); the web app has the same rule in
+  `apps/web/src/lib/businessDate.ts`, copied to `supabase/functions/_shared/`. A bare `current_date`
+  or `<column>_at::date` in a SQL function, or `new Date().toISOString().slice(0, 10)` in the web
+  app, would date records between 00:00 and 03:00 Kampala time to the previous day; tests fail on
+  all three. See DR-46 in `docs/insurance-brokerage/INSURANCE_DECISIONS_REGISTER.md`.
 - `journal_entries.source_type` is a CHECK list that each module widens by
   dropping and re-adding the constraint. When adding a source type, start from the
   latest migration's list so no existing value is dropped.
