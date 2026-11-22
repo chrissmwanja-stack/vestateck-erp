@@ -16820,8 +16820,6 @@ export type Database = {
         Returns: undefined
       }
       bd_pipeline_summary: { Args: never; Returns: Json }
-      business_date: { Args: { p_ts: string }; Returns: string }
-      business_today: { Args: never; Returns: string }
       calculate_statutory_deductions: {
         Args: { p_as_of_date?: string; p_gross: number }
         Returns: {
@@ -20184,8 +20182,6 @@ export type Database = {
         }
         Returns: number
       }
-      ins_local_date: { Args: { p_ts: string }; Returns: string }
-      ins_local_today: { Args: never; Returns: string }
       ins_log_claim_correspondence: {
         Args: {
           p_body?: string

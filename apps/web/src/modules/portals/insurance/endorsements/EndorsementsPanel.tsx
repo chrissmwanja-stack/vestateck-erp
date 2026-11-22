@@ -5,11 +5,16 @@ import { businessToday } from '../../../../lib/businessDate';
 import EndorsementNotes from './EndorsementNotes';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,Button, Card, CardContent, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
+  Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Table, TableBody, TableCell, TableHead,
   TableRow, TextField, Typography, FormControlLabel,
 } from '@mui/material';
 import { errorText, rows, rpc, table } from '../db';
+import {
+  directionFor, endorsementSettlementPosition, settleEndorsementItem, voidSettlement,
+  type EndorsementSettlement, type EndorsementSettlementItem, type EndorsementSettlementPosition,
+} from './settlement';
+import type { PolicyCashBank } from '../policyCash';
 import {
   buildChanges, buildTerms, decideEndorsement, formatSigned, isLive, prepareEndorsement, previewEndorsement,
   approveEndorsementCancellation, prepareEndorsementCancellation, unwindPosition,
@@ -66,22 +71,46 @@ export default function EndorsementsPanel({
   const [decideRow, setDecideRow] = useState<EndorsementRow | null>(null);
   const [decideNote, setDecideNote] = useState('');
   const [acceptException, setAcceptException] = useState(false);
+  // The insurance managers' per-insurer share list, so the propose dialog can ask for a delta per share.
+  const [shares, setShares] = useState<{ insurer_id: string; name: string }[]>([]);
+  // Settlement workflow: a posted endorsement's open items, and the settlements over them.
+  const [settleRow, setSettleRow] = useState<EndorsementRow | null>(null);
+  const [settlePosition, setSettlePosition] = useState<EndorsementSettlementPosition | null>(null);
+  const [settleLoading, setSettleLoading] = useState(false);
+  const [settleTarget, setSettleTarget] = useState<EndorsementSettlementItem | null>(null);
+  const [settleBank, setSettleBank] = useState('');
+  const [settleAmount, setSettleAmount] = useState('');
+  const [settleDate, setSettleDate] = useState(today());
+  const [settleReference, setSettleReference] = useState('');
+  const [settleNotes, setSettleNotes] = useState('');
+  const [settleBanks, setSettleBanks] = useState<PolicyCashBank[]>([]);
+  const [voidRow, setVoidRow] = useState<EndorsementSettlement | null>(null);
+  const [voidReason, setVoidReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, pos, accounts, finance] = await Promise.all([
+      const [items, pos, accounts, finance, pol, sh] = await Promise.all([
         rows<EndorsementRow>(
           table('ins_policy_endorsements').select('*').eq('policy_id', policyId).order('proposed_at', { ascending: false }),
         ),
         reviewPosition(policyId).catch(() => null),
         rows<GlAccountOption>(table('gl_accounts').select('id, account_code, name').order('account_code')).catch(() => []),
         rpc<boolean>('is_finance_team_member', { p_role: 'finance' }).catch(() => false),
+        rows<{ insurer_id: string | null }>(table('ins_policies').select('insurer_id').eq('id', policyId)).catch(() => []),
+        rows<{ insurer_id: string; share_pct: number; ins_insurers: { name: string } | null }>(
+          table('ins_policy_insurer_shares').select('insurer_id, share_pct, ins_insurers(name)').eq('policy_id', policyId),
+        ).catch(() => []),
       ]);
       setList(items);
       setPosition(pos);
       setClearingAccounts(accounts);
       setIsFinance(finance === true);
+      setShares(sh.length
+        ? sh.map((s) => ({ insurer_id: s.insurer_id, name: s.ins_insurers?.name ?? 'Insurer' }))
+        : pol[0]?.insurer_id
+          ? [{ insurer_id: pol[0].insurer_id, name: 'Insurer' }]
+          : []);
       setError(null);
     } catch (e) {
       setError(errorText(e));
@@ -95,12 +124,7 @@ export default function EndorsementsPanel({
   }, [load]);
 
   const openForm = () => {
-    const bound = position ? Math.max((position.current_gross_premium ?? 0) - (position.bound_gross_premium ?? 0), 0) : 0;
-    setTerms(
-      (position?.live_endorsements?.length ?? 0) === 0 && bound === 0 && position
-        ? [{ insurer_id: '', agreed_delta: '' }]
-        : [],
-    );
+    setTerms(shares.length ? shares.map((s) => ({ insurer_id: s.insurer_id, agreed_delta: '' })) : []);
     setEffective(today());
     setChanges({ sum_insured: '', risk_description: '', notes: '' });
     setReason('');
@@ -175,6 +199,91 @@ export default function EndorsementsPanel({
     }
   };
 
+  // Settlement workflow. The item list comes from the server position read;
+  // the write is the existing finance-gated RPC, unchanged.
+  const openSettle = async (row: EndorsementRow) => {
+    setSettleRow(row);
+    setSettlePosition(null);
+    setSettleLoading(true);
+    setSettleTarget(null);
+    setError(null);
+    try {
+      const pos = await endorsementSettlementPosition(row.id);
+      setSettlePosition(pos);
+      if (pos.items.some((i) => i.outstanding > 0)) {
+        const all = await rpc<PolicyCashBank[]>('ins_policy_cash_bank_accounts').catch(() => []);
+        // Endorsement items settle against client-money accounts (the premium money the
+        // brokerage holds on the client's behalf); operating accounts are for payroll
+        // and company overheads, never this flow. The server re-checks the kind anyway.
+        setSettleBanks(all.filter((b) => b.currency === pos.currency && b.kind === 'client_money'));
+      } else {
+        setSettleBanks([]);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setSettleLoading(false);
+    }
+  };
+
+  const chooseSettleTarget = (item: EndorsementSettlementItem | null) => {
+    setSettleTarget(item);
+    setError(null);
+    if (item) {
+      setSettleBank('');
+      setSettleAmount(item.outstanding ? String(item.outstanding) : '');
+      setSettleDate(today());
+      setSettleReference('');
+      setSettleNotes('');
+    }
+  };
+
+  const runSettle = async () => {
+    if (!settleTarget) return;
+    if (!settleBank) { setError('Choose a client-money bank account.'); return; }
+    const amount = Number(settleAmount);
+    if (!/^\d+(\.\d{1,2})?$/.test(settleAmount.trim()) || !Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a positive amount with at most two decimals.'); return;
+    }
+    if (amount > settleTarget.outstanding) { setError('Amount exceeds the outstanding balance of this item.'); return; }
+    if (settleDate > today()) { setError('Choose a settlement date no later than today.'); return; }
+    setBusy(true); setError(null);
+    try {
+      await settleEndorsementItem({
+        bankAccountId: settleBank,
+        direction: directionFor(settleTarget),
+        partyAccountId: settleTarget.party_account_id,
+        amount,
+        settlementDate: settleDate,
+        itemId: settleTarget.id,
+        itemAmount: amount,
+        reference: settleReference || null,
+        notes: settleNotes || null,
+      });
+      setSettleTarget(null);
+      setNotice('Settlement posted. The endorsement item is credited against the settlement.');
+      if (settleRow) setSettlePosition(await endorsementSettlementPosition(settleRow.id));
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally { setBusy(false); }
+  };
+
+  const runVoid = async () => {
+    if (!voidRow) return;
+    setBusy(true); setError(null);
+    try {
+      await voidSettlement({ settlementId: voidRow.id, reason: voidReason });
+      setVoidRow(null);
+      setVoidReason('');
+      setNotice('Settlement voided. The item and any commission it earned are back to deferred.');
+      if (settleRow) setSettlePosition(await endorsementSettlementPosition(settleRow.id));
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally { setBusy(false); }
+  };
+
   const runCancel = async () => {
     if (!cancelRow) return;
     setBusy(true);
@@ -247,7 +356,6 @@ export default function EndorsementsPanel({
   };
 
   const showFinanceTools = canManage && isFinance;
-  const shares: { insurer_id: string; label: string }[] = [{ insurer_id: '', label: 'All insurers on the policy' }];
 
   return (
     <Card sx={{ mt: 2 }}>
@@ -357,6 +465,13 @@ export default function EndorsementsPanel({
                             Cancel
                           </Button>
                         )}
+                        {/* Settlement workflow. Same discipline: finance-only, because the
+                            server refuses anyone else at the RPCs. */}
+                        {showFinanceTools && row.status === 'posted' && (
+                          <Button size="small" onClick={() => void openSettle(row)}>
+                            Settle
+                          </Button>
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -387,11 +502,11 @@ export default function EndorsementsPanel({
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            {terms.map((t, idx) => (
-              <Grid item xs={12} sm={4} key={idx}>
+            {shares.map((s, idx) => (
+              <Grid item xs={12} sm={4} key={s.insurer_id || idx}>
                 <TextField
-                  label={`Agreed premium delta${shares.length > 1 ? ` (${idx + 1})` : ''}`}
-                  value={t.agreed_delta}
+                  label={`Agreed premium delta — ${s.name}`}
+                  value={terms[idx]?.agreed_delta ?? ''}
                   onChange={(e) =>
                     setTerms(terms.map((x, i) => (i === idx ? { ...x, agreed_delta: e.target.value } : x)))
                   }
@@ -400,13 +515,6 @@ export default function EndorsementsPanel({
                 />
               </Grid>
             ))}
-            {terms.length === 0 && (
-              <Grid item xs={12}>
-                <Button size="small" onClick={() => setTerms([{ insurer_id: '', agreed_delta: '' }])}>
-                  Add a premium change
-                </Button>
-              </Grid>
-            )}
             <Grid item xs={12} sm={4}>
               <TextField
                 label="New sum insured (optional)"
@@ -614,6 +722,125 @@ export default function EndorsementsPanel({
           </Button>
           <Button variant="contained" onClick={() => runDecide('approve')} disabled={busy || decideNote.trim().length < 5}>
             Approve and post
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Settlement workflow. One dialog lists the endorsement's open items and the
+          settlements over them; each item can be settled in its own form, and each
+          posted settlement can be voided with a reason. Money stays in the finance-gated
+          RPCs -- this dialog only shapes the request. */}
+      <Dialog open={Boolean(settleRow)} onClose={() => setSettleRow(null)} maxWidth="md" fullWidth>
+        <DialogTitle>Settle endorsement {settleRow?.endorsement_no ?? ''}</DialogTitle>
+        <DialogContent>
+          {settleLoading ? (
+            <CircularProgress size={24} sx={{ my: 4 }} />
+          ) : settlePosition ? (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {settleTarget === null ? (
+                <>
+                  <Alert severity="info">
+                    The endorsement left open items. Settle them against client-money bank accounts; void a settlement
+                    to reverse it. Insurance staff cannot do either -- the server refuses.
+                  </Alert>
+                  {settlePosition.items.length === 0 && (
+                    <Typography variant="body2" color="text.secondary">No open items on this endorsement.</Typography>
+                  )}
+                  {settlePosition.items.map((item) => (
+                    <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                      <Box>
+                        <Typography variant="body2">
+                          {item.control_role} · {item.party_name} · {formatSigned(item.outstanding, item.currency)} outstanding
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.document_no || 'no document'} · side {item.side} · status {item.settlement_status}
+                        </Typography>
+                      </Box>
+                      {item.outstanding > 0 ? (
+                        <Button size="small" variant="contained" onClick={() => chooseSettleTarget(item)}>
+                          {item.side === 'receivable' ? 'Collect' : 'Remit'}
+                        </Button>
+                      ) : (
+                        <Chip size="small" label="settled" color="success" />
+                      )}
+                    </Box>
+                  ))}
+                  {settlePosition.settlements.length > 0 && (
+                    <Typography variant="subtitle2">Posted settlements</Typography>
+                  )}
+                  {settlePosition.settlements.map((s) => (
+                    <Box key={s.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                      <Box>
+                        <Typography variant="body2">
+                          {s.settlement_no} · {s.direction === 'in' ? 'receipt' : 'payment'} · {formatSigned(s.amount, s.currency)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {s.settlement_date} · {s.party_name}{s.reference ? ` · ${s.reference}` : ''}{s.reconciled ? ' · bank reconciled' : ''}
+                        </Typography>
+                      </Box>
+                      <Button
+                        size="small"
+                        color="warning"
+                        onClick={() => { setVoidRow(s); setVoidReason(''); }}
+                      >
+                        Void settlement
+                      </Button>
+                    </Box>
+                  ))}
+                </>
+              ) : (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Settle {settleTarget.document_no || 'item'}</Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    {settleTarget.control_role} · {settleTarget.party_name} · {formatSigned(settleTarget.outstanding, settleTarget.currency)} outstanding
+                  </Typography>
+                  <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField select label="Client-money bank account" value={settleBank} onChange={(e) => setSettleBank(e.target.value)} disabled={busy}>
+                      {settleBanks.map((b) => (
+                        <MenuItem key={b.id} value={b.id}>{b.name} ({b.currency})</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField label="Amount" value={settleAmount} onChange={(e) => setSettleAmount(e.target.value)} inputProps={{ inputMode: 'decimal' }} disabled={busy} />
+                    <TextField label="Settlement date" type="date" value={settleDate} onChange={(e) => setSettleDate(e.target.value)} InputLabelProps={{ shrink: true }} inputProps={{ max: today() }} disabled={busy} />
+                    <TextField label="Bank reference" value={settleReference} onChange={(e) => setSettleReference(e.target.value)} disabled={busy} />
+                    <TextField label="Notes" multiline value={settleNotes} onChange={(e) => setSettleNotes(e.target.value)} disabled={busy} />
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          {settleTarget === null ? (
+            <Button onClick={() => setSettleRow(null)}>Close</Button>
+          ) : (
+            <>
+              <Button onClick={() => chooseSettleTarget(null)} disabled={busy}>Back</Button>
+              <Button variant="contained" onClick={() => void runSettle()} disabled={busy}>Post settlement</Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(voidRow)} onClose={() => setVoidRow(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Void settlement {voidRow?.settlement_no ?? ''}</DialogTitle>
+        <DialogContent>
+          {voidRow && voidRow.reconciled && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              This settlement is already bank-reconciled. The server will refuse the void until the reconciliation is unmatched by an independent reconciler.
+            </Alert>
+          )}
+          <TextField
+            label="Reason for voiding (at least 5 characters)"
+            value={voidReason}
+            onChange={(e) => setVoidReason(e.target.value)}
+            fullWidth multiline minRows={2} sx={{ mt: 1 }} disabled={busy}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVoidRow(null)} disabled={busy}>Close</Button>
+          <Button color="error" variant="contained" onClick={() => void runVoid()} disabled={busy || voidReason.trim().length < 5 || (voidRow?.reconciled ?? false)}>
+            Void settlement
           </Button>
         </DialogActions>
       </Dialog>
