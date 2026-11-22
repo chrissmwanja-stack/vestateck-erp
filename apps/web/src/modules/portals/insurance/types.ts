@@ -164,6 +164,17 @@ export interface ClaimReserveEntry {
   revised_at: string;
 }
 
+/** One row of a claim's approval history. 'initial' is the first approval, 'revision' a re-approval after a withdrawal, 'cleared' the withdrawal itself. */
+export interface ClaimApprovalEntry {
+  id: string;
+  kind: 'initial' | 'revision' | 'cleared';
+  previous_amount: number | null;
+  new_amount: number | null;
+  reason: string;
+  note: string | null;
+  effective_at: string;
+}
+
 export interface ClaimPayment {
   id: string;
   claim_id: string;
