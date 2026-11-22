@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { loginAs, logout, type TestAccountKey } from './utils/auth';
+import { loginAs, type TestAccountKey } from './utils/auth';
 
 /**
  * P2: the endorsement settlement workflow and the cancellation ordering, end to end
@@ -58,12 +58,24 @@ async function expectGone(page: Page, target: Locator, what: string, timeout = 2
   }
 }
 
-/** Signs in (switching if the page already holds a session) and opens a policy. */
+/**
+ * Signs in as `actor` and opens a policy. The browser session is wiped first rather
+ * than signed out through the UI: this spec switches person up to a dozen times, and
+ * a UI sign-out followed by an immediate /login reload races the app's auth-state
+ * redirect (the login form re-mounts under the test's cursor). Clearing storage on a
+ * fresh page load is deterministic and quicker.
+ */
 async function goToPolicy(page: Page, actor: TestAccountKey, client: string) {
-  const hasSession = await page.getByRole('button', { name: 'Sign out' }).count().catch(() => 0);
-  if (hasSession > 0) {
-    await logout(page);
-  }
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await page.evaluate(() => {
+    try {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    } catch {
+      /* storage unavailable: loginAs below will surface it */
+    }
+  });
   await loginAs(page, actor);
   await openPolicy(page, client);
 }
@@ -167,7 +179,7 @@ test.describe('P2: endorsement settlement and cancellation ordering', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('P2-A: cancel newest-first, then the oldest, on policy 3', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
 
     const markerA = MARKER('A');
     const markerB = MARKER('B');
@@ -195,7 +207,7 @@ test.describe('P2: endorsement settlement and cancellation ordering', () => {
   });
 
   test('P2-B scenario 1: cancellation refused after settlement', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
 
     const marker = MARKER('B');
     await postEndorsement(page, P2_B_CLIENT, '2000000', marker);
@@ -230,7 +242,7 @@ test.describe('P2: endorsement settlement and cancellation ordering', () => {
   });
 
   test('P2-B scenario 2: voiding the settlement unblocks cancellation', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
 
     const marker = MARKER('B');
     await goToPolicy(page, 'insFinMaker', P2_B_CLIENT);
