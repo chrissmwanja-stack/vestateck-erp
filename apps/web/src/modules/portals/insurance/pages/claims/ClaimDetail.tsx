@@ -11,7 +11,7 @@ import {
   CLAIM_STATUS_LABEL, formatMoney, isClaimApprovalBlockedFor, isClaimStepOffered, isReserveRevisable, nextClaimStatuses,
   reserveDelta, validateReserveRevision,
 } from '../../logic';
-import type { Claim, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
+import type { Claim, ClaimApprovalEntry, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
 import ClaimPayments from './ClaimPayments';
 import ClaimDocuments from './ClaimDocuments';
@@ -36,6 +36,7 @@ export default function ClaimDetail() {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [events, setEvents] = useState<ClaimEvent[]>([]);
   const [reserves, setReserves] = useState<ClaimReserveEntry[]>([]);
+  const [approvals, setApprovals] = useState<ClaimApprovalEntry[]>([]);
   const [reserveOpen, setReserveOpen] = useState(false);
   const [reserveInput, setReserveInput] = useState('');
   const [reserveReason, setReserveReason] = useState('');
@@ -57,6 +58,7 @@ export default function ClaimDetail() {
       setClaim(c ?? null);
       setEvents(await rows<ClaimEvent>(table('ins_claim_events').select('id, from_status, to_status, note, created_at').eq('claim_id', id).order('created_at', { ascending: true })));
       setReserves(await rows<ClaimReserveEntry>(table('ins_claim_reserve_history').select('id, kind, previous_amount, new_amount, reason, revised_at').eq('claim_id', id).order('revised_at', { ascending: true })));
+      setApprovals(await rows<ClaimApprovalEntry>(table('ins_claim_approval_history').select('id, kind, previous_amount, new_amount, reason, note, effective_at').eq('claim_id', id).order('effective_at', { ascending: true })));
       setError(null);
     } catch (e) {
       setError(errorText(e));
@@ -137,7 +139,10 @@ export default function ClaimDetail() {
   const sumInsured = claim.ins_policies?.sum_insured ?? 0;
   const amountNum = Number(amount);
   const amountInvalid = !!step?.needsAmount && (!(amountNum > 0) || (sumInsured > 0 && amountNum > sumInsured));
-  const noteInvalid = step?.needsNote && !note.trim();
+  // A re-approval is a revision of the approval decision and must carry a reason,
+  // exactly like the un-approval does. The RPC enforces the same rule.
+  const stepNeedsNote = !!step?.needsNote || (step?.to === 'approved' && approvals.length > 0);
+  const noteInvalid = stepNeedsNote && !note.trim();
   const reserveErrors = validateReserveRevision({ current: claim.reserve_amount, next: Number(reserveInput), sumInsured, currency, reason: reserveReason });
 
   return (
@@ -238,6 +243,42 @@ export default function ClaimDetail() {
         </CardContent>
       </Card>
 
+      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Approval history</Typography>
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Decision</TableCell>
+                <TableCell align="right">Amount ({currency})</TableCell>
+                <TableCell>Reason</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {approvals.length === 0 ? (
+                <TableRow><TableCell colSpan={4}><Typography color="text.secondary">No approval history yet.</Typography></TableCell></TableRow>
+              ) : (
+                approvals.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>{new Date(a.effective_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{a.kind === 'initial' ? 'Approval' : a.kind === 'revision' ? 'Revision' : 'Withdrawn'}</TableCell>
+                    <TableCell align="right">
+                      {a.kind === 'cleared'
+                        ? `${formatMoney(a.previous_amount ?? 0, currency)} → withdrawn`
+                        : a.previous_amount == null
+                          ? formatMoney(a.new_amount ?? 0, currency)
+                          : `${formatMoney(a.previous_amount, currency)} → ${formatMoney(a.new_amount ?? 0, currency)}`}
+                    </TableCell>
+                    <TableCell>{a.reason}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>History</Typography>
       <Card variant="outlined">
         <CardContent>
@@ -284,17 +325,21 @@ export default function ClaimDetail() {
       <Dialog open={step !== null} onClose={() => !busy && setStep(null)} fullWidth maxWidth="sm">
         <DialogTitle>{step?.label}</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>{step?.note}</DialogContentText>
+          <DialogContentText sx={{ mb: 2 }}>
+            {step?.to === 'approved' && approvals.length > 0
+              ? 'This claim has been approved before, so this is a revised approval. A reason explaining the change is required; the change is kept in the approval history.'
+              : step?.note}
+          </DialogContentText>
           <Stack spacing={2}>
             {step?.needsAmount && (
               <TextField autoFocus label={`Approved amount (${currency})`} type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
                 error={amountInvalid} helperText={claim.ins_policies?.sum_insured ? `Must be above zero and at most ${formatMoney(claim.ins_policies.sum_insured, currency)}.` : 'Must be above zero.'}
                 inputProps={{ min: 0, step: '0.01' }} />
             )}
-            {step?.needsNote && (
+            {stepNeedsNote && (
               <TextField autoFocus={!step.needsAmount} label="Reason" required multiline minRows={2} value={note} onChange={(e) => setNote(e.target.value)} />
             )}
-            {step && !step.needsNote && (
+            {step && !stepNeedsNote && (
               <TextField label="Note (optional)" multiline minRows={1} value={note} onChange={(e) => setNote(e.target.value)} />
             )}
           </Stack>

@@ -210,7 +210,7 @@ Checked against `main` at `04bf056` plus the unmerged in-force import step 1; th
 | 6 | Agents and sub-agents | **Built end to end** 18 Nov 2026: accrual, terms, register, maker-checker payments, withholding at payment, period returns and statements (`20261117240000`, `20261117250000`, `20261118120000`, `20261118140000`, `20261118160000`, `20261118180000`). See section 7c. | `20261017150000`, `20261117240000`, `20261117250000`, `20261118120000` to `20261118180000` |
 | 7 | Commission rate matrix | Built | `20261020210000` |
 | 8 | Bulk renewals, outcomes, notices | Built | `20261022080000`, `20261106200000` |
-| 9 | Claims depth | Reserve revisions, excess handling and document checklist built; letters and withdrawal or recovery (accountant answer 22) open | `20261022090000`, `20261106210000` |
+| 9 | Claims depth | Reserve revisions, approval history (initial/revision/cleared, as-at register figures), excess handling and document checklist built; letters and withdrawal or recovery (accountant answer 22) open | `20261022090000`, `20261106210000`, `20261123000000` |
 | 10 | Shared document store and notifications | Built | `20261021100000`, `20261022110000` |
 | 11 | Client merge, groups, account-per-client | Not started | |
 | 12 | Role split and policy approval workflow | Approval workflow built; bind requires an approved policy (with two repair migrations) | `20261106180000`, `20261106230000`, `20261107090000`, `20261107100000` |
