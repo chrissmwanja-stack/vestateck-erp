@@ -31,6 +31,25 @@ returns void language sql as $$
     json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
 $$;
 
+-- Everything here runs in one transaction, so now() is frozen and every event and history
+-- row a claim gets would share one timestamp. The register's same-instant tie-break follows
+-- the chain "which row leads to the next", which cannot order a cycle such as
+-- assessing -> approved -> assessing: every row then has a successor and the pick falls to a
+-- random uuid. In production each transition is its own transaction with its own time, so
+-- this only ever bites a single-transaction script like this one. tick() ages every row the
+-- claim has so far by one second, so each step is strictly later than the one before it.
+-- SECURITY DEFINER (the owner) with triggers bypassed, because the history is immutable.
+create function pg_temp.tick(p_claim uuid)
+returns void language plpgsql security definer as $$
+begin
+  perform set_config('session_replication_role', 'replica', true);
+  update ins_claim_events           set created_at   = created_at   - interval '1 second' where claim_id = p_claim;
+  update ins_claim_approval_history set effective_at = effective_at - interval '1 second',
+                                        created_at   = created_at   - interval '1 second' where claim_id = p_claim;
+  update ins_claim_reserve_history  set revised_at   = revised_at   - interval '1 second' where claim_id = p_claim;
+  perform set_config('session_replication_role', 'origin', true);
+end $$;
+
 create function pg_temp.activate(p_id uuid)
 returns void language plpgsql as $$
 begin
@@ -83,6 +102,7 @@ begin
   reset role;
   perform pg_temp.jwt(manager); set local role authenticated;
   cl := ins_transition_claim(cl.id,'approved','Approved for the higher slab',2000000);
+  perform pg_temp.tick(cl.id);
   select * into h from ins_claim_approval_history where claim_id = cl.id;
   perform pg_temp.assert(h.kind='initial' and h.previous_amount is null and h.new_amount=2000000
                          and h.reason='Approved for the higher slab' and h.note='Approved for the higher slab',
@@ -108,6 +128,7 @@ begin
 
   -- ---- Un-approval writes a cleared row and clears the decision ----
   cl := ins_transition_claim(cl.id,'assessing','Too high, reassessing');
+  perform pg_temp.tick(cl.id);
   perform pg_temp.assert(cl.approved_amount is null and cl.payment_mode is null,
                          'un-approval clears the decision');
   select * into h from ins_claim_approval_history where claim_id = cl.id and kind = 'cleared';
@@ -127,6 +148,7 @@ begin
 
   -- ---- Re-approval writes a revision row ----
   cl := ins_transition_claim(cl.id,'approved','Re-approved with corrected amount',1500000);
+  perform pg_temp.tick(cl.id);
   select * into h from ins_claim_approval_history where claim_id = cl.id and kind = 'revision';
   perform pg_temp.assert(h.previous_amount=2000000 and h.new_amount=1500000
                          and h.reason='Re-approved with corrected amount',
