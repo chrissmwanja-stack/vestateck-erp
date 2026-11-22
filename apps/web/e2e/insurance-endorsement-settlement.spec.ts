@@ -256,7 +256,8 @@ test.describe('P2: endorsement settlement and cancellation ordering', () => {
     await expect(settleDialog.getByText('Posted settlements')).toBeVisible({ timeout: 20_000 });
     await settleDialog.getByRole('button', { name: 'Void settlement', exact: true }).first().click();
     const voidDialog = page.getByRole('dialog', { name: /Void settlement/ });
-    await expect(voidDialog.getByText('Void settlement')).toBeVisible({ timeout: 10_000 });
+    // The title only: the confirm button carries the same words, so a text match is ambiguous.
+    await expect(voidDialog.getByRole('heading', { name: /Void settlement/ })).toBeVisible({ timeout: 10_000 });
     await voidDialog.getByLabel('Reason for voiding', { exact: false }).fill('Reversing a test settlement for the P2-B scenario 2 flow');
     await voidDialog.getByRole('button', { name: 'Void settlement', exact: true }).click();
     await expect(page.getByText(/^Settlement voided/)).toBeVisible({ timeout: 20_000 });
