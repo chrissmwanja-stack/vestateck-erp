@@ -61,4 +61,4 @@ Described in the root `README.md` ("Testing & CI"): migration policy, merge-conf
 - Put a dated status line at the top of any working document and update it when you change the work it describes.
 - Counts (migrations, test files) go stale first. Recount before quoting them: `ls supabase/migrations | wc -l`, `ls supabase/tests/*.sql | wc -l`.
 - Nothing in `docs/insurance-brokerage/` is an accounting or legal sign-off unless a signed section says so.
-- Insurance dates follow the Africa/Kampala business day (decision DR-46). Use `ins_local_today()` and `ins_local_date(timestamptz)` rather than `current_date` or a bare `::date` in insurance code. Some non-insurance functions still use the UTC date; the list is in the header of migration `20261121150000`.
+- The platform's business day is Africa/Kampala (decision DR-46). In SQL use `business_today()` and `business_date(timestamptz)` (`ins_local_today()` and `ins_local_date()` are the same rule); in the web app use `apps/web/src/lib/businessDate.ts`. Never use `current_date`, `<column>_at::date` or `new Date().toISOString().slice(0, 10)`: tests fail on each.
