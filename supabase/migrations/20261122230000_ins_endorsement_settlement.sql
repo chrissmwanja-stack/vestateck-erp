@@ -253,7 +253,7 @@ begin
   -- A closed period cannot take a new journal (same rule every posting path applies).
   if exists (select 1 from public.accounting_periods
               where tenant_id = c.tenant_id and status = 'closed'
-                and current_date between period_start and period_end) then
+                and public.business_today() between period_start and period_end) then
     v_reasons := v_reasons || array['the current accounting period is closed'];
   end if;
 
@@ -308,7 +308,7 @@ begin
   end if;
 
   select entry_date into v_date from journal_entries where id = new.void_journal_entry_id;
-  v_date := coalesce(v_date, current_date);
+  v_date := coalesce(v_date, public.business_today());
 
   for r in
     select e.id as entry_id, e.amount, e.status as entry_status, e.earned_by,
