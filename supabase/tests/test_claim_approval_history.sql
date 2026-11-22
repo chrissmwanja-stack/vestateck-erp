@@ -155,14 +155,27 @@ begin
                          'blank note on first approval falls back to the system reason with a null note');
 
   -- ---- History is immutable and RPC-only ----
+  -- From the client's seat, direct writes are refused by table privileges:
+  -- authenticated has only SELECT on this table, so the guard trigger never fires.
   perform set_config('ins.via_rpc', 'off', true);
   perform pg_temp.expect_error(format('insert into ins_claim_approval_history(tenant_id,claim_id,kind,previous_amount,new_amount,reason) values(%L,%L,%L,1,2,%L)',ta,cl.id,'revision','Direct insert attempt'),
-                              'INS_RPC_ONLY', 'direct history insert');
+                              'permission denied', 'direct history insert (client)');
   perform pg_temp.expect_error(format('update ins_claim_approval_history set reason=%L where claim_id=%L','Edited',cl.id),
-                              'INS_APPROVAL_HISTORY_IMMUTABLE',
-                              'direct history update');
+                              'permission denied', 'direct history update (client)');
   perform pg_temp.expect_error(format('delete from ins_claim_approval_history where claim_id=%L',cl.id),
-                              'INS_APPROVAL_HISTORY_IMMUTABLE', 'direct history delete');
+                              'permission denied', 'direct history delete (client)');
+  -- As the table owner, the guard trigger must refuse what privileges allow:
+  -- writes that do not come through ins_transition_claim(), and never an update or delete.
+  reset role;
+  perform set_config('ins.via_rpc', 'off', true);
+  perform pg_temp.expect_error(format('insert into ins_claim_approval_history(tenant_id,claim_id,kind,previous_amount,new_amount,reason) values(%L,%L,%L,1,2,%L)',ta,cl.id,'revision','Direct insert attempt'),
+                              'INS_RPC_ONLY', 'direct history insert (privileged, not via RPC)');
+  perform set_config('ins.via_rpc', 'on', true);
+  perform pg_temp.expect_error(format('update ins_claim_approval_history set reason=%L where claim_id=%L','Edited',cl.id),
+                              'INS_APPROVAL_HISTORY_IMMUTABLE', 'direct history update (privileged)');
+  perform pg_temp.expect_error(format('delete from ins_claim_approval_history where claim_id=%L',cl.id),
+                              'INS_APPROVAL_HISTORY_IMMUTABLE', 'direct history delete (privileged)');
+  perform set_config('ins.via_rpc', 'off', true);
   -- The event history is untouched: the status transitions are all still recorded.
   select count(*) into n from ins_claim_events where claim_id = cl.id;
   perform pg_temp.assert(n >= 3, 'the claim event trail survives with the history');
