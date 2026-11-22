@@ -6118,6 +6118,13 @@ export type Database = {
             foreignKeyName: "ins_claim_approval_history_claim_fk"
             columns: ["tenant_id", "claim_id"]
             isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["tenant_id", "claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_approval_history_claim_fk"
+            columns: ["tenant_id", "claim_id"]
+            isOneToOne: false
             referencedRelation: "ins_claims"
             referencedColumns: ["tenant_id", "id"]
           },
