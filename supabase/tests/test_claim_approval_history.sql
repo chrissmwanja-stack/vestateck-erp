@@ -31,23 +31,21 @@ returns void language sql as $$
     json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
 $$;
 
--- Everything here runs in one transaction, so now() is frozen and every event and history
--- row a claim gets would share one timestamp. The register's same-instant tie-break follows
--- the chain "which row leads to the next", which cannot order a cycle such as
--- assessing -> approved -> assessing: every row then has a successor and the pick falls to a
+-- Everything here runs in one transaction, so now() is frozen and every status event a claim
+-- gets would share one timestamp. The register's same-instant tie-break follows the chain
+-- "which event leads to the next", which cannot order a cycle such as
+-- assessing -> approved -> assessing: every event then has a successor and the pick falls to a
 -- random uuid. In production each transition is its own transaction with its own time, so
--- this only ever bites a single-transaction script like this one. tick() ages every row the
--- claim has so far by one second, so each step is strictly later than the one before it.
--- SECURITY DEFINER (the owner) with triggers bypassed, because the history is immutable.
+-- this only ever bites a single-transaction script like this one. tick() ages the claim's
+-- status events so far by one second, so each step is strictly later than the one before it.
+-- Only the status events need it: the approval history is ordered by an acyclic
+-- previous_amount chain, so it is deterministic as it stands. SECURITY DEFINER runs it as the
+-- table owner (the claim events carry no immutability guard, only the read-only-tenant one),
+-- and it needs no superuser setting.
 create function pg_temp.tick(p_claim uuid)
 returns void language plpgsql security definer as $$
 begin
-  perform set_config('session_replication_role', 'replica', true);
-  update ins_claim_events           set created_at   = created_at   - interval '1 second' where claim_id = p_claim;
-  update ins_claim_approval_history set effective_at = effective_at - interval '1 second',
-                                        created_at   = created_at   - interval '1 second' where claim_id = p_claim;
-  update ins_claim_reserve_history  set revised_at   = revised_at   - interval '1 second' where claim_id = p_claim;
-  perform set_config('session_replication_role', 'origin', true);
+  update ins_claim_events set created_at = created_at - interval '1 second' where claim_id = p_claim;
 end $$;
 
 create function pg_temp.activate(p_id uuid)
