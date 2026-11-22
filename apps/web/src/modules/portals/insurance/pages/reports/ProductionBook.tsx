@@ -1,225 +1,134 @@
-import { businessToday, businessYearStart } from '../../../../../lib/businessDate';
+import { businessToday } from '../../../../../lib/businessDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField,
+  Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, MenuItem, Stack, Switch, Table, TableBody, TableCell,
+  TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
-import { exportReportToExcel, exportReportToPdf, type ReportExportColumn } from '../../../../../lib/reportExport';
-import { allRows, errorText, rows, table } from '../../db';
-import { formatMoneyByCurrency } from '../../logic';
-import { groupProduction, premiumTrend, PRODUCTION_GROUPERS, shortMonth, type ProductionGroupBy, type ProductionRow } from '../../reports';
+import { exportReportToExcel, exportReportToPdf } from '../../../../../lib/reportExport';
+import { errorText, rpc } from '../../db';
+import { formatMoney, formatMoneyByCurrency, sumByCurrency } from '../../logic';
+import { REPORT_GROUPS, groupLabel, monthStartIso, productionColumns, type ProductionLine, type ReportGroupBy } from '../../reportsSuite';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
-import Typography from '@mui/material/Typography';
 
-const firstOfYear = () => businessYearStart();
-const today = () => businessToday();
-
-// The production book: business written in a period (bound policies, reversed
-// ones excluded by the view), grouped by any reporting dimension -- client,
-// insurer, branch, agent, product line, transaction type, status or month.
-// Money is totalled per currency; a per-month trend strip shows the written
-// premium over time. The read is server-gated (the view re-checks tenant and
-// insurance access on every query).
+// Production Book -- the single authoritative reporting source for insurance
+// production (Phase 1 consolidation): net written premium for a period, from
+// posted records: premium bound, endorsements, cancellations and reversals
+// each counted on the day they took effect. Read-only; the server does all the
+// arithmetic. The legacy browser-computed screen (and its helpers) is gone;
+// this is the only place production is computed in the app.
 export default function ProductionBook() {
-  const [from, setFrom] = useState(firstOfYear());
-  const [to, setTo] = useState(today());
-  const [groupBy, setGroupBy] = useState<ProductionGroupBy>('client');
-  const [bookRows, setBookRows] = useState<ProductionRow[]>([]);
-  const [functional, setFunctional] = useState('UGX');
+  const [from, setFrom] = useState(monthStartIso());
+  const [to, setTo] = useState(businessToday());
+  const [groupBy, setGroupBy] = useState<ReportGroupBy>('product_line');
+  const [imported, setImported] = useState(false);
+  const [items, setItems] = useState<ProductionLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!from || !to) return;
     setLoading(true);
     try {
-      const [book, settings] = await Promise.all([
-        allRows<ProductionRow>(() =>
-          table('ins_production_book').select('*').gte('bound_date', from).lte('bound_date', to).order('policy_no')),
-        rows<{ functional_currency: string }>(table('tenant_ledger_settings').select('functional_currency')),
-      ]);
-      setBookRows(book);
-      setFunctional(settings[0]?.functional_currency ?? 'UGX');
+      const data = await rpc<ProductionLine[]>('ins_report_production', {
+        p_from: from, p_to: to, p_group_by: groupBy, p_include_imported: imported,
+      });
+      setItems(data ?? []);
       setError(null);
     } catch (e) {
       setError(errorText(e));
     } finally {
       setLoading(false);
     }
-  }, [from, to]);
+  }, [from, to, groupBy, imported]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!from || !to || from > to) { setLoading(false); return; }
+    load();
+  }, [from, to, load]);
 
-  const groups = useMemo(() => groupProduction(bookRows, groupBy), [bookRows, groupBy]);
-  const grouper = PRODUCTION_GROUPERS[groupBy];
-  const trend = useMemo(() => premiumTrend(bookRows), [bookRows]);
-
-  // One bar row per month; each bar is a currency (never merged), scaled to
-  // the currency's own maximum so a small USD book stays visible next to UGX.
-  const trendBars = useMemo(() => trend.map((t) => ({
-    month: t.month,
-    label: shortMonth(t.month),
-    count: t.count,
-    bars: Object.entries(t.gross)
-      .map(([currency, gross]) => ({ currency, gross: Number(gross) }))
-      .sort((a, b) => a.currency.localeCompare(b.currency)),
-  })), [trend]);
-  const trendMaxByCurrency = useMemo(() => {
-    const max: Record<string, number> = {};
-    for (const t of trend) {
-      for (const [currency, gross] of Object.entries(t.gross)) {
-        max[currency] = Math.max(max[currency] ?? 0, Number(gross));
-      }
-    }
-    return max;
-  }, [trend]);
-
-  const totals = useMemo(() => ({
-    count: bookRows.length,
-    gross: sumCurrency(bookRows, (r) => r.currency, (r) => r.gross_premium),
-    commission: sumCurrency(bookRows, (r) => r.currency, (r) => r.commission_amount),
-    net: sumCurrency(bookRows, (r) => r.currency, (r) => r.net_premium_to_insurer),
-  }), [bookRows]);
-
-  // One flat row per group; money already formatted per currency (Excel/PDF
-  // show what the screen shows -- currencies are never merged).
-  const exportRows = () => groups.map((g) => ({
-    group: g.key,
-    policies: g.count,
-    gross: formatMoneyByCurrency(g.gross, functional).replace(/\n/g, ' | '),
-    commission: formatMoneyByCurrency(g.commission, functional).replace(/\n/g, ' | '),
-    net: formatMoneyByCurrency(g.net, functional).replace(/\n/g, ' | '),
-  }));
-  const exportColumns: ReportExportColumn<ReturnType<typeof exportRows>[number]>[] = [
-    { header: grouper.label, accessor: (r) => r.group },
-    { header: 'Policies', align: 'right', accessor: (r) => r.policies },
-    { header: 'Gross premium', align: 'right', accessor: (r) => r.gross },
-    { header: 'Commission', align: 'right', accessor: (r) => r.commission },
-    { header: 'Net to insurers', align: 'right', accessor: (r) => r.net },
-  ];
-  const exportName = `production-book-${from}-to-${to}`;
+  const totals = useMemo(() => sumByCurrency(items, (r) => r.currency, (r) => r.net_written, 'UGX'), [items]);
+  const columns = productionColumns(groupLabel(groupBy));
+  const exportName = `production-${from}-to-${to}`;
+  const subtitle = `${from} to ${to}  |  By ${groupLabel(groupBy).toLowerCase()}${imported ? '  |  Includes imported policies' : ''}`;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, maxWidth: 1200 }}>
       <PageHeader
-        title="Production book"
-        subtitle="Business written in the period, by client, insurer, branch, agent, product line, transaction type, status or month, with the written-premium trend. Reversed policies are not production."
+        title="Production Book"
+        subtitle="Net premium written in the period, after endorsements, cancellations and reversals."
+        actions={
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <TextField size="small" type="date" label="From" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <TextField size="small" type="date" label="To" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
+            <TextField select size="small" label="Group by" value={groupBy} onChange={(e) => setGroupBy(e.target.value as ReportGroupBy)} sx={{ minWidth: 150 }}>
+              {REPORT_GROUPS.map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
+            </TextField>
+            {!loading && items.length > 0 && (
+              <>
+                <Button variant="outlined" onClick={() => exportReportToExcel(exportName, 'Production', columns, items)}>Export Excel</Button>
+                <Button variant="outlined" onClick={() => exportReportToPdf(exportName, 'Production', columns, items, subtitle)}>Export PDF</Button>
+              </>
+            )}
+          </Stack>
+        }
       />
       <ErrorBanner message={error} />
-      <Card>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth type="date" label="Written from" InputLabelProps={{ shrink: true }} value={from} onChange={(e) => setFrom(e.target.value)} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth type="date" label="Written to" InputLabelProps={{ shrink: true }} value={to} onChange={(e) => setTo(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField select fullWidth label="Group by" value={groupBy} onChange={(e) => setGroupBy(e.target.value as ProductionGroupBy)}>
-                {(Object.keys(PRODUCTION_GROUPERS) as ProductionGroupBy[]).map((k) => (
-                  <MenuItem key={k} value={k}>{PRODUCTION_GROUPERS[k].label}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Stack spacing={1}>
-                <Button variant="outlined" onClick={() => void load()}>Refresh</Button>
-                <Button variant="outlined" onClick={() => exportReportToExcel(exportName, 'Production book', exportColumns, exportRows())}>Excel</Button>
-                <Button variant="outlined" onClick={() => exportReportToPdf(exportName, 'Production book', exportColumns, exportRows(), `Written ${from} to ${to} - grouped by ${grouper.label.toLowerCase()}`)}>PDF</Button>
-              </Stack>
-            </Grid>
-          </Grid>
-
-          {!loading && trendBars.length > 0 && (
-            <Box sx={{ mb: 3 }} aria-label="Written premium trend">
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Gross premium written by month
-              </Typography>
-              {trendBars.map((t) => (
-                <Box key={t.month} sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 1 }}>
-                  {t.bars.map((b) => {
-                    const max = trendMaxByCurrency[b.currency] || 1;
-                    const px = Math.max(4, Math.round((b.gross / max) * 72));
-                    return (
-                      <Box
-                        key={b.currency}
-                        data-testid={`trend-bar-${t.month}-${b.currency}`}
-                        title={`${t.label} ${t.month}: ${formatMoneyByCurrency({ [b.currency]: b.gross }, functional).replace(/\n/g, ' ')} gross, ${t.count} ${t.count === 1 ? 'policy' : 'policies'}`}
-                        sx={{
-                          width: 36, height: px,
-                          bgcolor: b.currency === functional ? 'primary.main' : 'secondary.main',
-                          opacity: 0.85, borderRadius: '2px 2px 0 0',
-                        }}
-                      />
-                    );
-                  })}
-                  <Box component="span" sx={{ minWidth: 56, display: 'inline-block' }}>
-                    <Typography variant="caption" display="block">{t.label}</Typography>
-                    <Typography variant="caption" display="block">
-                      {`${t.count} ${t.count === 1 ? 'policy' : 'policies'}`}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          )}
-
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-          ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{grouper.label}</TableCell>
-                  <TableCell align="right">Policies</TableCell>
-                  <TableCell align="right">Gross premium</TableCell>
-                  <TableCell align="right">Commission</TableCell>
-                  <TableCell align="right">Net to insurers</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {groups.length === 0 ? (
-                  <EmptyRow colSpan={5} text="No business was written in this period." />
-                ) : (
-                  <>
-                    {groups.map((g) => (
-                      <TableRow key={g.key}>
-                        <TableCell>{g.key}</TableCell>
-                        <TableCell align="right">{g.count}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}>{formatMoneyByCurrency(g.gross, functional)}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}>{formatMoneyByCurrency(g.commission, functional)}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}>{formatMoneyByCurrency(g.net, functional)}</TableCell>
+      {from > to && <Alert severity="warning" sx={{ mb: 2 }}>The start date must not be after the end date.</Alert>}
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Premium only: broker fees, charges and VAT are not production. Each movement counts on the day it took effect, so a cancellation
+        reduces the period it was posted in, not the period of the original sale. Currencies are never added together.
+      </Alert>
+      <FormControlLabel
+        sx={{ mb: 1 }}
+        control={<Switch checked={imported} onChange={(e) => setImported(e.target.checked)} />}
+        label="Include policies imported as an opening book"
+      />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+      ) : (
+        <>
+          <Card>
+            <CardContent sx={{ p: 0, overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{groupLabel(groupBy)}</TableCell>
+                    <TableCell>Currency</TableCell>
+                    <TableCell align="right">New business</TableCell>
+                    <TableCell align="right">Endorsements</TableCell>
+                    <TableCell align="right">Cancellations</TableCell>
+                    <TableCell align="right">Reversals</TableCell>
+                    <TableCell align="right">Net written</TableCell>
+                    <TableCell align="right">Policies</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.length === 0 ? (
+                    <EmptyRow colSpan={8} text="No premium was written in this period." />
+                  ) : (
+                    items.map((r) => (
+                      <TableRow key={`${r.group_key}|${r.currency}`}>
+                        <TableCell>{r.group_label}</TableCell>
+                        <TableCell>{r.currency}</TableCell>
+                        <TableCell align="right">{formatMoney(Number(r.new_business), r.currency)}</TableCell>
+                        <TableCell align="right">{formatMoney(Number(r.endorsements), r.currency)}</TableCell>
+                        <TableCell align="right">{formatMoney(Number(r.cancellations), r.currency)}</TableCell>
+                        <TableCell align="right">{formatMoney(Number(r.reversals), r.currency)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>{formatMoney(Number(r.net_written), r.currency)}</TableCell>
+                        <TableCell align="right">{r.policy_count}</TableCell>
                       </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell><strong>Total ({totals.count} policies)</strong></TableCell>
-                      <TableCell />
-                      <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}><strong>{formatMoneyByCurrency(totals.gross, functional)}</strong></TableCell>
-                      <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}><strong>{formatMoneyByCurrency(totals.commission, functional)}</strong></TableCell>
-                      <TableCell align="right" sx={{ whiteSpace: 'pre-line' }}><strong>{formatMoneyByCurrency(totals.net, functional)}</strong></TableCell>
-                    </TableRow>
-                  </>
-                )}
-              </TableBody>
-            </Table>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          {items.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 2, whiteSpace: 'pre-line' }}>
+              <strong>Net written premium:</strong>{'\n'}{formatMoneyByCurrency(totals, 'UGX')}
+            </Typography>
           )}
-          {!loading && groups.length === 0 && !error && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              A policy appears here once it is bound. New drafts and reversed policies are not production.
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </Box>
   );
-}
-
-function sumCurrency<T>(items: T[], currencyOf: (t: T) => string | null | undefined, amountOf: (t: T) => number | null | undefined): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const item of items) {
-    const cur = currencyOf(item) || 'UGX';
-    totals[cur] = (totals[cur] ?? 0) + Number(amountOf(item) ?? 0);
-  }
-  return totals;
 }

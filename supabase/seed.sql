@@ -741,6 +741,8 @@ declare
   v_u_maker  uuid := '00000000-0000-0000-0000-00000000b104';  -- fin.maker
   v_u_check  uuid := '00000000-0000-0000-0000-00000000b105';  -- fin.checker
   v_u_recon  uuid := '00000000-0000-0000-0000-00000000b106';  -- fin.reconciler (third person)
+  v_u_fin_m uuid := '00000000-0000-0000-0000-00000000b107';  -- ins.fin.maker (insurance manager + finance)
+  v_u_fin_c uuid := '00000000-0000-0000-0000-00000000b108';  -- ins.fin.checker (insurance manager + finance)
   v_gl_bank  uuid; v_gl_trust uuid;
   v_ins_a uuid; v_ins_b uuid; v_ins_c uuid;
   v_line_motor uuid; v_line_prop uuid; v_line_med uuid;
@@ -784,7 +786,9 @@ begin
     (v_u_member, 'ins.member@test.local'),
     (v_u_maker,  'fin.maker@test.local'),
     (v_u_check,  'fin.checker@test.local'),
-    (v_u_recon,  'fin.reconciler@test.local')
+    (v_u_recon,  'fin.reconciler@test.local'),
+    (v_u_fin_m,  'ins.fin.maker@test.local'),
+    (v_u_fin_c,  'ins.fin.checker@test.local')
   ) as u(id, email)
   where not exists (select 1 from auth.users x where x.id = u.id);
 
@@ -797,17 +801,36 @@ begin
     (v_u_member, 'Pearl Account Executive', 'ins.member@test.local',  'Account Executive',      'Client Service & Account Management'),
     (v_u_maker,  'Pearl Finance Maker',     'fin.maker@test.local',   'Accountant',             'Finance & Financial Reporting'),
     (v_u_check,  'Pearl Finance Checker',   'fin.checker@test.local', 'Financial Controller',   'Finance & Financial Reporting'),
-    (v_u_recon,  'Pearl Bank Reconciler',   'fin.reconciler@test.local', 'Financial Accountant', 'Finance & Financial Reporting')
+    (v_u_recon,  'Pearl Bank Reconciler',   'fin.reconciler@test.local', 'Financial Accountant', 'Finance & Financial Reporting'),
+    (v_u_fin_m,  'Pearl Insurance Finance Maker',   'ins.fin.maker@test.local',   'Placement Manager', 'Placement & Insurer Relations'),
+    (v_u_fin_c,  'Pearl Insurance Finance Checker', 'ins.fin.checker@test.local', 'Placement Manager', 'Placement & Insurer Relations')
   ) as v(id, name, email, role_title, dept);
 
   insert into staff_roles (tenant_id, user_id, module, role) values
     (v_t, v_u_admin,  'insurance', 'admin'),
     (v_t, v_u_mgr,    'insurance', 'manager'),
-    (v_t, v_u_member, 'insurance', 'member');
+    (v_t, v_u_member, 'insurance', 'member'),
+    -- Hybrid users: insurance managers whose postings also require Finance
+    -- membership. They exist so P2 edge-to-edge flows (endorsement posting +
+    -- settlement) can be driven without conflating insurance authority with
+    -- Finance authority in a single account.
+    (v_t, v_u_fin_m,  'insurance', 'manager'),
+    (v_t, v_u_fin_c,  'insurance', 'manager');
   insert into finance_team_members (tenant_id, user_id, role) values
     (v_t, v_u_maker, 'finance'),
     (v_t, v_u_check, 'finance'),
-    (v_t, v_u_recon, 'finance');
+    (v_t, v_u_recon, 'finance'),
+    (v_t, v_u_fin_m, 'finance'),
+    (v_t, v_u_fin_c, 'finance');
+
+  -- 2b. An endorsement clearing account. The insurance template has none, and every
+  --     other balance-sheet account in it is a control or bank account, which the
+  --     cancellation credit note refuses as an offset (CREDIT_NOTE_OFFSET). Without
+  --     this a UAT user preparing an endorsement is only offered accounts that make
+  --     the posted endorsement impossible to cancel. Not a control account.
+  insert into gl_accounts (tenant_id, account_code, name, account_type)
+  select v_t, '2090', 'Endorsement clearing', 'liability'
+   where not exists (select 1 from gl_accounts where tenant_id = v_t and account_code = '2090');
 
   -- 3. Bank accounts, mapped to the template's GL accounts.
   select id into v_gl_bank  from gl_accounts where tenant_id = v_t and account_code = '1000';

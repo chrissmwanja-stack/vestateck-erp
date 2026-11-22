@@ -19918,6 +19918,10 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: Json
       }
+      ins_endorsement_settlement_position: {
+        Args: { p_endorsement_id: string }
+        Returns: Json
+      }
       ins_endorsement_unwind_position: {
         Args: { p_endorsement_id: string }
         Returns: Json

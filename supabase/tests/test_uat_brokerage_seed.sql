@@ -30,15 +30,33 @@ begin
 
   -- the chart the insurance template gives: one account per posting role, so
   -- the expected count follows platform_gl_posting_roles() rather than a
-  -- literal that has to be edited whenever a role is added
-  select count(*) into n from gl_accounts where tenant_id = v_t;
+  -- literal that has to be edited whenever a role is added -- plus the seed's own
+  -- endorsement clearing account (2090), checked next.
+  select count(*) into n from gl_accounts where tenant_id = v_t and account_code <> '2090';
   if n <> array_length(platform_gl_posting_roles(), 1) then
     raise exception 'FAIL: UAT tenant GL accounts: expected one per posting role (%), got %',
       array_length(platform_gl_posting_roles(), 1), n;
   end if;
 
+  -- The clearing account must be usable as a credit-note offset when an endorsement
+  -- is cancelled: active, not a control account, not a bank account.
+  select count(*) into n from gl_accounts g
+   where g.tenant_id = v_t and g.account_code = '2090' and g.is_active and not g.is_control_account
+     and not exists (select 1 from fin_bank_accounts b where b.tenant_id = g.tenant_id and b.gl_account_id = g.id);
+  if n <> 1 then raise exception 'FAIL: UAT endorsement clearing account 2090 missing or not a plain account'; end if;
+
   select count(*) into n from app_users where tenant_id = v_t;
-  if n <> 6 then raise exception 'FAIL: UAT tenant users: expected 6, got %', n; end if;
+  if n <> 8 then raise exception 'FAIL: UAT tenant users: expected 8, got %', n; end if;
+
+  -- Two hybrid users (insurance manager + Finance member) drive the endorsement
+  -- settlement e2e (b107 maker, b108 checker); they must hold both authorities.
+  select count(*) into n from staff_roles s
+   where s.tenant_id = v_t and s.module = 'insurance' and s.role = 'manager'
+     and s.user_id in ('00000000-0000-0000-0000-00000000b107',
+                       '00000000-0000-0000-0000-00000000b108')
+     and exists (select 1 from finance_team_members f
+                  where f.tenant_id = s.tenant_id and f.user_id = s.user_id and f.role = 'finance');
+  if n <> 2 then raise exception 'FAIL: UAT hybrid insurance-manager + finance users: expected 2, got %', n; end if;
 
   -- Three distinct Finance users are needed for the third-person rule
   -- (INS_CASH_THIRD_PERSON / INS_CXL_CASH_THIRD_PERSON): maker, checker, reconciler.

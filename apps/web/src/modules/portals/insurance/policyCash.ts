@@ -45,7 +45,7 @@ export interface PolicyCashPosition {
   broker_fee_collected?: number; vat_collected?: number;
   requests: PolicyCashRequest[];
 }
-export interface PolicyCashBank { id: string; name: string; currency: string }
+export interface PolicyCashBank { id: string; name: string; currency: string; kind?: string | null }
 export interface PolicyCashPolicy {
   id: string; policy_no: string; status: string; currency: string; client_name: string; insurer_name: string;
 }

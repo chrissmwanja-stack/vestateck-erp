@@ -36,6 +36,12 @@ export const TEST_ACCOUNTS = {
   insManager: { email: 'ins.manager@test.local', role: 'Placement Manager' },
   finMaker: { email: 'fin.maker@test.local', role: 'Accountant' },
   finChecker: { email: 'fin.checker@test.local', role: 'Financial Controller' },
+  // Hybrid accounts: insurance managers AND finance-team members (seed.sql
+  // section 6). They exist so flows that cross both authorities can be driven
+  // honestly -- e.g. an insurance manager proposes, and the same person cannot
+  // approve their own proposal because the server refuses self-approval.
+  insFinMaker: { email: 'ins.fin.maker@test.local', role: 'Placement Manager (hybrid)' },
+  insFinChecker: { email: 'ins.fin.checker@test.local', role: 'Placement Manager (hybrid)' },
 } as const;
 
 export type TestAccountKey = keyof typeof TEST_ACCOUNTS;

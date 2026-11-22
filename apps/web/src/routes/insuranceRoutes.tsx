@@ -7,7 +7,7 @@
 // The server (RPC and RLS) is the enforcement point; these guards only match it.
 
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 import RequireModule from '../components/RequireModule';
 import { INS_ADMIN_ROLES } from '../modules/portals/insurance/access';
 
@@ -39,7 +39,6 @@ const RemittancePosition = lazy(() => import('../modules/portals/insurance/pages
 const ImportWizard = lazy(() => import('../modules/portals/insurance/pages/admin/ImportWizard'));
 const InsurerStatements = lazy(() => import('../modules/portals/insurance/pages/reports/InsurerStatements'));
 const ProductionBook = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionBook'));
-const ProductionReport = lazy(() => import('../modules/portals/insurance/pages/reports/ProductionReport'));
 const PremiumCollected = lazy(() => import('../modules/portals/insurance/pages/reports/PremiumCollected'));
 const OutstandingPremium = lazy(() => import('../modules/portals/insurance/pages/reports/OutstandingPremium'));
 const CommissionEarned = lazy(() => import('../modules/portals/insurance/pages/reports/CommissionEarned'));
@@ -95,7 +94,8 @@ export const insuranceRoutes = (
       <Route path="/insurance/reports/insurer-statements" element={<InsurerStatements />} />
       {/* Reports read views that re-check tenant and insurance access on every query; open to every insurance role. */}
       <Route path="/insurance/reports/production-book" element={<ProductionBook />} />
-      <Route path="/insurance/reports/production" element={<ProductionReport />} />
+      {/* Stale URL: the consolidated Production Book lives at production-book; keep the old link working. */}
+      <Route path="/insurance/reports/production" element={<Navigate to="/insurance/reports/production-book" replace />} />
       <Route path="/insurance/reports/premium-collected" element={<PremiumCollected />} />
       <Route path="/insurance/reports/outstanding-premium" element={<OutstandingPremium />} />
       <Route path="/insurance/reports/commission-earned" element={<CommissionEarned />} />

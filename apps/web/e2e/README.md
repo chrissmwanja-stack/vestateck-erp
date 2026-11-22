@@ -33,6 +33,13 @@ against a real Supabase backend (no mocking):
   operating account. Amounts come from the dialog's "Current limit", not
   hard-coded. Four serial tests that depend on each other. It consumes its
   policy, so a second run on the same database needs `supabase db reset`.
+- **Insurance endorsement settlement** (`insurance-endorsement-settlement.spec.ts`)
+  — the P2 flow on the two bound Pearl policies: the newest-first ordering guard
+  (post Endorsement 1 and 2, cancel 1 is refused, cancel 2, then cancel 1) and the
+  settlement refusal: post an endorsement, settle the insurer payable through the
+  app, attempt cancel (E4 refuses, naming the settlement), void the settlement
+  through the app, then cancel. It consumes both policies' endorsements and leaves
+  them cancelled, so a rerun on the same database needs `supabase db reset`.
 - **Insurance claim payment** (`insurance-claim-payment.spec.ts`) — the seeded claim
   (insurer reference SAV-CLM-0001; its claim number is generated), paid through the brokerage: an admin sets insurer SAV to
   "Brokerage pays the client"; the registrant starts assessment but is not
@@ -105,7 +112,11 @@ npx playwright install --with-deps chromium
    `company.admin@test.local` (company admin with no module role and no
    finance row — seed.sql section 5), and for the insurance specs the Pearl Risk
    Brokers UAT users from seed.sql section 6: `ins.manager@test.local`,
-   `ins.admin@test.local`, `fin.maker@test.local` and `fin.checker@test.local`.
+   `ins.admin@test.local`, `fin.maker@test.local` and `fin.checker@test.local`,
+   plus the hybrid `ins.fin.maker@test.local` / `ins.fin.checker@test.local`
+   (insurance managers who are also Finance team members) which the endorsements-
+   settlement spec uses for prepare/approve/settle/cancel — the insurance page is
+   insurance-gated and the money actions additionally require Finance membership.
 3. **`pm@test.local` is seeded as a payroll approver** directly in
    `supabase/seed.sql` (payroll approval rights are a separate grant
    from job title/`approval_assignments`, via `/hr/admin/payroll-approvers`
