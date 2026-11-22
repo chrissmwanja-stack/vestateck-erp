@@ -105,7 +105,10 @@ async function prepare(page: Page, marker: string) {
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Prepare for posting')).toBeVisible({ timeout: 15_000 });
   await dialog.getByLabel('Endorsement clearing account').click();
-  await page.getByRole('option').first().click();
+  // The seeded plain clearing account (seed.sql 2b). The first option is a bank or
+  // control account, which posts fine but is refused as the credit-note offset when
+  // the endorsement is cancelled (CREDIT_NOTE_OFFSET).
+  await page.getByRole('option', { name: /^2090\b/ }).click();
   await dialog.getByRole('button', { name: 'Prepare', exact: true }).click();
   await expectGone(page, dialog, 'Preparing the endorsement');
   await expect(page.getByText(/^Prepared/)).toBeVisible({ timeout: 15_000 });

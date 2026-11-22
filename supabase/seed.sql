@@ -823,6 +823,15 @@ begin
     (v_t, v_u_fin_m, 'finance'),
     (v_t, v_u_fin_c, 'finance');
 
+  -- 2b. An endorsement clearing account. The insurance template has none, and every
+  --     other balance-sheet account in it is a control or bank account, which the
+  --     cancellation credit note refuses as an offset (CREDIT_NOTE_OFFSET). Without
+  --     this a UAT user preparing an endorsement is only offered accounts that make
+  --     the posted endorsement impossible to cancel. Not a control account.
+  insert into gl_accounts (tenant_id, account_code, name, account_type)
+  select v_t, '2090', 'Endorsement clearing', 'liability'
+   where not exists (select 1 from gl_accounts where tenant_id = v_t and account_code = '2090');
+
   -- 3. Bank accounts, mapped to the template's GL accounts.
   select id into v_gl_bank  from gl_accounts where tenant_id = v_t and account_code = '1000';
   select id into v_gl_trust from gl_accounts where tenant_id = v_t and account_code = '1020';
