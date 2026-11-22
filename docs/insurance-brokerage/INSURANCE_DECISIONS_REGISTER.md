@@ -5,7 +5,7 @@ depends on, who decides it, and whether it has been approved.
 **Not authoritative for:** what is built (`INSURANCE_IMPLEMENTATION_STATUS.md`) or what must pass
 before production (`INSURANCE_ACCEPTANCE_PLAN.md`).
 
-Last reconciled: 22 November 2026.
+Last reconciled: 23 November 2026.
 
 ## Approval vocabulary
 
@@ -120,6 +120,7 @@ Recorded 21 November 2026 from the migrations that implement it.
 | DR-48 | A partial receipt, and a partial remittance to an insurer, covers a statutory charge pro rata to its share of the invoice (receipt) or of the insurer's payable (remittance), with an auditable breakdown. Cents are allocated by largest remainder so the parts add up to the whole | Reports | Owner | Owner-decided | `ins_report_statutory_charge_trace` writes the working of every split; `test_ins_statutory_charge_trace.sql` | Accountant to confirm pro rata as the permanent rule. Collections allocated to premium and VAT components are not derived |
 | DR-49 | A statutory charge is reversed or retained on cancellation according to its legal refundability. Charges are not all refunded automatically | Reports | Owner | Owner-decided | **Not built.** A cancelled policy keeps its allocation rows and the report shows its status | Add a refundability attribute to the versioned catalogue, then change the cancellation posting. Legal input needed per charge (stamp duty is typically not refundable) |
 | DR-50 | Core bind posting is not changed for statutory charges until the accounting model is agreed. Detail is added around it: a charge allocation record written when the policy becomes active, and reports on top | Reports | Owner | Owner-decided | `ins_policy_charge_allocations` and its trigger (`20261123010000`). Bind posts statutory pass-through into insurer payable as before; the statutory payable accounts remain unused | Revisit if the brokerage collects a charge itself, or if the current posting cannot represent a charge correctly |
+| DR-51 | Insurer performance is a cohort view: policies bound in the period, by insurer. Premium placed and commission are each insurer's own recorded share on the policy. Claims on those policies, as at the end date from the claims register, are attributed to insurers pro rata by share, to the cent, so a co-insured claim is carried by every participating insurer. Loss ratio = claims incurred (paid plus outstanding) / premium placed. Premium is gross of later cancellations, which are counted separately | Reports | Owner | Owner-decided | `ins_report_insurer_performance` (`20261123020000`), `test_ins_reports_insurer_performance.sql` | Accountant to confirm the cohort basis against an earned-premium basis. Remittance timeliness and cancellation credits by insurer are not included |
 
 ## Sign-off tracking
 

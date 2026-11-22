@@ -544,6 +544,7 @@ export const insuranceNodes: TreeNode[] = [
       { id: "ins-cancellation-register", label: "Cancellation Register", icon: <BarChart fontSize="small" />, to: "/insurance/reports/cancellation-register" },
       { id: "ins-renewals-report", label: "Renewals Report", icon: <BarChart fontSize="small" />, to: "/insurance/reports/renewals" },
       { id: "ins-statutory-charges", label: "Statutory Charges", icon: <BarChart fontSize="small" />, to: "/insurance/reports/statutory-charges" },
+      { id: "ins-insurer-performance", label: "Insurer Performance", icon: <BarChart fontSize="small" />, to: "/insurance/reports/insurer-performance" },
       { id: "ins-renewal-retention", label: "Renewal Retention", icon: <BarChart fontSize="small" />, to: "/insurance/reports/renewal-retention" },
       { id: "ins-claims-register", label: "Claims Register", icon: <BarChart fontSize="small" />, to: "/insurance/reports/claims-register" },
       { id: "ins-claims-ageing", label: "Claims Ageing", icon: <BarChart fontSize="small" />, to: "/insurance/reports/claims-ageing" },

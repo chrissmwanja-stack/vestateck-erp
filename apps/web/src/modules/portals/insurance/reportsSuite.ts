@@ -520,3 +520,38 @@ export const STATUTORY_EXCEPTION_LABEL: Record<StatutoryExceptionLine['check_nam
   allocation: 'Charge allocations differ from the booked pass-through',
   ledger: 'Bind journal differs from the insurer payable amounts',
 };
+
+// ---- Insurer performance ----
+
+export interface InsurerPerformanceLine {
+  insurer_id: string;
+  insurer_name: string | null;
+  currency: string;
+  policy_count: number;
+  cancelled_policy_count: number;
+  premium_placed: number;
+  commission: number;
+  commission_pct: number | null;
+  claim_count: number;
+  open_claim_count: number;
+  claims_paid: number;
+  claims_outstanding: number;
+  claims_incurred: number;
+  loss_ratio_pct: number | null;
+}
+
+export const INSURER_PERFORMANCE_COLUMNS: ReportExportColumn<InsurerPerformanceLine>[] = [
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Policies', accessor: (r) => Number(r.policy_count), align: 'right' },
+  { header: 'Cancelled policies', accessor: (r) => Number(r.cancelled_policy_count), align: 'right' },
+  { header: 'Premium placed', accessor: (r) => Number(r.premium_placed), align: 'right' },
+  { header: 'Commission', accessor: (r) => Number(r.commission), align: 'right' },
+  { header: 'Commission %', accessor: (r) => formatPct(r.commission_pct), align: 'right' },
+  { header: 'Claims', accessor: (r) => Number(r.claim_count), align: 'right' },
+  { header: 'Open claims', accessor: (r) => Number(r.open_claim_count), align: 'right' },
+  { header: 'Claims paid', accessor: (r) => Number(r.claims_paid), align: 'right' },
+  { header: 'Claims outstanding', accessor: (r) => Number(r.claims_outstanding), align: 'right' },
+  { header: 'Claims incurred', accessor: (r) => Number(r.claims_incurred), align: 'right' },
+  { header: 'Loss ratio', accessor: (r) => formatPct(r.loss_ratio_pct), align: 'right' },
+];
