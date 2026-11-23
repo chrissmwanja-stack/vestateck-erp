@@ -3,6 +3,7 @@ import {
   Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack,
   Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import { businessLocalInputOf } from '../../../../../lib/businessDate';
 import { errorText, rows, rpc, table } from '../../db';
 import { EmptyRow, ErrorBanner } from '../../shared';
 
@@ -74,7 +75,7 @@ export default function ClaimCorrespondence({ claimId }: { claimId: string }) {
             {items.length === 0 && <EmptyRow colSpan={5} text="No correspondence logged." />}
             {items.map((c) => (
               <TableRow key={c.id}>
-                <TableCell>{c.occurred_at.slice(0, 16).replace('T', ' ')}</TableCell>
+                <TableCell>{businessLocalInputOf(c.occurred_at).replace('T', ' ')}</TableCell>
                 <TableCell><Chip size="small" label={c.direction === 'in' ? 'in' : 'out'}
                   color={c.direction === 'in' ? 'info' : 'default'} /></TableCell>
                 <TableCell>{c.channel}</TableCell>

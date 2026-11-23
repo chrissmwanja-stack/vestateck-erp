@@ -77,10 +77,9 @@ describe('ClaimCorrespondence: display', () => {
     expect(screen.getAllByRole('row').slice(1)[0]).toBe(row1); // order as returned (newest first)
   });
 
-  // KNOWN GAP (DR-46): the time is cut from the UTC string, so an entry logged at 22:30 UTC shows
-  // the previous day. The platform business day is Africa/Kampala (UTC+3); the fix is
-  // businessLocalInputOf() from lib/businessDate. Remove `.fails` when it is fixed.
-  it.fails('shows the time on the Kampala business clock', async () => {
+  // DR-46: the platform business day is Africa/Kampala (UTC+3), so an entry logged at 22:30 UTC
+  // belongs to the next day and must show as 01:30 there, not as the UTC day and time.
+  it('shows the time on the Kampala business clock', async () => {
     items = [{ id: '1', direction: 'in', channel: 'email', subject: 'Late call', body: null, reference: null, occurred_at: '2026-06-12T22:30:00Z' }];
     renderLog();
     await screen.findByText('Late call');

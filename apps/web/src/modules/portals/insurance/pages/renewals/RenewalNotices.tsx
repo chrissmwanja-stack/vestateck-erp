@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useInsuranceAccess } from '../../access';
+import { businessDateOf } from '../../../../../lib/businessDate';
 import { errorText, rows, rpc, table } from '../../db';
 import { EmptyRow, ErrorBanner, PageHeader } from '../../shared';
 
@@ -143,7 +144,7 @@ export default function RenewalNotices() {
                       <Chip size="small" label={n.status} color={n.status === 'sent' ? 'success' : 'default'} />
                     </TableCell>
                     <TableCell>{n.channel}</TableCell>
-                    <TableCell>{n.sent_at ? n.sent_at.slice(0, 10) : '—'}</TableCell>
+                    <TableCell>{n.sent_at ? businessDateOf(n.sent_at) : '—'}</TableCell>
                     <TableCell align="right">
                       {n.status === 'draft' && canManage && (
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
