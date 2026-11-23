@@ -555,3 +555,22 @@ export const INSURER_PERFORMANCE_COLUMNS: ReportExportColumn<InsurerPerformanceL
   { header: 'Claims incurred', accessor: (r) => Number(r.claims_incurred), align: 'right' },
   { header: 'Loss ratio', accessor: (r) => formatPct(r.loss_ratio_pct), align: 'right' },
 ];
+
+// ---- Dashboard summary ----
+
+export interface DashboardSummaryLine {
+  currency: string;
+  policy_count: number;
+  gross_written: number;
+  endorsements: number;
+  cancellations: number;
+  reversals: number;
+  net_written: number;
+  /** Null when the company has no commission income posting rule yet. */
+  commission_earned: number | null;
+  premium_collected: number;
+  outstanding_premium: number;
+  overdue_premium: number;
+  open_claim_count: number;
+  claims_outstanding: number;
+}
