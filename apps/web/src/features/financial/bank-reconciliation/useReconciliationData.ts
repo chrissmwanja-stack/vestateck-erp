@@ -255,7 +255,11 @@ export function useReconciliationData(bankAccount: string, dateFrom: string, dat
       setPositionError(null);
     }
 
-    setSelectedStatementLine(null);
+    // load() re-runs when the bank registry resolves (resolvedAccountId changes),
+    // which can land right after the user has picked a line. Keep the selection
+    // when that line is still on the list; only drop it if it is gone.
+    const loadedLineIds = new Set(((lines ?? []) as StatementLine[]).map((l) => l.id));
+    setSelectedStatementLine((prev) => (prev && !firstError && loadedLineIds.has(prev) ? prev : null));
     setSelectedBook(null);
     setLoading(false);
   }, [bankAccount, dateFrom, dateTo, resolvedAccountId]);

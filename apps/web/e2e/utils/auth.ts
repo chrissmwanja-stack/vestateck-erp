@@ -54,19 +54,42 @@ function passwordFor(key: TestAccountKey): string {
 /** Logs in as a seeded test account and waits for the app shell to load. */
 export async function loginAs(page: Page, key: TestAccountKey) {
   const account = TEST_ACCOUNTS[key];
+  const password = page.getByLabel('Password', { exact: true });
+  const signOut = page.getByRole('button', { name: 'Sign out' });
+
   await page.goto('/login');
-  await page.getByLabel('Email').fill(account.email);
-  await page.getByLabel('Password', { exact: true }).fill(passwordFor(key));
+
+  // LoginPage forwards straight into the app when a session is still in
+  // storage (it checks getSession on mount). If a previous user's session
+  // survived the reload, the form is replaced mid-fill and the test would
+  // otherwise sit on a Password field that never comes back until the whole
+  // test times out. Detect that state, sign out, and carry on.
+  await expect(password.or(signOut)).toBeVisible({ timeout: 15_000 });
+  if (await signOut.isVisible()) {
+    await signOut.click();
+    await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10_000 });
+    await page.goto('/login');
+  }
+
+  await page.getByLabel('Email').fill(account.email, { timeout: 15_000 });
+  await password.fill(passwordFor(key), { timeout: 15_000 });
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   // Post-login redirect target varies by role's default route, so just
   // wait for the login form to disappear and the top-bar sign-out control
   // (present on every authenticated route) to appear.
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+  await expect(signOut).toBeVisible({ timeout: 15_000 });
 }
 
 /** Signs out and waits for the login form to come back. */
 export async function logout(page: Page) {
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10_000 });
+  // Make sure the persisted Supabase session is really gone before anything
+  // reloads the page; otherwise the next /login load can bounce into the app.
+  await page.waitForFunction(
+    () => !Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token')),
+    undefined,
+    { timeout: 10_000 },
+  );
 }

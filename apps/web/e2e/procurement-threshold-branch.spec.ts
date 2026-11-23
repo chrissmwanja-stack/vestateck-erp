@@ -24,6 +24,9 @@ import { loginAs, logout } from './utils/auth';
  */
 test.describe('Procurement threshold branch (>5M)', () => {
   test('a high-value request routes through PM and GM before Finance', async ({ page }) => {
+    // ~10 logins and 7 approval hops: the happy path alone takes ~40s, so this
+  // branch needs more than the 60s default.
+  test.setTimeout(180_000);
     const marker = `E2E threshold ${Date.now()}`;
 
     await test.step('Cost Control Engineer submits a request', async () => {
