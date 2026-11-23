@@ -85,6 +85,7 @@ export default function InsurerStatements() {
 
   const showRecon = async (id: string) => {
     setReconId(id);
+    setRecon([]); // never leave another statement's lines under this one if the load fails
     setError(null);
     try {
       setRecon(await rpc<ReconRow[]>('ins_insurer_statement_reconciliation', { p_statement_id: id }));

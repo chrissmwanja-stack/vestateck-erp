@@ -56,6 +56,7 @@ export default function RisksList() {
   const validation = clientId && lineId ? validateRisk(form, selectedLine) : 'Choose a client and a product line.';
 
   const save = async () => {
+    const isVehicle = form.riskType === 'vehicle';
     setSaving(true);
     setError(null);
     try {
@@ -64,11 +65,13 @@ export default function RisksList() {
         p_product_line_id: lineId,
         p_risk_type: form.riskType,
         p_description: form.description.trim(),
-        p_reg_no: form.regNo || null,
-        p_chassis_no: form.chassisNo || null,
-        p_engine_no: form.engineNo || null,
-        p_make: form.make || null,
-        p_model: form.model || null,
+        // The vehicle fields are hidden for other risk types, so anything typed in them before the
+        // type was changed must not be sent.
+        p_reg_no: isVehicle ? form.regNo || null : null,
+        p_chassis_no: isVehicle ? form.chassisNo || null : null,
+        p_engine_no: isVehicle ? form.engineNo || null : null,
+        p_make: isVehicle ? form.make || null : null,
+        p_model: isVehicle ? form.model || null : null,
         p_year_made: form.yearMade ? Number(form.yearMade) : null,
         p_sum_insured: form.sumInsured ? Number(form.sumInsured) : 0,
       });
