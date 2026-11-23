@@ -16,7 +16,7 @@ import { formatMoney } from '../../logic';
 // - Revising the reserve goes through ins_revise_claim_reserve and mirrors its client-side checks.
 // - The page shows the reserve, approval and status histories, and reloads after any change.
 //
-// ClaimDocuments and ClaimPayments have their own tests; they are stubbed here.
+// ClaimDocuments, ClaimCorrespondence and ClaimPayments have their own tests; they are stubbed here.
 
 const mockFrom = vi.fn();
 const mockRpc = vi.fn();
@@ -34,6 +34,7 @@ vi.mock('../../access', () => ({
   useInsuranceAccess: () => ({ loading: false, canManage: mockCanManage }),
 }));
 vi.mock('./ClaimDocuments', () => ({ default: ({ claimId }: { claimId: string }) => <div>DOCS:{claimId}</div> }));
+vi.mock('./ClaimCorrespondence', () => ({ default: ({ claimId }: { claimId: string }) => <div>CORRESPONDENCE:{claimId}</div> }));
 vi.mock('./ClaimPayments', () => ({
   default: ({ claim, canManage, onChanged }: { claim: { id: string }; canManage: boolean; onChanged: () => void }) => (
     <div>
@@ -126,6 +127,7 @@ describe('ClaimDetail: display', () => {
     expect(rowValue('Approved')).toBe(formatMoney(4_000_000, 'UGX'));
     expect(rowValue('Paid to the client')).toBe(formatMoney(1_000_000, 'UGX'));
     expect(screen.getByText('DOCS:c1')).toBeTruthy();
+    expect(screen.getByText('CORRESPONDENCE:c1')).toBeTruthy(); // the correspondence log is reachable from the claim
     expect(screen.getByText('PAYMENTS:c1:true')).toBeTruthy();
   });
 
@@ -145,13 +147,13 @@ describe('ClaimDetail: display', () => {
     expect(stepButtons()).toEqual([]);
   });
 
-  it('treats a failed load as not found and offers no actions', async () => {
-    // Known gap: the real error text is set but the not-found branch renders without the error
-    // banner, so a network or permission failure is reported as "not found".
+  it('shows the real error, not "not found", when the claim cannot be loaded, and offers no actions', async () => {
     claimError = { message: 'permission denied for table ins_claims' };
     renderDetail();
-    expect(await screen.findByText('Claim not found, or you do not have access to it.')).toBeTruthy();
+    expect(await screen.findByText('permission denied for table ins_claims')).toBeTruthy();
+    expect(screen.queryByText('Claim not found, or you do not have access to it.')).toBeNull();
     expect(stepButtons()).toEqual([]);
+    expect(screen.queryByText(/^DOCS:/)).toBeNull();
     expect(mockRpc).not.toHaveBeenCalled();
   });
 

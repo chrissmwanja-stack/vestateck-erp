@@ -14,6 +14,7 @@ import {
 import type { Claim, ClaimApprovalEntry, ClaimEvent, ClaimReserveEntry, ClaimStatus } from '../../types';
 import { ClaimStatusChip, ErrorBanner, PageHeader } from '../../shared';
 import ClaimPayments from './ClaimPayments';
+import ClaimCorrespondence from './ClaimCorrespondence';
 import ClaimDocuments from './ClaimDocuments';
 
 // Each transition the UI can offer and what it needs from the user.
@@ -127,7 +128,13 @@ export default function ClaimDetail() {
   };
 
   if (loading) return <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
-  if (!claim) return <Box sx={{ p: 3 }}><Alert severity="warning">Claim not found, or you do not have access to it.</Alert></Box>;
+  if (!claim) {
+    return (
+      <Box sx={{ p: 3 }}>
+        {error ? <ErrorBanner message={error} /> : <Alert severity="warning">Claim not found, or you do not have access to it.</Alert>}
+      </Box>
+    );
+  }
 
   const currency = claim.ins_policies?.currency ?? 'UGX';
   const approvalBlocked = isClaimApprovalBlockedFor(claim, userId);
@@ -201,6 +208,7 @@ export default function ClaimDetail() {
 
       <ClaimDocuments claimId={claim.id} />
         <ClaimPayments claim={claim} currency={currency} canManage={canManage} onChanged={load} />
+      <ClaimCorrespondence claimId={claim.id} />
 
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Reserve history</Typography>
       <Card variant="outlined">
