@@ -19769,6 +19769,24 @@ export type Database = {
         Args: { p_policy_ids: string[] }
         Returns: Json
       }
+      ins_dashboard_summary: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          cancellations: number
+          claims_outstanding: number
+          commission_earned: number
+          currency: string
+          endorsements: number
+          gross_written: number
+          net_written: number
+          open_claim_count: number
+          outstanding_premium: number
+          overdue_premium: number
+          policy_count: number
+          premium_collected: number
+          reversals: number
+        }[]
+      }
       ins_decide_cancellation_cash: {
         Args: { p_decision: string; p_reason: string; p_request_id: string }
         Returns: {
