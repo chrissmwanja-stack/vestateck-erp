@@ -413,3 +413,145 @@ export const renewalRetentionColumns = (groupHeader: string): ReportExportColumn
   { header: 'Retention (count)', accessor: (r) => formatPct(r.retention_count_pct), align: 'right' },
   { header: 'Retention (premium)', accessor: (r) => formatPct(r.retention_premium_pct), align: 'right' },
 ];
+
+// ---- Statutory charges: summary, trace and reconciliation exceptions ----
+
+export type StatutoryGroupBy = 'charge' | 'insurer' | 'month' | 'client';
+
+export const STATUTORY_GROUPS: { value: StatutoryGroupBy; label: string }[] = [
+  { value: 'charge', label: 'Charge' },
+  { value: 'insurer', label: 'Insurer' },
+  { value: 'month', label: 'Month bound' },
+  { value: 'client', label: 'Client' },
+];
+
+export const statutoryGroupLabel = (g: StatutoryGroupBy): string => STATUTORY_GROUPS.find((x) => x.value === g)?.label ?? g;
+
+export interface StatutoryChargeLine {
+  group_key: string;
+  group_label: string;
+  currency: string;
+  policy_count: number;
+  assessed: number;
+  collected: number;
+  uncollected: number;
+  remitted: number;
+  held_unremitted: number;
+  remitter: 'insurer' | 'brokerage' | 'mixed';
+}
+
+export const REMITTER_LABEL: Record<StatutoryChargeLine['remitter'], string> = {
+  insurer: 'Insurer remits',
+  brokerage: 'Brokerage remits',
+  mixed: 'Mixed',
+};
+
+export const statutoryChargeColumns = (groupHeader: string): ReportExportColumn<StatutoryChargeLine>[] => [
+  { header: groupHeader, accessor: (r) => r.group_label },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Policies', accessor: (r) => Number(r.policy_count), align: 'right' },
+  { header: 'Assessed', accessor: (r) => Number(r.assessed), align: 'right' },
+  { header: 'Collected (pro rata)', accessor: (r) => Number(r.collected), align: 'right' },
+  { header: 'Not yet collected', accessor: (r) => Number(r.uncollected), align: 'right' },
+  { header: 'Remitted to insurer (pro rata)', accessor: (r) => Number(r.remitted), align: 'right' },
+  { header: 'Collected, not yet remitted', accessor: (r) => Number(r.held_unremitted), align: 'right' },
+  { header: 'Remitted to authority by', accessor: (r) => REMITTER_LABEL[r.remitter] ?? r.remitter },
+];
+
+export type StatutoryStage = 'assessed' | 'collected' | 'remitted';
+
+export const STATUTORY_STAGE_LABEL: Record<StatutoryStage, string> = {
+  assessed: 'Assessed',
+  collected: 'Collected',
+  remitted: 'Remitted to insurer',
+};
+
+export interface StatutoryTraceLine {
+  stage: StatutoryStage;
+  cohort_month: string;
+  policy_id: string;
+  policy_no: string;
+  client_name: string | null;
+  policy_status: string;
+  insurer_id: string;
+  insurer_name: string | null;
+  charge_id: string;
+  charge_code: string;
+  charge_name: string | null;
+  charge_class: string | null;
+  collector: string | null;
+  recipient_name: string | null;
+  payable_role: string | null;
+  currency: string;
+  event_date: string;
+  settlement_id: string | null;
+  settlement_no: string | null;
+  amount: number;
+  basis: string;
+}
+
+export const STATUTORY_TRACE_COLUMNS: ReportExportColumn<StatutoryTraceLine>[] = [
+  { header: 'Stage', accessor: (r) => STATUTORY_STAGE_LABEL[r.stage] ?? r.stage },
+  { header: 'Policy', accessor: (r) => r.policy_no },
+  { header: 'Policy status', accessor: (r) => r.policy_status },
+  { header: 'Client', accessor: (r) => r.client_name ?? '-' },
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Charge', accessor: (r) => r.charge_code },
+  { header: 'Recipient', accessor: (r) => r.recipient_name ?? '-' },
+  { header: 'Collector', accessor: (r) => r.collector ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Date', accessor: (r) => r.event_date },
+  { header: 'Settlement', accessor: (r) => r.settlement_no ?? '' },
+  { header: 'Amount', accessor: (r) => Number(r.amount), align: 'right' },
+  { header: 'Basis', accessor: (r) => r.basis },
+];
+
+export interface StatutoryExceptionLine {
+  check_name: 'allocation' | 'ledger';
+  policy_id: string;
+  policy_no: string;
+  insurer_name: string | null;
+  recorded_amount: number;
+  booked_amount: number;
+  difference: number;
+}
+
+export const STATUTORY_EXCEPTION_LABEL: Record<StatutoryExceptionLine['check_name'], string> = {
+  allocation: 'Charge allocations differ from the booked pass-through',
+  ledger: 'Bind journal differs from the insurer payable amounts',
+};
+
+// ---- Insurer performance ----
+
+export interface InsurerPerformanceLine {
+  insurer_id: string;
+  insurer_name: string | null;
+  currency: string;
+  policy_count: number;
+  cancelled_policy_count: number;
+  premium_placed: number;
+  commission: number;
+  commission_pct: number | null;
+  claim_count: number;
+  open_claim_count: number;
+  claims_paid: number;
+  claims_outstanding: number;
+  claims_incurred: number;
+  loss_ratio_pct: number | null;
+}
+
+export const INSURER_PERFORMANCE_COLUMNS: ReportExportColumn<InsurerPerformanceLine>[] = [
+  { header: 'Insurer', accessor: (r) => r.insurer_name ?? '-' },
+  { header: 'Currency', accessor: (r) => r.currency },
+  { header: 'Policies', accessor: (r) => Number(r.policy_count), align: 'right' },
+  { header: 'Cancelled policies', accessor: (r) => Number(r.cancelled_policy_count), align: 'right' },
+  { header: 'Premium placed', accessor: (r) => Number(r.premium_placed), align: 'right' },
+  { header: 'Commission', accessor: (r) => Number(r.commission), align: 'right' },
+  { header: 'Commission %', accessor: (r) => formatPct(r.commission_pct), align: 'right' },
+  { header: 'Claims', accessor: (r) => Number(r.claim_count), align: 'right' },
+  { header: 'Open claims', accessor: (r) => Number(r.open_claim_count), align: 'right' },
+  { header: 'Claims paid', accessor: (r) => Number(r.claims_paid), align: 'right' },
+  { header: 'Claims outstanding', accessor: (r) => Number(r.claims_outstanding), align: 'right' },
+  { header: 'Claims incurred', accessor: (r) => Number(r.claims_incurred), align: 'right' },
+  { header: 'Loss ratio', accessor: (r) => formatPct(r.loss_ratio_pct), align: 'right' },
+];

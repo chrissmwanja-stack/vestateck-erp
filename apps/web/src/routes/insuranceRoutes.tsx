@@ -46,6 +46,8 @@ const CommissionReceivable = lazy(() => import('../modules/portals/insurance/pag
 const CancellationsReport = lazy(() => import('../modules/portals/insurance/pages/reports/CancellationsReport'));
 const CancellationRegister = lazy(() => import('../modules/portals/insurance/pages/reports/CancellationRegister'));
 const RenewalsReport = lazy(() => import('../modules/portals/insurance/pages/reports/RenewalsReport'));
+const StatutoryChargesReport = lazy(() => import('../modules/portals/insurance/pages/reports/StatutoryChargesReport'));
+const InsurerPerformance = lazy(() => import('../modules/portals/insurance/pages/reports/InsurerPerformance'));
 const RenewalRetention = lazy(() => import('../modules/portals/insurance/pages/reports/RenewalRetention'));
 const ClaimsRegister = lazy(() => import('../modules/portals/insurance/pages/reports/ClaimsRegister'));
 const ClaimsAgeing = lazy(() => import('../modules/portals/insurance/pages/reports/ClaimsAgeing'));
@@ -103,6 +105,8 @@ export const insuranceRoutes = (
       <Route path="/insurance/reports/cancellations" element={<CancellationsReport />} />
       <Route path="/insurance/reports/cancellation-register" element={<CancellationRegister />} />
       <Route path="/insurance/reports/renewals" element={<RenewalsReport />} />
+      <Route path="/insurance/reports/statutory-charges" element={<StatutoryChargesReport />} />
+      <Route path="/insurance/reports/insurer-performance" element={<InsurerPerformance />} />
       <Route path="/insurance/reports/renewal-retention" element={<RenewalRetention />} />
       <Route path="/insurance/reports/claims-register" element={<ClaimsRegister />} />
       <Route path="/insurance/reports/claims-ageing" element={<ClaimsAgeing />} />

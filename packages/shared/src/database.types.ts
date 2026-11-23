@@ -8678,6 +8678,105 @@ export type Database = {
           },
         ]
       }
+      ins_policy_charge_allocations: {
+        Row: {
+          amount: number
+          charge_id: string
+          created_at: string
+          currency: string
+          id: string
+          insurer_id: string
+          insurer_share_id: string
+          journal_entry_id: string | null
+          policy_id: string
+          source: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          charge_id: string
+          created_at?: string
+          currency: string
+          id?: string
+          insurer_id: string
+          insurer_share_id: string
+          journal_entry_id?: string | null
+          policy_id: string
+          source: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          charge_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          insurer_id?: string
+          insurer_share_id?: string
+          journal_entry_id?: string | null
+          policy_id?: string
+          source?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_policy_charge_allocations_charge_id_fkey"
+            columns: ["charge_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_insurer_share_id_fkey"
+            columns: ["insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["insurer_share_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_insurer_share_id_fkey"
+            columns: ["insurer_share_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_insurer_shares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_policy_charge_allocations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_policy_charges: {
         Row: {
           amount: number | null
@@ -19366,6 +19465,15 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_charge_allocation_replay: {
+        Args: { p_policy_id: string }
+        Returns: {
+          amount: number
+          charge_id: string
+          insurer_id: string
+          insurer_share_id: string
+        }[]
+      }
       ins_charge_formula_valid: { Args: { p_formula: Json }; Returns: boolean }
       ins_claim_apply_payment_totals: {
         Args: { p_claim_id: string; p_note: string }
@@ -20768,6 +20876,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_record_charge_allocations: {
+        Args: { p_policy_id: string; p_source?: string }
+        Returns: number
+      }
       ins_record_claim_payment: {
         Args: {
           p_amount: number
@@ -21097,6 +21209,25 @@ export type Database = {
           received: number
         }[]
       }
+      ins_report_insurer_performance: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          cancelled_policy_count: number
+          claim_count: number
+          claims_incurred: number
+          claims_outstanding: number
+          claims_paid: number
+          commission: number
+          commission_pct: number
+          currency: string
+          insurer_id: string
+          insurer_name: string
+          loss_ratio_pct: number
+          open_claim_count: number
+          policy_count: number
+          premium_placed: number
+        }[]
+      }
       ins_report_outstanding_premium: {
         Args: { p_as_of?: string }
         Returns: {
@@ -21192,6 +21323,70 @@ export type Database = {
           renewal_policy_id: string
           renewal_policy_no: string
           renewal_premium: number
+        }[]
+      }
+      ins_report_statutory_charge_exceptions: {
+        Args: { p_from: string; p_include_imported?: boolean; p_to: string }
+        Returns: {
+          booked_amount: number
+          check_name: string
+          difference: number
+          insurer_name: string
+          policy_id: string
+          policy_no: string
+          recorded_amount: number
+        }[]
+      }
+      ins_report_statutory_charge_trace: {
+        Args: {
+          p_from: string
+          p_include_imported?: boolean
+          p_include_manual?: boolean
+          p_to: string
+        }
+        Returns: {
+          amount: number
+          basis: string
+          charge_class: string
+          charge_code: string
+          charge_id: string
+          charge_name: string
+          client_name: string
+          cohort_month: string
+          collector: string
+          currency: string
+          event_date: string
+          insurer_id: string
+          insurer_name: string
+          payable_role: string
+          policy_id: string
+          policy_no: string
+          policy_status: string
+          recipient_name: string
+          settlement_id: string
+          settlement_no: string
+          stage: string
+        }[]
+      }
+      ins_report_statutory_charges: {
+        Args: {
+          p_from: string
+          p_group_by?: string
+          p_include_imported?: boolean
+          p_include_manual?: boolean
+          p_to: string
+        }
+        Returns: {
+          assessed: number
+          collected: number
+          currency: string
+          group_key: string
+          group_label: string
+          held_unremitted: number
+          policy_count: number
+          remitted: number
+          remitter: string
+          uncollected: number
         }[]
       }
       ins_reverse_policy: {
