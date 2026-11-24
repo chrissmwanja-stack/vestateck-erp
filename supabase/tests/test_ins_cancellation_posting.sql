@@ -4,7 +4,8 @@
 begin;
 
 create or replace function pg_temp.seed_commission_terms() returns void
-language sql security definer set search_path = public, auth, pg_temp as $$
+language plpgsql security definer set search_path = public, auth, pg_temp as $$
+begin
   insert into public.ins_insurer_commission_terms
     (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
      proposed_by, approved_by, approved_at)
@@ -18,7 +19,26 @@ language sql security definer set search_path = public, auth, pg_temp as $$
      select 1 from public.ins_insurer_commission_terms t
       where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
    );
-$$;
+  perform set_config('acct.via_rpc', 'on', true);
+  insert into public.company_accounting_settings
+    (tenant_id, setting_key, value, effective_from, rationale, status, review_status)
+  select distinct i.tenant_id, 'ins.client_money_position_test', 'permissive', date '2000-01-01',
+         'test fixture: per-policy balance test', 'draft', 'unreviewed'
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.company_accounting_settings s
+      where s.tenant_id = i.tenant_id and s.setting_key = 'ins.client_money_position_test'
+   ) and not exists (
+     select 1 from public.journal_entries je
+      where je.tenant_id = i.tenant_id
+   );
+  update public.company_accounting_settings
+     set status = 'approved',
+         approved_by = (select id from auth.users order by id limit 1),
+         approved_at = now()
+   where setting_key = 'ins.client_money_position_test' and status = 'draft';
+  perform set_config('acct.via_rpc', 'off', true);
+end $$;
 
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.

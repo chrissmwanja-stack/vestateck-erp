@@ -66,7 +66,11 @@ const CommissionPage = () => {
       setPosition(pos[0] ?? { unearned_amount: 0, earned_in_client_money: 0, transferred_amount: 0 });
       setTransfers(trs);
       setInsurers(Object.fromEntries(ins.map((i) => [i.id, i.name])));
-      setSelected(new Set());
+      // Keep the user's selection across a reload (React StrictMode in dev runs the mount
+      // effect twice, and a slow second load used to wipe a selection made in between).
+      // Only drop entries that are gone or no longer transferable, e.g. after a transfer.
+      const stillTransferable = new Set(ledger.filter(isTransferable).map((e) => e.id));
+      setSelected((prev) => new Set([...prev].filter((id) => stillTransferable.has(id))));
       setError(null);
     } catch (e) {
       setError(errorText(e));

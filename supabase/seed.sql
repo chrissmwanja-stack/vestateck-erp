@@ -881,6 +881,24 @@ begin
   select id into v_ins_b from ins_insurers where tenant_id = v_t and code = 'NIL';
   select id into v_ins_c from ins_insurers where tenant_id = v_t and code = 'EQT';
 
+  -- Client-money position test: UAT/e2e tenant runs it PERMISSIVE.
+  -- The seed binds policies 1-3 (tens of millions UGX) with no premium collected, so
+  -- their insurer payables dwarf the client money held and every commission transfer
+  -- would be refused as a shortage (INS_TRANSFER_SHORTAGE). Every insurance test
+  -- fixture neutralises the control the same way. This is a test-data choice, not a
+  -- recommendation: production companies keep the 'enforce' default, and changing it
+  -- there needs two approvers (ACCOUNTANT_PACK B9). It must be approved BEFORE the
+  -- binds below, because an effective date cannot precede a posted journal entry.
+  perform set_config('acct.via_rpc', 'on', true);
+  insert into company_accounting_settings
+    (tenant_id, setting_key, value, effective_from, rationale, status, review_status)
+  values (v_t, 'ins.client_money_position_test', 'permissive', date '2000-01-01',
+          'seed: UAT tenant binds uncollected policies', 'draft', 'unreviewed');
+  update company_accounting_settings
+     set status = 'approved', approved_by = v_u_admin, approved_at = now()
+   where tenant_id = v_t and setting_key = 'ins.client_money_position_test' and status = 'draft';
+  perform set_config('acct.via_rpc', 'off', true);
+
   insert into ins_product_lines (tenant_id, code, name) values
     (v_t, 'MOTOR', 'Motor Fleet'),
     (v_t, 'PROP',  'Commercial Property'),
