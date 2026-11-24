@@ -315,7 +315,10 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §6 an amount limit, when the company configures one (pack 10.2 / 11)
 -- ---------------------------------------------------------------------
@@ -417,6 +420,9 @@ begin
   raise notice 'PASS: §7 the per-user ceiling refuses a signature above it';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: manual journals cannot be unbalanced, self-approved, or posted to a control account without a resolving subledger reference, and they cannot be edited after posting';

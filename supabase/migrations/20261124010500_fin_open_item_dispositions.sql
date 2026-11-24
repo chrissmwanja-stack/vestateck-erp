@@ -219,6 +219,10 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_claim_status text;
+>>>>>>> theirs
 =======
   v_claim_status text;
 >>>>>>> theirs
@@ -348,7 +352,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -375,6 +382,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -445,12 +455,15 @@ create or replace function public.ins_write_off_claim(
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   p_expense_gl_account_id uuid,
 <<<<<<< ours
   p_reason text
 =======
   p_reason text,
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -463,6 +476,9 @@ create or replace function public.ins_write_off_claim(
   p_reason text default null,
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -478,6 +494,9 @@ create or replace function public.ins_write_off_claim(
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -499,8 +518,13 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   v_ins_item fin_open_items%rowtype;
+>>>>>>> theirs
+=======
+  v_ins_item fin_open_items%rowtype;
+  v_contra  uuid;
 >>>>>>> theirs
 =======
   v_ins_item fin_open_items%rowtype;
@@ -534,11 +558,14 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select * into v_gl from gl_accounts
    where id = p_expense_gl_account_id and tenant_id = v_tenant;
   if not found then
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', p_expense_gl_account_id;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -561,6 +588,9 @@ begin
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -601,6 +631,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
@@ -608,6 +639,8 @@ begin
   values (v_tenant, v_claim.id, v_claim.status, v_claim.status,
           'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -637,6 +670,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -653,8 +689,13 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
+>>>>>>> theirs
 =======
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;

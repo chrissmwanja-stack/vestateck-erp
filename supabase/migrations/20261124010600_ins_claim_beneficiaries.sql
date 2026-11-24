@@ -235,7 +235,10 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -246,6 +249,9 @@ declare
   v_ccy     text;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -267,6 +273,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 >>>>>>> theirs
@@ -315,7 +325,11 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
            then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
+=======
+           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
+>>>>>>> theirs
 =======
            then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
 >>>>>>> theirs
@@ -503,6 +517,10 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_ccy    text;
+>>>>>>> theirs
 =======
   v_ccy    text;
 >>>>>>> theirs
@@ -528,6 +546,11 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
@@ -573,7 +596,11 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       (v_elem ->> 'amount')::numeric, v_claim.currency,
+=======
+      (v_elem ->> 'amount')::numeric, v_ccy,
+>>>>>>> theirs
 =======
       (v_elem ->> 'amount')::numeric, v_ccy,
 >>>>>>> theirs

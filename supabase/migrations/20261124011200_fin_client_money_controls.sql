@@ -125,11 +125,29 @@ begin
        and bal.outstanding_amount > 0
      group by i.currency
   )
+<<<<<<< ours
   select currency, client_money, client_refunds, insurer_payable, claim_payable,
          client_money - client_refunds - insurer_payable - claim_payable
     from (
 <<<<<<< ours
 <<<<<<< ours
+=======
+  -- THIS list is the one that must qualify. Every name here is also an OUT parameter of
+  -- this function, and PostgreSQL raises 42702 'column reference is ambiguous' for a bare
+  -- reference in a SELECT list -- measured, not assumed. An unqualified ORDER BY does not
+  -- raise, which is why the two lines look different; do not "tidy" this one.
+  select p.currency,
+         p.client_money,
+         p.client_refunds,
+         p.insurer_payable,
+         p.claim_payable,
+         p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
+    from (
+      -- Bare names here, and that is correct: this list DEFINES the columns, so there is
+      -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
+      -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
+      -- `client_money`; that name only comes into existence on this line.
+>>>>>>> theirs
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
              coalesce(o.client_refunds, 0) as client_refunds,
@@ -138,6 +156,7 @@ begin
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
+<<<<<<< ours
    order by currency;
 =======
 =======
@@ -162,6 +181,13 @@ begin
 <<<<<<< ours
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+   -- Qualified for consistency with the SELECT list. Measured on PostgreSQL: an unqualified
+   -- ORDER BY resolves to the output column and does NOT raise 42702, so this one is not
+   -- load-bearing -- but leaving the two lists looking different invites the next reader to
+   -- "tidy" the one that is.
+   order by p.currency;
 >>>>>>> theirs
 end $$;
 
@@ -356,6 +382,7 @@ declare
 begin
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
      where p_currency is null or currency = p_currency
@@ -370,6 +397,16 @@ begin
 <<<<<<< ours
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+  -- Aliased because `currency` is an OUT parameter of this function too, and inside a
+  -- FOR-over-query the OUT parameter takes precedence: verified on PostgreSQL that an
+  -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
+  -- not -- so the two places need different treatment, which is exactly why each is
+  -- commented separately rather than with one hand-wave about "ambiguous names".)
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
 >>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
@@ -500,6 +537,28 @@ begin
   if v_tenant is null then
     raise exception 'INS_FORBIDDEN: no company context' using errcode = '42501';
   end if;
+<<<<<<< ours
+=======
+
+  -- Serialise concurrent transfers before reading any position.
+  --
+  -- The shipped ins_transfer_earned_commission is a thin wrapper that took this lock and
+  -- then called platform_ins_transfer_before_cancellation_impl. This function replaces both
+  -- by inlining the body, so the lock has to be taken here. It was NOT: 20261121150000
+  -- re-issued the impl with only the entries-level lock, so between that migration and this
+  -- one, two transfers could each read a sufficient client-money position, both pass, and
+  -- together overdraw it. Ordering by p.id keeps two concurrent callers from deadlocking on
+  -- each other. Restored deliberately, not incidentally -- it is a behaviour change against
+  -- the impl as it ships today, and it is the behaviour the original wrapper documented.
+  perform p.id from ins_policies p
+   where p.tenant_id = v_tenant
+     and exists (select 1 from ins_commission_entries e
+                  where e.policy_id = p.id and e.status = 'earned'
+                    and (p_entry_ids is null or e.id = any (p_entry_ids)))
+   order by p.id
+     for update;
+
+>>>>>>> theirs
   if p_transfer_date is null or p_transfer_date > public.ins_local_today() + 1 then
     raise exception 'INS_TRANSFER_INPUT: the transfer date is required and cannot be in the future';
   end if;
@@ -529,6 +588,7 @@ begin
   v_ccy     := v_from.currency;
   v_foreign := v_ccy <> public.fin_ledger_currency(v_tenant);
 
+<<<<<<< ours
   -- The old guard's figure, kept because it is a different statement from the
   -- position test and both are worth making: this one says the account HOLDS the
   -- money, the position test says the money is free. Neither implies the other.
@@ -541,6 +601,8 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+=======
+>>>>>>> theirs
   select array_agg(e.id order by e.id), sum(e.amount), max(e.earned_on)
     into v_ids, v_total, v_max_date
     from ins_commission_entries e
@@ -566,6 +628,27 @@ begin
     raise exception 'INS_TRANSFER_DATE: the transfer date cannot be before commission was earned (%)', v_max_date;
   end if;
 
+<<<<<<< ours
+=======
+  -- The old guard's figure, kept because it is a different statement from the position
+  -- test and both are worth making: this one says the account HOLDS the money, the
+  -- position test says the money is free. Neither implies the other.
+  --
+  -- This must come AFTER the array_agg above, and did not, briefly. With v_total still
+  -- null the comparison `v_trust < v_total` evaluates to NULL, the IF is skipped, and
+  -- INS_TRANSFER_TRUST_SHORT becomes unreachable -- a control that reads as present and
+  -- can never fire. The shipped order was correct; moving the block "to the top, next to
+  -- the other bank checks" is what broke it. Do not move it again.
+  select coalesce(sum(l.debit - l.credit), 0) into v_trust
+    from journal_entry_lines l
+   where l.tenant_id = v_tenant and l.gl_account_id = v_from.gl_account_id
+     and l.currency = v_ccy;
+  if v_trust < coalesce(v_total, 0) then
+    raise exception 'INS_TRANSFER_TRUST_SHORT: client-money account % holds % in the ledger, less than the % to transfer',
+      v_from.name, v_trust, v_total;
+  end if;
+
+>>>>>>> theirs
   -- ---------------------------------------------------------------
   -- B9 (3): an open shortage blocks every transfer in that currency, including one
   -- that would not itself make things worse. The block is the point: while the
@@ -684,6 +767,16 @@ end $$;
 revoke all on function public.ins_transfer_earned_commission(uuid, uuid, date, uuid[], text) from public, anon;
 grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date, uuid[], text) to authenticated;
 
+<<<<<<< ours
+=======
+-- platform_ins_transfer_before_cancellation_impl is now unreferenced: the only caller was
+-- the wrapper above, whose body this function now contains. It is left in place rather than
+-- dropped -- dropping a function in a migration that other branches may still reference is a
+-- worse failure than an unused one -- but it is NOT live, and editing it will change nothing.
+-- Recorded here because a reader who finds it will otherwise reasonably assume it governs
+-- commission transfers. It is executable by service_role only.
+
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- 5. The daily cycle: who prepared it, who reviewed it, how many days missed
 -- ---------------------------------------------------------------------
