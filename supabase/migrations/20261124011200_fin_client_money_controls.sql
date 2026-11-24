@@ -125,8 +125,8 @@ begin
        and bal.outstanding_amount > 0
      group by i.currency
   )
-  select currency, client_money, client_refunds, insurer_payable, claim_payable,
-         client_money - client_refunds - insurer_payable - claim_payable
+  select p.currency, p.client_money, p.client_refunds, p.insurer_payable, p.claim_payable,
+         p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
     from (
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
@@ -136,7 +136,7 @@ begin
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
-   order by currency;
+   order by p.currency;
 end $$;
 
 revoke all on function public.platform_ins_client_money_position(uuid, date) from public;
@@ -329,8 +329,8 @@ declare
   v_inc  fin_client_money_incidents%rowtype;
 begin
   for v_pos in
-    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
-     where p_currency is null or currency = p_currency
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
     if v_pos.free_money < 0 then
@@ -341,9 +341,9 @@ begin
                            'claim_payable', v_pos.claim_payable));
     else
       v_inc := null;
-      select * into v_inc from fin_client_money_incidents
-       where tenant_id = v_tenant and currency = v_pos.currency
-         and kind = 'shortage' and status = 'open' limit 1;
+      select inc.* into v_inc from fin_client_money_incidents inc
+       where inc.tenant_id = v_tenant and inc.currency = v_pos.currency
+         and inc.kind = 'shortage' and inc.status = 'open' limit 1;
     end if;
 
     return query select v_pos.currency, v_pos.free_money,

@@ -80,7 +80,6 @@ declare
   v_line2      jsonb;
   v_date       date;
   v_n          integer := 0;
-  v_collected  numeric(18,2);
   v_target     numeric(18,2);
   v_delta      numeric(18,2);
 begin
@@ -128,18 +127,6 @@ begin
     if r.item_amount is null or r.item_amount <= 0 then
       raise exception 'INS_COMMISSION_PRORATA: premium item on % has no amount to pro-rate against', r.policy_no;
     end if;
-
-    -- Base currency leg: allocate the settlement to THIS receipt, so a receipt
-    -- that only partly allocates to this item still earns only its share.
-    select coalesce(sum(al2.amount), 0)
-      into v_collected
-      from public.fin_allocations al2
-     where al2.settlement_id = p_settlement_id
-       and al2.open_item_id in (
-         select i2.id from public.fin_open_items i2
-          where i2.source_type = 'ins_policy_premium'
-            and i2.source_id = (select i.policy_id from public.fin_open_items i where i.id = al2.open_item_id)
-       );
 
     -- The target is always computed from the item's total paid-to-date (not a
     -- per-receipt increment), which is what makes re-running this idempotent.

@@ -53,9 +53,9 @@ begin
                            'claim_payable', v_pos.claim_payable));
     else
       v_inc := null;
-      select * into v_inc from public.fin_client_money_incidents
-       where tenant_id = p_tenant_id and currency = v_pos.currency
-         and kind = 'shortage' and status = 'open' limit 1;
+      select inc.* into v_inc from public.fin_client_money_incidents inc
+       where inc.tenant_id = p_tenant_id and inc.currency = v_pos.currency
+         and inc.kind = 'shortage' and inc.status = 'open' limit 1;
     end if;
 
     return query select v_pos.currency, v_pos.free_money,

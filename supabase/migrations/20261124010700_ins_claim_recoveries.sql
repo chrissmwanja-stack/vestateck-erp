@@ -114,6 +114,7 @@ create or replace function public.ins_raise_claim_recovery(
 declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
+  v_ccy    text;
   v_gl     gl_accounts%rowtype;
   v_ar_gl  uuid;
   v_payer  accounts%rowtype;
@@ -149,6 +150,8 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
+  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 
   -- The payer must be a real account of this company. It is not defaulted to the
   -- claim's client: an insurer underpayment is not owed by the client.
@@ -194,16 +197,16 @@ begin
     v_tenant, 'ins_claim_recovery', v_claim.id, v_date, v_desc,
     jsonb_build_array(
       jsonb_build_object('gl_account_id', v_ar_gl, 'debit', p_amount,
-                         'currency', v_claim.currency, 'description', v_desc),
+                         'currency', v_ccy, 'description', v_desc),
       jsonb_build_object('gl_account_id', v_gl.id, 'credit', p_amount,
-                         'currency', v_claim.currency, 'description', v_desc)));
+                         'currency', v_ccy, 'description', v_desc)));
 
   insert into fin_open_items (
     tenant_id, party_account_id, side, control_role, source_type, source_id,
     document_no, document_date, due_date, currency, amount, description, created_by, journal_entry_id
   ) values (
     v_tenant, p_payer_party_account_id, 'receivable', 'ar_control', 'ins_claim_recovery', v_claim.id,
-    v_no, v_date, v_date, v_claim.currency, p_amount, btrim(p_reason), auth.uid(), v_je.id
+    v_no, v_date, v_date, v_ccy, p_amount, btrim(p_reason), auth.uid(), v_je.id
   )
   returning * into v_item;
 
@@ -211,7 +214,7 @@ begin
     tenant_id, recovery_no, claim_id, kind, payer_party_account_id, amount, currency,
     raised_on, status, open_item_id, journal_entry_id, credit_gl_account_id, reason, created_by
   ) values (
-    v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_claim.currency,
+    v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_ccy,
     v_date, 'outstanding', v_item.id, v_je.id, p_credit_gl_account_id, btrim(p_reason), auth.uid()
   )
   returning * into v_row;

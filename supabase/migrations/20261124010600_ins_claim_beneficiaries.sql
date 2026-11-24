@@ -233,6 +233,7 @@ create or replace function public.ins_set_claim_beneficiaries(
 declare
   v_tenant  uuid := get_my_tenant_id();
   v_claim   ins_claims%rowtype;
+  v_ccy    text;
   v_elem    jsonb;
   v_no      integer := 0;
   v_pct_total numeric := 0;
@@ -249,6 +250,8 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
+  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
   if v_claim.status in ('settled', 'closed', 'repudiated') then
     raise exception 'INS_CLAIM_STATE: the beneficiaries of a % claim cannot be changed', v_claim.status;
   end if;
@@ -282,7 +285,7 @@ begin
       nullif(v_elem ->> 'share_pct', '')::numeric,
       nullif(v_elem ->> 'fixed_amount', '')::numeric,
       case when nullif(v_elem ->> 'fixed_amount', '') is not null
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
+           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
       coalesce(nullif(v_elem ->> 'status', ''), 'payable'),
       nullif(btrim(coalesce(v_elem ->> 'held_reason', '')), ''),
       auth.uid()
@@ -458,6 +461,7 @@ create or replace function public.ins_schedule_claim_instalments(
 declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
+  v_ccy    text;
   v_elem   jsonb;
   v_no     integer := 0;
   v_sum    numeric := 0;
@@ -471,6 +475,8 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
+  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
   if v_claim.recognised_at is null then
     raise exception 'INS_CLAIM_NOT_RECOGNISED: recognise the claim before scheduling instalments against it';
   end if;
@@ -501,7 +507,7 @@ begin
       tenant_id, claim_id, instalment_no, expected_on, amount, currency, notes, created_by
     ) values (
       v_tenant, v_claim.id, v_no, (v_elem ->> 'expected_on')::date,
-      (v_elem ->> 'amount')::numeric, v_claim.currency,
+      (v_elem ->> 'amount')::numeric, v_ccy,
       nullif(btrim(coalesce(v_elem ->> 'notes', '')), ''), auth.uid()
     );
   end loop;
