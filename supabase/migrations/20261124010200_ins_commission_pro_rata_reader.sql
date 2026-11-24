@@ -82,6 +82,10 @@ declare
   v_n          integer := 0;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_collected  numeric(18,2);
+>>>>>>> theirs
 =======
   v_collected  numeric(18,2);
 >>>>>>> theirs
@@ -138,7 +142,10 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
     -- Base currency leg: allocate the settlement to THIS receipt, so a receipt
@@ -154,6 +161,9 @@ begin
        );
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

@@ -59,7 +59,10 @@ as $$
     'insurer_claim_receivable', 'client_claim_payable',
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     'client_advance_payable',
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -129,6 +132,9 @@ comment on function public.ins_claim_contra_account(uuid) is
 -- not what was asked.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- Backfill companies that already exist. Necessary but NOT sufficient: a company
@@ -137,6 +143,9 @@ comment on function public.ins_claim_contra_account(uuid) is
 -- alone would have made the control look enforced while being absent for every new
 -- company, which is the same class of quiet failure this migration is trying to end.
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -152,6 +161,9 @@ select t.id, 'Client advance refund', 1, 'finance', null, 'insurance_refunds', t
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- The default, for any company with no configured stage. The accountant's decision was
@@ -166,6 +178,7 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     as $$
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   (select s.id, s.sequence_order, s.approver_role, s.threshold_amount
      from workflow_stages s
     where s.tenant_id = p_tenant_id
@@ -177,6 +190,8 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
   select s.id, s.sequence_order, s.approver_role, s.threshold_amount
     from workflow_stages s
    where s.tenant_id = p_tenant_id
@@ -186,6 +201,9 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
    order by s.sequence_order desc
    limit 1
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -205,6 +223,9 @@ revoke all on function public.platform_ins_refund_required_level(uuid, numeric) 
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric) to service_role;
 
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -586,6 +607,7 @@ begin
   end if;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- The level lookup must apply to an arbitrary company with no configuration at all,
   -- which is the case that would otherwise be silently ungoverned.
 <<<<<<< ours
@@ -600,6 +622,13 @@ begin
 =======
   if not exists (select 1 from public.workflow_stages where applies_to = 'insurance_refunds') then
     raise exception 'no insurance_refunds workflow stage exists; refunds would not need a second approver';
+>>>>>>> theirs
+=======
+  -- The level lookup must apply to an arbitrary company with no configuration at all,
+  -- which is the case that would otherwise be silently ungoverned.
+  if (public.platform_ins_refund_required_level(gen_random_uuid(), 1)).stage_id is not null
+     or (select count(*) from public.platform_ins_refund_required_level(gen_random_uuid(), 1)) = 0 then
+    raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
 >>>>>>> theirs
 =======
   -- The level lookup must apply to an arbitrary company with no configuration at all,

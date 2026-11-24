@@ -116,7 +116,10 @@ declare
   v_claim  ins_claims%rowtype;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_ccy    text;
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -132,12 +135,18 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   -- ins_claims has no currency column: a claim belongs to a policy and the policy holds
   -- the currency. See the note in ins_set_claim_beneficiaries().
   v_ccy    text;
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+  -- ins_claims has no currency column: a claim belongs to a policy and the policy holds
+  -- the currency. See the note in ins_set_claim_beneficiaries().
+  v_ccy    text;
 >>>>>>> theirs
 =======
   -- ins_claims has no currency column: a claim belongs to a policy and the policy holds
@@ -174,11 +183,15 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
 =======
 >>>>>>> theirs
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 =======
+>>>>>>> theirs
+=======
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 >>>>>>> theirs
 =======
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
@@ -230,6 +243,7 @@ begin
       jsonb_build_object('gl_account_id', v_ar_gl, 'debit', p_amount,
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
                          'currency', v_ccy, 'description', v_desc),
       jsonb_build_object('gl_account_id', v_gl.id, 'credit', p_amount,
                          'currency', v_ccy, 'description', v_desc)));
@@ -237,6 +251,11 @@ begin
                          'currency', v_claim.currency, 'description', v_desc),
       jsonb_build_object('gl_account_id', v_gl.id, 'credit', p_amount,
                          'currency', v_claim.currency, 'description', v_desc)));
+>>>>>>> theirs
+=======
+                         'currency', v_ccy, 'description', v_desc),
+      jsonb_build_object('gl_account_id', v_gl.id, 'credit', p_amount,
+                         'currency', v_ccy, 'description', v_desc)));
 >>>>>>> theirs
 =======
                          'currency', v_ccy, 'description', v_desc),
@@ -251,9 +270,13 @@ begin
     v_tenant, p_payer_party_account_id, 'receivable', 'ar_control', 'ins_claim_recovery', v_claim.id,
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     v_no, v_date, v_date, v_ccy, p_amount, btrim(p_reason), auth.uid(), v_je.id
 =======
     v_no, v_date, v_date, v_claim.currency, p_amount, btrim(p_reason), auth.uid(), v_je.id
+>>>>>>> theirs
+=======
+    v_no, v_date, v_date, v_ccy, p_amount, btrim(p_reason), auth.uid(), v_je.id
 >>>>>>> theirs
 =======
     v_no, v_date, v_date, v_ccy, p_amount, btrim(p_reason), auth.uid(), v_je.id
@@ -267,9 +290,13 @@ begin
   ) values (
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_ccy,
 =======
     v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_claim.currency,
+>>>>>>> theirs
+=======
+    v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_ccy,
 >>>>>>> theirs
 =======
     v_tenant, v_no, v_claim.id, p_kind, p_payer_party_account_id, p_amount, v_ccy,

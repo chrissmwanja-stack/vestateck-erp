@@ -128,10 +128,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select p.currency, p.client_money, p.client_refunds, p.insurer_payable, p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
     from (
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- THIS list is the one that must qualify. Every name here is also an OUT parameter of
@@ -144,6 +147,7 @@ begin
          p.insurer_payable,
          p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
+<<<<<<< ours
 <<<<<<< ours
     from (
       -- Bare names here, and that is correct: this list DEFINES the columns, so there is
@@ -158,17 +162,23 @@ begin
 <<<<<<< ours
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
     from (
       -- Bare names here, and that is correct: this list DEFINES the columns, so there is
       -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
       -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
       -- `client_money`; that name only comes into existence on this line.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
              coalesce(o.client_refunds, 0) as client_refunds,
              coalesce(o.insurer_payable, 0) as insurer_payable,
              coalesce(o.claim_payable, 0) as claim_payable
+<<<<<<< ours
 <<<<<<< ours
         from held h
         full outer join owed o on o.currency = h.currency
@@ -197,6 +207,8 @@ begin
              p.claim_payable
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
@@ -205,6 +217,9 @@ begin
    -- load-bearing -- but leaving the two lists looking different invites the next reader to
    -- "tidy" the one that is.
    order by p.currency;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 
@@ -385,7 +400,11 @@ end $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public, anon, authenticated;
+=======
+revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
+>>>>>>> theirs
 =======
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
 >>>>>>> theirs
@@ -409,7 +428,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Aliased because `currency` is an OUT parameter of this function too, and inside a
@@ -417,6 +439,7 @@ begin
   -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
   -- not -- so the two places need different treatment, which is exactly why each is
   -- commented separately rather than with one hand-wave about "ambiguous names".)
+<<<<<<< ours
 <<<<<<< ours
 >>>>>>> theirs
   for v_pos in
@@ -436,6 +459,11 @@ begin
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
 >>>>>>> theirs
+=======
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
+>>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
     if v_pos.free_money < 0 then
@@ -448,9 +476,15 @@ begin
       v_inc := null;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       select inc.* into v_inc from fin_client_money_incidents inc
        where inc.tenant_id = v_tenant and inc.currency = v_pos.currency
          and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+=======
+      select * into v_inc from fin_client_money_incidents
+       where tenant_id = v_tenant and currency = v_pos.currency
+         and kind = 'shortage' and status = 'open' limit 1;
+>>>>>>> theirs
 =======
       select * into v_inc from fin_client_money_incidents
        where tenant_id = v_tenant and currency = v_pos.currency
@@ -580,7 +614,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 
@@ -603,6 +640,9 @@ begin
      for update;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -640,6 +680,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the
@@ -655,6 +696,8 @@ begin
   end if;
 
 <<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -689,7 +732,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the position
@@ -711,6 +757,9 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -837,7 +886,10 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- platform_ins_transfer_before_cancellation_impl is now unreferenced: the only caller was
@@ -848,6 +900,9 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 -- commission transfers. It is executable by service_role only.
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

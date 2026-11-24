@@ -26,11 +26,15 @@ Three approvals are deliberately kept separate, because they fail for different 
 | **3. Production go-live** | Engineering, finance, compliance jointly | Every control the policy treats as mandatory is implemented and tested. No B-item blocking go-live is open. |
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 
 This means the accountant can approve the policy while controls in section 16.2 are still being
 built — that is intentional and is what the B-register is for. It also means nothing in 16.2 that
 blocks go-live may be quietly dropped: it is a production gate, not a wish list.
 
+<<<<<<< ours
 =======
 
 This means the accountant can approve the policy while controls in section 16.2 are still being
@@ -44,6 +48,8 @@ This means the accountant can approve the policy while controls in section 16.2 
 built — that is intentional and is what the B-register is for. It also means nothing in 16.2 that
 blocks go-live may be quietly dropped: it is a production gate, not a wish list.
 
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 **A caution the reviewer should read before signing.** The software is already opinionated. Where
 this policy differs from what is built, the difference is recorded against the item: `code_state`
@@ -91,6 +97,9 @@ Premium is normally collected before or at issuance.
 
 **Before bind**
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 
 | Account | Debit | Credit |
 |---|---|---|
@@ -106,6 +115,7 @@ Premium is normally collected before or at issuance.
 |---|---|---|
 | 1020 Client Money Bank | receipt | |
 | 1100 AR Control | | receipt |
+<<<<<<< ours
 
 Account 2040 does not exist in the chart today; it is proposed in the mapping appendix, and the
 release-on-bind path is B2.
@@ -150,9 +160,48 @@ conflicting with s.90(3), and in what circumstances.
 (Dr 2040 · Cr 1100).
 
 **After bind**
+=======
 
-| Account | Debit | Credit |
+Account 2040 does not exist in the chart today; it is proposed in the mapping appendix, and the
+release-on-bind path is B2.
+
+### 3.3 Confirmations required
+
+Recognition date for premium receivables and for insurer obligations; treatment of unallocated
+advances; client-money liability presentation; treatment of unpaid and partially paid premiums.
+
+---
+
+## 4. Insurer settlement and commission
+
+### 4.1 Gross settlement — the basis
+
+The insurer payable is booked **gross**, with commission a separate receivable from the insurer —
+never a deduction from what the insurer is owed. The bind posts Dr 1100 gross · Cr 2010 gross ·
+Dr 1110 commission · Cr 4000 or 2020.
+
+Gross is the decided basis: Insurance Act s.90(3) requires premium to be remitted "without any
+deductions of commissions". The software setting is `ins.insurer_remittance_basis`, default
+`gross_premium`, legal-review-gated.
+
+### 4.2 Net settlement — controlled exception
+
+Net settlement may be configured only where a documented insurer agreement supports it, legal
+review confirms it is permissible, the accountant approves the treatment, the configuration is
+specific to that insurer agreement, and it carries an effective date and audit history. It never
+erases the gross premium and commission records.
+
+**Open for legal:** whether any insurer agreement may lawfully set off commission without
+conflicting with s.90(3), and in what circumstances.
+>>>>>>> theirs
+
+### 4.3 Commission recognition — four modes
+
+Selectable per insurer agreement.
+
+| Mode | Earned when | At bind |
 |---|---|---|
+<<<<<<< ours
 | 1020 Client Money Bank | receipt | |
 | 1100 AR Control | | receipt |
 
@@ -195,12 +244,17 @@ Selectable per insurer agreement.
 
 | Mode | Earned when | At bind |
 |---|---|---|
+=======
+>>>>>>> theirs
 | `at_placement` | policy validly bound, entitlement unconditional | Dr 1110 · Cr 4000 |
 | `on_premium_collection` | the client's receipt covers the premium (binary — a partial receipt earns nothing) | Dr 1110 · Cr 2020 |
 | `pro_rata_on_collection` | proportionally to premium collected | Dr 1110 · Cr 2020, released per receipt |
 | `on_insurer_settlement` | the insurer's item is settled | Dr 1110 · Cr 2020, then Dr 2020 · Cr 4000 |
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 
 **Pro-rata worked example (the mode that is not built yet — B1)**
 
@@ -231,6 +285,7 @@ fallback for insurers with no negotiated term on file, and an agreement always o
 order applied at bind is: the gross-settlement override, then a deliberate per-policy override,
 then the insurer's terms, then the company setting, then refusal. A per-insurer readiness report
 shows which insurers are covered and which will refuse to bind, and why.
+<<<<<<< ours
 
 Two consequences worth stating before go-live. There is **no backfill**: existing insurers are not
 seeded with whatever mode they happen to be on today, because stamping a decision nobody made is
@@ -1077,6 +1132,77 @@ The difference between original and return premium never becomes brokerage incom
 
 ### 5.4 Commission clawback
 
+=======
+
+Two consequences worth stating before go-live. There is **no backfill**: existing insurers are not
+seeded with whatever mode they happen to be on today, because stamping a decision nobody made is
+the failure this control exists to prevent. Until each insurer is covered by terms or by a reviewed
+company default, policies for that insurer **will not bind** — that is the control working, but it
+is a deliberate outage risk and must be timed. And the existing `ins.commission_recognition`
+registry still advertises a fourth value, `over_policy_term`, which has no reader and cannot be
+chosen; the implemented modes are the four in this section.
+
+### 4.5 Settlement and recognition are separate dimensions
+
+Not every combination is sensible. Gross settlement with `on_premium_collection` or
+`pro_rata_on_collection` cannot coexist — under gross the premium crosses in full, so there is
+nothing left to collect — and the software refuses the combination by name at bind rather than
+silently choosing one. The remainder of the compatibility matrix is for the accountant to approve,
+particularly where net settlement changes the timing or legal basis of the entitlement.
+
+### 4.6 Confirmations required
+
+Which insurer agreements are `at_placement`, `on_premium_collection`, `pro_rata_on_collection` or
+`on_insurer_settlement`; that the collection triggers are the **client's** receipt and not the
+insurer's settlement or a credit note; that a voided receipt reverses recognition; the
+compatibility matrix; and the deferred-commission and income accounts.
+
+---
+
+## 5. Cancellations, refunds and clawbacks
+
+### 5.1 Principles
+
+A cancellation preserves the original policy and financial history. The system records three
+separate dates: cancellation requested, cancellation effective, and financial settlement. The
+effective date must be supported by insurer confirmation or another appropriate authority.
+Backdated cancellations require evidence, a reason and authorised approval. Closed periods are
+never silently rewritten.
+
+Three dates are policy and all three are now modelled (B4). The request date is the moment the
+cancellation was entered; the effective date is the coverage date; the settlement date is the period
+the cancellation financially falls into. The settlement date is derived from the cash rather than typed
+in, so a person cannot move a cancellation between periods by editing a field. A backdated effective
+date requires dated evidence, and is refused at submission and again at posting.
+
+Because the refusal happens at submission, the evidence is captured **before** the submission, against
+the same request key the proposal will be submitted with, and the submission attaches it. The refusal
+message names the function to call. This ordering is deliberate: a refusal raised after the proposal is
+written would roll the proposal back with it, leaving the evidence nothing to attach to and the same
+cancellation refused on every retry.
+
+### 5.2 Return premium
+
+Distinguish: return premium requested, approved, actually received or credited; client refund
+payable; client refund actually paid; deductions and charges. An approved refund is never treated
+as cash received, and no insurer receivable is created merely because a refund was requested. A
+separate client refund obligation may still arise where the brokerage has an independent
+contractual or legal duty to refund.
+
+### 5.3 Deductions are never automatically income
+
+| Deduction | Belongs to |
+|---|---|
+| Insurer-retained short-period premium | the insurer |
+| Brokerage cancellation fee | the brokerage, only where contractually authorised |
+| Statutory charges | the relevant statutory recipient |
+| Other authorised deductions | the appropriate beneficiary |
+
+The difference between original and return premium never becomes brokerage income by default.
+
+### 5.4 Commission clawback
+
+>>>>>>> theirs
 Proportional to the **approved** return premium, and never more than commission previously
 recognised. Where commission has already been transferred to operating funds, record the clawback
 against the original transaction, identify what is recoverable from operating funds, replenish
@@ -1101,6 +1227,7 @@ Each participating insurer has independent records for participation percentage,
 commission rate, settlement method, recognition trigger, tax treatment, receipts and outstanding
 balances, and cancellation adjustments. Shares must total 100% with exactly one lead insurer;
 both are enforced at bind.
+<<<<<<< ours
 
 The accountant must approve the allocation of premium, commission, insurer liabilities, receipts,
 remittances and cancellation adjustments across participants.
@@ -1189,6 +1316,95 @@ The accountant must confirm exchange-rate sources, revaluation frequency, entrie
 
 ### 9.1 Cut-over
 
+=======
+
+The accountant must approve the allocation of premium, commission, insurer liabilities, receipts,
+remittances and cancellation adjustments across participants.
+
+---
+
+## 7. Claims
+
+### 7.1 Operating models
+
+**Insurer-direct** — the insurer pays the claimant. The system records administration, the
+insurer's decision and payment evidence, and creates **no** brokerage cash, bank or payable entry
+for funds it never handled.
+
+**Brokerage-managed** — the brokerage receives insurer funds and pays claimants. The system
+records the insurer receivable (1120), funds received, the claimant payable (2030) and payments.
+
+### 7.2 Stages
+
+The policy recognises eight stages — reported, assessed, internally approved, insurer confirmed,
+funded, partially paid, fully paid, closed — plus two states, **Coverage under review** and
+**Payment disputed**. Internal approval alone never creates a payment posting.
+
+**Repudiation is a ninth state** and is not in the list above (Appendix B Q3, awaiting the
+accountant). The schema has always carried it, and `ins_claim_stage()` reports it: a claim the
+insurer has declined is materially different from a claim that was paid, and collapsing it
+into *closed* would hide the population a claims review cares about most. The list needs the
+correction, not the code.
+
+B5 is built (`20261124010400_ins_claim_stage_model.sql`). `ins_claims.review_state` exists
+with both review states constrained, and `ins_claim_stage()` maps the six stored statuses
+onto all eight stage names. The stored statuses are still `notified, assessing, approved,
+settled, repudiated, closed`; the eight stages are derived from those plus the review state,
+the approved amount, recognitions and posted payments. Internal approval creates no posting.
+
+### 7.3–7.7 Review, late notification, death claims, instalments, recoveries
+
+A claim arising while a cancellation effective date is disputed is registered and marked
+*Coverage under review*; it is never auto-rejected and no insurer liability is recognised before
+confirmation. A claim registered after expiry is accepted where the insured event occurred during
+cover, recording incident date, client notification, insurer notification and insurer
+acknowledgement, and is flagged for review rather than rejected.
+
+Authorised representatives may report a claim after the policyholder's death. Multiple
+beneficiaries are supported on percentage or fixed allocations; percentages must total 100%;
+disputed shares are held until insurer confirmation or legal determination while undisputed shares
+may proceed; disputed shares are never redistributed automatically.
+
+Instalments each carry their own expected date, actual payment date, amount and evidence, and a
+subsequent receipt settles the existing approved balance rather than creating fresh recognition. A
+disputed direct payment is marked *Payment disputed* until resolved, with the original evidence and
+the dispute retained.
+
+Excess rules are configurable by policy terms, class, insurer agreement and claim type; authorised
+overrides require reasons and audit history. Recoveries cover overpayments, third-party recoveries,
+insurer underpayments, instalment recoveries, disputes and authorised write-offs.
+
+Beneficiaries, death claims, instalments, extended stages and recoveries are all unbuilt — B10,
+B5, B8. They are in the register precisely so that approving this section is not mistaken for
+certifying them.
+
+### 7.8 Confirmations required
+
+Recognition date and entries for insurer-confirmed claims, brokerage-managed claims, excess,
+recoveries, overpayments, write-offs and claim reversals.
+
+---
+
+## 8. Foreign currency
+
+The books remain in UGX. The rate used at bind is preserved and is not replaced by later market
+rates except through an authorised amendment or reversal. The system tracks the transaction
+currency and value, the UGX equivalent at bind, the settlement rate and realised and unrealised
+gain or loss separately.
+
+Rate overrides before bind require authority, reason and audit history; once bound the rate is
+locked. Realised and unrealised are separate accounts (4900/4901 gains, 5910/5911 losses, 5900
+rounding).
+
+The accountant must confirm exchange-rate sources, revaluation frequency, entries and presentation.
+
+---
+
+## 9. Migration and opening balances
+
+### 9.1 Cut-over
+
+>>>>>>> theirs
 The cut-over date is the day before production go-live. Transactions after cut-over go through the
 system. Existing policies are imported as existing business with original inception and expiry
 preserved — never as newly issued. Migrated policies retain accounting-policy version 1 unless an
@@ -1273,10 +1489,29 @@ behaviour above is demonstrated. It sits in the same position as B1: code-comple
 construction, awaiting eval.
 
 The removal of the old refusal is an **approved** deliberate behaviour change (AE5), approved on condition
+<<<<<<< ours
 that the underlying journal controls are not weakened. Five of the eight conditions attached are met, and
 three are recorded honestly rather than rounded up: **currency is not part of the routing key** (C4, not
 met), and **a rejected journal cannot be corrected and resubmitted**, only replaced (C5 and C8, partial).
 The row stays a go-live blocker until those are resolved and the evidence is executed.
+=======
+that the underlying journal controls are not weakened. All eight conditions attached to that approval are
+now met:
+
+- **Currency is part of the routing key** (C4, B14). A stage may be limited to one currency, and a caller
+  that does not say which currency it means matches only any-currency stages, so a dollar tier can never be
+  applied to shillings.
+- **A rejected journal can be corrected and resubmitted** (C5 and C8, B15), and the correction is recorded
+  on the same journal rather than as a replacement.
+
+That last one needed care. Approvals are rows, and nothing originally tied them to a *submission*, so
+reopening a journal approved at level 1 and rejected at level 2 would have counted the level-1 approval and
+posted the corrected journal on one signature — against figures that approver never saw. Approvals are now
+scoped by an **approval round**: reopening opens a new round, the corrected round counts nothing from the
+rejected one, and every decision from every round stays on record.
+
+The row remains a go-live blocker for a different reason: the evidence is written but **unexecuted**.
+>>>>>>> theirs
 
 Two gaps remain. **No additional approval tier for restricted accounts**, which this section also asks
 for: nothing in the schema marks an account as restricted, and inventing that definition is a policy
@@ -1334,8 +1569,14 @@ and claim payments remain single-approval at whatever level the amount routes to
 retrofitting a chain onto a refund would change behaviour for companies already using refunds, and a
 change with that consequence needs its own approval rather than arriving as a side effect.
 
+<<<<<<< ours
 Four gaps are recorded rather than glossed. The routing key is **amount and role only**, so currency,
 branch and department are not part of it. Four of the six types — insurer remittances, commission
+=======
+Four gaps are recorded rather than glossed. The routing key is **amount, role and currency** (B14);
+branch and department are still not part of it, because a branch is not unambiguously readable from a
+journal and inventing a column to satisfy a checklist would put a control on a guess. Four of the six types — insurer remittances, commission
+>>>>>>> theirs
 transfers, claim payments and intermediary commissions — are still not routed and keep a single
 approval. A split is flagged for the approver rather than blocked, which leaves the judgement with a
 person. And **escalation and effective dates are not built** for any transaction type, so a level that
@@ -1591,6 +1832,11 @@ item blocking "UAT acceptance" must be complete before the business signs UAT.
 | **B11** | Non-cash party-balance movement (dispositions) -- built | built | B2 | production go-live | A release of 250,000 leaves 2040 down by 250,000 and AR down by 250,000 with the bank unchanged; the open item shows the consumption; over-release is refused; a write-off reduces 2030 into the named expense account; commission accounts are refused; a control account cannot be the counterparty; a disposition cannot be edited or deleted. |
 | **B12** | Multi-level approval for manual journals (built, unexecuted) | built | A10, A11 | production go-live | A journal routed to level 3 posts nothing until three distinct entitled people have approved, in order; one signature at level 1 does not post it; the raiser cannot sign any level; the same person cannot sign two levels; a level whose role nobody holds is reported as unconfigured and a company administrator can unblock it; a missing stage in the sequence is refused rather than signed by anyone; a rejection at any level rejects the journal and posts nothing. |
 | **B13** | Transfer lock: zero-tolerance preconditions (built, unexecuted) | built | A12 | production go-live | An entry already sitting on a posted transfer is refused when named by a new transfer; the entry selection and its locks happen in one statement; and a clean transfer, including the no-entries pool path, is unaffected. |
+<<<<<<< ours
+=======
+| **B14** | Currency in the approval routing key (built, partly exercised) | built | A11 | production go-live | A USD-configured tier does not route a UGX journal; an untrimmed or lowercase currency code still matches; and a caller that supplies no currency matches only any-currency stages, so a tier can never be applied to the wrong money. |
+| **B15** | Correct and resubmit a rejected manual journal, scoped by approval round (built, unexecuted) | built | A10, A11 | production go-live | A rejected journal can be reopened by its raiser with a reason and resubmitted; the corrected round counts zero prior approvals; the rejected round's approvals and rejection remain on record; the same people may sign the corrected round; and the raiser still cannot approve it. |
+>>>>>>> theirs
 
 ### 16.3 How far each claim has been demonstrated
 
@@ -1634,6 +1880,7 @@ separately.
 Name: ______________________________________________
 
 Professional qualification: _________________________
+<<<<<<< ours
 
 Professional registration (if applicable): __________
 
@@ -1689,6 +1936,63 @@ _______________________________________________________________________
 
 _______________________________________________________________________
 
+=======
+
+Professional registration (if applicable): __________
+
+Signature: _________________________________________
+
+Date: ______________________________________________
+
+**Legal adviser (where applicable)**
+
+Name: ______________________________________________
+
+Qualification / organisation: _______________________
+
+Signature: _________________________________________
+
+Date: ______________________________________________
+
+**Tax adviser (where applicable)**
+
+Name: ______________________________________________
+
+Signature: _________________________________________
+
+Date: ______________________________________________
+
+**System owner**
+
+Name: ______________________________________________
+
+Signature: _________________________________________
+
+Date: ______________________________________________
+
+### Gate 1 — Accounting policy approval
+
+- [ ] Approved for production accounting policy, subject to conditions
+- [ ] Approved for production accounting policy without outstanding conditions
+- [ ] Amend and resubmit
+
+### Gate 2 — UAT acceptance
+
+- [ ] UAT accepted for the B-items scoped to UAT (§16.2)
+- [ ] UAT accepted with conditions: ______________________
+
+### Gate 3 — Production go-live
+
+- [ ] All B-items blocking go-live closed and evidenced
+- [ ] Go-live approved
+
+**Conditions / outstanding matters:**
+
+_______________________________________________________________________
+
+_______________________________________________________________________
+
+>>>>>>> theirs
 _______________________________________________________________________
 
 ---
@@ -1696,6 +2000,7 @@ _______________________________________________________________________
 ## Appendix A — Decisions taken in version 2
 
 | # | Decision | Effect on the software |
+<<<<<<< ours
 |---|---|---|
 | 1 | `pro_rata_on_collection` is a fourth recognition mode; binary collection behaviour preserved for agreements that are all-or-nothing | New mode + branch in the recognition trigger (B1) |
 | 2 | Recognition mode is fail-closed: no policy binds without an explicit mode for its insurer agreement | Removes the silent `on_insurer_settlement` fallback (B3) |
@@ -2194,6 +2499,9 @@ _______________________________________________________________________
 
 | # | Decision | Effect on the software |
 |---|---|---|
+=======
+|---|---|---|
+>>>>>>> theirs
 | 1 | `pro_rata_on_collection` is a fourth recognition mode; binary collection behaviour preserved for agreements that are all-or-nothing | New mode + branch in the recognition trigger (B1) |
 | 2 | Recognition mode is fail-closed: no policy binds without an explicit mode for its insurer agreement | Removes the silent `on_insurer_settlement` fallback (B3) |
 | 3 | Claims: build the stage model and the two review states now; beneficiaries, death claims, instalments and recoveries are committed-but-unbuilt | B5 in UAT scope; B8/B10 registered |
@@ -2277,6 +2585,9 @@ period the write-off was made rather than the period the claim arose.
 
 ## Appendix B — What version 1 said that version 2 changes
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 | v1 position | v2 position | Why |
 |---|---|---|

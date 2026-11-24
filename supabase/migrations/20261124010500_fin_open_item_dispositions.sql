@@ -218,10 +218,14 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   v_claim_status text;
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+  v_claim_status text;
 >>>>>>> theirs
 =======
   v_claim_status text;
@@ -342,7 +346,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Every disposition against a claim is written to the claim's own audit trail here,
@@ -363,6 +370,9 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -431,9 +441,12 @@ create or replace function public.ins_write_off_claim(
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   p_expense_gl_account_id uuid,
   p_reason text
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Optional since Appendix B Q1. When omitted the contra-claims-expense account is
@@ -442,6 +455,7 @@ create or replace function public.ins_write_off_claim(
   -- both" is only true if a caller cannot point the write-off somewhere else.
   p_expense_gl_account_id uuid default null,
   p_reason text default null,
+<<<<<<< ours
 <<<<<<< ours
   -- A recognised claim leaves TWO open items from one journal: the insurer receivable
   -- and the claimant payable. Writing off only the payable closes the claim while
@@ -460,6 +474,8 @@ create or replace function public.ins_write_off_claim(
   p_reason text,
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
   -- A recognised claim leaves TWO open items from one journal: the insurer receivable
   -- and the claimant payable. Writing off only the payable closes the claim while
   -- leaving the receivable open for ever -- nothing would ever clear it, because the
@@ -467,6 +483,9 @@ create or replace function public.ins_write_off_claim(
   -- whether the insurer receivable goes with it, or is chased separately, is an
   -- accounting decision and not one this migration should take.
   p_also_write_off_insurer boolean default false
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 ) returns fin_open_item_dispositions
     language plpgsql security definer
@@ -481,6 +500,7 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   v_ins_item fin_open_items%rowtype;
   v_contra  uuid;
@@ -492,6 +512,10 @@ declare
 <<<<<<< ours
 >>>>>>> theirs
 =======
+  v_contra  uuid;
+>>>>>>> theirs
+=======
+  v_ins_item fin_open_items%rowtype;
   v_contra  uuid;
 >>>>>>> theirs
   v_forbidden uuid;
@@ -511,6 +535,7 @@ begin
     raise exception 'INS_CLAIM_STATE: a % claim cannot be written off', v_claim.status;
   end if;
 
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -537,6 +562,8 @@ begin
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', p_expense_gl_account_id;
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- Appendix B Q1/Q4: one contra-claims-expense account for the write-off and the
   -- recovery. Resolved from the posting role when not supplied.
   v_contra := coalesce(p_expense_gl_account_id, public.ins_claim_contra_account(v_tenant));
@@ -553,11 +580,14 @@ begin
    where id = v_contra and tenant_id = v_tenant;
   if not found then
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   end if;
   if v_gl.account_type not in ('expense', 'revenue') then
@@ -593,6 +623,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
   v_row := public.ins_dispose_open_item(
@@ -603,17 +634,22 @@ begin
           'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- ins_dispose_open_item() records the claim event itself, because it is the one path
   -- every claim disposition takes. Writing a second one here would double the trail.
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
+<<<<<<< ours
 =======
   -- ins_dispose_open_item() records the claim event itself, because it is the one path
   -- every claim disposition takes. Writing a second one here would double the trail.
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   -- The insurer receivable side of the same claim. Same amount, same account, same
   -- date, so the pair reads as one decision rather than two.
@@ -631,6 +667,9 @@ begin
     end if;
   end if;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -644,6 +683,7 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
 =======
@@ -653,6 +693,10 @@ grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, 
 =======
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+>>>>>>> theirs
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
 >>>>>>> theirs
 =======
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;

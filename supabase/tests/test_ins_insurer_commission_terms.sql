@@ -104,11 +104,15 @@ begin
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- The company admins also need an insurance role: ins_register_client and
   -- ins_propose_insurer_commission_terms both gate on can_access_insurance(), which
   -- is_company_admin alone does not satisfy.
   insert into staff_roles(tenant_id, user_id, module, role) values
     (ta, admin1, 'insurance', 'admin'), (ta, admin2, 'insurance', 'admin'), (ta, mgr, 'insurance', 'manager');
+=======
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
+>>>>>>> theirs
 =======
   insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
 >>>>>>> theirs
@@ -154,8 +158,12 @@ grant execute on function pg_temp.id(text) to authenticated;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 create function pg_temp.new_policy(p_insurer uuid, p_commission numeric default 100000,
                                    p_inception date default null)
+=======
+create function pg_temp.new_policy(p_insurer uuid, p_commission numeric default 100000)
+>>>>>>> theirs
 =======
 create function pg_temp.new_policy(p_insurer uuid, p_commission numeric default 100000)
 >>>>>>> theirs
@@ -170,8 +178,12 @@ begin
          pg_temp.id('client'), p_insurer, pg_temp.id('line'),
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
          coalesce(p_inception, public.ins_local_today()),
          coalesce(p_inception, public.ins_local_today()) + 365,
+=======
+         public.ins_local_today(), public.ins_local_today() + 365,
+>>>>>>> theirs
 =======
          public.ins_local_today(), public.ins_local_today() + 365,
 >>>>>>> theirs
@@ -186,7 +198,11 @@ begin
 end $$;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 grant execute on function pg_temp.new_policy(uuid, numeric, date) to authenticated;
+=======
+grant execute on function pg_temp.new_policy(uuid, numeric) to authenticated;
+>>>>>>> theirs
 =======
 grant execute on function pg_temp.new_policy(uuid, numeric) to authenticated;
 >>>>>>> theirs
@@ -351,10 +367,13 @@ declare v_set uuid; p ins_policies%rowtype;
 begin
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- A company setting cannot be effective on or before the latest posted journal
   -- entry (ACCT_SETTING_BACKDATED), and §4-§5 have already posted today's. So the
   -- default starts tomorrow, and the two policies below incept tomorrow to fall
   -- under it.
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -366,7 +385,11 @@ begin
   v_set := (public.acct_setting_propose(
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
               'ins.commission_recognition', 'on_premium_collection', current_date + 1,
+=======
+              'ins.commission_recognition', 'on_premium_collection', current_date,
+>>>>>>> theirs
 =======
               'ins.commission_recognition', 'on_premium_collection', current_date,
 >>>>>>> theirs
@@ -385,7 +408,11 @@ begin
   set local role authenticated;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   p := pg_temp.new_policy(pg_temp.id('ins_b'), 100000, public.ins_local_today() + 1);
+=======
+  p := pg_temp.new_policy(pg_temp.id('ins_b'));
+>>>>>>> theirs
 =======
   p := pg_temp.new_policy(pg_temp.id('ins_b'));
 >>>>>>> theirs
@@ -407,7 +434,11 @@ begin
   set local role authenticated;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   p := pg_temp.new_policy(pg_temp.id('ins_a'), 100000, public.ins_local_today() + 1);
+=======
+  p := pg_temp.new_policy(pg_temp.id('ins_a'));
+>>>>>>> theirs
 =======
   p := pg_temp.new_policy(pg_temp.id('ins_a'));
 >>>>>>> theirs
@@ -435,10 +466,15 @@ begin
   -- Approved terms cannot be rewritten into something else...
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- Run as the table owner: for `authenticated` the update policy is `using (false)`,
   -- so the statement matches no rows and the trigger never fires. Direct writes by the
   -- app role are refused by RLS; this proves the trigger backstop for anything that
   -- bypasses it.
+=======
+  perform pg_temp.jwt(pg_temp.id('admin2'));
+  set local role authenticated;
+>>>>>>> theirs
 =======
   perform pg_temp.jwt(pg_temp.id('admin2'));
   set local role authenticated;
@@ -453,6 +489,10 @@ begin
     '§7 rewriting approved terms');
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  reset role;
+>>>>>>> theirs
 =======
   reset role;
 >>>>>>> theirs
@@ -512,11 +552,16 @@ begin
     elsif v_row.insurer_code = 'BETA' then
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       -- §6 had to date the company default tomorrow (a setting cannot be backdated
       -- behind an entry already posted today), and this report evaluates today, so
       -- Beta is correctly reported as not yet covered rather than as covered.
       perform pg_temp.assert(not v_row.will_bind,
         format('§8 Beta should report a gap until the company default takes effect tomorrow, got %s / %s', v_row.source, v_row.says));
+=======
+      perform pg_temp.assert(v_row.will_bind and v_row.source = 'tenant_setting',
+        format('§8 Beta should report the company default, got %s / %s', v_row.source, v_row.says));
+>>>>>>> theirs
 =======
       perform pg_temp.assert(v_row.will_bind and v_row.source = 'tenant_setting',
         format('§8 Beta should report the company default, got %s / %s', v_row.source, v_row.says));

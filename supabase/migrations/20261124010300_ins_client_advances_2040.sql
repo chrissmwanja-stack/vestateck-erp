@@ -20,10 +20,13 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 --   BUILT (from 20261124010500)   releasing an advance to a policy, once the
@@ -32,11 +35,14 @@
 --           mechanism existed; the reasoning is kept at the end of this header
 --           because it explains why the release is posted the way it is.
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -75,6 +81,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 -- Until then an advance can be taken and refunded but not applied, which still
@@ -85,11 +92,16 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 -- That was the state at this migration. 20261124010500 supplies the reclass source
 -- (fin_open_item_dispositions), so the release in section 7 is now a real posting
 -- and the earlier refusal has been replaced. The analysis above is kept because it
 -- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -135,6 +147,7 @@ $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- The CHECK on gl_posting_rules.account_role admits only the literals below plus the
 -- ins_/fin_/hr_ namespace. client_advance_payable is not namespaced, so without this the
 -- template seed and the backfill insert below are rejected. Same drop-and-re-add pattern as
@@ -160,6 +173,8 @@ alter table public.gl_posting_rules
     or account_role ~ ('^(ins|fin|hr)_[a-z][a-z0-9_]{2,60}' || chr(36))
   );
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -494,7 +509,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Post the settlement, then pin the entry to it. These two statements are the whole
@@ -505,6 +523,9 @@ begin
 
   update fin_settlements set journal_entry_id = v_je.id where id = v_set.id returning * into v_set;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -676,6 +697,7 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 -- 7. ins_apply_client_advance: not available yet, and says so
@@ -688,6 +710,10 @@ $$;
 =======
 -- 7. ins_apply_client_advance: release the advance to a policy
 -- ---------------------------------------------------------------------
+=======
+-- 7. ins_apply_client_advance: release the advance to a policy
+-- ---------------------------------------------------------------------
+>>>>>>> theirs
 =======
 -- 7. ins_apply_client_advance: release the advance to a policy
 -- ---------------------------------------------------------------------
@@ -708,6 +734,9 @@ $$;
 -- amount released, and the subledger agrees because the disposition counts as
 -- consumption.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -725,8 +754,11 @@ create or replace function public.ins_apply_client_advance(
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 declare v_adv ins_client_advances%rowtype;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 declare
@@ -739,9 +771,12 @@ declare
   v_open     numeric;
   v_disp     fin_open_item_dispositions%rowtype;
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 declare v_adv ins_client_advances%rowtype;
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -749,6 +784,7 @@ begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
   end if;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -777,6 +813,8 @@ begin
     v_adv.id;
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   if not is_finance_team_member('finance') then
     raise exception 'INS_ADVANCE_FINANCE: releasing a client advance requires the finance role' using errcode = '42501';
   end if;
@@ -793,6 +831,9 @@ begin
     raise exception 'INS_ADVANCE_AMOUNT: the amount to apply must be greater than zero';
   end if;
 
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   select * into v_policy from ins_policies
@@ -865,6 +906,9 @@ begin
 
   return v_adv;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

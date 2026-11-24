@@ -83,8 +83,13 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'MJ client', 'client') returning id into v_party;
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'MJ supplier', 'vendor') returning id into v_supplier;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'MJ client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, name, account_type) values (ta, 'MJ supplier', 'vendor') returning id into v_supplier;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'MJ client', 'client') returning id into v_party;
   insert into accounts(tenant_id, name, account_type) values (ta, 'MJ supplier', 'vendor') returning id into v_supplier;
@@ -327,7 +332,10 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §6 an amount limit, when the company configures one (pack 10.2 / 11)
 -- ---------------------------------------------------------------------
@@ -337,6 +345,7 @@ end $$;
 -- approved through its levels; the chain itself is proved in
 -- test_fin_manual_journal_chain.sql, and 6c below proves only that this file's company still
 -- works end to end.
+<<<<<<< ours
 =======
 -- ---------------------------------------------------------------------
 -- §6 an amount limit, when the company configures one (pack 10.2 / 11)
@@ -355,14 +364,20 @@ end $$;
 -- test_fin_manual_journal_chain.sql, and 6c below proves only that this file's company still
 -- works end to end.
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 do $$
 declare
   v_id uuid;
   v_lvl record;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_row record;
 =======
+>>>>>>> theirs
+=======
+  v_row record;
 >>>>>>> theirs
 =======
   v_row record;
@@ -382,11 +397,15 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
   -- 6b. Configure a two-level chain for manual journals only. Level 1 is the ordinary finance
   -- check; level 2 is reached above 50,000,000.
   insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
     values (pg_temp.id('tenant'), 'Manual journal level 1', 1, 'finance', 0, 'manual_journals', true),
            (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+<<<<<<< ours
 =======
   -- 6b. Configure a level-2 threshold for manual journals only.
   insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
@@ -398,6 +417,8 @@ begin
   insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
     values (pg_temp.id('tenant'), 'Manual journal level 1', 1, 'finance', 0, 'manual_journals', true),
            (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
   select * into v_lvl from public.platform_approval_required_level(
@@ -412,6 +433,9 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- 6c. A journal routed to level 2 can now be submitted, and one signature does not post it.
@@ -425,9 +449,12 @@ begin
   -- test_fin_manual_journal_chain.sql; what belongs here is that this file's company keeps
   -- working and that the old refusal is gone on purpose rather than by accident.
 <<<<<<< ours
+<<<<<<< ours
 =======
   -- 6c. And such a journal cannot be submitted: multi-level approval is not built, so
   -- approving it at level 1 would let it through on one signature.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -440,12 +467,16 @@ begin
                jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 60000000, 'description', 'audit fee payable')))).id;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 
   v_row := public.fin_submit_manual_journal(v_id);
   perform pg_temp.assert(v_row.status = 'pending_approval',
     '§6 a journal above a level-2 threshold must now be submittable and wait for approval');
+<<<<<<< ours
 <<<<<<< ours
   reset role;
 
@@ -473,6 +504,8 @@ begin
   raise notice 'PASS: §6 a configured manual-journal limit routes by amount, and an unconfigured company is untouched';
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
   reset role;
 
   -- One signature at level 1 must not post it.
@@ -489,6 +522,9 @@ begin
     '§6 nothing may be posted to the ledger until the last level signs');
 
   raise notice 'PASS: §6 a configured manual-journal limit routes by amount, an unconfigured company is untouched, and a routed journal waits for every level instead of being refused outright';
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 
@@ -538,6 +574,9 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

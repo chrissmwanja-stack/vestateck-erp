@@ -70,7 +70,10 @@ point of this helper is to make that mistake hard to repeat.
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 
@@ -95,6 +98,9 @@ statement runs.
 NOT NULL column you forgot to supply, a CHECK you violate, or a trigger that refuses the row
 — and all three occur in the same file this was written for.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

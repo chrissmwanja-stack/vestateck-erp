@@ -70,7 +70,11 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Refund client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Refund client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Refund client', 'client') returning id into v_party;
 >>>>>>> theirs
@@ -289,7 +293,10 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- ---------------------------------------------------------------------
@@ -330,6 +337,9 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

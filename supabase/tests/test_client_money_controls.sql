@@ -87,8 +87,13 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CM client', 'client') returning id into v_party;
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CM supplier', 'vendor') returning id into v_supplier;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CM client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CM supplier', 'vendor') returning id into v_supplier;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'CM client', 'client') returning id into v_party;
   insert into accounts(tenant_id, name, account_type) values (ta, 'CM supplier', 'vendor') returning id into v_supplier;
@@ -142,6 +147,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 =======
@@ -177,6 +183,8 @@ begin
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'UGX', 'earned', current_date)
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- A bound policy has to satisfy ins_policies_bound_check: with status 'active',
   -- gross_premium > 0, commission_amount and net_premium_to_insurer must both be present,
   -- they must sum to gross_premium, and bound_at must be set. This fixture originally set
@@ -205,11 +213,14 @@ begin
     (tenant_id, policy_id, insurer_share_id, amount, status, earned_on)
   values
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'earned', current_date)
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'earned', current_date)
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   returning id into v_entry;
 
@@ -511,9 +522,12 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, and a shortage blocks transfers until an independent release';
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- ---------------------------------------------------------------------
@@ -590,12 +604,17 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, a shortage blocks transfers until an independent release, and the transfer itself cannot move the same entry twice';
 >>>>>>> theirs
 =======
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, and a shortage blocks transfers until an independent release';
+>>>>>>> theirs
+=======
+do $$ begin
+  raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, a shortage blocks transfers until an independent release, and the transfer itself cannot move the same entry twice';
 >>>>>>> theirs
 =======
 do $$ begin

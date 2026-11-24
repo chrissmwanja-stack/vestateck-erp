@@ -89,7 +89,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Appendix B Q1/Q4: the one contra-claims-expense account a write-off and a recovery
@@ -99,6 +102,9 @@ begin
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id)
     values (ta, 'ins_claim_write_off_expense', bad_debt_gl);
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -110,7 +116,11 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Disposition client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Disposition client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Disposition client', 'client') returning id into v_party;
 >>>>>>> theirs
@@ -316,6 +326,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- Commission is refused by name.
 =======
   -- Commission is refused. Since Appendix B Q1 the account is configured once on the
@@ -324,6 +335,11 @@ begin
 >>>>>>> theirs
 =======
   -- Commission is refused by name.
+>>>>>>> theirs
+=======
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
 >>>>>>> theirs
 =======
   -- Commission is refused. Since Appendix B Q1 the account is configured once on the
@@ -336,6 +352,7 @@ begin
     perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('comm'), 'trying commission');
   exception when others then
     v_refused := true;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -359,12 +376,17 @@ begin
 =======
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 naming an account other than the configured contra-claims-expense account must be refused, got: ' || sqlerrm);
   end;
 
   -- And with no account named, the configured one is used.
   perform ins_write_off_claim(v_claim.id, 50000, null, 'insurer shortfall accepted');
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   reset role;
 

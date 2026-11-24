@@ -95,7 +95,11 @@ begin
   -- registry the company setting reads -- one vocabulary, not two that can drift.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select coalesce(new.mode = any(d.implemented_values), false)
+=======
+  select coalesce(mode = any(d.implemented_values), false)
+>>>>>>> theirs
 =======
   select coalesce(mode = any(d.implemented_values), false)
 >>>>>>> theirs

@@ -63,7 +63,10 @@ const bRows = register.unbuilt
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 const classLabel = {
@@ -84,6 +87,9 @@ const aeRows = (ae.items ?? [])
   .join('\n');
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -116,7 +122,10 @@ ${bRows}
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 ### 16.3 How far each claim has been demonstrated
@@ -136,6 +145,9 @@ that is not approved may not carry evidence.
 ${aeRows}
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
