@@ -521,7 +521,7 @@ begin
   return new;
 end $$;
 
-revoke all on function public.fin_manual_journal_guard() from public, anon, authenticated;
+revoke all on function public.fin_manual_journal_guard() from public, anon, authenticated, service_role;
 
 drop trigger if exists fin_manual_journal_guard on public.fin_manual_journals;
 create trigger fin_manual_journal_guard

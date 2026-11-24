@@ -75,15 +75,15 @@ create policy fin_manual_journal_approvals_select on fin_manual_journal_approval
 -- control. Same posture as fin_manual_journals itself.
 drop policy if exists fin_manual_journal_approvals_insert on fin_manual_journal_approvals;
 create policy fin_manual_journal_approvals_insert on fin_manual_journal_approvals
-  for insert to authenticated with check (false);
+  for insert to authenticated with check (tenant_id = public.get_my_tenant_id() and false);
 
 drop policy if exists fin_manual_journal_approvals_update on fin_manual_journal_approvals;
 create policy fin_manual_journal_approvals_update on fin_manual_journal_approvals
-  for update to authenticated using (false) with check (false);
+  for update to authenticated using (tenant_id = public.get_my_tenant_id() and false) with check (tenant_id = public.get_my_tenant_id() and false);
 
 drop policy if exists fin_manual_journal_approvals_delete on fin_manual_journal_approvals;
 create policy fin_manual_journal_approvals_delete on fin_manual_journal_approvals
-  for delete to authenticated using (false);
+  for delete to authenticated using (tenant_id = public.get_my_tenant_id() and false);
 
 revoke all on table fin_manual_journal_approvals from anon;
 
@@ -595,6 +595,8 @@ end $$;
 
 revoke all on function public.fin_manual_journals_awaiting_me() from public, anon;
 grant execute on function public.fin_manual_journals_awaiting_me() to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 comment on function public.fin_manual_journals_awaiting_me() is
   'Manual journals this user could sign right now: pending, in a chain, not complete, not theirs, at a level whose role they hold (or any level for a company admin), and not already signed by them.';

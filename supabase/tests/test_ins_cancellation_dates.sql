@@ -47,6 +47,7 @@ begin
   update app_users set is_company_admin = true where id in (mk1, ck1);
 
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mk1, 'insurance', 'manager'), (ta, ck1, 'insurance', 'manager');
   insert into finance_team_members(tenant_id, user_id, role)
     values (ta, mk1, 'finance'), (ta, ck1, 'finance');
 
@@ -67,20 +68,22 @@ begin
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'MOT', 'Motor') returning id into v_line;
   insert into ins_insurers(tenant_id, code, name) values (ta, 'CXDINS', 'Dates Insurer') returning id into v_insurer;
 
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Dates client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'CDT-CLI', 'Dates client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Dates client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
 
   -- A policy running from the start of the year: cover exists to cancel.
+  perform set_config('ins.via_rpc', 'on', true);
   insert into ins_policies
     (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
      inception_date, expiry_date, currency, gross_premium, sum_insured,
-     commission_rate_pct, transaction_type)
+     commission_rate_pct, commission_amount, net_premium_to_insurer, transaction_type, bound_at, bound_by)
   values
     (ta, 'CXD-1', v_client, v_insurer, v_line, 'active',
-     date '2026-01-01', date '2026-12-31', 'UGX', 12000000, 50000000, 10, 'new_business')
+     date '2026-01-01', date '2026-12-31', 'UGX', 12000000, 50000000, 10, 1200000, 10800000, 'new_business', now(), mk1)
   returning id into v_policy;
+  perform set_config('ins.via_rpc', 'off', true);
 
   create temp table ids (k text primary key, v uuid);
   insert into ids(k, v) values ('tenant', ta), ('mk', mk1), ('ck', ck1),
@@ -105,6 +108,8 @@ returns uuid
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_id uuid;
 begin
+  perform set_config('ins.via_rpc', 'on', true);
+  update ins_policy_cancellations set status = 'withdrawn' where policy_id = (select v from ids where k = 'policy') and status = 'proposed';
   insert into ins_policy_cancellations
     (tenant_id, policy_id, request_key, reason, effective_date, insurer_terms,
      charge_refunds, proposed_by, proposed_at, calculation, status)
@@ -121,6 +126,7 @@ begin
      '{}'::jsonb,
      'proposed')
   returning id into v_id;
+  perform set_config('ins.via_rpc', 'off', true);
   return v_id;
 end $$;
 grant execute on function pg_temp.make_cancellation(date, timestamptz) to authenticated;
@@ -132,6 +138,7 @@ grant execute on function pg_temp.make_cancellation(date, timestamptz) to authen
 do $$
 declare v_id uuid; v_refused boolean := false;
 begin
+  perform set_config('request.jwt.claims', '', true);
   v_id := pg_temp.make_cancellation(date '2026-02-01', timestamptz '2026-03-15 10:00+03');
 
   perform pg_temp.assert(
@@ -158,6 +165,7 @@ end $$;
 do $$
 declare v_id uuid;
 begin
+  perform set_config('request.jwt.claims', '', true);
   v_id := pg_temp.make_cancellation(date '2026-02-01', timestamptz '2026-03-15 10:00+03');
 
   perform pg_temp.jwt(pg_temp.id('mk'));
@@ -212,6 +220,7 @@ declare
   v_adj     uuid;
   v_board   uuid;
 begin
+  perform set_config('request.jwt.claims', '', true);
   v_id := pg_temp.make_cancellation(date '2026-02-01', timestamptz '2026-03-15 10:00+03');
 
   -- The client refund side: a payable item, which a client-money bank settles
@@ -243,12 +252,12 @@ begin
   -- account: inbound, so an operating bank, and ar_control because the brokerage is
   -- collecting from the insurer.
   insert into ins_cancellation_insurer_adjustments
-    (tenant_id, cancellation_id, insurer_id, return_premium, commission_clawback,
+    (tenant_id, cancellation_id, insurer_id, original_item_id, return_premium, commission_clawback,
      pass_through_refund, total_insurer_credit, payable_credit, recovery_due,
-     retained_commission, transferred_clawback_due)
+     retained_commission, retained_commission_status, transferred_clawback_due)
   values
-    (pg_temp.id('tenant'), v_id, pg_temp.id('insurer'), 300000, 30000, 0, 330000,
-     330000, 330000, 0, 0)
+    (pg_temp.id('tenant'), v_id, pg_temp.id('insurer'), v_item, 330000, 0, 0, 330000,
+     0, 330000, 0, 'deferred', 0)
   returning id into v_adj;
 
   insert into fin_open_items
@@ -263,12 +272,8 @@ begin
   returning id into v_item;
 
   insert into fin_bank_accounts (tenant_id, name, kind, currency, gl_account_id)
-    select pg_temp.id('tenant'), 'CXD-OPS', 'operating', 'UGX', id
-      from gl_accounts where tenant_id = pg_temp.id('tenant') and account_code = '1020'
+    values (pg_temp.id('tenant'), 'CXD-OPS', 'operating', 'UGX', pg_temp.id('ar'))
   returning id into v_board;
-  -- An operating account cannot sit on the client-money GL account, so give it one.
-  update fin_bank_accounts set gl_account_id = pg_temp.id('ar')
-   where id = v_board;
 
   perform set_config('ins.via_rpc', 'on', true);
   perform public.platform_fin_record_settlement_impl(
@@ -359,6 +364,129 @@ begin
   perform pg_temp.assert(v_refused,
     '§5 a justification cannot be added after the cancellation has posted');
   raise notice 'PASS: §5 posted dates are frozen and evidence cannot be back-filled';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- §6 the real submission path, which every other section above skips
+-- ---------------------------------------------------------------------
+-- §§1-5 insert the cancellation row directly, because ins_submit_policy_cancellation
+-- needs a full pricing preview and they are testing the dates, not the submission. That
+-- is exactly why the defect below survived: the check was only ever exercised on a row
+-- that already existed. Here the submission function itself is driven end to end.
+--
+-- The defect: the refusal was raised AFTER the insert. The exception rolled the
+-- proposal back with it, so the message's instruction -- record evidence, then retry --
+-- named a cancellation that no longer existed, and the retry was refused again. A
+-- backdated cancellation could not be proposed at all, in any number of attempts.
+--
+-- This section needs its own policy: §1-§5 leave a live proposal (and a posted
+-- cancellation) against the fixture policy, and ins_submit_policy_cancellation
+-- correctly refuses a second live proposal on the same policy.
+do $$
+declare
+  v_policy uuid;
+  v_key    uuid := gen_random_uuid();
+  v_id     uuid;
+  v_eff    date;
+  -- One set of terms per original insurer share, which for an un-snapshotted policy
+  -- is the single policy insurer. method is explicit, so the submission's
+  -- configured-default step leaves it alone.
+  v_terms  jsonb;
+begin
+  perform set_config('ins.via_rpc', 'on', true);
+  insert into ins_policies
+    (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
+     inception_date, expiry_date, currency, gross_premium, sum_insured,
+     commission_rate_pct, commission_amount, net_premium_to_insurer, transaction_type, bound_at, bound_by)
+  values
+    (pg_temp.id('tenant'), 'CXD-SUBMIT-1', pg_temp.id('client'), pg_temp.id('insurer'),
+     pg_temp.id('line'), 'active', date '2026-01-01', date '2026-12-31', 'UGX',
+     6000000, 20000000, 10, 600000, 5400000, 'new_business', now(), pg_temp.id('mk'))
+  returning id into v_policy;
+  insert into fin_open_items
+    (tenant_id, party_account_id, control_role, side, source_type, source_id,
+     document_no, document_date, due_date, amount, currency, fx_rate,
+     accounting_policy_version, description)
+  values
+    (pg_temp.id('tenant'), pg_temp.id('party'), 'ar_control', 'receivable',
+     'ins_policy_premium', v_policy, 'INV-CXD-SUBMIT-1',
+     date '2026-01-01', date '2026-01-31', 6000000, 'UGX', 1, 1,
+     'Premium receivable CXD-SUBMIT-1');
+  perform set_config('ins.via_rpc', 'off', true);
+
+  -- Six weeks back: backdated by any measure, and in the past so the submission gate
+  -- (effective date < today) applies.
+  v_eff := public.ins_local_today() - 42;
+
+  v_terms := jsonb_build_array(jsonb_build_object(
+    'insurer_id', pg_temp.id('insurer')::text,
+    'terms', jsonb_build_object(
+      'method', 'manual_review',
+      'contract_reference', 'pro-rata cancellation per policy wording',
+      'manual_return_premium', '100000')));
+
+  perform pg_temp.jwt(pg_temp.id('mk'));
+  set local role authenticated;
+
+  -- 6a. A backdated submission with no evidence is refused...
+  begin
+    perform public.ins_submit_policy_cancellation(
+      v_policy, v_eff, v_terms, '[]'::jsonb,
+      'client sold the vehicle', v_key);
+    raise exception 'FAIL: §6 a backdated submission with no evidence must be refused';
+  exception when others then
+    if sqlerrm not like 'INS_CANCELLATION_BACKDATED_NO_EVIDENCE%' then raise; end if;
+    perform pg_temp.assert(sqlerrm like '%ins_record_cancellation_date_evidence%',
+      '§6 the refusal must name the function that fixes it, got: ' || sqlerrm);
+  end;
+
+  -- ...and the rollback is the point: nothing was created.
+  perform pg_temp.assert(
+    not exists (select 1 from public.ins_policy_cancellations
+                 where policy_id = v_policy and request_key = v_key),
+    '§6 a refused submission must leave no proposal behind');
+
+  -- 6b. So the evidence is captured BEFORE the submission, against the same key.
+  perform public.ins_record_cancellation_date_evidence(
+    null, 'client letter', 'LTR-2026-0611', public.ins_local_today() - 45,
+    'client wrote asking for cover to stop', v_key);
+
+  perform pg_temp.assert(
+    exists (select 1 from public.ins_cancellation_date_evidence
+             where tenant_id = pg_temp.id('tenant') and request_key = v_key
+               and cancellation_id is null),
+    '§6 evidence captured ahead of a proposal must be held unattached');
+
+  -- 6c. The same submission, unchanged, now succeeds -- and consumes the evidence.
+  v_id := (public.ins_submit_policy_cancellation(
+    v_policy, v_eff, v_terms, '[]'::jsonb,
+    'client sold the vehicle', v_key)).id;
+
+  perform pg_temp.assert(
+    (select count(*) from public.ins_cancellation_date_evidence
+      where tenant_id = pg_temp.id('tenant') and cancellation_id = v_id
+        and request_key is null and the_date = v_eff) = 1,
+    '§6 the submission must attach the pending evidence to the new cancellation and stamp it with the effective date');
+
+  perform pg_temp.assert(
+    (select status from public.ins_policy_cancellations where id = v_id) = 'proposed',
+    '§6 a backdated submission with evidence lands as a proposal for Finance');
+
+  -- Retrying with the same key returns the same proposal rather than making a second.
+  perform pg_temp.assert(
+    (public.ins_submit_policy_cancellation(
+       v_policy, v_eff, v_terms, '[]'::jsonb,
+       'client sold the vehicle', v_key)).id = v_id,
+    '§6 a retry with the same request key must return the same proposal');
+
+  -- And the audit trail has its first event, which the first cut of this migration lost.
+  perform pg_temp.assert(
+    exists (select 1 from public.ins_cancellation_events
+             where cancellation_id = v_id and event = 'proposed'),
+    '§6 the proposal must record its proposed event');
+
+  reset role;
+  raise notice 'PASS: §6 a backdated cancellation is proposable, via evidence captured before the submission';
 end $$;
 
 do $$ begin

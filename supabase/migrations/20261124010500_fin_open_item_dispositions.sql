@@ -127,7 +127,7 @@ create or replace view public.fin_open_item_consumption_v
       select sum(al.amount) as allocated
         from public.fin_allocations al
         join public.fin_settlements s on s.id = al.settlement_id
-       where al.open_item_id = i.id and s.status = 'posted'
+       where al.open_item_id = i.id and s.status = 'posted' and (s.direction = 'in') = (i.side = 'receivable')
     ) a on true
     left join lateral (
       select sum(ca.amount) as credited
@@ -212,9 +212,10 @@ declare
   v_lines    jsonb;
   v_je       journal_entries%rowtype;
   v_row      fin_open_item_dispositions%rowtype;
-  v_date     date := coalesce(p_entry_date, current_date);
+  v_date     date := coalesce(p_entry_date, public.business_today());
   v_desc     text;
   v_version  integer;
+  v_claim_status text;
 begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
@@ -233,7 +234,7 @@ begin
   if nullif(btrim(p_reason), '') is null or length(btrim(p_reason)) < 5 then
     raise exception 'INS_NOTE_REQUIRED: give the reason for the disposition';
   end if;
-  if v_date > current_date + 1 then
+  if v_date > public.business_today() + 1 then
     raise exception 'INS_DISPOSITION_DATE: the entry date cannot be in the future';
   end if;
 
@@ -251,8 +252,8 @@ begin
     raise exception 'INS_DISPOSITION_KIND: % applies to a client advance (2040) item; % is a % item',
       p_kind, v_item.document_no, v_item.control_role;
   end if;
-  if p_kind in ('claim_write_off', 'claim_recovery_uncollectable')
-     and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable') then
+  if (p_kind = 'claim_write_off' and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable'))
+     or (p_kind = 'claim_recovery_uncollectable' and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable') and v_item.source_type <> 'ins_claim_recovery') then
     raise exception 'INS_DISPOSITION_KIND: % applies to a claim item; % is a % item',
       p_kind, v_item.document_no, v_item.control_role;
   end if;
@@ -267,7 +268,7 @@ begin
   end if;
   -- Posting to a control account without a subledger reference is exactly what B6
   -- forbids, so a disposition may not use one as its counterparty.
-  if v_gl.is_control_account then
+  if p_kind <> 'advance_release' and v_gl.is_control_account then
     raise exception 'INS_DISPOSITION_ACCOUNT: % is a control account; a disposition must name an account that is not a control account', v_gl.account_code;
   end if;
   -- For an advance release double entry forces the answer: the credit must go to
@@ -327,6 +328,23 @@ begin
     v_item.source_type, v_item.source_id, coalesce(v_version, 1), auth.uid()
   )
   returning * into v_row;
+
+  -- Every disposition against a claim is written to the claim's own audit trail here,
+  -- in the one place all four kinds pass through. Writing it in each kind's own caller
+  -- instead missed the recovery write-off entirely: a recovery declared uncollectable
+  -- moved the ledger and left no trace on the claim it came from.
+  if v_item.source_type in ('ins_claim_client', 'ins_claim_insurer') then
+    select c.status into v_claim_status
+      from public.ins_claims c
+     where c.id = v_item.source_id and c.tenant_id = v_tenant;
+    insert into public.ins_claim_events (tenant_id, claim_id, from_status, to_status, note)
+    values (v_tenant, v_item.source_id, v_claim_status, v_claim_status,
+            case p_kind
+              when 'claim_write_off' then 'Written off '
+              when 'claim_recovery_uncollectable' then 'Recovery written off '
+              else 'Disposed ' end
+            || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
+  end if;
 
   return v_row;
 end;
@@ -388,8 +406,19 @@ create trigger trg_fin_open_item_dispositions_guard
 create or replace function public.ins_write_off_claim(
   p_claim_id uuid,
   p_amount numeric,
-  p_expense_gl_account_id uuid,
-  p_reason text
+  -- Optional since Appendix B Q1. When omitted the contra-claims-expense account is
+  -- resolved from the ins_claim_write_off_expense posting role, which is where the
+  -- accountant put the decision. When given it must BE that account: "one account for
+  -- both" is only true if a caller cannot point the write-off somewhere else.
+  p_expense_gl_account_id uuid default null,
+  p_reason text default null,
+  -- A recognised claim leaves TWO open items from one journal: the insurer receivable
+  -- and the claimant payable. Writing off only the payable closes the claim while
+  -- leaving the receivable open for ever -- nothing would ever clear it, because the
+  -- claim it belongs to is closed. Default false preserves today's behaviour, because
+  -- whether the insurer receivable goes with it, or is chased separately, is an
+  -- accounting decision and not one this migration should take.
+  p_also_write_off_insurer boolean default false
 ) returns fin_open_item_dispositions
     language plpgsql security definer
     set search_path to 'public', 'pg_temp'
@@ -400,6 +429,8 @@ declare
   v_item   fin_open_items%rowtype;
   v_gl     gl_accounts%rowtype;
   v_row    fin_open_item_dispositions%rowtype;
+  v_ins_item fin_open_items%rowtype;
+  v_contra  uuid;
   v_forbidden uuid;
 begin
   if not can_manage_insurance() then
@@ -417,10 +448,22 @@ begin
     raise exception 'INS_CLAIM_STATE: a % claim cannot be written off', v_claim.status;
   end if;
 
+  -- Appendix B Q1/Q4: one contra-claims-expense account for the write-off and the
+  -- recovery. Resolved from the posting role when not supplied.
+  v_contra := coalesce(p_expense_gl_account_id, public.ins_claim_contra_account(v_tenant));
+  if v_contra is null then
+    raise exception 'INS_WRITE_OFF_ACCOUNT: no contra-claims-expense account is configured. Map the ins_claim_write_off_expense posting role (Appendix B Q1) before writing off a claim.';
+  end if;
+  if p_expense_gl_account_id is not null
+     and public.ins_claim_contra_account(v_tenant) is not null
+     and p_expense_gl_account_id is distinct from public.ins_claim_contra_account(v_tenant) then
+    raise exception 'INS_WRITE_OFF_ACCOUNT: a claim write-off posts to the contra-claims-expense account, which is already configured. Appendix B Q1 names one account for write-offs and recoveries; to change it, change the posting role, not this call.';
+  end if;
+
   select * into v_gl from gl_accounts
-   where id = p_expense_gl_account_id and tenant_id = v_tenant;
+   where id = v_contra and tenant_id = v_tenant;
   if not found then
-    raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', p_expense_gl_account_id;
+    raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
   end if;
   if v_gl.account_type not in ('expense', 'revenue') then
     raise exception 'INS_WRITE_OFF_ACCOUNT: a write-off is absorbed by an expense (or revenue contra) account; % is %',
@@ -452,22 +495,180 @@ begin
     raise exception 'INS_WRITE_OFF_NO_ITEM: claim % has no client claim payable (2030) open item; recognise the receivable before writing anything off', v_claim.claim_no;
   end if;
 
+  -- ins_dispose_open_item() records the claim event itself, because it is the one path
+  -- every claim disposition takes. Writing a second one here would double the trail.
   v_row := public.ins_dispose_open_item(
-    v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
+    v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, public.business_today());
 
-  insert into ins_claim_events (tenant_id, claim_id, from_status, to_status, note)
-  values (v_tenant, v_claim.id, v_claim.status, v_claim.status,
-          'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
+  -- The insurer receivable side of the same claim. Same amount, same account, same
+  -- date, so the pair reads as one decision rather than two.
+  if p_also_write_off_insurer then
+    select * into v_ins_item from fin_open_items
+     where tenant_id = v_tenant
+       and source_type = 'ins_claim_insurer'
+       and source_id = v_claim.id
+       and control_role = 'insurer_claim_receivable'
+     order by created_at limit 1 for update;
+    if found then
+      perform public.ins_dispose_open_item(
+        v_ins_item.id, 'claim_write_off', p_amount, v_gl.id,
+        p_reason || ' (insurer receivable)', public.business_today());
+    end if;
+  end if;
 
   return v_row;
 end;
 $$;
 
-revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
-grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+revoke all on function public.fin_open_item_dispositions_guard() from public, anon, authenticated, service_role;
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public, anon;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
 
-revoke all on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) from public;
+revoke all on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) from public, anon;
 grant execute on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) to authenticated;
 
 comment on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) is
   'Moves a party balance without cash. Advance release (Dr 2040 / Cr AR) and claim write-off (Dr claim control / Cr the named expense). The counterparty account is the accounting-policy choice and must be named by the caller.';
+
+-- ---------------------------------------------------------------------
+-- ---------------------------------------------------------------------
+-- 9. ins_apply_client_advance: release the advance to a policy (moved from 10300)
+-- ---------------------------------------------------------------------
+-- Pack criterion: "binding a policy allocates it and clears 2040".
+--
+-- MOVED HERE from 20261124010300, unchanged apart from this note. It was written
+-- beside ins_record_client_advance, but it declares fin_open_item_dispositions%rowtype,
+-- and this database validates a plpgsql body at CREATE time -- so on a fresh database
+-- 10300 died with 42P01 before the table it needed could exist, taking every later
+-- migration down with it. A function must be created after what it reads.
+--
+-- This was refused in the first cut of B2 because the subledger had no way to move
+-- a party balance without cash. 20261124010500 supplies it (fin_open_item_dispositions),
+-- so the release is now a real posting:
+--
+--     Dr 2040 unallocated client advances   (the advance item falls)
+--     Cr 1100 accounts receivable control   (the premium it paid stops being owed)
+--
+-- Cash does not move: it arrived at receipt and moving it again would double-count
+-- client money. The premium item itself is NOT swept in on its own: if the advance
+-- is the whole payment, the premium item is cleared by the normal receipt path as
+-- before. What this guarantees is the liability side -- 2040 falls by exactly the
+-- amount released, and the subledger agrees because the disposition counts as
+-- consumption.
+create or replace function public.ins_apply_client_advance(
+  p_advance_id uuid,
+  p_policy_id uuid,
+  p_amount numeric,
+  p_notes text default null::text
+) returns ins_client_advances
+    language plpgsql security definer
+    set search_path to 'public', 'pg_temp'
+    as $$
+declare
+  v_tenant   uuid := get_my_tenant_id();
+  v_adv      ins_client_advances%rowtype;
+  v_policy   ins_policies%rowtype;
+  v_adv_item fin_open_items%rowtype;
+  v_premium  fin_open_items%rowtype;
+  v_ar_gl    uuid;
+  v_open     numeric;
+  v_disp     fin_open_item_dispositions%rowtype;
+begin
+  if not can_access_insurance() then
+    raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
+  end if;
+  if not is_finance_team_member('finance') then
+    raise exception 'INS_ADVANCE_FINANCE: releasing a client advance requires the finance role' using errcode = '42501';
+  end if;
+
+  select * into v_adv from ins_client_advances
+   where id = p_advance_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_NOT_FOUND: advance % is not on this company', p_advance_id;
+  end if;
+  if v_adv.status = 'refunded' then
+    raise exception 'INS_ADVANCE_REFUNDED: advance % has already been refunded', v_adv.id;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INS_ADVANCE_AMOUNT: the amount to apply must be greater than zero';
+  end if;
+
+  select * into v_policy from ins_policies
+   where id = p_policy_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_POLICY: policy % is not on this company', p_policy_id;
+  end if;
+
+  -- Client money is client money: A's advance cannot pay B's premium.
+  if v_policy.client_id is distinct from v_adv.client_id then
+    raise exception 'INS_ADVANCE_PARTY: advance % belongs to a different client than policy %; client money cannot be applied across clients',
+      v_adv.id, v_policy.policy_no;
+  end if;
+  if v_policy.status not in ('bound','active','endorsed','renewed') then
+    raise exception 'INS_ADVANCE_POLICY_STATE: policy % is %; an advance can only be applied to a bound policy',
+      v_policy.policy_no, v_policy.status;
+  end if;
+
+  v_open := public.fin_open_item_consumed(v_adv.open_item_id);
+  if v_open + p_amount > v_adv.amount then
+    raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available, % cannot be applied',
+      v_adv.id, v_adv.amount - v_open, p_amount;
+  end if;
+
+  select * into v_adv_item from fin_open_items
+   where id = v_adv.open_item_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_ITEM: the open item for advance % is missing', v_adv.id;
+  end if;
+
+  -- The policy must owe something for the advance to be paying it.
+  select * into v_premium from fin_open_items
+   where tenant_id = v_tenant and source_type = 'ins_policy_premium'
+     and source_id = v_policy.id and side = 'receivable'
+   order by created_at limit 1;
+  if not found then
+    raise exception 'INS_ADVANCE_NO_PREMIUM: policy % has no premium receivable to release the advance against', v_policy.policy_no;
+  end if;
+  if v_premium.currency <> v_adv.currency then
+    raise exception 'INS_ADVANCE_CURRENCY: the advance is in %, the policy premium is in %',
+      v_adv.currency, v_premium.currency;
+  end if;
+  if v_premium.party_account_id is distinct from v_adv_item.party_account_id then
+    raise exception 'INS_ADVANCE_PARTY: the advance and the policy premium are held against different client accounts';
+  end if;
+
+  v_ar_gl := get_posting_account(v_tenant, 'ar_control');
+  if v_ar_gl is null then
+    raise exception 'INS_ADVANCE_ACCOUNT: this company has no ar_control posting rule';
+  end if;
+
+  v_disp := public.ins_dispose_open_item(
+    v_adv.open_item_id,
+    'advance_release',
+    p_amount,
+    v_ar_gl,
+    coalesce(nullif(btrim(p_notes), ''),
+             'Advance released against ' || v_policy.policy_no),
+    public.business_today());
+
+  update ins_client_advances
+     set applied_amount = applied_amount + p_amount,
+         applied_policy_id = coalesce(applied_policy_id, p_policy_id),
+         applied_at = now(),
+         journal_entry_id = coalesce(journal_entry_id, v_disp.journal_entry_id),
+         status = case when applied_amount + p_amount + refunded_amount >= amount
+                       then 'applied' else 'partly_applied' end
+   where id = v_adv.id
+  returning * into v_adv;
+
+  return v_adv;
+end;
+$$;
+
+revoke all on function public.ins_apply_client_advance(uuid, uuid, numeric, text) from public, anon;
+grant execute on function public.ins_apply_client_advance(uuid, uuid, numeric, text) to authenticated;
+
+select public.apply_tenant_read_only_guard();
+
+comment on function public.ins_apply_client_advance(uuid, uuid, numeric, text) is
+  'Releases part of a client advance against a policy: Dr 2040 unallocated client advances / Cr 1100 receivable control, as a non-cash disposition. Cash does not move -- it arrived at receipt -- so 2040 falls by exactly the amount released and the subledger agrees.';

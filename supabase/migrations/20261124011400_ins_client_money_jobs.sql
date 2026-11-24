@@ -1,3 +1,16 @@
+-- Background jobs and sessions that cleared request.jwt.claims leave it as '' rather than
+-- NULL; nullif before casting to jsonb so log_platform_event() -> platform_session_is_mfa()
+-- does not raise 22P02 when called with no interactive session.
+create or replace function public.platform_session_is_mfa() returns boolean
+language sql stable security definer
+set search_path to 'public', 'pg_temp'
+as $$
+  select coalesce(
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'aal') = 'aal2',
+    false
+  );
+$$;
+
 -- =====================================================================
 -- The daily client-money jobs, actually scheduled
 -- Accountant pack v2, B9; pack section 9
@@ -53,9 +66,9 @@ begin
                            'claim_payable', v_pos.claim_payable));
     else
       v_inc := null;
-      select inc.* into v_inc from public.fin_client_money_incidents inc
-       where inc.tenant_id = p_tenant_id and inc.currency = v_pos.currency
-         and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+      select * into v_inc from public.fin_client_money_incidents i
+       where i.tenant_id = p_tenant_id and i.currency = v_pos.currency
+         and i.kind = 'shortage' and i.status = 'open' limit 1;
     end if;
 
     return query select v_pos.currency, v_pos.free_money,
@@ -63,7 +76,7 @@ begin
   end loop;
 end $$;
 
-revoke all on function public.platform_ins_client_money_check(uuid, text) from public;
+revoke all on function public.platform_ins_client_money_check(uuid, text) from public, anon, authenticated;
 grant execute on function public.platform_ins_client_money_check(uuid, text) to service_role;
 
 comment on function public.platform_ins_client_money_check(uuid, text) is

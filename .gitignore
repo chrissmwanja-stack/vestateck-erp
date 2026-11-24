@@ -33,3 +33,4 @@ playwright-report/
 # squash leftovers
 fn-defs-*.txt
 squash-catalog-diff.txt
+supabase/tests/harness/node_modules

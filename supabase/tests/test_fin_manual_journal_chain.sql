@@ -84,16 +84,27 @@ begin
     from unnest(array[maker, fin1, fin2, mgr, cc, admin1, nobody, finmaker]) u;
   update app_users set is_company_admin = true where id = admin1;
 
-  -- Two finance users, so a level can be signed by either; the raiser is deliberately NOT on
-  -- the finance team, which is the ordinary case for a journal written by an accountant's
-  -- assistant or a department and approved by finance.
+  -- The raiser IS on the finance team, because fin_create_manual_journal refuses anyone who is
+  -- not finance or a company admin -- an accountant's assistant cannot open a journal at all.
+  -- This test originally made the raiser a non-finance 'maker' to model that assistant, and the
+  -- very first call was refused with FIN_MANUAL_JOURNAL_FORBIDDEN: the fixture described a
+  -- product that does not exist. Separation of duties here is separation of PERSON, not of
+  -- team: the maker holds finance and still may not sign their own journal (§5, §6).
   insert into finance_team_members(tenant_id, user_id, role)
-    values (ta, fin1, 'finance'), (ta, fin2, 'finance'), (ta, cc, 'cost_control'),
-           (ta, finmaker, 'finance');
+    values (ta, maker, 'finance'), (ta, fin1, 'finance'), (ta, fin2, 'finance'),
+           (ta, cc, 'cost_control'), (ta, finmaker, 'finance');
   -- staff_roles.module is a foreign key to platform_modules.key, and the role check allows only
-  -- admin, manager and member.
+  -- admin, manager and member. It CANNOT be 'finance': platform_modules.finance is registered
+  -- with tenant_entitled = false, because finance is a platform-owned role surface rather than
+  -- a module a tenant is entitled to, and enforce_tenant_entitled_module() refuses the write
+  -- with 23514. That is a property of the product, not of this test -- every one of these rows
+  -- was impossible to create, so nothing downstream of it had ever run.
+  --
+  -- 'insurance' is used only because it is tenant-entitled. It does not scope the role: the
+  -- entitlement check that decides a manual journal calls platform_user_holds_role(), which
+  -- reads staff_roles by (tenant, user, role) with no module predicate. A manager is a manager.
   insert into staff_roles(tenant_id, user_id, module, role)
-    values (ta, mgr, 'finance', 'manager');
+    values (ta, mgr, 'insurance', 'manager');
 
   insert into gl_accounts(tenant_id, account_code, name, account_type)
     values (ta, '5000', 'Expenses', 'expense') returning id into exp_gl;
@@ -307,7 +318,7 @@ begin
   select count(*) into v_entries from public.journal_entries where source_id = v_id and source_type = 'manual';
   perform pg_temp.assert(v_entries = 1, '§4 the completed chain must post exactly one journal entry, found ' || v_entries);
   perform pg_temp.assert(
-    (select sum(debit) = sum(credit) and sum(debit) = 1000000 from public.journal_lines
+    (select sum(debit) = sum(credit) and sum(debit) = 1000000 from public.journal_entry_lines
       where journal_entry_id = (select id from public.journal_entries where source_id = v_id and source_type = 'manual')),
     '§4 the posted entry must balance at the journal total');
   raise notice 'PASS: §4 the ledger stays untouched until the last level signs, then receives one balanced entry';
@@ -539,7 +550,9 @@ begin
   perform pg_temp.add_stage(1, 'finance', 0);
   perform pg_temp.add_stage(2, 'manager', 0);
 
-  v_id := pg_temp.new_journal(1000000, 'queue');
+  -- 'queue' was a two-word purpose and fin_manual_journals_purpose_check requires at least ten
+  -- characters. That constraint is older than this pack, so the sentence has to be a sentence.
+  v_id := pg_temp.new_journal(1000000, 'queue routing check');
   perform pg_temp.submit(v_id);
 
   -- Level 1 is finance: fin2 sees it, the maker does not (it is theirs), a random

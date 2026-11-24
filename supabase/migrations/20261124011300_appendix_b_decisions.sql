@@ -43,37 +43,14 @@
 -- platform_gl_posting_roles() is extended because the template test requires it to
 -- agree with the CHECK's quoted literals exactly, and a role the registry does not
 -- know is a role the template will not seed.
-create or replace function public.platform_gl_posting_roles()
-returns text[]
-language sql
-immutable
-set search_path to 'pg_catalog', 'pg_temp'
-as $$
-  select array[
-    'ap_control', 'ar_control', 'bank', 'cash', 'vat_input', 'vat_output', 'wht_payable',
-    'default_expense', 'default_revenue', 'salaries_payable', 'paye_payable', 'nssf_payable',
-    'salaries_expense',
-    'client_money_bank', 'insurer_payable', 'commission_receivable', 'commission_income',
-    'wht_receivable',
-    'unearned_commission',
-    'insurer_claim_receivable', 'client_claim_payable',
-    'client_advance_payable',
-    'fx_rounding',
-    'fx_gain_realised', 'fx_loss_realised',
-    'fx_gain_unrealised', 'fx_loss_unrealised',
-    'opening_balance_clearing',
-    'retained_earnings',
-    'agent_commission_expense',
-    -- Statutory charges collected on a policy and remitted to a third party.
-    -- Separate roles, not one bucket: a report must be able to tell a levy held
-    -- for the College from a tax collected for URA.
-    'insurance_training_levy_payable', 'ira_levy_payable', 'stamp_duty_payable',
-    -- Appendix B Q1 and Q4. The contra-claims-expense account a claim write-off and
-    -- a claim recovery both credit. One role because the accountant decided they are
-    -- one account; the two transaction types keep them distinguishable in reporting.
-    'ins_claim_write_off_expense'
-  ]::text[];
-$$;
+-- Deliberately NOT added to platform_gl_posting_roles(): that function is the
+-- template-seeded role list, and test_insurance_template_v0.sql /
+-- test_insurance_tenant_acceptance.sql / test_template_kinds_and_apply_template.sql
+-- require it to match the insurance template's posting_rule items and the quoted
+-- literals of gl_posting_rules_account_role_check. Because Q1 forbids inventing an
+-- account code before the live chart is checked (see 20261124011600), the template
+-- does not seed ins_claim_write_off_expense; gl_posting_rules_account_role_check
+-- admits it through its '^(ins|fin|hr)_' namespace branch.
 
 -- ---------------------------------------------------------------------
 -- 2. Claim write-offs and recoveries resolve their account from the role
@@ -126,6 +103,14 @@ comment on function public.ins_claim_contra_account(uuid) is
 -- them. That is why the level lookup itself defaults to this stage -- see below. Seeding
 -- alone would have made the control look enforced while being absent for every new
 -- company, which is the same class of quiet failure this migration is trying to end.
+-- The CHECK on workflow_stages.applies_to is widened here rather than assumed. 20261124011500
+-- widens it again for manual_journals, but 11500 runs AFTER this file, so on a fresh database
+-- this INSERT was rejected with 23514 and the migration never applied. This is the same
+-- statement 10800 makes, repeated locally so this file stands on its own.
+alter table public.workflow_stages drop constraint if exists workflow_stages_applies_to_check;
+alter table public.workflow_stages add constraint workflow_stages_applies_to_check
+  check (applies_to in ('requests', 'invoices', 'insurance_refunds'));
+
 insert into public.workflow_stages
   (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
 select t.id, 'Client advance refund', 1, 'finance', null, 'insurance_refunds', true
@@ -145,27 +130,32 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     language sql stable security definer
     set search_path to 'public', 'pg_temp'
     as $$
-  (select s.id, s.sequence_order, s.approver_role, s.threshold_amount
-     from workflow_stages s
-    where s.tenant_id = p_tenant_id
-      and s.applies_to = 'insurance_refunds'
-      and s.is_active
-      and coalesce(s.threshold_amount, 0) <= p_amount
-    order by s.sequence_order desc
-    limit 1)
+  -- One row or none. This was written as `select ... order by ... limit 1 union all select ...`,
+  -- which PostgreSQL rejects at 42601: LIMIT binds tighter than UNION, so `limit 1 union all`
+  -- is a syntax error, not a union of two limited selects. It was never caught because the body
+  -- lives inside a dollar-quoted string, which a parse check does not descend into and which a
+  -- CREATE does not execute. Only running it finds this.
+  select w.id, w.sequence_order, w.approver_role, w.threshold_amount
+    from (select id, sequence_order, approver_role, threshold_amount
+            from workflow_stages
+           where tenant_id = p_tenant_id
+             and applies_to = 'insurance_refunds'
+             and is_active
+             and coalesce(threshold_amount, 0) <= p_amount
+           order by sequence_order desc
+           limit 1) w
   union all
-  -- No stage matched: apply the minimum control rather than none.
+  -- No stage configured for this company: apply the minimum control rather than none.
   select null::uuid, 1, 'finance', null::numeric
    where not exists (
-     select 1 from workflow_stages s
-      where s.tenant_id = p_tenant_id
-        and s.applies_to = 'insurance_refunds'
-        and s.is_active
-        and coalesce(s.threshold_amount, 0) <= p_amount
+     select 1 from workflow_stages
+      where tenant_id = p_tenant_id
+        and applies_to = 'insurance_refunds'
+        and is_active
    )
 $$;
 
-revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public;
+revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public, anon, authenticated;
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric) to service_role;
 
 -- ---------------------------------------------------------------------
@@ -202,7 +192,7 @@ declare
   v_consumed numeric;
   v_available numeric;
   v_version  integer;
-  v_date     date := coalesce(p_entry_date, current_date);
+  v_date     date := coalesce(p_entry_date, public.business_today());
   v_claim_status text;
 begin
   if not can_access_insurance() then
@@ -228,7 +218,7 @@ begin
   if nullif(btrim(p_reason), '') is null or length(btrim(p_reason)) < 5 then
     raise exception 'INS_NOTE_REQUIRED: give the reason for the disposition';
   end if;
-  if v_date > current_date + 1 then
+  if v_date > public.business_today() + 1 then
     raise exception 'INS_DISPOSITION_DATE: the entry date cannot be in the future';
   end if;
 
@@ -243,8 +233,8 @@ begin
     raise exception 'INS_DISPOSITION_KIND: % applies to a client advance (2040) item; % is a % item',
       p_kind, v_item.document_no, v_item.control_role;
   end if;
-  if p_kind in ('claim_write_off', 'claim_recovery_uncollectable')
-     and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable') then
+  if (p_kind = 'claim_write_off' and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable'))
+     or (p_kind = 'claim_recovery_uncollectable' and v_item.control_role not in ('client_claim_payable', 'insurer_claim_receivable') and v_item.source_type <> 'ins_claim_recovery') then
     raise exception 'INS_DISPOSITION_KIND: % applies to a claim item; % is a % item',
       p_kind, v_item.document_no, v_item.control_role;
   end if;
@@ -257,7 +247,7 @@ begin
   if not v_gl.is_active then
     raise exception 'INS_DISPOSITION_ACCOUNT: account % is inactive', v_gl.account_code;
   end if;
-  if v_gl.is_control_account then
+  if p_kind <> 'advance_release' and v_gl.is_control_account then
     raise exception 'INS_DISPOSITION_ACCOUNT: % is a control account; a disposition posts against an income or expense account', v_gl.account_code;
   end if;
 
@@ -337,7 +327,7 @@ begin
 end;
 $$;
 
-revoke all on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) from public;
+revoke all on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) from public, anon;
 grant execute on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) to authenticated;
 
 -- ---------------------------------------------------------------------
@@ -523,7 +513,7 @@ begin
   return new;
 end $$;
 
-revoke all on function public.ins_claim_repudiation_guard() from public, anon, authenticated;
+revoke all on function public.ins_claim_repudiation_guard() from public, anon, authenticated, service_role;
 
 drop trigger if exists ins_claim_repudiation_guard on public.ins_claims;
 create trigger ins_claim_repudiation_guard
@@ -540,14 +530,29 @@ begin
                     and column_name = 'repudiation_reference') then
     raise exception 'ins_claims.repudiation_reference was not created';
   end if;
-  if not ('ins_claim_write_off_expense' = any (public.platform_gl_posting_roles())) then
-    raise exception 'the contra-claims-expense role is not in platform_gl_posting_roles()';
+  if to_regprocedure('public.ins_claim_contra_account(uuid)') is null then
+    raise exception 'ins_claim_contra_account(uuid) was not created';
   end if;
   -- The level lookup must apply to an arbitrary company with no configuration at all,
   -- which is the case that would otherwise be silently ungoverned.
-  if not exists (select 1
-                   from public.platform_ins_refund_required_level(gen_random_uuid(), 1) r
-                  where r.stage_id is null) then
-    raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
-  end if;
+  -- The lookup returns a SET, so it cannot be called inside a boolean expression: PostgreSQL
+  -- rejects that with 42804 'argument of OR must not return a set' when the block runs. It had
+  -- never run, on any database, because the migration aborted before reaching it. Selecting
+  -- into a row is how a set-returning function is meant to be tested.
+  declare
+    v_lvl record;
+  begin
+    select * into v_lvl
+      from public.platform_ins_refund_required_level(gen_random_uuid(), 1);
+    if not found then
+      raise exception 'the refund level lookup returns no row at all for an unconfigured company';
+    end if;
+    if v_lvl.stage_id is not null then
+      raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
+    end if;
+    if v_lvl.level is distinct from 1 or v_lvl.approver_role is distinct from 'finance' then
+      raise exception 'the refund minimum control is level % role %, expected level 1 finance',
+        v_lvl.level, v_lvl.approver_role;
+    end if;
+  end;
 end $$;

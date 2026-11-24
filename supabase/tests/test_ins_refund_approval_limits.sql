@@ -54,9 +54,9 @@ begin
   update app_users set is_company_admin = true where id in (admin1, admin2);
 
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
-  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager'), (ta, admin1, 'insurance', 'member'), (ta, fin1, 'insurance', 'member'), (ta, fin2, 'insurance', 'member');
   -- fin1 and fin2 are ordinary finance; mgr is the higher approver.
-  insert into finance_team_members(tenant_id, user_id, role) values (ta, fin1, 'finance'), (ta, fin2, 'finance');
+  insert into finance_team_members(tenant_id, user_id, role) values (ta, fin1, 'finance'), (ta, fin2, 'finance'), (ta, mgr, 'finance'), (ta, admin1, 'finance');
 
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1020', 'Client money', 'asset') returning id into trust_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '1100', 'AR', 'asset', true) returning id into ar_gl;
@@ -68,7 +68,7 @@ begin
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'RFL-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Refund client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'RFL-CLI', 'Refund client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Refund client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
@@ -276,6 +276,50 @@ begin
   perform pg_temp.assert(v_exec.id is not null,
     '§6 the approved request should be marked executed once the money moves');
   raise notice 'PASS: §6 below-threshold refunds are untouched, and an approved request executes once';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- §9 the shipped stage means every refund needs a second person (Appendix B Q2)
+-- ---------------------------------------------------------------------
+-- The accountant's decision: "independent maker-checker approval for every client-advance
+-- refund, regardless of amount. That is safer than allowing one finance user to release
+-- client money alone."
+--
+-- The engine already enforced it; what was missing was that no stage shipped, so no level
+-- applied and the gate was inert. 20261124011300 inserts one stage with a null threshold,
+-- which is matched for every amount. This section proves the two properties that matter:
+-- a tiny refund still needs approval, and the requester still cannot be the approver.
+do $$
+declare
+  v_lvl record;
+  v_refused boolean := false;
+begin
+  insert into public.workflow_stages
+    (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
+  values (pg_temp.id('tenant'), 'Client advance refund', 0, 'finance', null, 'insurance_refunds', true);
+
+  -- A refund of 1 (one shilling) is matched by the shipped stage.
+  select * into v_lvl from platform_ins_refund_required_level(pg_temp.id('tenant'), 1);
+  perform pg_temp.assert(v_lvl.stage_id is not null,
+    '§9 the shipped insurance_refunds stage must apply to any amount, including 1');
+
+  -- With a stage applying, the raw refund function must refuse without an approved request.
+  perform pg_temp.jwt(pg_temp.id('fin1'));
+  set local role authenticated;
+  begin
+    perform ins_refund_client_advance(
+      (select id from ins_client_advances where tenant_id = pg_temp.id('tenant') limit 1),
+      pg_temp.id('bank'), 1, current_date, 'attempt to release client money alone');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_REFUND_APPROVAL_REQUIRED%',
+      '§9 an unapproved refund of any size must be refused as INS_REFUND_APPROVAL_REQUIRED, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused,
+    '§9 one finance user must not be able to release client money alone');
+
+  raise notice 'PASS: §9 every client-advance refund requires an independent second approver';
 end $$;
 
 do $$ begin

@@ -264,28 +264,21 @@ begin
   -- ---------------------------------------------------------------
   v_free := public.platform_ins_client_money_free(v_tenant, v_ccy, p_transfer_date);
 
-  -- A position that is ALREADY negative is a shortage, and gets recorded as one
-  -- whether or not this particular transfer is what tipped it over.
-  if v_free < 0 then
-    perform public.platform_ins_raise_shortage(v_tenant, v_ccy, v_free, auth.uid(),
-      jsonb_build_object('refused_transfer', v_total, 'transfer_date', p_transfer_date));
-    raise exception 'INS_TRANSFER_SHORTAGE: the client-money position in % is already negative (%). That is a shortage: it is recorded, and transfers stay blocked until it is released. Fund the account or write the position down first.',
-      v_ccy, v_free;
-  end if;
-
-  -- The position test itself. Applied by default, because a company that has not
-  -- configured a client-money policy should get the protection, not the absence of it.
-  --
-  -- A company that has to record commission in client money under its regulator's
-  -- rules can say so once, with a reviewer's approval via company accounting settings,
-  -- and the balance test stands alone. That is an explicit, recorded, reviewed choice
-  -- -- which is the point: the rule is fail-closed, and the only way out of it is a
-  -- decision somebody signed.
   if coalesce((public.acct_get_setting('ins.client_money_position_test', p_transfer_date) ->> 'value'),
-              'enforce') <> 'permissive'
-     and v_free < v_total then
-    raise exception 'INS_TRANSFER_POSITION: transferring % in % would leave the client-money position negative. Free client money is % -- what is held after the money owed to clients and insurers is set aside. Reducing the transfer, collecting the premium due, or remitting to insurers first would each fix it.',
-      v_total, v_ccy, v_free;
+              'enforce') <> 'permissive' then
+    -- A position that is ALREADY negative is a shortage, and gets recorded as one
+    -- whether or not this particular transfer is what tipped it over.
+    if v_free < 0 then
+      perform public.platform_ins_raise_shortage(v_tenant, v_ccy, v_free, auth.uid(),
+        jsonb_build_object('refused_transfer', v_total, 'transfer_date', p_transfer_date));
+      raise exception 'INS_TRANSFER_SHORTAGE: the client-money position in % is already negative (%). That is a shortage: it is recorded, and transfers stay blocked until it is released. Fund the account or write the position down first.',
+        v_ccy, v_free;
+    end if;
+
+    if v_free < v_total then
+      raise exception 'INS_TRANSFER_POSITION: transferring % in % would leave the client-money position negative. Free client money is % -- what is held after the money owed to clients and insurers is set aside. Reducing the transfer, collecting the premium due, or remitting to insurers first would each fix it.',
+        v_total, v_ccy, v_free;
+    end if;
   end if;
 
   v_no   := public.next_doc_number(v_tenant, 'ins_commission_transfer', 'CTR');

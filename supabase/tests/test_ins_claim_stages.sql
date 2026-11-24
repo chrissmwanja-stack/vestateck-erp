@@ -24,6 +24,8 @@
 
 begin;
 
+create temp table ids (k text primary key, v uuid);
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -61,7 +63,7 @@ declare
   admin2 uuid := gen_random_uuid();
   mgr uuid := gen_random_uuid();
   v_line uuid; v_insurer uuid; v_bank uuid; v_party uuid; v_bd uuid; v_client uuid;
-  recv_gl uuid; pay_gl uuid; trust_gl uuid;
+  ar_gl uuid; ap_gl uuid; recv_gl uuid; pay_gl uuid; trust_gl uuid;
 begin
   insert into tenants(id, name) values (ta, 'Claim stages test');
   insert into auth.users(id, email, raw_user_meta_data, raw_app_meta_data, aud, role, created_at, updated_at)
@@ -73,20 +75,23 @@ begin
   update app_users set is_company_admin = true where id in (admin1, admin2);
 
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
-  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager'), (ta, admin1, 'insurance', 'manager');
   insert into finance_team_members(tenant_id, user_id, role) values (ta, mgr, 'finance');
 
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1020', 'Client money', 'asset') returning id into trust_gl;
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1100', 'AR control', 'asset') returning id into ar_gl;
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2010', 'Insurer payable', 'liability') returning id into ap_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1120', 'Insurer claim receivable', 'asset') returning id into recv_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2030', 'Client claim payable', 'liability') returning id into pay_gl;
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'client_money_bank', trust_gl), (ta, 'insurer_claim_receivable', recv_gl),
-    (ta, 'client_claim_payable', pay_gl);
+    (ta, 'client_claim_payable', pay_gl),
+    (ta, 'ar_control', ar_gl), (ta, 'insurer_payable', ap_gl), (ta, 'unearned_commission', ap_gl), (ta, 'commission_income', ap_gl);
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CLM-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Claim client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'CST-CLI', 'Claim client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Claim client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
@@ -94,11 +99,10 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'GEN', 'General') returning id into v_line;
-  insert into ins_insurers(tenant_id, code, name) values (ta, 'CLMINS', 'Claim Insurer') returning id into v_insurer;
+  insert into ins_insurers(tenant_id, code, name, claim_payment_mode) values (ta, 'CLMINS', 'Claim Insurer', 'via_broker') returning id into v_insurer;
   reset role;
 
-  create temp table ids (k text primary key, v uuid);
-  insert into ids(k, v) values ('tenant', ta), ('line', v_line), ('insurer', v_insurer),
+    insert into ids(k, v) values ('tenant', ta), ('line', v_line), ('insurer', v_insurer),
     ('bank', v_bank), ('party', v_party), ('client', v_client),
     ('recv', recv_gl), ('pay', pay_gl), ('trust', trust_gl), ('mgr', mgr);
 end $$;
@@ -111,7 +115,7 @@ grant execute on function pg_temp.id(text) to authenticated;
 
 -- A bound policy with one insurer share, so claims can be raised against it.
 create function pg_temp.make_policy(p_expiry date default current_date + 300)
-returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
+returns uuid language plpgsql set search_path = public, pg_temp as $$
 declare p ins_policies%rowtype;
 begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
@@ -127,7 +131,12 @@ begin
   set local role authenticated;
   perform ins_submit_policy_for_approval(p.id);
   reset role;
-  -- Approve as a second manager so maker/checker holds.
+  perform set_config('ins.via_rpc', 'on', true);
+  insert into ins_insurer_commission_terms (tenant_id, insurer_id, mode, effective_from, agreed_ref, rationale, status, proposed_by, approved_by, approved_at)
+    select pg_temp.id('tenant'), pg_temp.id('insurer'), 'on_insurer_settlement', date '2020-01-01', 'TEST-FIXTURE', 'test fixture default', 'approved', (select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1), pg_temp.id('mgr'), now()
+    where not exists (select 1 from ins_insurer_commission_terms where tenant_id = pg_temp.id('tenant') and insurer_id = pg_temp.id('insurer') and status = 'approved');
+  update ins_policies set status = 'approved' where id = p.id;
+  perform set_config('ins.via_rpc', 'off', true);
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform public.ins_bind_policy(p.id);
@@ -141,6 +150,7 @@ end $$;
 do $$
 declare v_claim ins_claims%rowtype; v_events integer; v_stage text;
 begin
+  perform pg_temp.make_policy();
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   v_claim := ins_create_claim(
@@ -173,7 +183,7 @@ declare v_claim uuid := (select id from ins_claims where tenant_id = pg_temp.id(
         v_before integer; v_after integer; v_stage text;
 begin
   v_before := pg_temp.journals_for(v_claim);
-  perform pg_temp.jwt(pg_temp.id('mgr'));
+  perform pg_temp.jwt((select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1));
   set local role authenticated;
   perform ins_transition_claim(v_claim, 'approved', 'approved internally at 400,000', 400000);
   reset role;
@@ -321,6 +331,9 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform ins_transition_claim(v_claim, 'assessing', 'checking the certificate');
+  reset role;
+  perform pg_temp.jwt((select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1));
+  set local role authenticated;
   perform ins_transition_claim(v_claim, 'approved', 'assessed at 100,000', 100000);
   reset role;
 
@@ -338,6 +351,106 @@ begin
   perform pg_temp.assert(v_refused,
     '§7 a claim under coverage review must not have its insurer liability recognised');
   raise notice 'PASS: §7 coverage under review blocks recognition of insurer liability';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- §8 repudiation is the ninth state, and it keeps its grounds (Appendix B Q3)
+-- ---------------------------------------------------------------------
+-- The accountant accepted repudiation as a ninth stage and attached conditions: it must
+-- stay distinguishable from a paid claim and from a merely closed one, it must record the
+-- insurer's decision, date, reason and correspondence, and it must be reopenable.
+--
+-- Note that before this section existed, NOTHING could set a claim to 'repudiated'. The
+-- value was in the CHECK and reported by ins_claim_stage(), but no function wrote it, so
+-- the state was reportable and unreachable.
+do $$
+declare
+  v_claim   ins_claims%rowtype;
+  v_policy  uuid;
+  v_refused boolean := false;
+  v_stage   text;
+  v_events  integer;
+begin
+  v_policy := pg_temp.make_policy();
+
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  v_claim := ins_create_claim(v_policy, current_date - 5, current_date - 4,
+                              'Storm damage to roof', 'REP-REF-1', 300000);
+
+  -- 8a. A repudiation with no reference behind it is refused: a claim declined with
+  -- nothing to point at cannot be reviewed or challenged.
+  begin
+    perform ins_set_claim_repudiation(v_claim.id, current_date, 'Insurer declined: wear and tear', '   ');
+    raise exception 'FAIL: §8 a repudiation with no reference must be refused';
+  exception when others then
+    if sqlerrm not like 'INS_REPUDIATION_REFERENCE%' then raise; end if;
+  end;
+
+  -- 8b. With grounds, it records the state and the evidence.
+  perform ins_set_claim_repudiation(
+    v_claim.id, current_date - 1,
+    'Insurer declined: pre-existing wear and tear, not storm damage',
+    'DECL-2026-0912');
+  reset role;
+
+  select * into v_claim from ins_claims where id = v_claim.id;
+  perform pg_temp.assert(v_claim.status = 'repudiated',
+    '§8 the claim must be stored as repudiated');
+  perform pg_temp.assert(v_claim.repudiation_reference = 'DECL-2026-0912',
+    '§8 the insurer''s decision reference must be kept, got ' || coalesce(v_claim.repudiation_reference, '(null)'));
+  perform pg_temp.assert(v_claim.repudiation_date = current_date - 1,
+    '§8 the insurer''s decision date must be kept');
+
+  v_stage := ins_claim_stage(v_claim.id);
+  perform pg_temp.assert(v_stage = 'repudiated',
+    '§8 the stage must report repudiation rather than closing the claim, got ' || coalesce(v_stage, '(none)'));
+
+  select count(*) into v_events from ins_claim_events
+   where claim_id = v_claim.id and to_status = 'repudiated';
+  perform pg_temp.assert(v_events = 1,
+    '§8 the repudiation must leave exactly one audit row, got ' || v_events);
+
+  -- 8c. The grounds cannot be quietly rewritten while the claim stays repudiated.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  begin
+    perform set_config('ins.via_rpc', 'on', true);
+    update ins_claims set repudiation_reason = 'changed my mind' where id = v_claim.id;
+    raise exception 'FAIL: §8 the grounds for a repudiation must not be rewritable';
+  exception when others then
+    if sqlerrm not like 'INS_REPUDIATION_IMMUTABLE%' then raise; end if;
+  end;
+
+  -- 8d. It can be reopened, and the grounds survive the reopening.
+  perform ins_reopen_claim(v_claim.id, 'Insurer reversed its decision after a loss adjuster review');
+  reset role;
+
+  select * into v_claim from ins_claims where id = v_claim.id;
+  perform pg_temp.assert(v_claim.status = 'assessing',
+    '§8 reopening returns the claim to assessing, got ' || v_claim.status);
+  perform pg_temp.assert(v_claim.repudiation_reference = 'DECL-2026-0912',
+    '§8 reopening must keep the record of what the insurer decided');
+  perform pg_temp.assert(v_claim.repudiation_reopened_at is not null,
+    '§8 reopening must be dated so the gap is visible');
+  perform pg_temp.assert(ins_claim_stage(v_claim.id) = 'assessed',
+    '§8 a reopened claim is assessed again, got ' || coalesce(ins_claim_stage(v_claim.id), '(none)'));
+
+  -- 8e. Only a repudiated claim is reopened this way.
+  v_refused := false;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  begin
+    perform ins_reopen_claim(v_claim.id, 'trying again');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_CLAIM_STATE%',
+      '§8 reopening a claim that is not repudiated must be refused as INS_CLAIM_STATE, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused, '§8 only a repudiated claim may be reopened');
+
+  raise notice 'PASS: §8 repudiation is a ninth state with recorded grounds, and it can be reopened';
 end $$;
 
 do $$ begin

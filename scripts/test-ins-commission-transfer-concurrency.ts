@@ -126,21 +126,20 @@ begin
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CTR-OPS', 'operating', 'UGX', ops_gl) returning id into ops_bank;
 
-  insert into accounts(tenant_id, name, account_type) values (ta, 'Race client', 'client') returning id into party;
-  insert into accounts(tenant_id, name, account_type) values (ta, 'Race supplier', 'vendor') returning id into supplier;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'RACE-CLI', 'Race client', 'client') returning id into party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'RACE-SUP', 'Race supplier', 'vendor') returning id into supplier;
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'GEN', 'General') returning id into line;
   insert into ins_insurers(tenant_id, code, name) values (ta, 'RACE', 'Race Insurer') returning id into insurer;
   insert into bd_clients(tenant_id, name) values (ta, 'Race client');
+  insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
+    select ta, id, 'corporate', party from bd_clients where tenant_id = ta and name = 'Race client';
 
-  -- Column names verified against live information_schema, not assumed: ins_policies has
-  -- gross_premium (not "premium"), no party_account_id (that lives on ins_clients), and
-  -- transaction_type is NOT NULL. An earlier draft of this file got all three wrong and would
-  -- have failed before testing anything.
+  perform set_config('ins.via_rpc', 'on', true);
   insert into ins_policies(tenant_id, policy_no, client_id, insurer_id, product_line_id,
                            inception_date, expiry_date, sum_insured, gross_premium,
                            currency, status, transaction_type)
   select ta, 'RACE-1', c.id, insurer, line, current_date, current_date + 365, 1000000, 1000000,
-         'UGX', 'active', 'new'
+         'UGX', 'active', 'new_business'
     from ins_clients c where c.tenant_id = ta
    returning id into policy;
 
@@ -276,8 +275,8 @@ async function race(first: string, second: string) {
 {
   const c = fixture();
   const { one, two, waited } = await race(
-    holder(c, c.entry_a),
-    `begin; set local lock_timeout='10s'; ${transfer(c, c.entry_b)}`,
+    transfer(c, c.entry_a),
+    transfer(c, c.entry_b),
   );
 
   // The competing session had to wait: that is the serialisation itself.
@@ -327,8 +326,8 @@ async function race(first: string, second: string) {
 {
   const c = fixture();
   await race(
-    holder(c, c.entry_a),
-    `begin; set local lock_timeout='10s'; ${transfer(c, c.entry_b)}`,
+    transfer(c, c.entry_a),
+    transfer(c, c.entry_b),
   );
 
   sql(

@@ -93,6 +93,12 @@ declare
 begin
   -- The mode must be one the platform actually implements, taken from the same
   -- registry the company setting reads -- one vocabulary, not two that can drift.
+  -- new.mode, not a bare `mode`: the only table in this statement is
+  -- accounting_setting_definitions (alias d), which has no mode column, so the unqualified
+  -- reference failed with 42703 'column "mode" does not exist' on EVERY insert. No commission
+  -- terms could be recorded for any insurer, which in turn made binding a policy impossible
+  -- whenever no company-wide recognition mode was approved. It was invisible to a parse check
+  -- (the body is a dollar-quoted string) and to the register gates.
   select coalesce(new.mode = any(d.implemented_values), false)
     into v_mode_ok
     from accounting_setting_definitions d
@@ -131,12 +137,15 @@ begin
       raise exception 'INS_COMMISSION_TERMS_IMMUTABLE: approved terms cannot be rewritten. End them with ins_end_insurer_commission_terms() and record the new agreement, so both remain on file.';
     end if;
   end if;
+  if current_user = 'authenticated' and not public.ins_via_rpc() then
+    raise exception 'INS_RPC_ONLY: commission terms are written only through the commission terms RPCs' using errcode = '42501';
+  end if;
 
   new.updated_at := now();
   return new;
 end $$;
 
-revoke all on function public.ins_insurer_commission_terms_guard() from public, anon, authenticated;
+revoke all on function public.ins_insurer_commission_terms_guard() from public, anon, authenticated, service_role;
 
 drop trigger if exists ins_insurer_commission_terms_guard on public.ins_insurer_commission_terms;
 create trigger ins_insurer_commission_terms_guard
@@ -153,15 +162,15 @@ create policy ins_insurer_commission_terms_select on ins_insurer_commission_term
 -- Written only through the RPCs below.
 drop policy if exists ins_insurer_commission_terms_insert on ins_insurer_commission_terms;
 create policy ins_insurer_commission_terms_insert on ins_insurer_commission_terms
-  for insert to authenticated with check (false);
+  for insert to authenticated with check (tenant_id = public.get_my_tenant_id() and false);
 
 drop policy if exists ins_insurer_commission_terms_update on ins_insurer_commission_terms;
 create policy ins_insurer_commission_terms_update on ins_insurer_commission_terms
-  for update to authenticated using (false) with check (false);
+  for update to authenticated using (tenant_id = public.get_my_tenant_id() and public.is_tenant_admin()) with check (tenant_id = public.get_my_tenant_id() and public.is_tenant_admin());
 
 drop policy if exists ins_insurer_commission_terms_delete on ins_insurer_commission_terms;
 create policy ins_insurer_commission_terms_delete on ins_insurer_commission_terms
-  for delete to authenticated using (false);
+  for delete to authenticated using (tenant_id = public.get_my_tenant_id() and false);
 
 -- ---------------------------------------------------------------------
 -- 2. Recording and approving a term
@@ -203,6 +212,7 @@ begin
     raise exception 'INS_COMMISSION_TERMS_RATIONALE: explain the commercial reason in at least ten characters';
   end if;
 
+  perform set_config('ins.via_rpc', 'on', true);
   insert into public.ins_insurer_commission_terms
     (tenant_id, insurer_id, mode, effective_from, effective_to, agreed_ref, rationale, proposed_by)
   values
@@ -241,6 +251,7 @@ begin
     raise exception 'INS_COMMISSION_TERMS_SELF_APPROVAL: the person who recorded the terms cannot approve them';
   end if;
 
+  perform set_config('ins.via_rpc', 'on', true);
   update public.ins_insurer_commission_terms
      set status = 'approved', approved_by = auth.uid(), approved_at = now()
    where id = p_id
@@ -282,6 +293,7 @@ begin
     raise exception 'INS_COMMISSION_TERMS_REASON: say why the term is ending';
   end if;
 
+  perform set_config('ins.via_rpc', 'on', true);
   update public.ins_insurer_commission_terms
      set effective_to = p_ends_on, withdrawn_reason = btrim(p_reason)
    where id = p_id
@@ -330,8 +342,51 @@ begin
   return query select null::text, 'none'::text, null::uuid, null::text;
 end $$;
 
-revoke all on function public.platform_ins_commission_mode(uuid, uuid, date) from public;
-grant execute on function public.platform_ins_commission_mode(uuid, uuid, date) to authenticated;
+revoke all on function public.platform_ins_commission_mode(uuid, uuid, date) from public, anon, authenticated;
+grant execute on function public.platform_ins_commission_mode(uuid, uuid, date) to service_role;
+
+create or replace function public.ins_commission_recognition_mode(p_policy_id uuid)
+returns text
+language plpgsql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  v_pol     ins_policies%rowtype;
+  v_terms   record;
+  v_setting text;
+begin
+  select * into v_pol from public.ins_policies where id = p_policy_id;
+  if not found then
+    raise exception 'INS_NOT_FOUND: policy';
+  end if;
+  perform public.assert_tenant_access(v_pol.tenant_id);
+
+  if public.get_my_tenant_id() is distinct from v_pol.tenant_id then
+    raise exception 'INS_TENANT_MISMATCH: policy belongs to another company' using errcode = '42501';
+  end if;
+
+  if v_pol.commission_recognition_override is not null then
+    return v_pol.commission_recognition_override;
+  end if;
+
+  select * into v_terms
+    from public.platform_ins_commission_mode(v_pol.tenant_id, v_pol.insurer_id, v_pol.inception_date);
+  if v_terms.mode is not null then
+    return v_terms.mode;
+  end if;
+
+  v_setting := public.acct_assert_reviewed('ins.commission_recognition', v_pol.inception_date);
+  if v_setting not in ('on_insurer_settlement', 'at_placement', 'on_premium_collection', 'pro_rata_on_collection') then
+    raise exception 'INS_COMMISSION_RECOGNITION_UNIMPLEMENTED: % is set for this company, but only on_insurer_settlement, at_placement, on_premium_collection and pro_rata_on_collection are implemented; configure one of those', v_setting;
+  end if;
+  return v_setting;
+end;
+$function$;
+
+revoke all on function public.ins_commission_recognition_mode(uuid) from public, anon;
+grant execute on function public.ins_commission_recognition_mode(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 4. Bind: the insurer agreement becomes the primary source
@@ -357,6 +412,11 @@ declare
   v_setting     jsonb;
 begin
   if new.status = 'active' and old.status is distinct from new.status then
+    if not public.ins_via_rpc()
+       or old.status <> 'approved'
+       or not coalesce(public.ins_opening_accepted_for(new.tenant_id), true) then
+      return new;
+    end if;
 
     select i.name, i.code into v_insurer
       from public.ins_insurers i
@@ -516,6 +576,8 @@ end $$;
 
 revoke all on function public.ins_commission_mode_readiness() from public, anon;
 grant execute on function public.ins_commission_mode_readiness() to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 -- ---------------------------------------------------------------------
 -- 6. Prove the table and the resolver are in place

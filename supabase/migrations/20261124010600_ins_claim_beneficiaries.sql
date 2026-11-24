@@ -175,9 +175,15 @@ returns table (currency char(3), payable numeric, held numeric, total numeric)
     set search_path to 'public', 'pg_temp'
     as $$
   with c as (
-    select cl.id, cl.tenant_id, cl.approved_amount, pol.currency::char(3) as currency
+    select cl.id, cl.tenant_id, cl.approved_amount,
+           -- ins_claims has no currency of its own: a claim belongs to a policy and the
+           -- policy holds the currency. This read cl.currency, a column that was never
+           -- created; because the body is validated at CREATE time, that typo stopped
+           -- the whole migration from applying rather than failing quietly at call time.
+           -- Source of truth is the same one ins_claim_beneficiary_instalments uses.
+           p.currency
       from ins_claims cl
-      join ins_policies pol on pol.id = cl.policy_id and pol.tenant_id = cl.tenant_id
+      join ins_policies p on p.id = cl.policy_id
      where cl.id = p_claim_id and cl.tenant_id = p_tenant_id
   ), b as (
     select bn.*,
@@ -233,7 +239,10 @@ create or replace function public.ins_set_claim_beneficiaries(
 declare
   v_tenant  uuid := get_my_tenant_id();
   v_claim   ins_claims%rowtype;
-  v_ccy    text;
+  -- ins_claims carries no currency of its own: a claim belongs to a policy, and the
+  -- policy holds the currency. Read from there rather than from a column that does
+  -- not exist, which is how this was first written.
+  v_ccy     text;
   v_elem    jsonb;
   v_no      integer := 0;
   v_pct_total numeric := 0;
@@ -247,11 +256,10 @@ begin
   end if;
   select * into v_claim from ins_claims
    where id = p_claim_id and tenant_id = v_tenant for update;
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
-  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
   if v_claim.status in ('settled', 'closed', 'repudiated') then
     raise exception 'INS_CLAIM_STATE: the beneficiaries of a % claim cannot be changed', v_claim.status;
   end if;
@@ -415,7 +423,7 @@ begin
   if p_deceased_on is null then
     raise exception 'INS_REQUIRED: record the date of death';
   end if;
-  if p_deceased_on > current_date then
+  if p_deceased_on > public.business_today() then
     raise exception 'INS_CLAIM_DATES: the date of death cannot be in the future';
   end if;
   if nullif(btrim(p_representative_authority), '') is null then
@@ -475,7 +483,7 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
-  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
+  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
   if v_claim.recognised_at is null then
     raise exception 'INS_CLAIM_NOT_RECOGNISED: recognise the claim before scheduling instalments against it';
@@ -582,13 +590,14 @@ $$;
 -- ---------------------------------------------------------------------
 -- 9. Exposure
 -- ---------------------------------------------------------------------
-revoke all on function public.platform_ins_claim_beneficiary_payable(uuid, uuid) from public;
-revoke all on function public.ins_claim_beneficiary_payable(uuid) from public;
-revoke all on function public.ins_claim_beneficiary_percentage_total(uuid) from public;
-revoke all on function public.ins_set_claim_beneficiaries(uuid, jsonb) from public;
-revoke all on function public.ins_record_death_claim(uuid, date, date, text, date, text, text, text, text, numeric) from public;
-revoke all on function public.ins_schedule_claim_instalments(uuid, jsonb) from public;
-revoke all on function public.ins_pay_claim_instalment(uuid, uuid, date, text, text, text) from public;
+revoke all on function public.ins_claim_beneficiary_payout_guard() from public, anon, authenticated, service_role;
+revoke all on function public.platform_ins_claim_beneficiary_payable(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.ins_claim_beneficiary_payable(uuid) from public, anon;
+revoke all on function public.ins_claim_beneficiary_percentage_total(uuid) from public, anon;
+revoke all on function public.ins_set_claim_beneficiaries(uuid, jsonb) from public, anon;
+revoke all on function public.ins_record_death_claim(uuid, date, date, text, date, text, text, text, text, numeric) from public, anon;
+revoke all on function public.ins_schedule_claim_instalments(uuid, jsonb) from public, anon;
+revoke all on function public.ins_pay_claim_instalment(uuid, uuid, date, text, text, text) from public, anon;
 
 grant execute on function public.ins_claim_beneficiary_payable(uuid) to authenticated;
 grant execute on function public.ins_claim_beneficiary_percentage_total(uuid) to authenticated;
@@ -596,5 +605,7 @@ grant execute on function public.ins_set_claim_beneficiaries(uuid, jsonb) to aut
 grant execute on function public.ins_record_death_claim(uuid, date, date, text, date, text, text, text, text, numeric) to authenticated;
 grant execute on function public.ins_schedule_claim_instalments(uuid, jsonb) to authenticated;
 grant execute on function public.ins_pay_claim_instalment(uuid, uuid, date, text, text, text) to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 grant select on ins_claim_beneficiaries, ins_claim_instalments to authenticated;

@@ -234,7 +234,7 @@ begin
 
   select * into v_item from fin_open_items
    where id = v_adv.open_item_id and tenant_id = v_tenant;
-  v_open := v_adv.amount - public.fin_open_item_consumed(v_item.id) - v_adv.refunded_amount;
+  v_open := v_adv.amount - public.fin_open_item_consumed(v_item.id);
   if p_amount > v_open then
     raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available to refund, % requested',
       v_adv.id, v_open, p_amount;
@@ -244,7 +244,14 @@ begin
 
   -- Possible split: other live refund requests to the same payee today, each below
   -- the threshold, whose combined total crosses it.
-  v_threshold := coalesce(v_lvl.threshold_amount, null);
+  v_threshold := coalesce(
+    v_lvl.threshold_amount,
+    (select min(s.threshold_amount)
+       from public.workflow_stages s
+      where s.tenant_id = v_tenant
+        and s.applies_to = 'insurance_refunds'
+        and s.is_active
+        and coalesce(s.threshold_amount, 0) > p_amount));
   if v_threshold is not null then
     select count(*), coalesce(sum(r.amount), 0)
       into v_same_day_count, v_same_day_total
@@ -252,7 +259,7 @@ begin
      where r.tenant_id = v_tenant
        and r.party_account_id = v_item.party_account_id
        and r.status in ('pending', 'approved')
-       and r.requested_at::date = current_date
+       and public.business_date(r.requested_at) = public.business_today()
        and r.amount < v_threshold;
   end if;
 
@@ -480,7 +487,7 @@ begin
 
   -- B7: an approved request is required wherever a limit stage applies.
   select * into v_lvl from public.platform_ins_refund_required_level(v_tenant, p_amount);
-  if v_lvl.stage_id is not null then
+  if v_lvl.level is not null then
     -- Any approved request for this advance that has not been used yet. Deliberately
     -- not date-bounded: an approval granted yesterday is still an approval, and the
     -- request is consumed on execution below (status becomes 'executed').
@@ -498,11 +505,12 @@ begin
   end if;
 
   v_open := public.fin_open_item_consumed(v_adv.open_item_id);
-  if v_open + v_adv.refunded_amount + p_amount > v_adv.amount then
+  if v_open + p_amount > v_adv.amount then
     raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available to refund, % requested',
-      v_adv.id, v_adv.amount - v_adv.refunded_amount - v_open, p_amount;
+      v_adv.id, v_adv.amount - v_open, p_amount;
   end if;
 
+  perform set_config('ins.via_rpc', 'on', true);
   -- An ordinary client-money payment against the advance item, so the settlement
   -- guards (client-money bank only, approval, voidability) all apply to refunds.
   v_set := platform_fin_record_settlement_impl(
@@ -533,14 +541,18 @@ $$;
 -- ---------------------------------------------------------------------
 -- 8. Exposure
 -- ---------------------------------------------------------------------
-revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public;
-revoke all on function public.platform_ins_refund_user_limit(uuid, uuid) from public;
-revoke all on function public.ins_refund_required_level(numeric) from public;
-revoke all on function public.ins_request_refund(uuid, numeric, text) from public;
-revoke all on function public.ins_decide_refund(uuid, text, text) from public;
+revoke all on function public.ins_refund_requests_guard() from public, anon, authenticated, service_role;
+revoke all on function public.ins_refund_approvals_guard() from public, anon, authenticated, service_role;
+revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public, anon, authenticated;
+revoke all on function public.platform_ins_refund_user_limit(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.ins_refund_required_level(numeric) from public, anon;
+revoke all on function public.ins_request_refund(uuid, numeric, text) from public, anon;
+revoke all on function public.ins_decide_refund(uuid, text, text) from public, anon;
 
 grant execute on function public.ins_refund_required_level(numeric) to authenticated;
 grant execute on function public.ins_request_refund(uuid, numeric, text) to authenticated;
 grant execute on function public.ins_decide_refund(uuid, text, text) to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 grant select on ins_refund_requests, ins_refund_approvals to authenticated;

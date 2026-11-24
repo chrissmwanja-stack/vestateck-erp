@@ -171,16 +171,73 @@ async function main() {
   console.log(`database:   ${v}`);
   for (const s of shims) console.log(`shim:       ${s}`);
 
+  // ---- seed.sql ---------------------------------------------------------
+  // `supabase start` replays supabase/seed.sql after the migrations, so a defect that only
+  // the seed provokes makes the whole CI job fail -- which is exactly what happened, and
+  // this runner did not replay the seed, so it could not have seen it. Opt out with
+  // HARNESS_SKIP_SEED=1 when you deliberately want migrations only.
+  if (process.env.HARNESS_SKIP_SEED !== '1') {
+    const seedPath = join(ROOT, 'supabase/seed.sql');
+    const seedRaw = readFileSync(seedPath, 'utf8').replace(/^\\(set|echo).*$/gm, '');
+    const seedStmts = splitStatements(seedRaw);
+    for (let k = 0; k < seedStmts.length; k++) {
+      try {
+        await db.exec(seedStmts[k]);
+      } catch (e) {
+        console.error(`FAILED seed.sql (statement ${k + 1}/${seedStmts.length})`);
+        console.error(`  [${e.code}] ${(e.message || '').split('\n')[0]}`);
+        // `detail` is where PostgreSQL names the offending row / value for a CHECK or FK
+        // violation. Without it a 23514 says only that some row was bad.
+        if (e.detail) console.error(`  detail: ${String(e.detail).split('\n').slice(0, 4).join(' | ')}`);
+        if (e.constraint) console.error(`  constraint: ${e.constraint}`);
+        if (e.where) console.error(`  where: ${String(e.where).split('\n').slice(0, 2).join(' | ')}`);
+        console.error(
+          `  statement: ${JSON.stringify(
+            seedStmts[k]
+              .split('\n')
+              .filter((l) => !l.trim().startsWith('--'))
+              .join(' ')
+              .slice(0, 300)
+          )}`
+        );
+        process.exit(1);
+      }
+    }
+    console.log(`seed:       ${seedStmts.length} statement(s) applied`);
+  }
+
   let failed = 0;
   for (const t of tests) {
     const file = t.endsWith('.sql') ? t : `${t}.sql`;
-    const raw = readFileSync(join(ROOT, 'supabase/tests', file), 'utf8').replace(/^\\(set|echo).*$/gm, '');
+    const vars = new Map();
+    const rawFile = readFileSync(join(ROOT, 'supabase/tests', file), 'utf8');
+    for (const m of rawFile.matchAll(/^\\set\s+([A-Za-z_][A-Za-z0-9_]*)\s+'''([^']*)'''\s*$/gm)) {
+      vars.set(m[1], `'${m[2]}'`);
+    }
+    const raw = rawFile
+      .replace(/^\\(set|echo).*$/gm, '')
+      .replace(/^([^\n;]+?)\\gset\s*$/gm, '$1 /*__GSET__*/;');
     const stmts = splitStatements(raw);
     let broke = -1;
     let err = null;
     for (let k = 0; k < stmts.length; k++) {
+      let sqlStmt = stmts[k];
+      if (vars.size > 0) {
+        sqlStmt = sqlStmt
+          .replace(/:'([A-Za-z_][A-Za-z0-9_]*)'/g, (full, name) => (vars.has(name) ? `'${vars.get(name)}'` : full))
+          .replace(/(?<![:\w]):([A-Za-z_][A-Za-z0-9_]*)\b/g, (full, name) => (vars.has(name) ? vars.get(name) : full));
+      }
       try {
-        await db.exec(stmts[k]);
+        if (sqlStmt.includes('/*__GSET__*/')) {
+          const res = await db.query(sqlStmt);
+          if (res.rows && res.rows[0]) {
+            for (const [col, val] of Object.entries(res.rows[0])) {
+              vars.set(col, String(val));
+            }
+          }
+        } else {
+          await db.exec(sqlStmt);
+        }
       } catch (e) {
         broke = k;
         err = e;

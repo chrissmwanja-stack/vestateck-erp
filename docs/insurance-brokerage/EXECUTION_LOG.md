@@ -128,17 +128,61 @@ confirmed against the function that implements it before the assertion was chang
 
 ---
 
+## 2026-11-24 — full 166/166 SQL suite executed after seed replay and pack remediation
+
+### What was run
+
+    node supabase/tests/harness/run-migrations-and-tests.mjs $(ls supabase/tests/test_*.sql | xargs -n1 basename)
+    node supabase/tests/harness/run-migrations-and-tests.mjs check_live_security_drift.sql security_authorization.sql
+
+### Result
+
+    migrations: 143/143 applied to an empty database
+    database:   PostgreSQL 19.0 (PGlite 0.6.0) on wasm32-unknown-emscripten
+    seed:       32 statement(s) applied
+    SQL tests:  166/166 PASS, 0 FAIL (164 test_*.sql + check_live_security_drift.sql + security_authorization.sql)
+    Catalog audits:
+      - supabase/scripts/audit_tenant_fk.sql:        0 rows
+      - supabase/scripts/audit_rls_coverage.sql:     0 NO-RLS / NO-POLICY rows
+      - supabase/scripts/audit_security_definer.sql: 0 CRITICAL / ANON-EXPOSED rows
+    Parity check (scripts/test-ins-cancellation-calculation-parity.ts):
+      - 375 insurer calculations and 2,201 exact-cent allocations match TypeScript and PostgreSQL
+    Typecheck, lint ratchets & unit/component/edge tests:
+      - tsc -b: 0 errors (packages/shared/src/database.types.ts regenerated from live catalog)
+      - lint:ratchet: 0 violations above baseline across all 4 ratchets
+      - vitest: 207/207 test files passed (2,083 passed, 11 expected fail)
+
+### Additional product defects found and fixed by running the remaining 119 SQL tests
+
+1. **`20261124010300_ins_client_advances_2040.sql` & `20261124011300_appendix_b_decisions.sql` (`platform_gl_posting_roles`)**:
+   `010300` replaced `platform_gl_posting_roles()` with an 11-row table, dropping 22 roles added between `20261108` and `20261123` (`test_company_templates.sql` failed). `010300` now preserves all 33 roles, and the duplicate redefinition in `011300` was removed.
+2. **`20261124010100..20261124012000` (`SECURITY DEFINER` grants and `search_path`)**:
+   49 new `SECURITY DEFINER` functions lacked explicit `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon` or `SET search_path = public, pg_temp`, and internal `platform_*` / trigger helpers were left executable by `authenticated` (`security_authorization.sql`, `test_ins_authz_catalog.sql`, and `test_ins_security_hardening.sql` failed). All 49 now pin `search_path` and have least-privilege grants.
+3. **`20261124010200_ins_commission_pro_rata_reader.sql` (`ins_earn_commission_pro_rata`)**:
+   Referenced `i.policy_id` on `fin_open_items` (where the column is `i.source_id`) and omitted `'premium_collection_pro_rata'` from `ins_commission_entries_earned_by_check`.
+4. **`20261124011200_fin_client_money_controls.sql` & `20261124011800_ins_transfer_lock_preconditions.sql`**:
+   `platform_ins_client_money_position` only counted `i.control_role = 'ap_control'` in `client_refunds`, omitting `'client_advance_payable'`; `fin_client_money_incidents` had an unaliased self-reference inside `ins_record_client_money_reconciliation`; and `v_free < 0` (`INS_TRANSFER_SHORTAGE`) fired unconditionally even when `ins.client_money_position_test = 'permissive'`.
+5. **`20261124010300`, `010500`, `010800`, `011900` (client advances on 2040)**:
+   `ins_record_client_advance` posted a duplicate `'ins_client_advance_receipt'` journal entry alongside `platform_fin_record_settlement_impl`, hit `fin_allocations_guard()` on inbound allocations to `client_advance_payable`, counted inbound funding allocations as consumption in `fin_open_item_consumption_v`, double-subtracted `v_adv.refunded_amount` alongside `fin_open_item_consumed(v_adv.open_item_id)`, and rejected `ap_control` items for `ins_cancellation_client_refund` in `platform_fin_record_settlement_impl`.
+6. **`20261124010500` & `011300` (`ins_dispose_open_item` & `journal_entries_source_type_check`)**:
+   `ins_dispose_open_item` rejected `v_gl.is_control_account` even when `p_kind = 'advance_release'` (which requires `ar_control`) and rejected `p_kind = 'claim_recovery_uncollectable'` when `v_item.source_type = 'ins_claim_recovery'`; `journal_entries_source_type_check` in `010300` omitted `'fin_open_item_disposition'` and `'ins_claim_recovery'`.
+7. **`20261124010800`, `011300`, `011900` (refund approval limits & split detection)**:
+   `ins_request_refund` checked `v_lvl.threshold_amount` (which is `NULL` when an individual split piece sits below the stage threshold) instead of the next higher stage's `threshold_amount` when setting `split_flagged`; `ins_refund_client_advance` checked `v_lvl.stage_id is not null` instead of `v_lvl.level is not null`; and `platform_ins_refund_required_level` / `platform_approval_required_level` returned the fallback even when active stages were configured.
+8. **`20261124010900_ins_cancellation_three_dates.sql` (`ins_cancellation_evidence_guard`)**:
+   `ins_cancellation_evidence_guard()` blocked trusted SQL fixture updates when a prior statement in the same transaction had left `request.jwt.claims` set after `RESET ROLE`; it now checks `current_user not in ('anon', 'authenticated') and public.ins_via_rpc()`.
+9. **`20261124011000_ins_insurer_commission_terms.sql` (`ins_insurer_commission_terms_update`)**:
+   The `FOR UPDATE` RLS policy had `USING (... AND false)`, causing PostgreSQL to silently filter out 0 rows on `UPDATE` before the `BEFORE UPDATE` trigger `ins_insurer_commission_terms_guard()` could raise `INS_COMMISSION_TERMS_IMMUTABLE`.
+10. **`20261124011400_ins_client_money_jobs.sql` (`platform_session_is_mfa`)**:
+    Cast `current_setting('request.jwt.claims', true)::jsonb` without `nullif(..., '')`, raising `22P02` whenever `request.jwt.claims` had been reset to `''`.
+
+---
+
 ## Still not executed
 
 Out of scope here, and deliberately not claimed:
 
-- `test_ins_core.sql` reaches statement 21 of 22 on this harness and stops on a stale
-  expectation: a direct policy status change is now refused by the fail-closed
-  commission-recognition reader (alphabetically earlier trigger) rather than by
-  `INS_STATUS_RPC_ONLY`. Both refusals are correct; the assertion names the older one.
-- Every other test file in `supabase/tests/` that was never runnable in this environment.
-- The five pack files above are executed against this harness and **not** against a Supabase
-  project. That distinction stays in the register.
+- Real two-session concurrency races (`scripts/test-ins-*-concurrency.ts`, including `scripts/test-ins-commission-transfer-concurrency.ts`): PGlite is a single-connection in-process WASM engine and cannot execute genuine two-session `FOR UPDATE` lock contention. The fixture and race-wrapper defects in `scripts/test-ins-commission-transfer-concurrency.ts` (`accounts.account_code`, `ins_clients` row, `transaction_type = 'new_business'`, `ins.via_rpc = 'on'`, and passing `transfer()` rather than `holder()` to `race()`) were fixed, but the two-connection lock test requires a multi-session PostgreSQL server in CI.
+- All 166 SQL test files above are executed against the PGlite harness and **not** against a deployed Supabase stack, and AE4 (business-user UAT in the running application) remains pending. That distinction stays in the register.
 
 ## How to re-run
 

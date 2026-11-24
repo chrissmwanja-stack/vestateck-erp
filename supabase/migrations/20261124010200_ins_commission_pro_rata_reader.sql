@@ -43,6 +43,13 @@
 -- 0. Columns for proportional partial earning
 -- ---------------------------------------------------------------------
 alter table public.ins_commission_entries
+  drop constraint if exists ins_commission_entries_earned_by_check;
+alter table public.ins_commission_entries
+  add constraint ins_commission_entries_earned_by_check
+  check (earned_by is null or earned_by in (
+    'placement', 'settlement', 'premium_collection', 'premium_collection_pro_rata'));
+
+alter table public.ins_commission_entries
   add column if not exists earned_cumulative  numeric(18,2) not null default 0,
   add column if not exists earned_last_amount numeric(18,2);
 
@@ -265,6 +272,11 @@ declare
   v_basis       text;
 begin
   if new.status = 'active' and old.status is distinct from new.status then
+    if not public.ins_via_rpc()
+       or old.status <> 'approved'
+       or not coalesce(public.ins_opening_accepted_for(new.tenant_id), true) then
+      return new;
+    end if;
 
     -- FAIL CLOSED (decision 2). A company that has never chosen a recognition
     -- mode can no longer bind on the seeded default: the mode is a property of
@@ -352,6 +364,42 @@ drop trigger if exists ins_bind_config_snapshot on public.ins_policies;
 create trigger ins_bind_config_snapshot
   before update on public.ins_policies
   for each row execute function public.ins_snapshot_bind_config();
+
+create or replace function public.ins_commission_recognition_mode(p_policy_id uuid)
+returns text
+language plpgsql
+stable
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  v_pol     ins_policies%rowtype;
+  v_setting text;
+begin
+  select * into v_pol from public.ins_policies where id = p_policy_id;
+  if not found then
+    raise exception 'INS_NOT_FOUND: policy';
+  end if;
+  perform public.assert_tenant_access(v_pol.tenant_id);
+
+  if public.get_my_tenant_id() is distinct from v_pol.tenant_id then
+    raise exception 'INS_TENANT_MISMATCH: policy belongs to another company' using errcode = '42501';
+  end if;
+
+  if v_pol.commission_recognition_override is not null then
+    return v_pol.commission_recognition_override;
+  end if;
+
+  v_setting := public.acct_assert_reviewed('ins.commission_recognition', v_pol.inception_date);
+  if v_setting not in ('on_insurer_settlement', 'at_placement', 'on_premium_collection', 'pro_rata_on_collection') then
+    raise exception 'INS_COMMISSION_RECOGNITION_UNIMPLEMENTED: % is set for this company, but only on_insurer_settlement, at_placement, on_premium_collection and pro_rata_on_collection are implemented; configure one of those', v_setting;
+  end if;
+  return v_setting;
+end;
+$function$;
+
+revoke all on function public.ins_commission_recognition_mode(uuid) from public, anon;
+grant execute on function public.ins_commission_recognition_mode(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 4. The policy-level setter learns the new mode

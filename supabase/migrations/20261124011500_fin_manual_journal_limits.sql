@@ -69,7 +69,7 @@ begin
   end if;
 end $$;
 
-revoke all on function public.platform_approval_required_level(uuid, numeric, text) from public;
+revoke all on function public.platform_approval_required_level(uuid, numeric, text) from public, anon, authenticated;
 grant execute on function public.platform_approval_required_level(uuid, numeric, text) to service_role;
 
 comment on function public.platform_approval_required_level(uuid, numeric, text) is
@@ -91,7 +91,7 @@ create or replace function public.platform_approval_user_limit(
      and s.applies_to = p_applies_to
 $$;
 
-revoke all on function public.platform_approval_user_limit(uuid, uuid, text) from public;
+revoke all on function public.platform_approval_user_limit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.platform_approval_user_limit(uuid, uuid, text) to service_role;
 
 -- The refund wrappers. Same names, same signatures, same behaviour.
@@ -103,7 +103,7 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
   select * from public.platform_approval_required_level(p_tenant_id, p_amount, 'insurance_refunds')
 $$;
 
-revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public;
+revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public, anon, authenticated;
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric) to service_role;
 
 create or replace function public.platform_ins_refund_user_limit(p_tenant_id uuid, p_user_id uuid)
@@ -114,7 +114,7 @@ returns numeric
   select public.platform_approval_user_limit(p_tenant_id, p_user_id, 'insurance_refunds')
 $$;
 
-revoke all on function public.platform_ins_refund_user_limit(uuid, uuid) from public;
+revoke all on function public.platform_ins_refund_user_limit(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.platform_ins_refund_user_limit(uuid, uuid) to service_role;
 
 -- Let workflow_stages carry manual-journal limits.

@@ -5,27 +5,27 @@
 -- The pack's criteria, and which of them this file proves:
 --
 --   "A receipt with no policy creates a 2040 credit and no receivable"   §1
---   "binding a policy allocates it and clears 2040"                      NOT PROVEN
---                                                                        (B11: no
---                                                                        reclass
---                                                                        source;
---                                                                        see the
---                                                                        migration
---                                                                        header)
+--   "binding a policy allocates it and clears 2040"                      §5
+--                                                                        (B11's
+--                                                                        disposition
+--                                                                        primitive)
 --   "an unallocated advance is visible on the client statement"          §3
 --   "and is refundable"                                                  §4
 --
 -- §2 proves the part of the AR criterion that matters most: taking an advance does
 -- NOT create a receivable, so AR is not overstated by money paid before the policy.
 --
--- §5 proves the release is refused rather than half-done, so nobody can ship a UI
--- that believes an advance was applied.
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
 --
 -- One transaction, rolled back. Disposable database only.
 -- =====================================================================
 \set ON_ERROR_STOP on
 
 begin;
+
+create temp table ids (k text primary key, v uuid);
 
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
@@ -39,9 +39,13 @@ returns void language sql as $$
     json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
 $$;
 
-create function pg_temp.balance(p_gl uuid, p_credit_positive boolean default true)
+create function pg_temp.balance(p_gl uuid, p_credit_positive boolean default null)
 returns numeric language sql security definer as $$
-  select coalesce(sum(case when p_credit_positive then l.credit - l.debit else l.debit - l.credit end), 0)
+  select coalesce(sum(
+    case when coalesce(p_credit_positive, (select account_type in ('liability', 'equity', 'revenue') from gl_accounts where id = p_gl))
+         then l.credit - l.debit
+         else l.debit - l.credit
+    end), 0)
     from journal_entry_lines l
     join journal_entries je on je.id = l.journal_entry_id
    where je.tenant_id = (select v from ids where k = 'tenant')
@@ -70,7 +74,7 @@ begin
   update app_users set is_company_admin = true where id in (admin1, admin2);
 
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
-  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager'), (ta, maker, 'insurance', 'member'), (ta, checker, 'insurance', 'member');
   insert into finance_team_members(tenant_id, user_id, role)
     values (ta, mgr, 'finance'), (ta, maker, 'finance'), (ta, checker, 'finance');
 
@@ -80,14 +84,15 @@ begin
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '2040', 'Unallocated Client Advances', 'liability', true) returning id into adv_gl;
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'bank', bank_gl), (ta, 'client_money_bank', trust_gl),
-    (ta, 'ar_control', ar_gl), (ta, 'client_advance_payable', adv_gl);
+    (ta, 'ar_control', ar_gl), (ta, 'client_advance_payable', adv_gl), (ta, 'insurer_payable', bank_gl), (ta, 'unearned_commission', bank_gl), (ta, 'commission_income', bank_gl);
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'ADV-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
   -- accounts.account_type is vendor|client|both; the party account is an accounts
   -- row, and bd_clients carries no party link (only ins_clients does).
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Advance test client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type)
+    values (ta, 'ADV-CLI', 'Advance test client', 'client') returning id into v_party;
 
   insert into bd_clients(tenant_id, name)
     values (ta, 'Advance test client') returning id into v_client;
@@ -95,8 +100,7 @@ begin
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_client, 'corporate', v_party);
 
-  create temp table ids (k text primary key, v uuid);
-  insert into ids(k, v) values
+    insert into ids(k, v) values
     ('tenant', ta), ('client', (select id from ins_clients where client_id = v_client)),
     ('party', v_party), ('bank', v_bank), ('adv', adv_gl), ('ar', ar_gl),
     ('trust', trust_gl), ('mgr', mgr), ('maker', maker), ('checker', checker);
@@ -171,8 +175,18 @@ end $$;
 -- §4 it is refundable, in part, and the balance follows
 -- ---------------------------------------------------------------------
 do $$
-declare v_adv ins_client_advances%rowtype; avail numeric;
+declare v_adv ins_client_advances%rowtype; avail numeric; v_req ins_refund_requests%rowtype;
 begin
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  v_req := public.ins_request_refund(
+             (select id from ins_client_advances where tenant_id = pg_temp.id('tenant')),
+             250000, 'client asked for the balance back');
+  reset role;
+  perform pg_temp.jwt(pg_temp.id('checker'));
+  set local role authenticated;
+  perform public.ins_decide_refund(v_req.id, 'approve', 'verified refund request');
+  reset role;
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   v_adv := public.ins_refund_client_advance(
@@ -197,36 +211,95 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- §5 over-refunding is refused, and so is the unimplemented release
+-- §5 over-refunding is refused, and the release now works
 -- ---------------------------------------------------------------------
+-- This section previously asserted that the release refused with
+-- INS_ADVANCE_RELEASE_NOT_AVAILABLE. That was true of the first cut of B2, before
+-- 20261124010500 gave the subledger a non-cash movement. It now has to prove the
+-- opposite: that the advance clears 2040 and reduces AR without touching cash.
+--
+-- NOTE ON WHERE THE CAP LIVES NOW. Since Appendix B Q2 the approval gate runs before
+-- the amount check, so a direct over-refund is refused as INS_REFUND_APPROVAL_REQUIRED
+-- rather than INS_ADVANCE_EXCEEDS: you cannot reach the balance test without an approval
+-- that covers the amount. That order is the safer one and is asserted below. The balance
+-- cap itself is asserted where it is still reachable -- when the request is raised.
 do $$
 declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_temp.id('tenant'));
         v_refused boolean := false;
-        v_release_refused boolean := false;
+        v_adv_row ins_client_advances%rowtype;
+        v_pol uuid;
+        v_line uuid; v_insurer uuid;
+        v_cash_before numeric;
 begin
-  perform pg_temp.jwt(pg_temp.id('mgr'));
+  -- The balance cap is enforced when the request is raised.
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  begin
+    perform public.ins_request_refund(v_adv, 600000, 'too much');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
+      '§5 an over-refund request should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused, '§5 requesting more than the balance must be refused');
+
+  -- And an unapproved direct refund does not get past the approval gate at all.
+  v_refused := false;
+  perform pg_temp.jwt(pg_temp.id('maker'));
   set local role authenticated;
   begin
     perform public.ins_refund_client_advance(v_adv, pg_temp.id('bank'), 600000, current_date, 'too much');
   exception when others then
     v_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
-      '§5 over-refund should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
-  end;
-
-  -- The release is refused by name, not silently.
-  begin
-    perform public.ins_apply_client_advance(v_adv, gen_random_uuid(), 100000, 'release');
-  exception when others then
-    v_release_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_RELEASE_NOT_AVAILABLE%',
-      '§5 the release must refuse as INS_ADVANCE_RELEASE_NOT_AVAILABLE, got: ' || sqlerrm);
+    perform pg_temp.assert(sqlerrm like 'INS_REFUND_APPROVAL_REQUIRED%',
+      '§5 an unapproved refund must be refused at the approval gate, got: ' || sqlerrm);
   end;
   reset role;
+  perform pg_temp.assert(v_refused, '§5 one finance user must not release client money alone');
 
-  perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
-  perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
-  raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
+  -- A bound policy for the same client, so the advance has something to pay.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  insert into ins_product_lines(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADV', 'Advance line') returning id into v_line;
+  insert into ins_insurers(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADVINS', 'Advance Insurer') returning id into v_insurer;
+  v_pol := (ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
+                             current_date, current_date + 300, 1000000, 'UGX', 1000000, 10,
+                             null, null, 'Advance release policy', null)).id;
+  reset role;
+  perform set_config('ins.via_rpc', 'on', true);
+  insert into ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, agreed_ref, rationale, status, proposed_by, approved_by, approved_at)
+  values
+    (pg_temp.id('tenant'), v_insurer, 'at_placement', current_date - 30, 'ADV-TERMS', 'fixture commission terms',
+     'approved', pg_temp.id('maker'), pg_temp.id('mgr'), now());
+  insert into ins_policy_insurer_shares
+    (tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, reviewed)
+  values (pg_temp.id('tenant'), v_pol, v_insurer, true, 100, 10, true);
+  update ins_policies set status = 'approved' where id = v_pol;
+  perform set_config('ins.via_rpc', 'off', true);
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform ins_bind_policy(v_pol);
+  reset role;
+
+  v_cash_before := pg_temp.balance(pg_temp.id('trust'), true);
+
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  v_adv_row := public.ins_apply_client_advance(v_adv, v_pol, 300000, 'released against the bound policy');
+  reset role;
+
+  perform pg_temp.assert(v_adv_row.applied_amount = 300000,
+    format('§5 applied_amount should be 300,000, got %s', v_adv_row.applied_amount));
+  perform pg_temp.assert(v_adv_row.applied_policy_id = v_pol,
+    '§5 the advance should record the policy it was released against');
+  -- 2040 is a liability: releasing reduces the credit, so credit-positive falls by 300,000.
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('adv'), true) = 200000,
+    format('§5 2040 should fall to 200,000, got %s', pg_temp.balance(pg_temp.id('adv'), true)));
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('trust'), true) = v_cash_before,
+    '§5 releasing an advance must not move cash');
+  raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
 end $$;
 
 -- ---------------------------------------------------------------------

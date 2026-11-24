@@ -18,6 +18,8 @@
 
 begin;
 
+create temp table ids (k text primary key, v uuid);
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -60,7 +62,7 @@ begin
   update app_users set is_company_admin = true where id in (admin1, admin2);
 
   insert into tenant_modules(tenant_id, module) values (ta, 'insurance');
-  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager');
+  insert into staff_roles(tenant_id, user_id, module, role) values (ta, mgr, 'insurance', 'manager'), (ta, admin1, 'insurance', 'manager');
   insert into finance_team_members(tenant_id, user_id, role) values (ta, mgr, 'finance');
 
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1020', 'Client money', 'asset') returning id into trust_gl;
@@ -68,26 +70,25 @@ begin
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '1120', 'Insurer claim recv', 'asset', true) returning id into recv_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '2030', 'Client claim payable', 'liability', true) returning id into pay_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '4900', 'Recovery income', 'revenue') returning id into recov_gl;
-  insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '4000', 'Commission income', 'revenue', true) returning id into comm_gl;
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '4000', 'Commission income', 'revenue') returning id into comm_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '2020', 'Unearned commission', 'liability', true) returning id into unearned_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type, is_control_account) values (ta, '1110', 'Commission receivable', 'asset', true) returning id into recvbl_gl;
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'client_money_bank', trust_gl), (ta, 'ar_control', ar_gl),
     (ta, 'insurer_claim_receivable', recv_gl), (ta, 'client_claim_payable', pay_gl),
     (ta, 'commission_income', comm_gl), (ta, 'unearned_commission', unearned_gl),
-    (ta, 'commission_receivable', recvbl_gl);
+    (ta, 'commission_receivable', recvbl_gl), (ta, 'insurer_payable', pay_gl);
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'REC-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Recovery client', 'client') returning id into v_party;
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Recovery Insurer', 'vendor') returning id into v_insurer_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'REC-CLI', 'Recovery client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'REC-INS', 'Recovery Insurer', 'vendor') returning id into v_insurer_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Recovery client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
 
-  create temp table ids (k text primary key, v uuid);
-  insert into ids(k, v) values ('tenant', ta), ('client', v_client), ('party', v_party),
+    insert into ids(k, v) values ('tenant', ta), ('client', v_client), ('party', v_party),
     ('insurerparty', v_insurer_party), ('bank', v_bank), ('ar', ar_gl), ('pay', pay_gl),
     ('recv', recv_gl), ('trust', trust_gl), ('recov', recov_gl), ('comm', comm_gl),
     ('unearned', unearned_gl), ('mgr', mgr);
@@ -102,18 +103,20 @@ grant execute on function pg_temp.id(text) to authenticated;
 -- A claim approved and recognised at 400,000, with the insurer funded, so it can be
 -- paid out and recovered against.
 create function pg_temp.claim_ready() returns uuid
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql set search_path = public, pg_temp as $$
 declare v_line uuid; v_insurer uuid; v_pol uuid; v_claim ins_claims%rowtype;
 begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   insert into ins_product_lines(tenant_id, code, name)
-    values (pg_temp.id('tenant'), 'REC', 'Recovery line') returning id into v_line;
-  insert into ins_insurers(tenant_id, code, name)
-    values (pg_temp.id('tenant'), 'RECINS', 'Recovery Insurer') returning id into v_insurer;
-  v_pol := ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
+    values (pg_temp.id('tenant'), 'REC', 'Recovery line')
+    on conflict (tenant_id, code) do update set name = excluded.name returning id into v_line;
+  insert into ins_insurers(tenant_id, code, name, claim_payment_mode)
+    values (pg_temp.id('tenant'), 'RECINS', 'Recovery Insurer', 'via_broker')
+    on conflict (tenant_id, code) do update set name = excluded.name returning id into v_insurer;
+  v_pol := (ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
                              current_date - 60, current_date + 300, 2000000, 'UGX', 2000000, 10,
-                             null, null, 'Recovery policy', null);
+                             null, null, 'Recovery policy', null)).id;
   reset role;
   insert into ins_policy_insurer_shares
     (tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, reviewed)
@@ -122,12 +125,24 @@ begin
   set local role authenticated;
   perform ins_submit_policy_for_approval(v_pol);
   reset role;
+  perform set_config('ins.via_rpc', 'on', true);
+  insert into ins_insurer_commission_terms (tenant_id, insurer_id, mode, effective_from, agreed_ref, rationale, status, proposed_by, approved_by, approved_at)
+    select pg_temp.id('tenant'), v_insurer, 'on_insurer_settlement', date '2020-01-01', 'TEST-FIXTURE', 'test fixture default', 'approved', (select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1), pg_temp.id('mgr'), now()
+    where not exists (select 1 from ins_insurer_commission_terms where tenant_id = pg_temp.id('tenant') and insurer_id = v_insurer and status = 'approved');
+  update ins_policies set status = 'approved' where id = v_pol;
+  perform set_config('ins.via_rpc', 'off', true);
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform ins_bind_policy(v_pol);
   v_claim := ins_create_claim(v_pol, current_date - 20, current_date - 19, 'Storm damage', null, 400000);
   perform ins_transition_claim(v_claim.id, 'assessing', 'assessed');
+  reset role;
+  perform pg_temp.jwt((select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1));
+  set local role authenticated;
   perform ins_transition_claim(v_claim.id, 'approved', 'approved at 400,000', 400000);
+  reset role;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
   perform ins_recognise_claim_receivable(v_claim.id, 'insurer letter');
   perform ins_record_claim_receipt(v_claim.id, pg_temp.id('bank'), 400000, current_date, 'FUND-REC', 'funds');
   reset role;
@@ -250,7 +265,7 @@ begin
     '§5 and must not create a second claim accrual');
   perform pg_temp.assert(v_rec.payer_party_account_id = pg_temp.id('insurerparty'),
     '§5 the recovery keeps its own payer rather than defaulting to the claim client');
-  raise notice 'PASS: §5 a recovery leaves the claim's approval and accrual untouched';
+  raise notice 'PASS: §5 a recovery leaves the claim''s approval and accrual untouched';
 end $$;
 
 -- ---------------------------------------------------------------------

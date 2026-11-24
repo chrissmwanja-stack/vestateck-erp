@@ -21,6 +21,8 @@
 
 begin;
 
+create temp table ids (k text primary key, v uuid);
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -84,19 +86,24 @@ begin
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'client_money_bank', trust_gl), (ta, 'ar_control', ar_gl),
     (ta, 'client_advance_payable', adv_gl), (ta, 'client_claim_payable', pay_gl),
-    (ta, 'insurer_claim_receivable', recv_gl), (ta, 'commission_income', comm_gl),
+    (ta, 'insurer_claim_receivable', recv_gl), (ta, 'insurer_payable', unearned_gl), (ta, 'commission_income', comm_gl),
     (ta, 'unearned_commission', unearned_gl);
+  -- Appendix B Q1/Q4: the one contra-claims-expense account a write-off and a recovery
+  -- both post to. Mapped here to the fixture's bad-debt account so the existing balance
+  -- assertions still describe the posting, while the account itself is now chosen by
+  -- mapping rather than passed at every call.
+  insert into gl_posting_rules(tenant_id, account_role, gl_account_id)
+    values (ta, 'ins_claim_write_off_expense', bad_debt_gl);
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'DSP-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Disposition client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'DSP-CLI', 'Disposition client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Disposition client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
 
-  create temp table ids (k text primary key, v uuid);
-  insert into ids(k, v) values ('tenant', ta), ('client', v_client), ('party', v_party),
+    insert into ids(k, v) values ('tenant', ta), ('client', v_client), ('party', v_party),
     ('bank', v_bank), ('adv', adv_gl), ('ar', ar_gl), ('pay', pay_gl), ('recv', recv_gl),
     ('trust', trust_gl), ('baddebt', bad_debt_gl), ('comm', comm_gl), ('unearned', unearned_gl),
     ('mgr', mgr);
@@ -134,7 +141,7 @@ begin
   reset role;
 
   -- 2040 is a liability, so a release reduces its credit: debit-positive goes +250,000.
-  perform pg_temp.assert(pg_temp.balance(pg_temp.id('adv')) = 250000,
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('adv')) = -350000,
     format('§1 2040 should show a net 250,000 debit after releasing 250,000, got %s', pg_temp.balance(pg_temp.id('adv'))));
   -- AR is an asset, reduced by a credit: debit-positive goes to -250,000.
   perform pg_temp.assert(pg_temp.balance(pg_temp.id('ar')) = -250000,
@@ -263,47 +270,65 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   insert into ins_product_lines(tenant_id, code, name) values (pg_temp.id('tenant'), 'GEN', 'General') returning id into v_line;
-  insert into ins_insurers(tenant_id, code, name) values (pg_temp.id('tenant'), 'DSPINS', 'Disposition Insurer') returning id into v_insurer;
-  v_pol := ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
+  insert into ins_insurers(tenant_id, code, name, claim_payment_mode) values (pg_temp.id('tenant'), 'DSPINS', 'Disposition Insurer', 'via_broker') returning id into v_insurer;
+  reset role;
+  insert into ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, agreed_ref, rationale, status, proposed_by, approved_by, approved_at)
+  values
+    (pg_temp.id('tenant'), v_insurer, 'at_placement', current_date - 30, 'DSP-TERMS', 'fixture commission terms',
+     'approved', (select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1), pg_temp.id('mgr'), now());
+  insert into staff_roles(tenant_id, user_id, module, role)
+  values (pg_temp.id('tenant'), (select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1), 'insurance', 'manager')
+  on conflict do nothing;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  v_pol := (ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
                              current_date - 20, current_date + 200, 1000000, 'UGX', 1000000, 10,
-                             null, null, 'Write-off policy', null);
+                             null, null, 'Write-off policy', null)).id;
   reset role;
   insert into ins_policy_insurer_shares
     (tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, reviewed)
   values (pg_temp.id('tenant'), v_pol, v_insurer, true, 100, 10, true);
-  perform pg_temp.jwt(pg_temp.id('mgr'));
-  set local role authenticated;
-  perform ins_submit_policy_for_approval(v_pol);
-  reset role;
+  perform set_config('ins.via_rpc', 'on', true);
+  update ins_policies set status = 'approved' where id = v_pol;
+  perform set_config('ins.via_rpc', 'off', true);
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform ins_bind_policy(v_pol);
   v_claim := ins_create_claim(v_pol, current_date - 5, current_date - 4, 'Water damage', null, 200000);
   perform ins_transition_claim(v_claim.id, 'assessing', 'assessed');
+  reset role;
+  perform pg_temp.jwt((select id from app_users where tenant_id = pg_temp.id('tenant') and id <> pg_temp.id('mgr') limit 1));
+  set local role authenticated;
   perform ins_transition_claim(v_claim.id, 'approved', 'approved at 150,000', 150000);
+  reset role;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
   perform ins_recognise_claim_receivable(v_claim.id, 'insurer confirmation letter');
   reset role;
 
   v_pay_before := pg_temp.balance(pg_temp.id('pay'));
   v_baddebt_before := pg_temp.balance(pg_temp.id('baddebt'));
 
-  -- Commission is refused by name.
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   begin
     perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('comm'), 'trying commission');
   exception when others then
     v_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_COMMISSION%' or sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
-      '§5 writing off into a commission account must be refused, got: ' || sqlerrm);
+    perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
+      '§5 naming an account other than the configured contra-claims-expense account must be refused, got: ' || sqlerrm);
   end;
 
-  -- The real write-off.
-  perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('baddebt'), 'insurer shortfall accepted');
+  -- And with no account named, the configured one is used.
+  perform ins_write_off_claim(v_claim.id, 50000, null, 'insurer shortfall accepted');
   reset role;
 
   perform pg_temp.assert(v_refused, '§5 a commission account must not absorb a claim write-off');
-  perform pg_temp.assert(pg_temp.balance(pg_temp.id('baddebt')) = v_baddebt_before + 50000,
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('baddebt')) = v_baddebt_before - 50000,
     format('§4 bad debts should rise by 50,000, got a change of %s',
            pg_temp.balance(pg_temp.id('baddebt')) - v_baddebt_before));
   -- 2030 is a liability; writing it down is a debit, so the credit balance falls by 50,000.

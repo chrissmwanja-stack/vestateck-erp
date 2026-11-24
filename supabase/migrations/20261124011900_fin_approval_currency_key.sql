@@ -81,12 +81,18 @@ begin
   -- The minimum control for a client-advance refund (Appendix B Q2) survives untouched: it
   -- applies at the default level in the ledger currency and is not currency-specific, because
   -- "a refund always needs a second finance user" was never a statement about currency.
-  if p_applies_to = 'insurance_refunds' then
+  if p_applies_to = 'insurance_refunds'
+     and not exists (
+       select 1 from public.workflow_stages s
+        where s.tenant_id = p_tenant_id
+          and s.applies_to = 'insurance_refunds'
+          and s.is_active
+     ) then
     return query select null::uuid, 1, 'finance'::text, null::numeric, null::text;
   end if;
 end $$;
 
-revoke all on function public.platform_approval_required_level(uuid, numeric, text, text) from public;
+revoke all on function public.platform_approval_required_level(uuid, numeric, text, text) from public, anon, authenticated;
 grant execute on function public.platform_approval_required_level(uuid, numeric, text, text) to service_role;
 
 comment on function public.platform_approval_required_level(uuid, numeric, text, text) is
@@ -126,7 +132,7 @@ create or replace function public.platform_ins_refund_required_level(
     from public.platform_approval_required_level(p_tenant_id, p_amount, 'insurance_refunds', null)
 $$;
 
-revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public;
+revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public, anon, authenticated;
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric) to service_role;
 
 -- The currency-aware form, for a caller that knows what currency the money is in.
@@ -148,7 +154,7 @@ create or replace function public.platform_ins_refund_required_level(
   select * from public.platform_approval_required_level(p_tenant_id, p_amount, 'insurance_refunds', p_currency)
 $$;
 
-revoke all on function public.platform_ins_refund_required_level(uuid, numeric, text) from public;
+revoke all on function public.platform_ins_refund_required_level(uuid, numeric, text) from public, anon, authenticated;
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric, text) to service_role;
 
 -- ---------------------------------------------------------------------
@@ -279,8 +285,8 @@ begin
 end;
 $$;
 
-revoke all on function public.ins_decide_refund(uuid, text, text) from public;
-grant execute on function public.ins_decide_refund(uuid, text, text) to service_role;
+revoke all on function public.ins_decide_refund(uuid, text, text) from public, anon;
+grant execute on function public.ins_decide_refund(uuid, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 4. The chain reads the journal's own currency
@@ -497,7 +503,7 @@ begin
 
   select * into v_item from fin_open_items
    where id = v_adv.open_item_id and tenant_id = v_tenant;
-  v_open := v_adv.amount - public.fin_open_item_consumed(v_item.id) - v_adv.refunded_amount;
+  v_open := v_adv.amount - public.fin_open_item_consumed(v_item.id);
   if p_amount > v_open then
     raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available to refund, % requested',
       v_adv.id, v_open, p_amount;
@@ -509,7 +515,15 @@ begin
 
   -- Possible split: other live refund requests to the same payee today, each below
   -- the threshold, whose combined total crosses it.
-  v_threshold := coalesce(v_lvl.threshold_amount, null);
+  v_threshold := coalesce(
+    v_lvl.threshold_amount,
+    (select min(s.threshold_amount)
+       from public.workflow_stages s
+      where s.tenant_id = v_tenant
+        and s.applies_to = 'insurance_refunds'
+        and s.is_active
+        and coalesce(s.threshold_amount, 0) > p_amount
+        and (s.currency is null or btrim(upper(s.currency)) = btrim(upper(v_adv.currency)))));
   if v_threshold is not null then
     select count(*), coalesce(sum(r.amount), 0)
       into v_same_day_count, v_same_day_total
@@ -517,7 +531,7 @@ begin
      where r.tenant_id = v_tenant
        and r.party_account_id = v_item.party_account_id
        and r.status in ('pending', 'approved')
-       and r.requested_at::date = current_date
+       and public.business_date(r.requested_at) = public.business_today()
        and r.amount < v_threshold;
   end if;
 
@@ -547,5 +561,5 @@ begin
 end;
 $$;
 
-revoke all on function public.ins_request_refund(uuid, numeric, text) from public;
+revoke all on function public.ins_request_refund(uuid, numeric, text) from public, anon;
 grant execute on function public.ins_request_refund(uuid, numeric, text) to authenticated;

@@ -17,9 +17,11 @@
 --
 --   BUILT   account 2040, the posting role, the advance subledger, taking an
 --           advance, refunding it, and the client statement.
---   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
---           and deliberately raises: the schema has no way to do it correctly.
---           The reason is set out below and registered as blocking work (B11).
+--   BUILT (from 20261124010500)   releasing an advance to a policy, once the
+--           subledger gained a non-cash movement (fin_open_item_dispositions).
+--           The first cut of this migration refused it, correctly, because no such
+--           mechanism existed; the reasoning is kept at the end of this header
+--           because it explains why the release is posted the way it is.
 --
 -- I did not discover this by assuming: I checked every mechanism against the live
 -- guards, and the design that looks obvious does not work.
@@ -52,10 +54,10 @@
 -- signed-off decision because it adds a third consumption source to the subledger
 -- -- which is precisely the kind of change the accountant pack exists to gate.
 --
--- Until then an advance can be taken and refunded but not applied, which still
--- removes the AR overstatement for money taken before a policy exists. Calling
--- ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than
--- posting something that cannot reconcile.
+-- That was the state at this migration. 20261124010500 supplies the reclass source
+-- (fin_open_item_dispositions), so the release in section 7 is now a real posting
+-- and the earlier refusal has been replaced. The analysis above is kept because it
+-- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
 
 -- ---------------------------------------------------------------------
 -- 1. Platform reference data: the account and the role
@@ -72,6 +74,61 @@ values
   (gen_random_uuid(), 'insurance', 'posting_rule', 39, 'client_advance_payable',
    jsonb_build_object('account_code', '2040'))
 on conflict (template_key, kind, name) do nothing;
+
+-- ---------------------------------------------------------------------
+-- 1b. The posting-role vocabulary must accept the role this migration adds
+-- ---------------------------------------------------------------------
+-- Found by replaying supabase/seed.sql, which `supabase start` does after the migrations
+-- and which the pack's harness originally did not. 20261120004000 lets a module add roles
+-- "in its own namespace, ins_<something>, without a migration" -- but this role is not
+-- namespaced, so the CHECK rejected it and every tenant's chart setup died with
+--   23514 ... violates check constraint "gl_posting_rules_account_role_check"
+--      Failing row contains (..., client_advance_payable, ...)
+-- Adding the role to platform_gl_posting_roles() below was not enough: that function is
+-- what the template VALIDATOR reads, while the CHECK is what the TABLE enforces. The two
+-- are deliberately compared by a template test, so a role has to be in both or neither.
+--
+-- The constraint is restated exactly as 20261120004000 leaves it, plus the one literal.
+-- Restated rather than pattern-relaxed on purpose: widening the namespace rule to admit
+-- any un-prefixed name would let a typo through, which is the whole reason it is anchored.
+alter table public.journal_entries
+  drop constraint if exists journal_entries_source_type_check;
+alter table public.journal_entries
+  add constraint journal_entries_source_type_check
+  check (source_type = any (array['supplier_invoice','receivable_invoice','cash_bank_transaction',
+    'opening_balance','manual','payroll_run','machine_fuel_log','machine_maintenance_request',
+    'fin_settlement','fin_settlement_void','fin_credit_note','fin_credit_note_void',
+    'ins_policy_bind','ins_commission_recognition','ins_commission_recognition_reversal',
+    'ins_commission_transfer','ins_commission_transfer_void','ins_claim_accrual',
+    'ins_policy_cancellation','ins_cancellation_cash','fx_revaluation','fx_revaluation_void',
+    'ins_policy_endorsement','ins_import_opening','ins_agent_commission_accrual',
+    'ins_agent_commission_payment','ins_agent_commission_reversal','ins_wht_remittance',
+    'ins_fee_withholding','bank_adjustment','bank_adjustment_reversal',
+    'ins_policy_endorsement_cancel','ins_client_advance_receipt','fin_open_item_disposition','ins_claim_recovery']));
+
+alter table public.gl_posting_rules
+  drop constraint if exists gl_posting_rules_account_role_check;
+
+alter table public.gl_posting_rules
+  add constraint gl_posting_rules_account_role_check
+  check (
+    account_role = any (array[
+      'ap_control', 'ar_control', 'bank', 'cash', 'vat_input', 'vat_output',
+      'wht_payable', 'default_expense', 'default_revenue', 'salaries_payable',
+      'paye_payable', 'nssf_payable', 'salaries_expense', 'client_money_bank',
+      'insurer_payable', 'commission_receivable', 'commission_income',
+      'wht_receivable', 'unearned_commission', 'insurer_claim_receivable',
+      'client_claim_payable', 'fx_rounding', 'fx_gain_realised', 'fx_loss_realised',
+      'fx_gain_unrealised', 'fx_loss_unrealised', 'opening_balance_clearing',
+      'retained_earnings', 'agent_commission_expense',
+      'insurance_training_levy_payable', 'ira_levy_payable', 'stamp_duty_payable',
+      -- B2: unallocated client advances held on 2040. A client-money liability, not a
+      -- client_claim_payable: the first is what we owe back before anything is earned,
+      -- the second is what we owe once a claim is settled.
+      'client_advance_payable'
+    ])
+    or account_role ~ ('^(ins|fin|hr)_[a-z][a-z0-9_]{2,60}' || chr(36))
+  );
 
 -- platform_gl_posting_roles() is IMMUTABLE and the template validator checks every
 -- posting rule against it. Without this, the row added above fails validation.
@@ -90,34 +147,15 @@ create or replace function public.platform_gl_posting_roles() returns text[]
     'client_advance_payable',
     'fx_rounding',
     'fx_gain_realised', 'fx_loss_realised',
-    'fx_gain_unrealised', 'fx_loss_unrealised'
+    'fx_gain_unrealised', 'fx_loss_unrealised',
+    'opening_balance_clearing',
+    'retained_earnings',
+    'agent_commission_expense',
+    'insurance_training_levy_payable',
+    'ira_levy_payable',
+    'stamp_duty_payable'
   ]::text[];
 $$;
-
--- The CHECK on gl_posting_rules.account_role admits only the literals below plus the
--- ins_/fin_/hr_ namespace. client_advance_payable is not namespaced, so without this the
--- template seed and the backfill insert below are rejected. Same drop-and-re-add pattern as
--- 20261120004000_ins_statutory_charge_accounts.sql; every literal already allowed is kept.
-alter table public.gl_posting_rules
-  drop constraint if exists gl_posting_rules_account_role_check;
-
-alter table public.gl_posting_rules
-  add constraint gl_posting_rules_account_role_check
-  check (
-    account_role = any (array[
-      'ap_control', 'ar_control', 'bank', 'cash', 'vat_input', 'vat_output',
-      'wht_payable', 'default_expense', 'default_revenue', 'salaries_payable',
-      'paye_payable', 'nssf_payable', 'salaries_expense', 'client_money_bank',
-      'insurer_payable', 'commission_receivable', 'commission_income',
-      'wht_receivable', 'unearned_commission', 'insurer_claim_receivable',
-      'client_claim_payable', 'client_advance_payable',
-      'fx_rounding', 'fx_gain_realised', 'fx_loss_realised',
-      'fx_gain_unrealised', 'fx_loss_unrealised', 'opening_balance_clearing',
-      'retained_earnings', 'agent_commission_expense',
-      'insurance_training_levy_payable', 'ira_levy_payable', 'stamp_duty_payable'
-    ])
-    or account_role ~ ('^(ins|fin|hr)_[a-z][a-z0-9_]{2,60}' || chr(36))
-  );
 
 -- Existing tenants: their chart is a copy of the template, so the template row
 -- alone reaches only future tenants. Inserted only where 2040 is free; anchored on
@@ -266,7 +304,7 @@ begin
   if p_amount is null or p_amount <= 0 then
     raise exception 'SETTLEMENT_INPUT: amount must be positive';
   end if;
-  if p_settlement_date is null or p_settlement_date > current_date + 1 then
+  if p_settlement_date is null or p_settlement_date > public.business_today() + 1 then
     raise exception 'SETTLEMENT_INPUT: settlement date is required and cannot be in the future';
   end if;
   if p_allocations is null or jsonb_typeof(p_allocations) <> 'array' or jsonb_array_length(p_allocations) = 0 then
@@ -341,7 +379,8 @@ begin
   for v_item in
     select * from fin_open_items where tenant_id = p_tenant_id and id = any (v_ids) order by id for update
   loop
-    if v_item.control_role <> all (v_allowed) then
+    if v_item.control_role <> all (v_allowed)
+       and not (v_bank.kind = 'client_money' and p_direction = 'out' and v_item.control_role = 'ap_control' and v_item.source_type = 'ins_cancellation_client_refund' and public.ins_via_rpc()) then
       raise exception 'SETTLEMENT_ROLE_NOT_ALLOWED: a % bank account taking money % cannot settle % items (%)',
         replace(v_bank.kind, '_', ' '), p_direction, v_item.control_role, v_item.document_no;
     end if;
@@ -446,6 +485,13 @@ begin
     values (p_tenant_id, v_set.id, (v_elem ->> 'open_item_id')::uuid, (v_elem ->> 'amount')::numeric);
   end loop;
 
+  -- Post the settlement, then pin the entry to it. These two statements are the whole
+  -- reason this function exists: without them the settlement is recorded, the open
+  -- items are allocated, and the ledger is never touched -- the items would show as
+  -- settled while the control accounts still carried them.
+  v_je := post_journal_entry(p_tenant_id, 'fin_settlement', v_set.id, p_settlement_date, v_desc, v_lines);
+
+  update fin_settlements set journal_entry_id = v_je.id where id = v_set.id returning * into v_set;
   return v_set;
 end;
 $$;
@@ -458,6 +504,68 @@ $$;
 -- comes from this module's receipt or refund path, refuse it. Without this an
 -- advance could be consumed by a generic settlement and 2040 would clear with no
 -- advance row to explain it.
+-- Allow an inbound client-money receipt to fund a client_advance_payable item
+-- (governed by ins_advance_allocation_guard below).
+create or replace function public.fin_allocations_guard() returns trigger
+    language plpgsql security definer
+    set search_path to 'public', 'pg_temp'
+    as $$
+declare
+  v_s fin_settlements%rowtype;
+  v_i fin_open_items%rowtype;
+  v_item_consumed numeric;
+  v_settle_alloc numeric;
+begin
+  if tg_op = 'UPDATE' then
+    raise exception 'ALLOCATION_IMMUTABLE: allocations cannot be changed; void the settlement instead';
+  end if;
+
+  select * into v_s from fin_settlements where id = new.settlement_id and tenant_id = new.tenant_id;
+  if not found then
+    raise exception 'ALLOCATION_SETTLEMENT: settlement not found in this company';
+  end if;
+  if v_s.status <> 'posted' then
+    raise exception 'ALLOCATION_SETTLEMENT: cannot allocate against a void settlement';
+  end if;
+
+  select * into v_i from fin_open_items where id = new.open_item_id and tenant_id = new.tenant_id for update;
+  if not found then
+    raise exception 'ALLOCATION_ITEM: open item not found in this company';
+  end if;
+
+  if v_i.party_account_id <> v_s.party_account_id then
+    raise exception 'ALLOCATION_PARTY: item % belongs to a different party than the settlement', v_i.document_no;
+  end if;
+  if (v_s.direction = 'in') <> (v_i.side = 'receivable')
+     and not (v_s.direction = 'in' and v_i.control_role = 'client_advance_payable') then
+    raise exception 'ALLOCATION_DIRECTION: money % cannot settle a % item (%)',
+      case v_s.direction when 'in' then 'in' else 'out' end, v_i.side, v_i.document_no;
+  end if;
+  if v_i.currency <> v_s.currency then
+    raise exception 'ALLOCATION_CURRENCY: item % is in %, settlement is in %', v_i.document_no, v_i.currency, v_s.currency;
+  end if;
+
+  if (v_s.direction = 'in') = (v_i.side = 'receivable') then
+    v_item_consumed := fin_open_item_consumed(v_i.id);
+    if v_item_consumed + new.amount > v_i.amount then
+      raise exception 'ALLOCATION_EXCEEDS_ITEM: % has % outstanding, % cannot be applied',
+        v_i.document_no, v_i.amount - v_item_consumed, new.amount;
+    end if;
+  end if;
+
+  select coalesce(sum(amount), 0) into v_settle_alloc
+    from fin_allocations where settlement_id = new.settlement_id and id is distinct from new.id;
+  if v_settle_alloc + new.amount > v_s.amount then
+    raise exception 'ALLOCATION_EXCEEDS_SETTLEMENT: allocations on % would exceed settlement amount %',
+      v_s.settlement_no, v_s.amount;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.fin_allocations_guard() from public, anon, authenticated, service_role;
+
 create or replace function public.ins_advance_allocation_guard() returns trigger
     language plpgsql security definer
     set search_path to 'public', 'pg_temp'
@@ -473,7 +581,7 @@ begin
   -- advance row, in the same company, through the receipt RPC (in) or the refund
   -- RPC (out). The receipt creates the advance row after the money lands, so the
   -- check accepts the creating transaction for an 'in' settlement with no row yet.
-  if exists (
+  if public.ins_via_rpc() and exists (
     select 1 from fin_settlements s
      where s.id = new.settlement_id and s.tenant_id = new.tenant_id
        and s.direction = 'out'
@@ -538,7 +646,7 @@ begin
   if p_amount is null or p_amount <= 0 then
     raise exception 'INS_ADVANCE_AMOUNT: the advance must be greater than zero';
   end if;
-  if p_received_on is null or p_received_on > current_date + 1 then
+  if p_received_on is null or p_received_on > public.business_today() + 1 then
     raise exception 'INS_ADVANCE_DATE: a receipt date is required and cannot be in the future';
   end if;
 
@@ -562,33 +670,24 @@ begin
 
   v_no := next_doc_number(v_tenant, 'ins_client_advance', 'ADV');
 
-  -- The liability is recognised when the money is taken: Dr client money, Cr 2040.
-  -- No receivable: that is what makes it an advance.
-  v_je := public.post_journal_entry(
-    v_tenant, 'ins_client_advance_receipt', gen_random_uuid(), p_received_on,
-    'Unallocated client advance ' || v_no,
-    jsonb_build_array(
-      jsonb_build_object('gl_account_id', v_bank_gl, 'debit', p_amount, 'currency', v_ccy,
-                         'description', 'Client advance received ' || v_no),
-      jsonb_build_object('gl_account_id', v_gl, 'credit', p_amount, 'currency', v_ccy,
-                         'description', 'Client advance received ' || v_no)));
+  perform set_config('ins.via_rpc', 'on', true);
 
   -- The open item is the client's credit balance: a payable on 2040 that the
   -- release and the refund both work from.
   insert into fin_open_items (
     tenant_id, party_account_id, side, control_role, source_type, source_id,
-    document_no, document_date, due_date, currency, amount, description, created_by, journal_entry_id
+    document_no, document_date, due_date, currency, amount, description, created_by
   ) values (
     v_tenant, v_party, 'payable',
-    'client_advance_payable', 'ins_client_advance', v_je.id,
+    'client_advance_payable', 'ins_client_advance', gen_random_uuid(),
     v_no, p_received_on, null, v_ccy, p_amount,
-    coalesce(nullif(btrim(p_notes), ''), 'Unallocated client advance'), auth.uid(), v_je.id
+    coalesce(nullif(btrim(p_notes), ''), 'Unallocated client advance'), auth.uid()
   )
   returning * into v_item;
 
   -- Register the money through the ordinary settlement path, so the client-money
-  -- controls (bank kind, segregation, approval, voiding) apply to it exactly as
-  -- they do to any other client receipt.
+  -- controls (bank kind, segregation, approval, voiding) apply to it and post
+  -- Dr client money / Cr 2040 once.
   v_set := platform_fin_record_settlement_impl(
     v_tenant, p_bank_account_id, 'in', v_party, p_amount, p_received_on,
     jsonb_build_array(jsonb_build_object('open_item_id', v_item.id, 'amount', p_amount)),
@@ -600,7 +699,7 @@ begin
   ) values (
     v_tenant, p_client_id, v_set.id, v_item.id, p_amount, v_ccy,
     p_received_on, nullif(btrim(p_reference), ''), nullif(btrim(p_notes), ''),
-    'unallocated', v_je.id, auth.uid()
+    'unallocated', v_set.journal_entry_id, auth.uid()
   )
   returning * into v_adv;
 
@@ -609,40 +708,20 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- 7. ins_apply_client_advance: not available yet, and says so
+-- 7. ins_apply_client_advance -- NOT HERE, see 20261124010500 section 9
 -- ---------------------------------------------------------------------
--- Registered as B11 (blocking production go-live). Deliberately a hard refusal:
--- a stub that silently returned would let the UI report an advance as released
--- while 2040 still carried it, which is worse than a missing feature. The reason
--- it cannot be implemented on the current schema is in the header.
-create or replace function public.ins_apply_client_advance(
-  p_advance_id uuid,
-  p_policy_id uuid,
-  p_amount numeric,
-  p_notes text default null::text
-) returns ins_client_advances
-    language plpgsql security definer
-    set search_path to 'public', 'pg_temp'
-    as $$
-declare v_adv ins_client_advances%rowtype;
-begin
-  if not can_access_insurance() then
-    raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
-  end if;
-
-  select * into v_adv from ins_client_advances
-   where id = p_advance_id and tenant_id = get_my_tenant_id();
-  if not found then
-    raise exception 'INS_ADVANCE_NOT_FOUND: advance % is not on this company', p_advance_id;
-  end if;
-
-  raise exception 'INS_ADVANCE_RELEASE_NOT_AVAILABLE: advance % is recorded on 2040 and cannot yet be released to a policy. Releasing it is a cross-control-account reclass, and the subledger has no source for one (fin_open_item_consumed counts settlements and same-role credit notes only). Refund the advance, or register the receipt against the premium directly once the policy exists. Tracked as B11.',
-    v_adv.id;
-end;
-$$;
+-- It was written here, next to the advance it releases, but it reads
+-- fin_open_item_dispositions%rowtype and that table is created by the very next
+-- migration. This database validates function bodies at CREATE time (verified on
+-- PostgreSQL 19 with default settings), so on a fresh database 10300 aborted with
+-- 42P01 'relation "fin_open_item_dispositions" does not exist' before anything
+-- after it could run: the whole pack was unpushable, not merely untidy.
+--
+-- It now lives in 20261124010500_fin_open_item_dispositions.sql section 9, after the
+-- table and the posting primitive it needs. Nothing else changes.
 
 -- ---------------------------------------------------------------------
--- 8. ins_refund_client_advance: give it back
+-- 7. ins_refund_client_advance: give it back
 -- ---------------------------------------------------------------------
 create or replace function public.ins_refund_client_advance(
   p_advance_id uuid,
@@ -687,11 +766,12 @@ begin
   end if;
 
   v_open := public.fin_open_item_consumed(v_adv.open_item_id);
-  if v_open + v_adv.refunded_amount + p_amount > v_adv.amount then
+  if v_open + p_amount > v_adv.amount then
     raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available to refund, % requested',
-      v_adv.id, v_adv.amount - v_adv.refunded_amount - v_open, p_amount;
+      v_adv.id, v_adv.amount - v_open, p_amount;
   end if;
 
+  perform set_config('ins.via_rpc', 'on', true);
   -- An ordinary client-money payment against the advance item, so the settlement
   -- guards (client-money bank only, approval, voidability) all apply to refunds.
   v_set := platform_fin_record_settlement_impl(
@@ -713,7 +793,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
--- 9. ins_client_advance_statement: what the client sees
+-- 8. ins_client_advance_statement: what the client sees
 -- ---------------------------------------------------------------------
 create or replace function public.ins_client_advance_statement(p_client_id uuid)
 returns table (
@@ -750,16 +830,17 @@ returns table (
 $$;
 
 -- ---------------------------------------------------------------------
--- 10. Exposure
+-- 9. Exposure
 -- ---------------------------------------------------------------------
-revoke all on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) from public;
-revoke all on function public.ins_apply_client_advance(uuid, uuid, numeric, text) from public;
-revoke all on function public.ins_refund_client_advance(uuid, uuid, numeric, date, text) from public;
-revoke all on function public.ins_client_advance_statement(uuid) from public;
+revoke all on function public.ins_advance_allocation_guard() from public, anon, authenticated, service_role;
+revoke all on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) from public, anon;
+revoke all on function public.ins_refund_client_advance(uuid, uuid, numeric, date, text) from public, anon;
+revoke all on function public.ins_client_advance_statement(uuid) from public, anon;
 
 grant execute on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) to authenticated;
-grant execute on function public.ins_apply_client_advance(uuid, uuid, numeric, text) to authenticated;
 grant execute on function public.ins_refund_client_advance(uuid, uuid, numeric, date, text) to authenticated;
 grant execute on function public.ins_client_advance_statement(uuid) to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 grant select on ins_client_advances to authenticated;

@@ -163,7 +163,7 @@ begin
   begin
     delete from platform_modules where key = 'hr';
     raise exception 'FAIL: referenced registry key deleted';
-  exception when foreign_key_violation then null; end;
+  exception when foreign_key_violation or restrict_violation then null; end;
 end $$;
 
 -- ---------------------------------------------------------------------

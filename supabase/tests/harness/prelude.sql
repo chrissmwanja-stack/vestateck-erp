@@ -21,14 +21,22 @@ grant usage on schema public to anon, authenticated, service_role;
 -- EXCLUDE constraint over btree columns, which a stub operator class cannot satisfy. Creating
 -- the extension as a no-op succeeds; the one constraint that needs it is handled below by the
 -- baseline load, which records the failure rather than hiding it.
-create or replace function extensions.uuid_generate_v4() returns uuid language sql as $$ select gen_random_uuid() $$;
-create or replace function public.uuid_generate_v4() returns uuid language sql as $$ select gen_random_uuid() $$;
--- SHIM: pgcrypto's crypt/gen_salt, used by test fixtures that seed auth.users with a password.
+grant usage on schema extensions to public, anon, authenticated, service_role;
+grant usage on schema auth to anon, authenticated, service_role;
+alter database postgres set search_path to "$user", public, extensions;
+alter role postgres set search_path to "$user", public, extensions;
+alter role authenticated set search_path to "$user", public, extensions;
+alter role anon set search_path to "$user", public, extensions;
+alter role service_role set search_path to "$user", public, extensions;
+set search_path to "$user", public, extensions;
+
+create or replace function extensions.uuid_generate_v4() returns uuid language sql immutable set search_path = pg_catalog, pg_temp as $$ select gen_random_uuid() $$;
+-- SHIM: pgcrypto's crypt/gen_salt/digest, used by test fixtures that seed auth.users with a password or hash a document payload.
 -- Any stored value works: nothing in these tests authenticates. Reported as a shim.
-create or replace function extensions.gen_salt(p_type text default 'bf') returns text language sql as $$ select '$2a$06$fixturefixturefixturefi' $$;
-create or replace function extensions.crypt(p_password text, p_salt text) returns text language sql as $$ select '$2a$06$fixturefixturefixturefi' $$;
-create or replace function public.gen_salt(p_type text default 'bf') returns text language sql as $$ select extensions.gen_salt(p_type) $$;
-create or replace function public.crypt(p_password text, p_salt text) returns text language sql as $$ select extensions.crypt(p_password, p_salt) $$;
+create or replace function extensions.gen_salt(p_type text default 'bf') returns text language sql immutable set search_path = pg_catalog, pg_temp as $$ select '$2a$06$fixturefixturefixturefi' $$;
+create or replace function extensions.crypt(p_password text, p_salt text) returns text language sql immutable set search_path = pg_catalog, pg_temp as $$ select '$2a$06$fixturefixturefixturefi' $$;
+create or replace function extensions.digest(p_data text, p_type text) returns bytea language sql immutable set search_path = pg_catalog, pg_temp as $$ select pg_catalog.sha256(pg_catalog.convert_to(coalesce(p_data, ''), 'UTF8')) $$;
+create or replace function extensions.digest(p_data bytea, p_type text) returns bytea language sql immutable set search_path = pg_catalog, pg_temp as $$ select pg_catalog.sha256(coalesce(p_data, ''::bytea)) $$;
 
 -- SHIM: auth.uid()/auth.role()/auth.jwt() read the same GUC the tests set.
 -- nullif BEFORE the cast, exactly as the real auth.uid() does it. A custom GUC that has been
@@ -47,12 +55,31 @@ create or replace function auth.jwt() returns jsonb language sql stable as $$
 $$;
 
 -- SHIM: the parts of the auth schema the migrations and tests reference.
+-- SHIM. GoTrue's Go code scans these change/reauth columns as non-nullable strings and
+-- seed.sql sets every one to '' for that reason (see its header); the shim carries them so
+-- the seed exercises the same columns it does in a real Supabase database. NOT NULL DEFAULT ''
+-- matches what seed.sql inserts, not what the real table's default is -- the real default is
+-- NULL, which is precisely the 500 seed.sql works around.
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
+  instance_id uuid,
   aud text, role text, email text, encrypted_password text,
-  email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb,
+  email_confirmed_at timestamptz, email_change text not null default '',
+  email_change_token_new text not null default '',
+  email_change_token_current text not null default '',
+  email_change_confirm_status smallint default 0,
+  phone text, phone_change text not null default '',
+  phone_change_token text not null default '',
+  reauthentication_token text not null default '',
+  confirmation_token text not null default '',
+  recovery_token text not null default '',
+  confirmation_sent_at timestamptz, recovery_sent_at timestamptz,
+  email_change_sent_at timestamptz, phone_change_sent_at timestamptz,
+  raw_app_meta_data jsonb, raw_user_meta_data jsonb,
   created_at timestamptz default now(), updated_at timestamptz default now(),
-  last_sign_in_at timestamptz, banned_until timestamptz
+  last_sign_in_at timestamptz, banned_until timestamptz,
+  is_sso_user boolean not null default false, is_anonymous boolean not null default false,
+  deleted_at timestamptz
 );
 -- The four columns below are in real Supabase's auth.users and are referenced by test files
 -- that seed users directly (instance_id, password/confirmation/recovery bookkeeping). Without
@@ -130,3 +157,8 @@ $$;
 create or replace function cron.unschedule(p_jobid bigint) returns boolean language sql as $$
   delete from cron.job where jobid = p_jobid; select true
 $$;
+
+grant select on auth.users, auth.mfa_factors to service_role;
+grant usage on schema storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.buckets, storage.objects to anon, authenticated, service_role;
+alter table storage.objects enable row level security;

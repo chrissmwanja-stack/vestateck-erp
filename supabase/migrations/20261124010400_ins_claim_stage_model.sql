@@ -124,10 +124,14 @@ $$;
 -- ---------------------------------------------------------------------
 -- Signature extended with two trailing defaulted arguments, so every existing
 -- positional caller keeps working unchanged.
--- The signature gains two parameters, so CREATE OR REPLACE would leave the old 6-argument
--- function in place beside the new one and every call with six or fewer arguments would be
--- ambiguous. Drop the old signature first. The new signature gets its own explicit grants
--- after the function body, mirroring the old function's (authenticated + service_role only).
+--
+-- THE SHORTER FORM MUST BE DROPPED FIRST. "create or replace" cannot add parameters: with a
+-- different argument list it creates a SECOND function and leaves the first alive. Both then
+-- accept a six-argument call -- the short one at arity 6, the long one at its minimum of 4 --
+-- so every six-argument call raises 42725 'function ... is not unique', whatever the argument
+-- types are (measured: an explicit NULL::text cast does not help, because the ambiguity is at
+-- arity, not type). Nothing that parses a file can see this; it exists only in the catalog.
+-- The long form below is a strict superset of the short one, so dropping it loses nothing.
 drop function if exists public.ins_create_claim(uuid, date, date, text, text, numeric);
 
 create or replace function public.ins_create_claim(
@@ -172,7 +176,7 @@ begin
   -- flagged for review rather than rejected -- but only with an explicit
   -- acknowledgement and a stated reason, and only an insurance manager may give it.
   v_outside := p_loss_date < v_pol.inception_date or p_loss_date > v_pol.expiry_date;
-  v_late := coalesce(p_notified_date, current_date) > v_pol.expiry_date;
+  v_late := coalesce(p_notified_date, public.business_today()) > v_pol.expiry_date;
 
   if v_outside then
     if not coalesce(p_accept_out_of_period, false) then
@@ -198,7 +202,7 @@ begin
     review_state, review_note, late_notification
   ) values (
     v_tenant, next_doc_number(v_tenant, 'INS_CLAIM', 'CLM', 5), v_pol.id, 'notified', p_loss_date,
-    coalesce(p_notified_date, current_date), btrim(p_loss_description),
+    coalesce(p_notified_date, public.business_today()), btrim(p_loss_description),
     nullif(btrim(p_insurer_claim_ref), ''), coalesce(p_reserve_amount, 0),
     case when v_outside then 'coverage_under_review' else null end,
     v_note,
@@ -214,11 +218,6 @@ begin
   return v_row;
 end;
 $$;
-
-revoke all on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) from public, anon, authenticated, service_role;
-grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to authenticated;
-grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to service_role;
-
 
 -- ---------------------------------------------------------------------
 -- 3. Driving the two review states
@@ -363,10 +362,13 @@ $$;
 -- ---------------------------------------------------------------------
 -- 6. Exposure
 -- ---------------------------------------------------------------------
-revoke all on function public.ins_set_claim_review_state(uuid, text, text) from public;
-revoke all on function public.ins_claim_stage(uuid) from public;
-revoke all on function public.ins_set_claim_insurer_dates(uuid, date, date) from public;
+revoke all on function public.ins_claims_guard() from public, anon, authenticated, service_role;
+revoke all on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) from public, anon;
+revoke all on function public.ins_set_claim_review_state(uuid, text, text) from public, anon;
+revoke all on function public.ins_claim_stage(uuid) from public, anon;
+revoke all on function public.ins_set_claim_insurer_dates(uuid, date, date) from public, anon;
 
+grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to authenticated;
 grant execute on function public.ins_set_claim_review_state(uuid, text, text) to authenticated;
 grant execute on function public.ins_claim_stage(uuid) to authenticated;
 grant execute on function public.ins_set_claim_insurer_dates(uuid, date, date) to authenticated;

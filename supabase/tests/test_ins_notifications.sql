@@ -8,6 +8,23 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -113,7 +130,7 @@ begin
 
   perform pg_temp.jwt(mgr); set local role authenticated;
   insert into ins_product_lines(tenant_id,code,name) values(ta,'FIRE','Fire') returning id into line;
-  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c1 := ins_register_client('Notify client','corporate',null,null,null,'low');
   p_end   := ins_create_policy(c1.id,insurer,line,current_date-30,current_date+335,50000000,'UGX',1000,10,null,null);
   p_canc  := ins_create_policy(c1.id,insurer,line,current_date-30,current_date+335,50000000,'UGX',1000,10,null,null);
@@ -257,7 +274,7 @@ begin
   -- RLS. The client and the policy are the member's own RPC calls -- the
   -- point of this section is a tenant whose sweep has nobody to tell.
   insert into ins_product_lines(tenant_id,code,name) values(tb,'FIRE','Fire') returning id into line_b;
-  insert into ins_insurers(tenant_id,code,name) values(tb,'BETA','Beta') returning id into insurer_b;
+  insert into ins_insurers(tenant_id,code,name) values(tb,'BETA','Beta') returning id into insurer_b; perform pg_temp.seed_commission_terms();
   perform pg_temp.jwt(bmem); set local role authenticated;
   cb := ins_register_client('Lonely client','corporate',null,null,null,'low');
   pb := ins_create_policy(cb.id,insurer_b,line_b,current_date-360,current_date+5,1000000,'UGX',1000,10,null,null);

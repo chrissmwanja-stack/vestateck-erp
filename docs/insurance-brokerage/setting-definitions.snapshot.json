@@ -1,5 +1,18 @@
 [
   {
+    "key": "allow_self_approved_bank_adjustments",
+    "allowed_values": [
+      "true",
+      "false"
+    ],
+    "default_value": "false",
+    "implemented_values": [
+      "true",
+      "false"
+    ],
+    "requires_legal_review": true
+  },
+  {
     "key": "ins.agent_commission_basis",
     "allowed_values": [
       "gross_commission",
@@ -36,18 +49,6 @@
     "requires_legal_review": true
   },
   {
-    "key": "ins.broker_fee_vat",
-    "allowed_values": [
-      "vat_applicable",
-      "not_applicable"
-    ],
-    "default_value": "vat_applicable",
-    "implemented_values": [
-      "vat_applicable"
-    ],
-    "requires_legal_review": true
-  },
-  {
     "key": "ins.cancellation_treatment",
     "allowed_values": [
       "pro_rata_refund",
@@ -59,6 +60,19 @@
       "pro_rata_refund",
       "short_rate_refund",
       "no_refund"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.client_money_position_test",
+    "allowed_values": [
+      "enforce",
+      "permissive"
+    ],
+    "default_value": "enforce",
+    "implemented_values": [
+      "enforce",
+      "permissive"
     ],
     "requires_legal_review": false
   },
@@ -80,13 +94,15 @@
       "on_insurer_settlement",
       "at_placement",
       "on_premium_collection",
+      "pro_rata_on_collection",
       "over_policy_term"
     ],
     "default_value": "on_insurer_settlement",
     "implemented_values": [
       "on_insurer_settlement",
       "at_placement",
-      "on_premium_collection"
+      "on_premium_collection",
+      "pro_rata_on_collection"
     ],
     "requires_legal_review": false
   },

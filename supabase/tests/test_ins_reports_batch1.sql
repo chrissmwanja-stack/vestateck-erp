@@ -20,6 +20,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -122,7 +139,7 @@ begin
   perform pg_temp.jwt(mgr); set local role authenticated;
   insert into ins_product_lines(tenant_id,code,name) values(ta,'FIRE','Fire') returning id into line_id;
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MARINE','Marine') returning id into line2;
-  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c := ins_register_client('Reports client','corporate',null,null,null,'low');
   p1 := ins_create_policy(c.id,insurer,line_id,public.ins_local_today(),public.ins_local_today()+365,50000,'UGX',1000,10,null,null);
   p1 := pg_temp.approve_and_bind(p1.id);

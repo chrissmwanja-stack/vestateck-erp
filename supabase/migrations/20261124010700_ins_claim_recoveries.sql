@@ -114,7 +114,6 @@ create or replace function public.ins_raise_claim_recovery(
 declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
-  v_ccy    text;
   v_gl     gl_accounts%rowtype;
   v_ar_gl  uuid;
   v_payer  accounts%rowtype;
@@ -123,7 +122,11 @@ declare
   v_item   fin_open_items%rowtype;
   v_row    ins_claim_recoveries%rowtype;
   v_forbidden uuid;
-  v_date   date := coalesce(p_raised_on, current_date);
+  -- ins_claims has no currency column: a claim belongs to a policy and the policy holds
+  -- the currency. That note used to point at ins_set_claim_beneficiaries(), which never
+  -- carried one; it is in platform_ins_claim_beneficiary_payable (20261124010600 s.4).
+  v_ccy    text;
+  v_date   date := coalesce(p_raised_on, public.business_today());
   v_desc   text;
 begin
   if not can_manage_insurance() then
@@ -142,7 +145,7 @@ begin
   if nullif(btrim(p_reason), '') is null or length(btrim(p_reason)) < 5 then
     raise exception 'INS_NOTE_REQUIRED: give the reason for the recovery';
   end if;
-  if v_date > current_date + 1 then
+  if v_date > public.business_today() + 1 then
     raise exception 'INS_RECOVERY_DATE: the recovery date cannot be in the future';
   end if;
 
@@ -150,7 +153,6 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
-  -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 
   -- The payer must be a real account of this company. It is not defaulted to the
@@ -342,7 +344,7 @@ begin
   -- accountant's decision.
   v_disp := public.ins_dispose_open_item(
     v_rec.open_item_id, 'claim_recovery_uncollectable', p_amount,
-    v_rec.credit_gl_account_id, p_reason, current_date);
+    v_rec.credit_gl_account_id, p_reason, public.business_today());
 
   perform set_config('ins.via_rpc', 'on', true);
   update ins_claim_recoveries
@@ -394,13 +396,16 @@ create trigger trg_ins_claim_recoveries_guard
 -- ---------------------------------------------------------------------
 -- 6. Exposure
 -- ---------------------------------------------------------------------
-revoke all on function public.ins_raise_claim_recovery(uuid, text, uuid, numeric, uuid, text, date) from public;
-revoke all on function public.ins_receive_claim_recovery(uuid, uuid, numeric, date, text, text) from public;
-revoke all on function public.ins_write_off_claim_recovery(uuid, numeric, text) from public;
+revoke all on function public.ins_claim_recoveries_guard() from public, anon, authenticated, service_role;
+revoke all on function public.ins_raise_claim_recovery(uuid, text, uuid, numeric, uuid, text, date) from public, anon;
+revoke all on function public.ins_receive_claim_recovery(uuid, uuid, numeric, date, text, text) from public, anon;
+revoke all on function public.ins_write_off_claim_recovery(uuid, numeric, text) from public, anon;
 
 grant execute on function public.ins_raise_claim_recovery(uuid, text, uuid, numeric, uuid, text, date) to authenticated;
 grant execute on function public.ins_receive_claim_recovery(uuid, uuid, numeric, date, text, text) to authenticated;
 grant execute on function public.ins_write_off_claim_recovery(uuid, numeric, text) to authenticated;
+
+select public.apply_tenant_read_only_guard();
 
 grant select on ins_claim_recoveries to authenticated;
 

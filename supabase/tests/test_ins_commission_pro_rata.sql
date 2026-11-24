@@ -31,6 +31,8 @@
 
 begin;
 
+create temp table ids (k text primary key, v uuid);
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -162,8 +164,7 @@ begin
   p := pg_temp.approve_and_bind(p.id);
   reset role;
 
-  create temp table ids (k text primary key, v uuid);
-  insert into ids(k, v) values
+    insert into ids(k, v) values
     ('tenant', ta), ('policy', p.id), ('admin', admin2), ('mgr', mgr),
     ('maker', maker), ('checker', checker), ('bank', v_bank),
     ('unearned', unearned_gl), ('income', income_gl), ('ar', ar_gl), ('pay', pay_gl);
@@ -182,7 +183,7 @@ grant execute on function pg_temp.id(text) to authenticated;
 -- Cash may not move any other way, so a test that inserted a settlement
 -- directly would be testing a state the application forbids.
 create function pg_temp.take_premium(p_amount numeric, p_note text)
-returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
+returns uuid language plpgsql set search_path = public, pg_temp as $$
 declare v_req uuid;
 begin
   perform pg_temp.jwt(pg_temp.id('maker'));
