@@ -92,12 +92,19 @@
       "evidence": [
         "supabase/tests/test_ins_commission_recognition_mode.sql",
         "supabase/tests/test_ins_commission_on_premium_collection.sql",
+<<<<<<< ours
         "supabase/tests/test_ins_commission_pro_rata.sql"
       ],
 <<<<<<< ours
       "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force.",
 =======
       "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected; the fourth implemented mode is pro_rata_on_collection, which the allowed_values list above omits. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force.",
+>>>>>>> theirs
+=======
+        "supabase/tests/test_ins_commission_pro_rata.sql",
+        "supabase/tests/test_ins_insurer_commission_terms.sql"
+      ],
+      "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected; the fourth implemented mode is pro_rata_on_collection, which the allowed_values list above omits. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force. Decision 2B (per insurer) is built as B3: ins_insurer_commission_terms holds the mode agreed with each insurer, and it outranks the company setting at bind.",
 >>>>>>> theirs
       "reviewed_at": null
     },
@@ -133,7 +140,11 @@
         "supabase/tests/test_ins_cancellation_posting.sql"
       ],
 <<<<<<< ours
+<<<<<<< ours
       "note": "pro_rata_on_collection is implemented by 20261124010000 (setting) and 20261124010200 (reader), with supabase/tests/test_ins_commission_pro_rata.sql as the behaviour proof. Set implemented:true ONLY once that test has passed on a clean replay -- it was written, not run, in the environment that produced this pack. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
+=======
+      "note": "pro_rata_on_collection is implemented by 20261124010100 (setting) and 20261124010200 (reader) BUT implemented stays false: the proof is supabase/tests/test_ins_commission_pro_rata.sql, which has been written and parse-checked, not executed. Flip it only when that test has passed on a clean replay. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
+>>>>>>> theirs
 =======
       "note": "pro_rata_on_collection is implemented by 20261124010100 (setting) and 20261124010200 (reader) BUT implemented stays false: the proof is supabase/tests/test_ins_commission_pro_rata.sql, which has been written and parse-checked, not executed. Flip it only when that test has passed on a clean replay. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
 >>>>>>> theirs
@@ -195,7 +206,11 @@
         "supabase/tests/test_ins_cancellation_cash.sql"
       ],
 <<<<<<< ours
+<<<<<<< ours
       "note": "Three separate cancellation date fields are not yet modelled (only effective_date exists today): see B4.",
+=======
+      "note": "Three separate cancellation date fields are built as B4: request date (proposed_at), effective date and settlement date, with evidence required before an effective date can be backdated.",
+>>>>>>> theirs
 =======
       "note": "Three separate cancellation date fields are built as B4: request date (proposed_at), effective date and settlement date, with evidence required before an effective date can be backdated.",
 >>>>>>> theirs
@@ -608,14 +623,22 @@
     },
     {
       "ref": "B3",
+<<<<<<< ours
       "feature": "Fail-closed commission-mode selection",
       "requirement": "Binding refuses unless an explicit recognition mode is approved and in force for that policy's insurer agreement. No silent fallback to on_insurer_settlement.",
       "accounting_impact": "Prevents an unclassified insurer agreement from being accounted for on the historic default, which overstates or understates earned commission depending on the true agreement.",
       "status": "not_built",
+=======
+      "feature": "Fail-closed commission-mode selection (built)",
+      "requirement": "Binding refuses unless an explicit recognition mode is approved and in force for that policy's insurer agreement. No silent fallback to on_insurer_settlement.",
+      "accounting_impact": "Prevents an unclassified insurer agreement from being accounted for on the historic default, which overstates or understates earned commission depending on the true agreement.",
+      "status": "built",
+>>>>>>> theirs
       "depends_on": [
         "A3"
       ],
       "acceptance": "A policy on an insurer with no configured mode cannot bind and the error names the insurer and the missing setting; configuring the mode allows the bind and the chosen mode is frozen into the accounting snapshot.",
+<<<<<<< ours
       "blocks": "uat_acceptance"
     },
     {
@@ -626,24 +649,45 @@
       "accounting_impact": "Decides which period a cancellation posts to and prevents a settlement date being used as the coverage date.",
       "status": "not_built",
 =======
+=======
+      "blocks": "uat_acceptance",
+      "evidence": [
+        "supabase/migrations/20261124010200_ins_commission_pro_rata_reader.sql",
+        "supabase/migrations/20261124011000_ins_insurer_commission_terms.sql",
+        "supabase/tests/test_ins_insurer_commission_terms.sql"
+      ],
+      "note": "TWO HALVES, BUILT AT DIFFERENT TIMES. (1) Fail-closed bind: 20261124010200 already refuses to bind when no approved ins.commission_recognition is in force, testing the setting's SOURCE rather than its value, because acct_get_setting returns the seeded default with source='default' and a value test would never fire. (2) PER INSURER (decision 2B): 20261124011000 adds ins_insurer_commission_terms -- the mode agreed with one insurer, for a period, with the clause it rests on, proposed and approved by two different people. One company-wide setting cannot express a book written on several bases at once, which is the normal case for a brokerage. Precedence at bind is now: gross_premium settlement basis, then a per-policy override, then the insurer's approved terms in force on the inception date, then the company setting, then refusal. The refusal names the insurer (name AND code) and both places the mode could have come from, because telling someone only about the company setting sends them to the wrong screen when the answer was supposed to be an agreement. The snapshot records commission_terms_id and commission_terms_ref, so a mode can be defended later without re-deriving which terms were in force. ins_commission_mode_readiness() shows, per insurer, whether policies will bind and why -- a refusal is only useful if the gap can be seen before a client is at the counter. DESIGN NOTES: a separate table rather than a column on ins_insurers, because a mode is a term of an agreement with an effective period and an approver, and a renegotiation must leave last year's mode attached to last year's policies. Approved terms are immutable: they are ended with a date and replaced, so both remain readable. The mode vocabulary comes from accounting_setting_definitions.implemented_values, the same registry the company setting uses, so the two cannot drift. NOT DONE, stated plainly: there is no backfill, and that is deliberate. Seeding every existing insurer with its current effective mode would stamp a decision nobody made, which is precisely what fail-closed exists to prevent; the readiness report is the tool for closing the gaps, insurer by insurer, with a human on each. Until each insurer is either covered by terms or by a reviewed company default, BINDS FOR THAT INSURER WILL FAIL -- this is the intended behaviour and the main pre-merge risk. Also unbuilt: currency, branch and department are not part of the routing key for terms, and the multi-insurer (co-insurance) case takes the policy's insurer_id, not each share's insurer."
+    },
+    {
+      "ref": "B4",
+>>>>>>> theirs
       "feature": "Three cancellation dates (built)",
       "requirement": "Cancellation request date, effective date and financial settlement date are recorded separately, with evidence required for a backdated effective date.",
       "accounting_impact": "Decides which period a cancellation posts to and prevents a settlement date being used as the coverage date.",
       "status": "built",
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       "depends_on": [
         "A6"
       ],
       "acceptance": "A cancellation requested in period 1, effective in period 2 and settled in period 3 posts to the settlement period while reporting its effective date; a backdated effective date without evidence is refused.",
 <<<<<<< ours
+<<<<<<< ours
       "blocks": "uat_acceptance"
 =======
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "evidence": [
         "supabase/migrations/20261124010900_ins_cancellation_three_dates.sql",
         "supabase/tests/test_ins_cancellation_dates.sql"
       ],
       "note": "CENSUS BEFORE BUILD: two of the three dates already existed under other names -- proposed_at is the request date and posting_date is the date the approval posts -- so only ONE column was missing and only one was added. A second source of truth for a fact the system already knows is a bug waiting to diverge. BUILD: (1) ins_policy_cancellations.settlement_date, stamped at posting from the cash rather than typed in. (2) ins_cancellation_date_evidence, holding the dated instruction or notice a backdated effective date rests on; recordable only before the cancellation posts, because a justification added afterwards is not evidence. (3) ins_cancellation_settlement_date() derives the period from fin_settlements: a cancellation produces TWO open items with different source_types and different source_ids (ins_cancellation_client_refund keyed to the cancellation, ins_cancellation_insurer_recovery keyed to an adjustment row), and each side can clear on its own date, so the period is the LATEST of the two. Matching on one source_type would silently have found only half the money. (4) The backdating rule is checked twice: at submission, so the person hears about it immediately, and again in a BEFORE trigger at posting, so removing the evidence afterwards does not help. (5) Posted dates are frozen. WHY post_journal_entry WAS NOT TOUCHED: pinning the accounting date inside it would have put a cancellation rule into the posting path of every module on the platform. The date is derived from the data that already proves it instead, and the stored value is checked against the derivation rather than trusted. FOUND AND FIXED WHILE BUILDING: the baseline immutability guard ins_cancellation_evidence_guard() diffs the whole cancellation row against a short allow-list, so a new column is refused outright -- posting would have failed with 'proposal inputs cannot be rewritten'. That function is re-issued with settlement_date added to the list and every other rule reproduced unchanged. The new evidence-table guard is deliberately named ins_cancellation_date_evidence_guard: using the existing name would have replaced, silently and successfully, the guard that three append-only tables depend on. LIMIT, STATED PLAINLY: the settlement date is stamped when the cancellation posts, so a refund that clears in a later period is recorded against the earlier period unless the cash came first. The alternative is a re-dating step after posting, which the pack forbids ('closed periods are never silently rewritten'), so this is a design boundary rather than an oversight, and it should be settled at the accounting-policy gate."
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
     },
     {
@@ -676,6 +720,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "blocks": "production_golive"
 =======
       "blocks": "production_golive",
@@ -691,6 +736,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "production_golive",
       "note": "CENSUS 24 Nov 2026: there is no user-facing manual journal at all. post_journal_entry() is not executable by `authenticated` (verified: anon=false, authenticated=false, service_role=true), so users cannot post an arbitrary journal today. That means three of the four criteria are met by ABSENCE rather than by control: nothing can be posted unbalanced, nothing can be edited after posting, and there is no maker to approve their own entry, because there is no entry to make. The feature itself does not exist. B6 is therefore a real build, not a hardening task: a manual journal needs a maker-checker workflow, a control-account-with-subledger-reference rule, and a posting path that reuses post_journal_entry under a SECURITY DEFINER wrapper. Smaller than the register implied in one respect -- there is no existing unguarded path to close -- but it adds a new posting surface, which is the opposite of a safe small change."
     },
@@ -701,6 +748,9 @@
       "accounting_impact": "A control, not a posting: it governs who may release refunds, remittances, commission transfers and claim payments.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -708,6 +758,7 @@
         "A11"
       ],
       "acceptance": "A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -738,6 +789,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "production_golive",
       "note": "CENSUS 24 Nov 2026: a threshold-routing engine ALREADY EXISTED and is reused rather than duplicated. workflow_stages carries threshold_amount, approver_role, sequence_order, next_stage_low_id/next_stage_high_id, blocks_offer_submitter_approval and is_finance_terminal_stage; approval_assignments carries threshold_max; approval_actions records decisions. All 14 configured stages were applies_to='requests' with procurement roles, so no insurance refund was wired into it. BUILD: (1) extends the applies_to vocabulary with 'insurance_refunds' (workflow_stages is left otherwise untouched, and the existing 'requests' and 'invoices' behaviour is unaffected). (2) approval_actions was NOT reused: its request_id is NOT NULL and references requests(id), so it is procurement-only and cannot hold a refund. Two tables carry refunds instead -- ins_refund_requests freezes the required stage, level and role at request time, and ins_refund_approvals records each decision with its stage, level and approver. (3) platform_ins_refund_required_level() returns the highest active stage whose threshold the amount reaches, and NULL means no limit is configured, so a company that configures nothing keeps exactly today's behaviour rather than being silently blocked from refunding. (4) Level and the approver's OWN limit are separate refusals: an amount can be a level-1 refund and still exceed what that particular user may sign off, which is why approval_assignments.threshold_max is checked as well. (5) ins_refund_client_advance is re-created to refuse a refund above the threshold unless an approved request covers it. Without that last piece the whole workflow is advisory, because the money-moving function could be called directly. (6) A split is a FLAG, not a block, per pack wording: two same-day refunds to the same client whose combined value crosses a threshold are recorded on the second request with the figures that triggered the flag, and it is left to the approver to decide. LIMITS OF THE BUILD, stated plainly: currency, branch and department are not part of the routing key -- the requirement names them and this build routes on amount only, with the approver's role checked for the stage. approver_role must be one of the labels the two role tables can hold (finance or cost_control, or admin, manager, member); any other label raises INS_REFUND_ROLE_UNCONFIGURED naming the problem, and a company administrator can always decide. The build covers refunds of client advances; remittances, commission transfers and claim payments do not yet route through it.",
       "evidence": [
@@ -748,6 +801,9 @@
     {
       "ref": "B8",
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -758,6 +814,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -775,11 +834,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
 =======
       "note": "Write-offs are BUILT on the disposition primitive: ins_write_off_claim reduces the claim payable into a named expense account, refuses commission accounts, and leaves an ins_claim_events audit row. The absorbing account is an OPEN QUESTION in Appendix B -- the code takes it as an argument rather than choosing. Recoveries (raising a recovery against a claim, allocating it when received, never touching commission accounts) are still NOT BUILT and are the next increment. The B11 blocker that previously covered both is resolved for write-offs."
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -795,6 +857,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -816,6 +881,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "blocks": "production_golive"
     },
     {
@@ -834,6 +900,8 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "production_golive",
       "note": "CENSUS 24 Nov 2026: reconciliation machinery exists but none of the three criteria do. Present: bank_reconciliations, fin_bank_reconciliation_position(), fin_bank_reconciliation_review(), ins_policy_cash_reconciliation_events, and a set of insurance cash guards (ins_policy_cash_reconciliation_guard, ins_cancellation_cash_reconciliation_guard) that enforce third-person checking and immutability of matched cash. Absent: (1) nothing refuses a transfer that would leave the client-money position negative -- platform_ins_cash_position_before_cancellation() COMPUTES the position but does not refuse on it; (2) there is no escalation for consecutive missed reconciliations -- no schedule, no counter, no notification; (3) a shortage raises no incident and blocks nothing, so client money can keep moving through a known shortage. B9 is the largest of the three because the daily-reconciliation cycle itself does not exist, only per-transaction checks."
     },
@@ -841,6 +909,9 @@
       "ref": "B10",
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -854,6 +925,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -867,6 +941,7 @@
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -914,6 +989,8 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "note": "Built on the existing claim payable item; no new accounting primitive was needed. Percentage OR fixed allotments, either alone or mixed, must total the approved claim amount -- a death benefit that allocates only part of itself would leave an amount nobody is entitled to. The held-share rule is enforced by a DEFERRED constraint trigger, because the claim has ONE open item and the payment rows are inserted after the settlement: only a deferred check sees the whole transaction. A held share contributes nothing to what is payable and is never redistributed. Editing allotments is refused if it would put payable below what has already been paid, which is how a dispute would otherwise be nullified after the money went out. Instalments carry expected date, actual date, amount and evidence, and settle the existing approved balance -- the test asserts the accrual journal count is unchanged after a second instalment. Death claims require the representative and the authority relied on (probate, letters of administration, mandate).",
       "evidence": [
@@ -942,6 +1019,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

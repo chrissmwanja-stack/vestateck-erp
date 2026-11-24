@@ -22,10 +22,13 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -43,6 +46,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -89,11 +95,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- Until then an advance can be taken and refunded but not applied, which still
 -- removes the AR overstatement for money taken before a policy exists. Calling
 -- ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than
 -- posting something that cannot reconcile.
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -110,6 +119,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -652,6 +664,7 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- 7. ins_apply_client_advance: not available yet, and says so
 -- ---------------------------------------------------------------------
 -- Registered as B11 (blocking production go-live). Deliberately a hard refusal:
@@ -659,6 +672,8 @@ $$;
 -- while 2040 still carried it, which is worse than a missing feature. The reason
 -- it cannot be implemented on the current schema is in the header.
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -688,6 +703,9 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -711,8 +729,11 @@ create or replace function public.ins_apply_client_advance(
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 declare v_adv ins_client_advances%rowtype;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -734,6 +755,9 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -752,6 +776,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 
   select * into v_adv from ins_client_advances
    where id = p_advance_id and tenant_id = get_my_tenant_id();
@@ -762,6 +787,8 @@ begin
   raise exception 'INS_ADVANCE_RELEASE_NOT_AVAILABLE: advance % is recorded on 2040 and cannot yet be released to a policy. Releasing it is a cross-control-account reclass, and the subledger has no source for one (fin_open_item_consumed counts settlements and same-role credit notes only). Refund the advance, or register the receipt against the premium directly once the policy exists. Tracked as B11.',
     v_adv.id;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -859,6 +886,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
