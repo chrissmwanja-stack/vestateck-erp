@@ -78,7 +78,11 @@ begin
     values (ta, 'BEN-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Bereaved client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Bereaved client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Bereaved client', 'client') returning id into v_party;
 >>>>>>> theirs

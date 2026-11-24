@@ -68,7 +68,11 @@ begin
   insert into ins_insurers(tenant_id, code, name) values (ta, 'CXDINS', 'Dates Insurer') returning id into v_insurer;
 
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Dates client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Dates client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Dates client', 'client') returning id into v_party;
 >>>>>>> theirs
@@ -366,7 +370,11 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §6 the real submission path, which every other section above skips
 -- ---------------------------------------------------------------------
@@ -479,6 +487,11 @@ begin
   raise notice 'PASS: §6 a backdated cancellation is proposable, via evidence captured before the submission';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: three dates are recorded separately, a backdated effective date needs evidence, and the period comes from the cash';

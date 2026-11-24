@@ -69,7 +69,11 @@ begin
     values (ta, 'RFL-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Refund client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Refund client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Refund client', 'client') returning id into v_party;
 >>>>>>> theirs
@@ -283,7 +287,11 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §9 the shipped stage means every refund needs a second person (Appendix B Q2)
 -- ---------------------------------------------------------------------
@@ -321,6 +329,11 @@ begin
   raise notice 'PASS: §9 every client-advance refund requires an independent second approver';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: refund limits route by amount and by the approver''s own limit, self-approval is refused, splits are flagged, and the execution path enforces the approval';

@@ -58,7 +58,10 @@ as $$
     'unearned_commission',
     'insurer_claim_receivable', 'client_claim_payable',
 <<<<<<< ours
+<<<<<<< ours
     'client_advance_payable',
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
     'fx_rounding',
@@ -124,11 +127,20 @@ comment on function public.ins_claim_contra_account(uuid) is
 -- be a different person -- ins_decide_refund refuses the requester. Widening it to
 -- 'admin' would let someone outside finance approve a client-money refund, which is
 -- not what was asked.
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 -- Backfill companies that already exist. Necessary but NOT sufficient: a company
 -- onboarded next year would inherit nothing, and the gate would silently go inert for
 -- them. That is why the level lookup itself defaults to this stage -- see below. Seeding
 -- alone would have made the control look enforced while being absent for every new
 -- company, which is the same class of quiet failure this migration is trying to end.
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 insert into public.workflow_stages
   (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
 select t.id, 'Client advance refund', 1, 'finance', null, 'insurance_refunds', true
@@ -138,6 +150,10 @@ select t.id, 'Client advance refund', 1, 'finance', null, 'insurance_refunds', t
     where s.tenant_id = t.id and s.applies_to = 'insurance_refunds' and s.is_active
  );
 
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 -- The default, for any company with no configured stage. The accountant's decision was
 -- "regardless of amount", so absence of configuration must mean the minimum control, not
 -- no control: no rows -> one finance approval by someone other than the requester.
@@ -149,6 +165,7 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     set search_path to 'public', 'pg_temp'
     as $$
 <<<<<<< ours
+<<<<<<< ours
   (select s.id, s.sequence_order, s.approver_role, s.threshold_amount
      from workflow_stages s
     where s.tenant_id = p_tenant_id
@@ -158,6 +175,8 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     order by s.sequence_order desc
     limit 1)
 =======
+=======
+>>>>>>> theirs
   select s.id, s.sequence_order, s.approver_role, s.threshold_amount
     from workflow_stages s
    where s.tenant_id = p_tenant_id
@@ -166,6 +185,9 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
      and coalesce(s.threshold_amount, 0) <= p_amount
    order by s.sequence_order desc
    limit 1
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   union all
   -- No stage matched: apply the minimum control rather than none.
@@ -182,6 +204,11 @@ $$;
 revoke all on function public.platform_ins_refund_required_level(uuid, numeric) from public;
 grant execute on function public.platform_ins_refund_required_level(uuid, numeric) to service_role;
 
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- 4. No automatic forfeiture, and advance_forfeit is not reachable through the
 --    generic disposition path
@@ -557,6 +584,8 @@ begin
   if not ('ins_claim_write_off_expense' = any (public.platform_gl_posting_roles())) then
     raise exception 'the contra-claims-expense role is not in platform_gl_posting_roles()';
   end if;
+<<<<<<< ours
+<<<<<<< ours
   -- The level lookup must apply to an arbitrary company with no configuration at all,
   -- which is the case that would otherwise be silently ungoverned.
 <<<<<<< ours
@@ -568,5 +597,16 @@ begin
      or (select count(*) from public.platform_ins_refund_required_level(gen_random_uuid(), 1)) = 0 then
 >>>>>>> theirs
     raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
+=======
+  if not exists (select 1 from public.workflow_stages where applies_to = 'insurance_refunds') then
+    raise exception 'no insurance_refunds workflow stage exists; refunds would not need a second approver';
+>>>>>>> theirs
+=======
+  -- The level lookup must apply to an arbitrary company with no configuration at all,
+  -- which is the case that would otherwise be silently ungoverned.
+  if (public.platform_ins_refund_required_level(gen_random_uuid(), 1)).stage_id is not null
+     or (select count(*) from public.platform_ins_refund_required_level(gen_random_uuid(), 1)) = 0 then
+    raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
+>>>>>>> theirs
   end if;
 end $$;

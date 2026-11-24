@@ -81,8 +81,13 @@ begin
     values (ta, 'REC-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Recovery client', 'client') returning id into v_party;
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Recovery Insurer', 'vendor') returning id into v_insurer_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Recovery client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Recovery Insurer', 'vendor') returning id into v_insurer_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Recovery client', 'client') returning id into v_party;
   insert into accounts(tenant_id, name, account_type) values (ta, 'Recovery Insurer', 'vendor') returning id into v_insurer_party;

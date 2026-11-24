@@ -94,7 +94,11 @@ begin
   -- The mode must be one the platform actually implements, taken from the same
   -- registry the company setting reads -- one vocabulary, not two that can drift.
 <<<<<<< ours
+<<<<<<< ours
   select coalesce(new.mode = any(d.implemented_values), false)
+=======
+  select coalesce(mode = any(d.implemented_values), false)
+>>>>>>> theirs
 =======
   select coalesce(mode = any(d.implemented_values), false)
 >>>>>>> theirs

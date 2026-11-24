@@ -54,9 +54,15 @@ begin
     else
       v_inc := null;
 <<<<<<< ours
+<<<<<<< ours
       select inc.* into v_inc from public.fin_client_money_incidents inc
        where inc.tenant_id = p_tenant_id and inc.currency = v_pos.currency
          and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+=======
+      select * into v_inc from public.fin_client_money_incidents
+       where tenant_id = p_tenant_id and currency = v_pos.currency
+         and kind = 'shortage' and status = 'open' limit 1;
+>>>>>>> theirs
 =======
       select * into v_inc from public.fin_client_money_incidents
        where tenant_id = p_tenant_id and currency = v_pos.currency
@@ -151,7 +157,11 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public, anon, authenticated;
+=======
+revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public;
+>>>>>>> theirs
 =======
 revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public;
 >>>>>>> theirs

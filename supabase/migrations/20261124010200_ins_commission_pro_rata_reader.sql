@@ -81,6 +81,10 @@ declare
   v_date       date;
   v_n          integer := 0;
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_collected  numeric(18,2);
+>>>>>>> theirs
 =======
   v_collected  numeric(18,2);
 >>>>>>> theirs
@@ -133,7 +137,10 @@ begin
     end if;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
     -- Base currency leg: allocate the settlement to THIS receipt, so a receipt
     -- that only partly allocates to this item still earns only its share.
     select coalesce(sum(al2.amount), 0)
@@ -146,6 +153,9 @@ begin
             and i2.source_id = (select i.policy_id from public.fin_open_items i where i.id = al2.open_item_id)
        );
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
     -- The target is always computed from the item's total paid-to-date (not a
     -- per-receipt increment), which is what makes re-running this idempotent.

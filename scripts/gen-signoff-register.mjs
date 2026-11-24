@@ -61,7 +61,11 @@ const bRows = register.unbuilt
   .join('\n');
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 const classLabel = {
   deliberate_behaviour_change: 'Deliberate behaviour change',
   guard_level_verification: 'Guard-level verification',
@@ -79,6 +83,11 @@ const aeRows = (ae.items ?? [])
   })
   .join('\n');
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 const block = `${BEGIN}
 <!-- Do not edit by hand. Edit docs/insurance-brokerage/signoff-register.json and run
@@ -105,7 +114,11 @@ item blocking "UAT acceptance" must be complete before the business signs UAT.
 ${bRows}
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 ### 16.3 How far each claim has been demonstrated
 
 **Built and demonstrated are different things.** A control can be built, parse-checked, and
@@ -122,6 +135,11 @@ that is not approved may not carry evidence.
 |---|---|---|---|---|
 ${aeRows}
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 ${END}`;
 

@@ -6,6 +6,10 @@
 --
 --   "A receipt with no policy creates a 2040 credit and no receivable"   §1
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -13,11 +17,19 @@
 --                                                                        see the
 --                                                                        migration
 --                                                                        header)
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      §5
 --                                                                        (B11's
 --                                                                        disposition
 --                                                                        primitive)
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 --   "an unallocated advance is visible on the client statement"          §3
 --   "and is refundable"                                                  §4
@@ -26,8 +38,19 @@
 -- NOT create a receivable, so AR is not overstated by money paid before the policy.
 --
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
+=======
+-- §5 proves the release is refused rather than half-done, so nobody can ship a UI
+-- that believes an advance was applied.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -101,7 +124,12 @@ begin
   -- accounts.account_type is vendor|client|both; the party account is an accounts
   -- row, and bd_clients carries no party link (only ins_clients does).
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Advance test client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type)
+    values (ta, 'Advance test client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type)
     values (ta, 'Advance test client', 'client') returning id into v_party;
@@ -216,36 +244,86 @@ end $$;
 
 -- ---------------------------------------------------------------------
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 -- §5 over-refunding is refused, and so is the unimplemented release
+=======
+-- §5 over-refunding is refused, and the release now works
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
+-- This section previously asserted that the release refused with
+-- INS_ADVANCE_RELEASE_NOT_AVAILABLE. That was true of the first cut of B2, before
+-- 20261124010500 gave the subledger a non-cash movement. It now has to prove the
+-- opposite: that the advance clears 2040 and reduces AR without touching cash.
+--
+-- NOTE ON WHERE THE CAP LIVES NOW. Since Appendix B Q2 the approval gate runs before
+-- the amount check, so a direct over-refund is refused as INS_REFUND_APPROVAL_REQUIRED
+-- rather than INS_ADVANCE_EXCEEDS: you cannot reach the balance test without an approval
+-- that covers the amount. That order is the safer one and is asserted below. The balance
+-- cap itself is asserted where it is still reachable -- when the request is raised.
 do $$
 declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_temp.id('tenant'));
         v_refused boolean := false;
-        v_release_refused boolean := false;
+        v_adv_row ins_client_advances%rowtype;
+        v_pol uuid;
+        v_line uuid; v_insurer uuid;
+        v_cash_before numeric;
 begin
-  perform pg_temp.jwt(pg_temp.id('mgr'));
+  -- The balance cap is enforced when the request is raised.
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  begin
+    perform public.ins_request_refund(v_adv, 600000, 'too much');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
+      '§5 an over-refund request should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused, '§5 requesting more than the balance must be refused');
+
+  -- And an unapproved direct refund does not get past the approval gate at all.
+  v_refused := false;
+  perform pg_temp.jwt(pg_temp.id('maker'));
   set local role authenticated;
   begin
     perform public.ins_refund_client_advance(v_adv, pg_temp.id('bank'), 600000, current_date, 'too much');
   exception when others then
     v_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
-      '§5 over-refund should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
-  end;
-
-  -- The release is refused by name, not silently.
-  begin
-    perform public.ins_apply_client_advance(v_adv, gen_random_uuid(), 100000, 'release');
-  exception when others then
-    v_release_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_RELEASE_NOT_AVAILABLE%',
-      '§5 the release must refuse as INS_ADVANCE_RELEASE_NOT_AVAILABLE, got: ' || sqlerrm);
+    perform pg_temp.assert(sqlerrm like 'INS_REFUND_APPROVAL_REQUIRED%',
+      '§5 an unapproved refund must be refused at the approval gate, got: ' || sqlerrm);
   end;
   reset role;
+  perform pg_temp.assert(v_refused, '§5 one finance user must not release client money alone');
 
+  -- A bound policy for the same client, so the advance has something to pay.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  insert into ins_product_lines(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADV', 'Advance line') returning id into v_line;
+  insert into ins_insurers(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADVINS', 'Advance Insurer') returning id into v_insurer;
+  v_pol := ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
+                             current_date, current_date + 300, 1000000, 'UGX', 1000000, 10,
+                             null, null, 'Advance release policy', null);
+  reset role;
+  insert into ins_policy_insurer_shares
+    (tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, reviewed)
+  values (pg_temp.id('tenant'), v_pol, v_insurer, true, 100, 10, true);
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform ins_submit_policy_for_approval(v_pol);
+  reset role;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform ins_bind_policy(v_pol);
+  reset role;
+
+<<<<<<< ours
   perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
   perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
   raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
+<<<<<<< ours
 =======
 -- §5 over-refunding is refused, and the release now works
 -- ---------------------------------------------------------------------
@@ -315,6 +393,8 @@ begin
   perform ins_bind_policy(v_pol);
   reset role;
 
+=======
+>>>>>>> theirs
   v_cash_before := pg_temp.balance(pg_temp.id('trust'), true);
 
   perform pg_temp.jwt(pg_temp.id('mgr'));
@@ -332,6 +412,11 @@ begin
   perform pg_temp.assert(pg_temp.balance(pg_temp.id('trust'), true) = v_cash_before,
     '§5 releasing an advance must not move cash');
   raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 

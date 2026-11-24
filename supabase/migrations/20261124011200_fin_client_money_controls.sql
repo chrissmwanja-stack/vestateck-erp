@@ -126,10 +126,14 @@ begin
      group by i.currency
   )
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   select p.currency, p.client_money, p.client_refunds, p.insurer_payable, p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
     from (
 =======
+=======
+>>>>>>> theirs
   -- THIS list is the one that must qualify. Every name here is also an OUT parameter of
   -- this function, and PostgreSQL raises 42702 'column reference is ambiguous' for a bare
   -- reference in a SELECT list -- measured, not assumed. An unqualified ORDER BY does not
@@ -140,6 +144,20 @@ begin
          p.insurer_payable,
          p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
+<<<<<<< ours
+    from (
+      -- Bare names here, and that is correct: this list DEFINES the columns, so there is
+      -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
+      -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
+      -- `client_money`; that name only comes into existence on this line.
+>>>>>>> theirs
+=======
+  select currency, client_money, client_refunds, insurer_payable, claim_payable,
+         client_money - client_refunds - insurer_payable - claim_payable
+    from (
+<<<<<<< ours
+>>>>>>> theirs
+=======
     from (
       -- Bare names here, and that is correct: this list DEFINES the columns, so there is
       -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
@@ -151,9 +169,11 @@ begin
              coalesce(o.client_refunds, 0) as client_refunds,
              coalesce(o.insurer_payable, 0) as insurer_payable,
              coalesce(o.claim_payable, 0) as claim_payable
+<<<<<<< ours
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
+<<<<<<< ours
 <<<<<<< ours
 =======
    -- Qualified for consistency with the SELECT list. Measured on PostgreSQL: an unqualified
@@ -162,6 +182,30 @@ begin
    -- "tidy" the one that is.
 >>>>>>> theirs
    order by p.currency;
+=======
+   order by currency;
+>>>>>>> theirs
+=======
+      -- Qualified through p: every one of these names is ALSO an OUT parameter of this
+      -- function, and an unqualified reference to a name that is both an output variable
+      -- and a column raises 'column reference is ambiguous' at runtime. Parsing does not
+      -- catch it -- this is exactly the class of defect that only a real database finds.
+      select p.currency,
+             p.client_money,
+             p.client_refunds,
+             p.insurer_payable,
+             p.claim_payable
+=======
+>>>>>>> theirs
+        from held h
+        full outer join owed o on o.currency = h.currency
+    ) p
+   -- Qualified for consistency with the SELECT list. Measured on PostgreSQL: an unqualified
+   -- ORDER BY resolves to the output column and does NOT raise 42702, so this one is not
+   -- load-bearing -- but leaving the two lists looking different invites the next reader to
+   -- "tidy" the one that is.
+   order by p.currency;
+>>>>>>> theirs
 end $$;
 
 revoke all on function public.platform_ins_client_money_position(uuid, date) from public;
@@ -340,7 +384,11 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public, anon, authenticated;
+=======
+revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
+>>>>>>> theirs
 =======
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
 >>>>>>> theirs
@@ -358,16 +406,36 @@ declare
   v_inc  fin_client_money_incidents%rowtype;
 begin
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- Aliased because `currency` is an OUT parameter of this function too, and inside a
   -- FOR-over-query the OUT parameter takes precedence: verified on PostgreSQL that an
   -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
   -- not -- so the two places need different treatment, which is exactly why each is
   -- commented separately rather than with one hand-wave about "ambiguous names".)
+<<<<<<< ours
 >>>>>>> theirs
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
+=======
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
+     where p_currency is null or currency = p_currency
+>>>>>>> theirs
+=======
+  -- Aliased for the same reason as the ORDER BY above: `currency` is an OUT parameter of
+  -- this function too, so an unqualified column reference beside p_currency is ambiguous.
+=======
+>>>>>>> theirs
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
+>>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
     if v_pos.free_money < 0 then
@@ -379,9 +447,15 @@ begin
     else
       v_inc := null;
 <<<<<<< ours
+<<<<<<< ours
       select inc.* into v_inc from fin_client_money_incidents inc
        where inc.tenant_id = v_tenant and inc.currency = v_pos.currency
          and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+=======
+      select * into v_inc from fin_client_money_incidents
+       where tenant_id = v_tenant and currency = v_pos.currency
+         and kind = 'shortage' and status = 'open' limit 1;
+>>>>>>> theirs
 =======
       select * into v_inc from fin_client_money_incidents
        where tenant_id = v_tenant and currency = v_pos.currency
@@ -504,7 +578,11 @@ begin
     raise exception 'INS_FORBIDDEN: no company context' using errcode = '42501';
   end if;
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 
   -- Serialise concurrent transfers before reading any position.
   --
@@ -524,6 +602,11 @@ begin
    order by p.id
      for update;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   if p_transfer_date is null or p_transfer_date > public.ins_local_today() + 1 then
     raise exception 'INS_TRANSFER_INPUT: the transfer date is required and cannot be in the future';
@@ -555,6 +638,10 @@ begin
   v_foreign := v_ccy <> public.fin_ledger_currency(v_tenant);
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the
   -- position test and both are worth making: this one says the account HOLDS the
   -- money, the position test says the money is free. Neither implies the other.
@@ -567,6 +654,11 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   select array_agg(e.id order by e.id), sum(e.amount), max(e.earned_on)
@@ -595,7 +687,11 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the position
   -- test and both are worth making: this one says the account HOLDS the money, the
   -- position test says the money is free. Neither implies the other.
@@ -614,6 +710,11 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   -- ---------------------------------------------------------------
   -- B9 (3): an open shortage blocks every transfer in that currency, including one
@@ -734,7 +835,11 @@ revoke all on function public.ins_transfer_earned_commission(uuid, uuid, date, u
 grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date, uuid[], text) to authenticated;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- platform_ins_transfer_before_cancellation_impl is now unreferenced: the only caller was
 -- the wrapper above, whose body this function now contains. It is left in place rather than
 -- dropped -- dropping a function in a migration that other branches may still reference is a
@@ -742,6 +847,11 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 -- Recorded here because a reader who finds it will otherwise reasonably assume it governs
 -- commission transfers. It is executable by service_role only.
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- 5. The daily cycle: who prepared it, who reviewed it, how many days missed

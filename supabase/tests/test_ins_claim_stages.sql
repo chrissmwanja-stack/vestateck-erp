@@ -87,7 +87,11 @@ begin
     values (ta, 'CLM-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Claim client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'Claim client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'Claim client', 'client') returning id into v_party;
 >>>>>>> theirs
@@ -345,7 +349,11 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §8 repudiation is the ninth state, and it keeps its grounds (Appendix B Q3)
 -- ---------------------------------------------------------------------
@@ -446,6 +454,11 @@ begin
   raise notice 'PASS: §8 repudiation is a ninth state with recorded grounds, and it can be reopened';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: the eight stages follow the ledger, internal approval posts nothing, confirmation posts the receivable, and review states gate recognition';

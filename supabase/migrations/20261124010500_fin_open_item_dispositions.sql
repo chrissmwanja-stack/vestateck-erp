@@ -216,6 +216,13 @@ declare
   v_desc     text;
   v_version  integer;
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+  v_claim_status text;
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 =======
   v_claim_status text;
 >>>>>>> theirs
@@ -333,7 +340,11 @@ begin
   returning * into v_row;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- Every disposition against a claim is written to the claim's own audit trail here,
   -- in the one place all four kinds pass through. Writing it in each kind's own caller
   -- instead missed the recovery write-off entirely: a recovery declared uncollectable
@@ -351,6 +362,11 @@ begin
             || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
   end if;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   return v_row;
 end;
@@ -413,15 +429,37 @@ create or replace function public.ins_write_off_claim(
   p_claim_id uuid,
   p_amount numeric,
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   p_expense_gl_account_id uuid,
   p_reason text
 =======
+=======
+>>>>>>> theirs
   -- Optional since Appendix B Q1. When omitted the contra-claims-expense account is
   -- resolved from the ins_claim_write_off_expense posting role, which is where the
   -- accountant put the decision. When given it must BE that account: "one account for
   -- both" is only true if a caller cannot point the write-off somewhere else.
   p_expense_gl_account_id uuid default null,
   p_reason text default null,
+<<<<<<< ours
+  -- A recognised claim leaves TWO open items from one journal: the insurer receivable
+  -- and the claimant payable. Writing off only the payable closes the claim while
+  -- leaving the receivable open for ever -- nothing would ever clear it, because the
+  -- claim it belongs to is closed. Default false preserves today's behaviour, because
+  -- whether the insurer receivable goes with it, or is chased separately, is an
+  -- accounting decision and not one this migration should take.
+  p_also_write_off_insurer boolean default false
+>>>>>>> theirs
+=======
+  p_expense_gl_account_id uuid,
+<<<<<<< ours
+  p_reason text
+>>>>>>> theirs
+=======
+  p_reason text,
+=======
+>>>>>>> theirs
   -- A recognised claim leaves TWO open items from one journal: the insurer receivable
   -- and the claimant payable. Writing off only the payable closes the claim while
   -- leaving the receivable open for ever -- nothing would ever clear it, because the
@@ -441,8 +479,19 @@ declare
   v_gl     gl_accounts%rowtype;
   v_row    fin_open_item_dispositions%rowtype;
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
   v_ins_item fin_open_items%rowtype;
+  v_contra  uuid;
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+  v_ins_item fin_open_items%rowtype;
+<<<<<<< ours
+>>>>>>> theirs
+=======
   v_contra  uuid;
 >>>>>>> theirs
   v_forbidden uuid;
@@ -463,10 +512,30 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+  -- Appendix B Q1/Q4: one contra-claims-expense account for the write-off and the
+  -- recovery. Resolved from the posting role when not supplied.
+  v_contra := coalesce(p_expense_gl_account_id, public.ins_claim_contra_account(v_tenant));
+  if v_contra is null then
+    raise exception 'INS_WRITE_OFF_ACCOUNT: no contra-claims-expense account is configured. Map the ins_claim_write_off_expense posting role (Appendix B Q1) before writing off a claim.';
+  end if;
+  if p_expense_gl_account_id is not null
+     and public.ins_claim_contra_account(v_tenant) is not null
+     and p_expense_gl_account_id is distinct from public.ins_claim_contra_account(v_tenant) then
+    raise exception 'INS_WRITE_OFF_ACCOUNT: a claim write-off posts to the contra-claims-expense account, which is already configured. Appendix B Q1 names one account for write-offs and recoveries; to change it, change the posting role, not this call.';
+  end if;
+
+>>>>>>> theirs
   select * into v_gl from gl_accounts
-   where id = p_expense_gl_account_id and tenant_id = v_tenant;
+   where id = v_contra and tenant_id = v_tenant;
   if not found then
+<<<<<<< ours
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', p_expense_gl_account_id;
+<<<<<<< ours
 =======
   -- Appendix B Q1/Q4: one contra-claims-expense account for the write-off and the
   -- recovery. Resolved from the posting role when not supplied.
@@ -483,6 +552,11 @@ begin
   select * into v_gl from gl_accounts
    where id = v_contra and tenant_id = v_tenant;
   if not found then
+    raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
 >>>>>>> theirs
   end if;
@@ -517,18 +591,30 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
   insert into ins_claim_events (tenant_id, claim_id, from_status, to_status, note)
   values (v_tenant, v_claim.id, v_claim.status, v_claim.status,
           'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
+<<<<<<< ours
 =======
   -- ins_dispose_open_item() records the claim event itself, because it is the one path
   -- every claim disposition takes. Writing a second one here would double the trail.
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
+=======
+  -- ins_dispose_open_item() records the claim event itself, because it is the one path
+  -- every claim disposition takes. Writing a second one here would double the trail.
+  v_row := public.ins_dispose_open_item(
+    v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
+
+>>>>>>> theirs
   -- The insurer receivable side of the same claim. Same amount, same account, same
   -- date, so the pair reads as one decision rather than two.
   if p_also_write_off_insurer then
@@ -544,6 +630,11 @@ begin
         p_reason || ' (insurer receivable)', current_date);
     end if;
   end if;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
   return v_row;
@@ -551,8 +642,18 @@ end;
 $$;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
+>>>>>>> theirs
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+>>>>>>> theirs
 =======
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;

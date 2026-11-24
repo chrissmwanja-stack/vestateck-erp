@@ -18,15 +18,27 @@
 --   BUILT   account 2040, the posting role, the advance subledger, taking an
 --           advance, refunding it, and the client statement.
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
 =======
+=======
+>>>>>>> theirs
 --   BUILT (from 20261124010500)   releasing an advance to a policy, once the
 --           subledger gained a non-cash movement (fin_open_item_dispositions).
 --           The first cut of this migration refused it, correctly, because no such
 --           mechanism existed; the reasoning is kept at the end of this header
 --           because it explains why the release is posted the way it is.
+<<<<<<< ours
+>>>>>>> theirs
+=======
+--   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
+--           and deliberately raises: the schema has no way to do it correctly.
+--           The reason is set out below and registered as blocking work (B11).
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 --
 -- I did not discover this by assuming: I checked every mechanism against the live
@@ -61,15 +73,27 @@
 -- -- which is precisely the kind of change the accountant pack exists to gate.
 --
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 -- Until then an advance can be taken and refunded but not applied, which still
 -- removes the AR overstatement for money taken before a policy exists. Calling
 -- ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than
 -- posting something that cannot reconcile.
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- That was the state at this migration. 20261124010500 supplies the reclass source
 -- (fin_open_item_dispositions), so the release in section 7 is now a real posting
 -- and the earlier refusal has been replaced. The analysis above is kept because it
 -- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
 -- ---------------------------------------------------------------------
@@ -110,6 +134,7 @@ create or replace function public.platform_gl_posting_roles() returns text[]
 $$;
 
 <<<<<<< ours
+<<<<<<< ours
 -- The CHECK on gl_posting_rules.account_role admits only the literals below plus the
 -- ins_/fin_/hr_ namespace. client_advance_payable is not namespaced, so without this the
 -- template seed and the backfill insert below are rejected. Same drop-and-re-add pattern as
@@ -135,6 +160,8 @@ alter table public.gl_posting_rules
     or account_role ~ ('^(ins|fin|hr)_[a-z][a-z0-9_]{2,60}' || chr(36))
   );
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- Existing tenants: their chart is a copy of the template, so the template row
@@ -465,7 +492,11 @@ begin
   end loop;
 
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- Post the settlement, then pin the entry to it. These two statements are the whole
   -- reason this function exists: without them the settlement is recorded, the open
   -- items are allocated, and the ledger is never touched -- the items would show as
@@ -473,6 +504,11 @@ begin
   v_je := post_journal_entry(p_tenant_id, 'fin_settlement', v_set.id, p_settlement_date, v_desc, v_lines);
 
   update fin_settlements set journal_entry_id = v_je.id where id = v_set.id returning * into v_set;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   return v_set;
 end;
@@ -638,15 +674,24 @@ $$;
 
 -- ---------------------------------------------------------------------
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 -- 7. ins_apply_client_advance: not available yet, and says so
 -- ---------------------------------------------------------------------
 -- Registered as B11 (blocking production go-live). Deliberately a hard refusal:
 -- a stub that silently returned would let the UI report an advance as released
 -- while 2040 still carried it, which is worse than a missing feature. The reason
 -- it cannot be implemented on the current schema is in the header.
+<<<<<<< ours
 =======
 -- 7. ins_apply_client_advance: release the advance to a policy
 -- ---------------------------------------------------------------------
+=======
+-- 7. ins_apply_client_advance: release the advance to a policy
+-- ---------------------------------------------------------------------
+>>>>>>> theirs
 -- Pack criterion: "binding a policy allocates it and clears 2040".
 --
 -- This was refused in the first cut of B2 because the subledger had no way to move
@@ -662,6 +707,11 @@ $$;
 -- before. What this guarantees is the liability side -- 2040 falls by exactly the
 -- amount released, and the subledger agrees because the disposition counts as
 -- consumption.
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 create or replace function public.ins_apply_client_advance(
   p_advance_id uuid,
@@ -673,8 +723,12 @@ create or replace function public.ins_apply_client_advance(
     set search_path to 'public', 'pg_temp'
     as $$
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 declare v_adv ins_client_advances%rowtype;
 =======
+=======
+>>>>>>> theirs
 declare
   v_tenant   uuid := get_my_tenant_id();
   v_adv      ins_client_advances%rowtype;
@@ -684,21 +738,44 @@ declare
   v_ar_gl    uuid;
   v_open     numeric;
   v_disp     fin_open_item_dispositions%rowtype;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+declare v_adv ins_client_advances%rowtype;
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
   end if;
 <<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+  if not is_finance_team_member('finance') then
+    raise exception 'INS_ADVANCE_FINANCE: releasing a client advance requires the finance role' using errcode = '42501';
+  end if;
+>>>>>>> theirs
 
   select * into v_adv from ins_client_advances
-   where id = p_advance_id and tenant_id = get_my_tenant_id();
+   where id = p_advance_id and tenant_id = v_tenant for update;
   if not found then
     raise exception 'INS_ADVANCE_NOT_FOUND: advance % is not on this company', p_advance_id;
   end if;
+  if v_adv.status = 'refunded' then
+    raise exception 'INS_ADVANCE_REFUNDED: advance % has already been refunded', v_adv.id;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INS_ADVANCE_AMOUNT: the amount to apply must be greater than zero';
+  end if;
 
+<<<<<<< ours
   raise exception 'INS_ADVANCE_RELEASE_NOT_AVAILABLE: advance % is recorded on 2040 and cannot yet be released to a policy. Releasing it is a cross-control-account reclass, and the subledger has no source for one (fin_open_item_consumed counts settlements and same-role credit notes only). Refund the advance, or register the receipt against the premium directly once the policy exists. Tracked as B11.',
     v_adv.id;
+<<<<<<< ours
 =======
   if not is_finance_team_member('finance') then
     raise exception 'INS_ADVANCE_FINANCE: releasing a client advance requires the finance role' using errcode = '42501';
@@ -716,6 +793,8 @@ begin
     raise exception 'INS_ADVANCE_AMOUNT: the amount to apply must be greater than zero';
   end if;
 
+=======
+>>>>>>> theirs
   select * into v_policy from ins_policies
    where id = p_policy_id and tenant_id = v_tenant for update;
   if not found then
@@ -785,6 +864,11 @@ begin
   returning * into v_adv;
 
   return v_adv;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end;
 $$;
