@@ -57,7 +57,10 @@ as $$
     'wht_receivable',
     'unearned_commission',
     'insurer_claim_receivable', 'client_claim_payable',
+<<<<<<< ours
     'client_advance_payable',
+=======
+>>>>>>> theirs
     'fx_rounding',
     'fx_gain_realised', 'fx_loss_realised',
     'fx_gain_unrealised', 'fx_loss_unrealised',
@@ -145,6 +148,7 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     language sql stable security definer
     set search_path to 'public', 'pg_temp'
     as $$
+<<<<<<< ours
   (select s.id, s.sequence_order, s.approver_role, s.threshold_amount
      from workflow_stages s
     where s.tenant_id = p_tenant_id
@@ -153,6 +157,16 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
       and coalesce(s.threshold_amount, 0) <= p_amount
     order by s.sequence_order desc
     limit 1)
+=======
+  select s.id, s.sequence_order, s.approver_role, s.threshold_amount
+    from workflow_stages s
+   where s.tenant_id = p_tenant_id
+     and s.applies_to = 'insurance_refunds'
+     and s.is_active
+     and coalesce(s.threshold_amount, 0) <= p_amount
+   order by s.sequence_order desc
+   limit 1
+>>>>>>> theirs
   union all
   -- No stage matched: apply the minimum control rather than none.
   select null::uuid, 1, 'finance', null::numeric
@@ -545,9 +559,14 @@ begin
   end if;
   -- The level lookup must apply to an arbitrary company with no configuration at all,
   -- which is the case that would otherwise be silently ungoverned.
+<<<<<<< ours
   if not exists (select 1
                    from public.platform_ins_refund_required_level(gen_random_uuid(), 1) r
                   where r.stage_id is null) then
+=======
+  if (public.platform_ins_refund_required_level(gen_random_uuid(), 1)).stage_id is not null
+     or (select count(*) from public.platform_ins_refund_required_level(gen_random_uuid(), 1)) = 0 then
+>>>>>>> theirs
     raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
   end if;
 end $$;

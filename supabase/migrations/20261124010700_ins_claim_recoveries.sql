@@ -114,7 +114,10 @@ create or replace function public.ins_raise_claim_recovery(
 declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
+<<<<<<< ours
   v_ccy    text;
+=======
+>>>>>>> theirs
   v_gl     gl_accounts%rowtype;
   v_ar_gl  uuid;
   v_payer  accounts%rowtype;
@@ -123,6 +126,12 @@ declare
   v_item   fin_open_items%rowtype;
   v_row    ins_claim_recoveries%rowtype;
   v_forbidden uuid;
+<<<<<<< ours
+=======
+  -- ins_claims has no currency column: a claim belongs to a policy and the policy holds
+  -- the currency. See the note in ins_set_claim_beneficiaries().
+  v_ccy    text;
+>>>>>>> theirs
   v_date   date := coalesce(p_raised_on, current_date);
   v_desc   text;
 begin
@@ -150,7 +159,10 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
+<<<<<<< ours
   -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
+=======
+>>>>>>> theirs
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 
   -- The payer must be a real account of this company. It is not defaulted to the

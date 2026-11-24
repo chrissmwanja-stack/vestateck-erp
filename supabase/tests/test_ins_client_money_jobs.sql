@@ -62,7 +62,11 @@ begin
 
   -- fin_open_items.party_account_id is NOT NULL, so the fixture needs a real account even
   -- though the position calculation reads only the control role and the balance.
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CMJ client', 'client')
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CMJ client', 'client')
+>>>>>>> theirs
     returning id into v_party;
 
   insert into fin_open_items

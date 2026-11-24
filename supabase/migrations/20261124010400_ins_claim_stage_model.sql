@@ -124,12 +124,15 @@ $$;
 -- ---------------------------------------------------------------------
 -- Signature extended with two trailing defaulted arguments, so every existing
 -- positional caller keeps working unchanged.
+<<<<<<< ours
 -- The signature gains two parameters, so CREATE OR REPLACE would leave the old 6-argument
 -- function in place beside the new one and every call with six or fewer arguments would be
 -- ambiguous. Drop the old signature first. The new signature gets its own explicit grants
 -- after the function body, mirroring the old function's (authenticated + service_role only).
 drop function if exists public.ins_create_claim(uuid, date, date, text, text, numeric);
 
+=======
+>>>>>>> theirs
 create or replace function public.ins_create_claim(
   p_policy_id uuid,
   p_loss_date date,
@@ -215,11 +218,14 @@ begin
 end;
 $$;
 
+<<<<<<< ours
 revoke all on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) from public, anon, authenticated, service_role;
 grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to authenticated;
 grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to service_role;
 
 
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- 3. Driving the two review states
 -- ---------------------------------------------------------------------

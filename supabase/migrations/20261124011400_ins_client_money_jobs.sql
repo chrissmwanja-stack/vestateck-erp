@@ -53,9 +53,15 @@ begin
                            'claim_payable', v_pos.claim_payable));
     else
       v_inc := null;
+<<<<<<< ours
       select inc.* into v_inc from public.fin_client_money_incidents inc
        where inc.tenant_id = p_tenant_id and inc.currency = v_pos.currency
          and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+=======
+      select * into v_inc from public.fin_client_money_incidents
+       where tenant_id = p_tenant_id and currency = v_pos.currency
+         and kind = 'shortage' and status = 'open' limit 1;
+>>>>>>> theirs
     end if;
 
     return query select v_pos.currency, v_pos.free_money,
@@ -144,7 +150,11 @@ begin
   end loop;
 end $$;
 
+<<<<<<< ours
 revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public, anon, authenticated;
+=======
+revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public;
+>>>>>>> theirs
 grant execute on function public.platform_ins_escalate_missed_reconciliations(uuid, date) to service_role;
 
 comment on function public.platform_ins_escalate_missed_reconciliations(uuid, date) is

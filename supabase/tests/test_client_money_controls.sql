@@ -85,8 +85,13 @@ begin
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CM-OPS', 'operating', 'UGX', ops_gl) returning id into v_ops;
 
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CM client', 'client') returning id into v_party;
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CM supplier', 'vendor') returning id into v_supplier;
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CM client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CM supplier', 'vendor') returning id into v_supplier;
+>>>>>>> theirs
 
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'GEN', 'General') returning id into v_line;
   insert into ins_insurers(tenant_id, code, name) values (ta, 'CMINS', 'Client Money Insurer') returning id into v_insurer;
@@ -129,6 +134,7 @@ returns uuid
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_policy uuid; v_entry uuid;
 begin
+<<<<<<< ours
   insert into ins_policies
     (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
      inception_date, expiry_date, currency, gross_premium, sum_insured,
@@ -143,6 +149,36 @@ begin
     (tenant_id, policy_id, insurer_share_id, amount, currency, status, earned_on)
   values
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'UGX', 'earned', current_date)
+=======
+  -- A bound policy has to satisfy ins_policies_bound_check: with status 'active',
+  -- gross_premium > 0, commission_amount and net_premium_to_insurer must both be present,
+  -- they must sum to gross_premium, and bound_at must be set. This fixture originally set
+  -- only commission_amount and left bound_at null, so it violated the check on its first
+  -- insert and the file could never have run past its own helper.
+  insert into ins_policies
+    (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
+     inception_date, expiry_date, currency, gross_premium, sum_insured,
+     commission_rate_pct, commission_amount, net_premium_to_insurer, bound_at, transaction_type)
+  values
+    (pg_temp.id('tenant'), 'CM-' || substr(gen_random_uuid()::text, 1, 6),
+     pg_temp.id('client'), pg_temp.id('insurer'), pg_temp.id('line'), 'active',
+     current_date - 30, current_date + 335, 'UGX', 1000000, 5000000, 10,
+     p_amount, 1000000 - p_amount, now(), 'new_business')
+  returning id into v_policy;
+
+  -- ins_commission_entries has NO currency column. It has not had one in the baseline or in
+  -- any later migration -- checked against information_schema on a live database, which
+  -- returns zero rows for it. The currency of a commission entry is the policy's currency,
+  -- which is why nothing needs to store it here.
+  --
+  -- This insert carried `currency` for a while, which made the whole file fail at its first
+  -- fixture with 42703 before a single control was exercised. Nothing caught it because the
+  -- file had never been executed: it was written, parse-checked, and trusted.
+  insert into ins_commission_entries
+    (tenant_id, policy_id, insurer_share_id, amount, status, earned_on)
+  values
+    (pg_temp.id('tenant'), v_policy, null, p_amount, 'earned', current_date)
+>>>>>>> theirs
   returning id into v_entry;
 
   return v_entry;
@@ -440,8 +476,86 @@ begin
   raise notice 'PASS: §5 a shortage cannot be released until the money is there, and the release is attributed';
 end $$;
 
+<<<<<<< ours
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, and a shortage blocks transfers until an independent release';
+=======
+-- ---------------------------------------------------------------------
+-- §6 the zero-tolerance preconditions on the transfer itself
+-- ---------------------------------------------------------------------
+-- Two additions in 20261124011800, each aimed at a way the same money could move twice.
+do $$
+declare
+  v_entry  uuid;
+  v_entry2 uuid;
+  v_tr     ins_commission_transfers%rowtype;
+  v_fake   uuid := gen_random_uuid();
+begin
+  v_entry  := pg_temp.earned(20000);
+  v_entry2 := pg_temp.earned(30000);
+
+  -- 6a. The normal path still works, so the new preconditions have not narrowed anything.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  v_tr := public.ins_transfer_earned_commission(
+            pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+            array[v_entry], 'precondition baseline');
+  reset role;
+  perform pg_temp.assert(v_tr.id is not null,
+    '§6a a legitimate transfer must still go through with the preconditions in place');
+
+  -- 6b. The entry is now 'transferred'. Asking for it again must be refused, and refused
+  -- with the specific code, not merely "not earned".
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform pg_temp.expect_error(
+    format($q$select public.ins_transfer_earned_commission(%L,%L,public.ins_local_today(),array[%L],'again')$q$,
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry),
+    'INS_TRANSFER_ENTRIES',
+    '§6b transferring an entry that a posted transfer already moved');
+  reset role;
+
+  -- 6c. The interesting case: an entry reset to 'earned' but still pointing at a POSTED
+  -- transfer. That is the state an undone void would leave, and it is the one where
+  -- "earned" is a lie. Construction is legitimate -- there is no constraint forbidding it --
+  -- and the new precondition is precisely what catches it.
+  update ins_commission_entries
+     set status = 'earned', transfer_id = null
+   where id = v_entry2;
+  update ins_commission_entries
+     set status = 'transferred', transfer_id = v_tr.id
+   where id = v_entry2;
+
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform pg_temp.expect_error(
+    format($q$select public.ins_transfer_earned_commission(%L,%L,public.ins_local_today(),array[%L],'stale')$q$,
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry2),
+    'INS_TRANSFER_ENTRIES',
+    '§6c an entry already on a posted transfer, offered again');
+  reset role;
+
+  -- 6d. The pool path (no explicit entries) must be unaffected: it cannot select an entry
+  -- that is not 'earned', so the precondition never fires there and nothing regresses.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  begin
+    v_tr := public.ins_transfer_earned_commission(
+              pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+              null, 'pool path');
+    perform pg_temp.assert(v_tr.id is not null, '§6d the pool path should still transfer');
+  exception when others then
+    perform pg_temp.assert(sqlerrm not like 'INS_TRANSFER_ALREADY_TRANSFERRED%',
+      format('§6d the pool path must not be blocked by the new precondition, got: %s', sqlerrm));
+  end;
+  reset role;
+
+  raise notice 'PASS: §6 a posted transfer cannot be re-run over the same entries, and the pool path is unchanged';
+end $$;
+
+do $$ begin
+  raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, a shortage blocks transfers until an independent release, and the transfer itself cannot move the same entry twice';
+>>>>>>> theirs
 end $$;
 
 rollback;

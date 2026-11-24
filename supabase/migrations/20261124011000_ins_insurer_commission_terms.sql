@@ -93,7 +93,11 @@ declare
 begin
   -- The mode must be one the platform actually implements, taken from the same
   -- registry the company setting reads -- one vocabulary, not two that can drift.
+<<<<<<< ours
   select coalesce(new.mode = any(d.implemented_values), false)
+=======
+  select coalesce(mode = any(d.implemented_values), false)
+>>>>>>> theirs
     into v_mode_ok
     from accounting_setting_definitions d
    where d.key = 'ins.commission_recognition';
