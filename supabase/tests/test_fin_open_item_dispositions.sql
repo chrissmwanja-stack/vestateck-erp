@@ -86,6 +86,15 @@ begin
     (ta, 'client_advance_payable', adv_gl), (ta, 'client_claim_payable', pay_gl),
     (ta, 'insurer_claim_receivable', recv_gl), (ta, 'commission_income', comm_gl),
     (ta, 'unearned_commission', unearned_gl);
+<<<<<<< ours
+=======
+  -- Appendix B Q1/Q4: the one contra-claims-expense account a write-off and a recovery
+  -- both post to. Mapped here to the fixture's bad-debt account so the existing balance
+  -- assertions still describe the posting, while the account itself is now chosen by
+  -- mapping rather than passed at every call.
+  insert into gl_posting_rules(tenant_id, account_role, gl_account_id)
+    values (ta, 'ins_claim_write_off_expense', bad_debt_gl);
+>>>>>>> theirs
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'DSP-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
@@ -287,19 +296,34 @@ begin
   v_pay_before := pg_temp.balance(pg_temp.id('pay'));
   v_baddebt_before := pg_temp.balance(pg_temp.id('baddebt'));
 
+<<<<<<< ours
   -- Commission is refused by name.
+=======
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
+>>>>>>> theirs
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   begin
     perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('comm'), 'trying commission');
   exception when others then
     v_refused := true;
+<<<<<<< ours
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_COMMISSION%' or sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 writing off into a commission account must be refused, got: ' || sqlerrm);
   end;
 
   -- The real write-off.
   perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('baddebt'), 'insurer shortfall accepted');
+=======
+    perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
+      '§5 naming an account other than the configured contra-claims-expense account must be refused, got: ' || sqlerrm);
+  end;
+
+  -- And with no account named, the configured one is used.
+  perform ins_write_off_claim(v_claim.id, 50000, null, 'insurer shortfall accepted');
+>>>>>>> theirs
   reset role;
 
   perform pg_temp.assert(v_refused, '§5 a commission account must not absorb a claim write-off');

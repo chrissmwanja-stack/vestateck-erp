@@ -15,6 +15,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -23,6 +24,8 @@
 --                                                                        migration
 --                                                                        header)
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -54,6 +57,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -89,8 +95,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -329,6 +341,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
@@ -354,12 +367,23 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 -- §5 over-refunding is refused, and the release now works
 -- ---------------------------------------------------------------------
 -- This section previously asserted that the release refused with
 -- INS_ADVANCE_RELEASE_NOT_AVAILABLE. That was true of the first cut of B2, before
 -- 20261124010500 gave the subledger a non-cash movement. It now has to prove the
 -- opposite: that the advance clears 2040 and reduces AR without touching cash.
+<<<<<<< ours
+=======
+--
+-- NOTE ON WHERE THE CAP LIVES NOW. Since Appendix B Q2 the approval gate runs before
+-- the amount check, so a direct over-refund is refused as INS_REFUND_APPROVAL_REQUIRED
+-- rather than INS_ADVANCE_EXCEEDS: you cannot reach the balance test without an approval
+-- that covers the amount. That order is the safer one and is asserted below. The balance
+-- cap itself is asserted where it is still reachable -- when the request is raised.
+>>>>>>> theirs
 do $$
 declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_temp.id('tenant'));
         v_refused boolean := false;
@@ -367,6 +391,7 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_pol uuid;
         v_line uuid; v_insurer uuid;
         v_cash_before numeric;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -450,6 +475,35 @@ begin
 >>>>>>> theirs
   reset role;
   perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
+=======
+begin
+  -- The balance cap is enforced when the request is raised.
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  begin
+    perform public.ins_request_refund(v_adv, 600000, 'too much');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
+      '§5 an over-refund request should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused, '§5 requesting more than the balance must be refused');
+
+  -- And an unapproved direct refund does not get past the approval gate at all.
+  v_refused := false;
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  begin
+    perform public.ins_refund_client_advance(v_adv, pg_temp.id('bank'), 600000, current_date, 'too much');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_REFUND_APPROVAL_REQUIRED%',
+      '§5 an unapproved refund must be refused at the approval gate, got: ' || sqlerrm);
+  end;
+  reset role;
+  perform pg_temp.assert(v_refused, '§5 one finance user must not release client money alone');
+>>>>>>> theirs
 
   -- A bound policy for the same client, so the advance has something to pay.
   perform pg_temp.jwt(pg_temp.id('mgr'));
@@ -498,6 +552,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

@@ -278,6 +278,46 @@ begin
   raise notice 'PASS: §6 below-threshold refunds are untouched, and an approved request executes once';
 end $$;
 
+<<<<<<< ours
+=======
+-- ---------------------------------------------------------------------
+-- §9 the shipped stage means every refund needs a second person (Appendix B Q2)
+-- ---------------------------------------------------------------------
+-- The accountant's decision: "independent maker-checker approval for every client-advance
+-- refund, regardless of amount. That is safer than allowing one finance user to release
+-- client money alone."
+--
+-- The engine already enforced it; what was missing was that no stage shipped, so no level
+-- applied and the gate was inert. 20261124011300 inserts one stage with a null threshold,
+-- which is matched for every amount. This section proves the two properties that matter:
+-- a tiny refund still needs approval, and the requester still cannot be the approver.
+do $$
+declare
+  v_lvl record;
+  v_refused boolean := false;
+begin
+  -- A refund of 1 (one shilling) is matched by the shipped stage.
+  select * into v_lvl from platform_ins_refund_required_level(pg_temp.id('tenant'), 1);
+  perform pg_temp.assert(v_lvl.stage_id is not null,
+    '§9 the shipped insurance_refunds stage must apply to any amount, including 1');
+
+  -- With a stage applying, the raw refund function must refuse without an approved request.
+  begin
+    perform ins_refund_client_advance(
+      (select id from ins_client_advances where tenant_id = pg_temp.id('tenant') limit 1),
+      pg_temp.id('bank'), 1, current_date, 'attempt to release client money alone');
+  exception when others then
+    v_refused := true;
+    perform pg_temp.assert(sqlerrm like 'INS_REFUND_APPROVAL_REQUIRED%',
+      '§9 an unapproved refund of any size must be refused as INS_REFUND_APPROVAL_REQUIRED, got: ' || sqlerrm);
+  end;
+  perform pg_temp.assert(v_refused,
+    '§9 one finance user must not be able to release client money alone');
+
+  raise notice 'PASS: §9 every client-advance refund requires an independent second approver';
+end $$;
+
+>>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: refund limits route by amount and by the approver''s own limit, self-approval is refused, splits are flagged, and the execution path enforces the approval';
 end $$;
