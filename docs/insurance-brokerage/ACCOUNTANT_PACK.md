@@ -535,6 +535,7 @@ item blocking "UAT acceptance" must be complete before the business signs UAT.
 | **B8** | Claims recoveries and write-offs | Not built | A7 | production go-live | A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account. |
 | **B9** | Daily client-money reconciliation and shortage response | Not built | A12 | production go-live | A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released. |
 | **B10** | Beneficiaries, death claims and instalment settlements | Not built | A7 | UAT acceptance | A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual. |
+| **B11** | Subledger cross-control reclass -- releasing a client advance to a policy | Not built | B2 | production go-live | A release of 750,000 leaves 2040 down by 750,000 and AR down by 750,000 with the bank unchanged; both open items show the consumption; releasing more than available is refused; releasing across clients is refused; voiding the reclass restores both balances. |
 
 <!-- END GENERATED: SIGN-OFF REGISTER -->
 

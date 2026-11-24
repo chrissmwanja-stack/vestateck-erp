@@ -689,6 +689,20 @@
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
       "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B11",
+      "feature": "Subledger cross-control reclass -- releasing a client advance to a policy",
+      "requirement": "An advance held on 2040 can be released against a bound policy of the same client: 2040 falls, AR falls, cash does not move, and both open items show the consumption.",
+      "accounting_impact": "Without this an advance can be taken and refunded but never applied, so premium paid before placement stays on 2040 until it is either refunded or posted again. 2040 is correct; the mechanism to clear it against a policy is missing.",
+      "accounting_basis": "The subledger records party-balance movement in exactly two ways: settlement allocations (cash) and same-role credit notes. A cross-role reclass is a third kind, and does not exist.",
+      "status": "not_built",
+      "depends_on": [
+        "B2"
+      ],
+      "acceptance": "A release of 750,000 leaves 2040 down by 750,000 and AR down by 750,000 with the bank unchanged; both open items show the consumption; releasing more than available is refused; releasing across clients is refused; voiding the reclass restores both balances.",
+      "blocks": "production_golive",
+      "note": "Verified against the live guards: fin_credit_applications_guard requires a note and its item to share side and control_role, so a note cannot move value from a 2040 payable to an AR receivable; a journal alone does not move fin_open_item_consumed(), which counts only posted settlements and posted same-role credit notes; a settlement cannot stand in because it names a bank account and posts Dr bank / Cr control, moving cash that did not move; subledger_only settlements require a cash_bank_transactions row. Preferred fix: add fin_open_item_reclasses (journal + two open items, no bank) and count it in fin_open_item_consumed. Needs its own sign-off because it adds a consumption source. Until then ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than posting something unreconcilable."
     }
   ]
 }
