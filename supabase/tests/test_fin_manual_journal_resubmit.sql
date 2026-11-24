@@ -70,8 +70,16 @@ begin
     from unnest(array[maker, fin1, fin2, mgr, admin1]) u;
   update app_users set is_company_admin = true where id = admin1;
 
+<<<<<<< ours
   insert into finance_team_members(tenant_id, user_id, role)
     values (ta, fin1, 'finance'), (ta, fin2, 'finance');
+=======
+  -- The maker holds finance because fin_create_manual_journal refuses anyone who does not
+  -- (FIN_MANUAL_JOURNAL_FORBIDDEN). Separation of duties is per PERSON: the maker may write a
+  -- journal and may not sign it, which is exactly what section §5 asserts.
+  insert into finance_team_members(tenant_id, user_id, role)
+    values (ta, maker, 'finance'), (ta, fin1, 'finance'), (ta, fin2, 'finance');
+>>>>>>> theirs
 
   insert into gl_accounts(tenant_id, account_code, name, account_type)
     values (ta, '5000', 'Expenses', 'expense') returning id into exp_gl;

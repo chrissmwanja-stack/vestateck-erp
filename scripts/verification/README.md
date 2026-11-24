@@ -71,7 +71,10 @@ point of this helper is to make that mistake hard to repeat.
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -99,6 +102,9 @@ NOT NULL column you forgot to supply, a CHECK you violate, or a trigger that ref
 — and all three occur in the same file this was written for.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

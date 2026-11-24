@@ -21,10 +21,13 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -36,11 +39,14 @@
 --           because it explains why the release is posted the way it is.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -82,6 +88,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 -- Until then an advance can be taken and refunded but not applied, which still
@@ -94,12 +101,17 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 -- That was the state at this migration. 20261124010500 supplies the reclass source
 -- (fin_open_item_dispositions), so the release in section 7 is now a real posting
 -- and the earlier refusal has been replaced. The analysis above is kept because it
 -- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -148,6 +160,7 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- The CHECK on gl_posting_rules.account_role admits only the literals below plus the
 -- ins_/fin_/hr_ namespace. client_advance_payable is not namespaced, so without this the
 -- template seed and the backfill insert below are rejected. Same drop-and-re-add pattern as
@@ -173,6 +186,8 @@ alter table public.gl_posting_rules
     or account_role ~ ('^(ins|fin|hr)_[a-z][a-z0-9_]{2,60}' || chr(36))
   );
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -510,7 +525,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -524,6 +542,9 @@ begin
   update fin_settlements set journal_entry_id = v_je.id where id = v_set.id returning * into v_set;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -694,6 +715,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -919,6 +941,22 @@ $$;
 
 -- ---------------------------------------------------------------------
 -- 8. ins_refund_client_advance: give it back
+=======
+-- 7. ins_apply_client_advance -- NOT HERE, see 20261124010500 section 9
+-- ---------------------------------------------------------------------
+-- It was written here, next to the advance it releases, but it reads
+-- fin_open_item_dispositions%rowtype and that table is created by the very next
+-- migration. This database validates function bodies at CREATE time (verified on
+-- PostgreSQL 19 with default settings), so on a fresh database 10300 aborted with
+-- 42P01 'relation "fin_open_item_dispositions" does not exist' before anything
+-- after it could run: the whole pack was unpushable, not merely untidy.
+--
+-- It now lives in 20261124010500_fin_open_item_dispositions.sql section 9, after the
+-- table and the posting primitive it needs. Nothing else changes.
+
+-- ---------------------------------------------------------------------
+-- 7. ins_refund_client_advance: give it back
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 create or replace function public.ins_refund_client_advance(
   p_advance_id uuid,
@@ -989,7 +1027,11 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+<<<<<<< ours
 -- 9. ins_client_advance_statement: what the client sees
+=======
+-- 8. ins_client_advance_statement: what the client sees
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 create or replace function public.ins_client_advance_statement(p_client_id uuid)
 returns table (
@@ -1026,15 +1068,24 @@ returns table (
 $$;
 
 -- ---------------------------------------------------------------------
+<<<<<<< ours
 -- 10. Exposure
 -- ---------------------------------------------------------------------
 revoke all on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) from public;
 revoke all on function public.ins_apply_client_advance(uuid, uuid, numeric, text) from public;
+=======
+-- 9. Exposure
+-- ---------------------------------------------------------------------
+revoke all on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) from public;
+>>>>>>> theirs
 revoke all on function public.ins_refund_client_advance(uuid, uuid, numeric, date, text) from public;
 revoke all on function public.ins_client_advance_statement(uuid) from public;
 
 grant execute on function public.ins_record_client_advance(uuid, uuid, numeric, date, text, text) to authenticated;
+<<<<<<< ours
 grant execute on function public.ins_apply_client_advance(uuid, uuid, numeric, text) to authenticated;
+=======
+>>>>>>> theirs
 grant execute on function public.ins_refund_client_advance(uuid, uuid, numeric, date, text) to authenticated;
 grant execute on function public.ins_client_advance_statement(uuid) to authenticated;
 

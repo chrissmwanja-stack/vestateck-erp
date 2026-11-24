@@ -65,7 +65,11 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'CMJ client', 'client')
+=======
+  insert into accounts(tenant_id, name, account_type) values (ta, 'CMJ client', 'client')
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'CMJ client', 'client')
 >>>>>>> theirs

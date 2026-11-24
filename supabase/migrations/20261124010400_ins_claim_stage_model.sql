@@ -127,6 +127,7 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- The signature gains two parameters, so CREATE OR REPLACE would leave the old 6-argument
 -- function in place beside the new one and every call with six or fewer arguments would be
 -- ambiguous. Drop the old signature first. The new signature gets its own explicit grants
@@ -138,6 +139,18 @@ drop function if exists public.ins_create_claim(uuid, date, date, text, text, nu
 =======
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+--
+-- THE SHORTER FORM MUST BE DROPPED FIRST. "create or replace" cannot add parameters: with a
+-- different argument list it creates a SECOND function and leaves the first alive. Both then
+-- accept a six-argument call -- the short one at arity 6, the long one at its minimum of 4 --
+-- so every six-argument call raises 42725 'function ... is not unique', whatever the argument
+-- types are (measured: an explicit NULL::text cast does not help, because the ambiguity is at
+-- arity, not type). Nothing that parses a file can see this; it exists only in the catalog.
+-- The long form below is a strict superset of the short one, so dropping it loses nothing.
+drop function if exists public.ins_create_claim(uuid, date, date, text, text, numeric);
+
 >>>>>>> theirs
 create or replace function public.ins_create_claim(
   p_policy_id uuid,
@@ -227,11 +240,14 @@ $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) from public, anon, authenticated, service_role;
 grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to authenticated;
 grant execute on function public.ins_create_claim(uuid, date, date, text, text, numeric, boolean, text) to service_role;
 
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======

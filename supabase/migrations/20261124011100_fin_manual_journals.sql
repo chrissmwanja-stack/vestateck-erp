@@ -344,6 +344,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     -- posting fail later on a control total.
     if v_acct.is_header then
       raise exception 'FIN_MANUAL_JOURNAL_ACCOUNT: line % posts to % (%), which is a header account. Post to the account below it.', v_no, v_acct.account_code, v_acct.name;
@@ -368,6 +369,22 @@ begin
 =======
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+    -- posting fail later on a control total. gl_accounts has no header concept -- its
+    -- columns are code, name, type, is_control_account and is_active -- so the check is
+    -- the one the chart can actually support.
+    -- A control account line is allowed only with a subledger reference; the reference is
+    -- then checked for realness by fin_manual_journal_check_control_lines() once the lines
+    -- are written. A blanket ban here contradicted that function and this pack's own §4,
+    -- which says a named open item behind the line is exactly the evidence required --
+    -- without a reference the line is refused below, before the totals are compared, so the
+    -- 'name the item' case is still reported as FIN_MANUAL_JOURNAL_CONTROL and not as an
+    -- unknown account.
+    if v_acct.is_control_account
+       and (nullif(btrim(coalesce(v_line ->> 'subledger_source_type', '')), '') is null
+            or nullif(v_line ->> 'subledger_source_id', '') is null) then
+      raise exception 'FIN_MANUAL_JOURNAL_CONTROL: line % posts to control account % (%) with no subledger reference. A control account is the total of its subledger, so a manual line on it makes the ledger disagree with the subledger with nothing to reconcile against. Name the open item this line belongs to.', v_no, v_acct.account_code, v_acct.name;
 >>>>>>> theirs
     end if;
     if not v_acct.is_active then

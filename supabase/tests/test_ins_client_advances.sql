@@ -9,6 +9,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
@@ -24,12 +25,17 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      §5
 --                                                                        (B11's
 --                                                                        disposition
 --                                                                        primitive)
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -47,6 +53,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
 =======
@@ -57,6 +64,11 @@
 =======
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+>>>>>>> theirs
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
 >>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
@@ -138,7 +150,12 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Advance test client', 'client') returning id into v_party;
+=======
+  insert into accounts(tenant_id, name, account_type)
+    values (ta, 'Advance test client', 'client') returning id into v_party;
+>>>>>>> theirs
 =======
   insert into accounts(tenant_id, name, account_type)
     values (ta, 'Advance test client', 'client') returning id into v_party;
@@ -264,6 +281,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 -- §5 over-refunding is refused, and so is the unimplemented release
@@ -345,6 +363,8 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 -- §5 over-refunding is refused, and the release now works
 -- ---------------------------------------------------------------------
 -- This section previously asserted that the release refused with
@@ -414,6 +434,9 @@ begin
   reset role;
 
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -437,6 +460,9 @@ begin
   raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

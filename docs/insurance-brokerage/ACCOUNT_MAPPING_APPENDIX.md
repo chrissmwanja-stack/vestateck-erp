@@ -60,6 +60,9 @@ Three template accounts (Operating Bank, Cash, Client Money Bank) are flagged
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -71,6 +74,7 @@ created, for existing insurance tenants and in the template for new ones. The mi
 to finish if any insurance tenant cannot be mapped rather than choosing an account for it, and
 it leaves an existing 2040 of a different account type alone.
 
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -87,6 +91,8 @@ it cannot yet be made. See B11 in the register.
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 Line 3 below (allocating the advance to the policy) is now implementable. It was not, until B11:
 the subledger could move a party balance only by cash (a settlement) or a same-role credit note,
 and this is neither. B11 added a third source, `fin_open_item_dispositions`, for a non-cash
@@ -96,12 +102,15 @@ posting is Dr 2040 / Cr 1100 with the bank untouched, forced by double entry rat
 the caller.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 **Not in the chart today.** There is no account for **unallocated client advances** — the
 liability B2/A1 require. The pack proposes **2040 Unallocated Client Advances** (liability,
 posting role `client_advance_payable`). That code is a *proposal pending the accountant's
 confirmation*, not an existing code, and it is marked as such wherever it appears.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -123,12 +132,16 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 | 1 | Receipt with no policy yet **— built** | 1020 Client Money Bank | **2040** Unallocated Client Advances |
 | 2 | Policy binds (gross basis) | 1100 AR Control — gross | 2010 Insurer Payable — gross |
 | 2b | …and commission, if earned at bind | 1110 Commission Receivable | 4000 Commission Income |
 | 2c | …or if deferred | 1110 Commission Receivable | 2020 Unearned Commission |
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -156,10 +169,14 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 =======
 | 3 | Allocate the advance to the policy **— built (B11)** | **2040** Unallocated Client Advances | 1100 AR Control |
 >>>>>>> theirs
+=======
+| 3 | Allocate the advance to the policy **— built (B11)** | **2040** Unallocated Client Advances | 1100 AR Control |
+>>>>>>> theirs
 | 4 | Client pays after bind | 1020 Client Money Bank | 1100 AR Control |
 | 5 | Remit premium to the insurer (gross) | 2010 Insurer Payable | 1020 Client Money Bank |
 
 *Roles:* `client_money_bank`, `ar_control`, `insurer_payable`, `commission_receivable`,
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -186,6 +203,11 @@ why the obvious ones fail. Until then an advance is refundable but not applicabl
 
 Line 1 is built and posts Dr 1020 / Cr 2040 with no receivable, which is what stops AR being
 >>>>>>> theirs
+=======
+`commission_income`, `unearned_commission`, `client_advance_payable`.
+
+Line 1 is built and posts Dr 1020 / Cr 2040 with no receivable, which is what stops AR being
+>>>>>>> theirs
 overstated by money taken before placement. Line 3 is built as of B11 and posts Dr 2040 / Cr 1100
 with the bank untouched, so an advance is now refundable *and* applicable. Four routes were
 considered for it and three were rejected: releasing it by credit note moves 2040 against AR in
@@ -195,9 +217,12 @@ movement of a party balance that is neither cash nor a credit note, which is exa
 is.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 `commission_income`, `unearned_commission`. Line 1 and 3 need the proposed `client_advance_payable`.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -216,12 +241,16 @@ is.
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 | `pro_rata_on_collection` **(not built — B1)** | Dr 1110 · Cr 2020 | On each receipt: Dr 2020 · Cr 4000 for the proportion collected |
 =======
 | `pro_rata_on_collection` **(built — B1)** | Dr 1110 · Cr 2020 | On each receipt: Dr 2020 · Cr 4000 for the proportion collected |
 >>>>>>> theirs
 =======
 | `pro_rata_on_collection` **(not built — B1)** | Dr 1110 · Cr 2020 | On each receipt: Dr 2020 · Cr 4000 for the proportion collected |
+>>>>>>> theirs
+=======
+| `pro_rata_on_collection` **(built — B1)** | Dr 1110 · Cr 2020 | On each receipt: Dr 2020 · Cr 4000 for the proportion collected |
 >>>>>>> theirs
 =======
 | `pro_rata_on_collection` **(built — B1)** | Dr 1110 · Cr 2020 | On each receipt: Dr 2020 · Cr 4000 for the proportion collected |
@@ -341,6 +370,7 @@ commission move money 1020 → 1000 and are reversible, each side matched in ban
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
    receipt is a liability rather than unearned income. Created on 24 Nov 2026; the treatment still
 <<<<<<< ours
    needs sign-off, and the release mechanism that line 3 needs is B11.
@@ -363,10 +393,15 @@ commission move money 1020 → 1000 and are reversible, each side matched in ban
    eventually released or forfeited (Appendix B, Q2).
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
    receipt is a liability rather than unearned income. Created on 24 Nov 2026; the treatment still
    needs sign-off. The release mechanism line 3 needed is built (B11), so the only open point here
    is whether 2040 is the account the accountant wants it on and whether an unapplied advance is
    eventually released or forfeited (Appendix B, Q2).
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 2. **The three statutory payables** 2060/2070/2080 — that separating them by recipient (rather
    than one "statutory payable") is what the brokerage's reporting must show.

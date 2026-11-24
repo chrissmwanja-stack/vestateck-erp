@@ -60,7 +60,10 @@ as $$
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     'client_advance_payable',
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -133,6 +136,9 @@ comment on function public.ins_claim_contra_account(uuid) is
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -144,11 +150,22 @@ comment on function public.ins_claim_contra_account(uuid) is
 -- company, which is the same class of quiet failure this migration is trying to end.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+-- The CHECK on workflow_stages.applies_to is widened here rather than assumed. 20261124011500
+-- widens it again for manual_journals, but 11500 runs AFTER this file, so on a fresh database
+-- this INSERT was rejected with 23514 and the migration never applied. This is the same
+-- statement 10800 makes, repeated locally so this file stands on its own.
+alter table public.workflow_stages drop constraint if exists workflow_stages_applies_to_check;
+alter table public.workflow_stages add constraint workflow_stages_applies_to_check
+  check (applies_to in ('requests', 'invoices', 'insurance_refunds'));
+
 >>>>>>> theirs
 insert into public.workflow_stages
   (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
@@ -162,6 +179,9 @@ select t.id, 'Client advance refund', 1, 'finance', null, 'insurance_refunds', t
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -176,6 +196,7 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
     language sql stable security definer
     set search_path to 'public', 'pg_temp'
     as $$
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -207,15 +228,39 @@ returns table (stage_id uuid, level integer, approver_role text, threshold_amoun
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+  -- One row or none. This was written as `select ... order by ... limit 1 union all select ...`,
+  -- which PostgreSQL rejects at 42601: LIMIT binds tighter than UNION, so `limit 1 union all`
+  -- is a syntax error, not a union of two limited selects. It was never caught because the body
+  -- lives inside a dollar-quoted string, which a parse check does not descend into and which a
+  -- CREATE does not execute. Only running it finds this.
+  select w.id, w.sequence_order, w.approver_role, w.threshold_amount
+    from (select id, sequence_order, approver_role, threshold_amount
+            from workflow_stages
+           where tenant_id = p_tenant_id
+             and applies_to = 'insurance_refunds'
+             and is_active
+             and coalesce(threshold_amount, 0) <= p_amount
+           order by sequence_order desc
+           limit 1) w
+>>>>>>> theirs
   union all
   -- No stage matched: apply the minimum control rather than none.
   select null::uuid, 1, 'finance', null::numeric
    where not exists (
+<<<<<<< ours
      select 1 from workflow_stages s
       where s.tenant_id = p_tenant_id
         and s.applies_to = 'insurance_refunds'
         and s.is_active
         and coalesce(s.threshold_amount, 0) <= p_amount
+=======
+     select 1 from workflow_stages
+      where tenant_id = p_tenant_id
+        and applies_to = 'insurance_refunds'
+        and is_active
+        and coalesce(threshold_amount, 0) <= p_amount
+>>>>>>> theirs
    )
 $$;
 
@@ -224,6 +269,9 @@ grant execute on function public.platform_ins_refund_required_level(uuid, numeri
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -608,6 +656,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- The level lookup must apply to an arbitrary company with no configuration at all,
   -- which is the case that would otherwise be silently ungoverned.
 <<<<<<< ours
@@ -638,4 +687,28 @@ begin
     raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
 >>>>>>> theirs
   end if;
+=======
+  -- The level lookup must apply to an arbitrary company with no configuration at all,
+  -- which is the case that would otherwise be silently ungoverned.
+  -- The lookup returns a SET, so it cannot be called inside a boolean expression: PostgreSQL
+  -- rejects that with 42804 'argument of OR must not return a set' when the block runs. It had
+  -- never run, on any database, because the migration aborted before reaching it. Selecting
+  -- into a row is how a set-returning function is meant to be tested.
+  declare
+    v_lvl record;
+  begin
+    select * into v_lvl
+      from public.platform_ins_refund_required_level(gen_random_uuid(), 1);
+    if not found then
+      raise exception 'the refund level lookup returns no row at all for an unconfigured company';
+    end if;
+    if v_lvl.stage_id is not null then
+      raise exception 'the refund level lookup does not fall back to the minimum control for an unconfigured company';
+    end if;
+    if v_lvl.level is distinct from 1 or v_lvl.approver_role is distinct from 'finance' then
+      raise exception 'the refund minimum control is level % role %, expected level 1 finance',
+        v_lvl.level, v_lvl.approver_role;
+    end if;
+  end;
+>>>>>>> theirs
 end $$;

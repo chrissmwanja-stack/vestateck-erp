@@ -129,10 +129,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select p.currency, p.client_money, p.client_refunds, p.insurer_payable, p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
     from (
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -147,6 +150,7 @@ begin
          p.insurer_payable,
          p.claim_payable,
          p.client_money - p.client_refunds - p.insurer_payable - p.claim_payable
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
     from (
@@ -164,12 +168,17 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
     from (
       -- Bare names here, and that is correct: this list DEFINES the columns, so there is
       -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
       -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
       -- `client_money`; that name only comes into existence on this line.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -178,6 +187,7 @@ begin
              coalesce(o.client_refunds, 0) as client_refunds,
              coalesce(o.insurer_payable, 0) as insurer_payable,
              coalesce(o.claim_payable, 0) as claim_payable
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
         from held h
@@ -209,6 +219,8 @@ begin
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
@@ -218,6 +230,9 @@ begin
    -- "tidy" the one that is.
    order by p.currency;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -401,7 +416,11 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public, anon, authenticated;
+=======
+revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
+>>>>>>> theirs
 =======
 revoke all on function public.platform_ins_raise_shortage(uuid, text, numeric, uuid, jsonb) from public;
 >>>>>>> theirs
@@ -429,7 +448,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -439,6 +461,7 @@ begin
   -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
   -- not -- so the two places need different treatment, which is exactly why each is
   -- commented separately rather than with one hand-wave about "ambiguous names".)
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 >>>>>>> theirs
@@ -464,6 +487,11 @@ begin
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
 >>>>>>> theirs
+=======
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
+>>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
     if v_pos.free_money < 0 then
@@ -477,9 +505,15 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       select inc.* into v_inc from fin_client_money_incidents inc
        where inc.tenant_id = v_tenant and inc.currency = v_pos.currency
          and inc.kind = 'shortage' and inc.status = 'open' limit 1;
+=======
+      select * into v_inc from fin_client_money_incidents
+       where tenant_id = v_tenant and currency = v_pos.currency
+         and kind = 'shortage' and status = 'open' limit 1;
+>>>>>>> theirs
 =======
       select * into v_inc from fin_client_money_incidents
        where tenant_id = v_tenant and currency = v_pos.currency
@@ -615,7 +649,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -641,6 +678,9 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -681,6 +721,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the
@@ -696,6 +737,8 @@ begin
   end if;
 
 <<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -733,7 +776,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -758,6 +804,9 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -887,7 +936,10 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -901,6 +953,9 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

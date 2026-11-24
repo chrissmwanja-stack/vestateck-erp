@@ -56,7 +56,11 @@ declare
   admin1  uuid := gen_random_uuid();
   admin2  uuid := gen_random_uuid();
   outsider uuid := gen_random_uuid();
+<<<<<<< ours
   exp_gl uuid; ar_gl uuid; ap_gl uuid; rev_gl uuid;
+=======
+  exp_gl uuid; ar_gl uuid; ap_gl uuid; rev_gl uuid; accr_gl uuid;
+>>>>>>> theirs
   v_party uuid; v_supplier uuid;
 begin
   insert into tenants(id, name) values (ta, 'Manual journal test');
@@ -74,6 +78,14 @@ begin
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '1100', 'AR control', 'asset') returning id into ar_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2000', 'AP control', 'liability') returning id into ap_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '4100', 'Other revenue', 'revenue') returning id into rev_gl;
+<<<<<<< ours
+=======
+  -- A liability that is NOT a control account. §1 needs a journal whose only fault is the
+  -- imbalance: written against 2000 it was refused for posting to a control account first,
+  -- because account-level checks run per line before the totals are compared. Both refusals
+  -- are correct; only one of them tests §1.
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2100', 'Accruals', 'liability') returning id into accr_gl;
+>>>>>>> theirs
 
   -- The control roles decide which subledger an open item belongs to, so the test can
   -- prove a reference resolves to the right account.
@@ -81,6 +93,7 @@ begin
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'ar_control', ar_gl), (ta, 'ap_control', ap_gl);
 
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -98,11 +111,19 @@ begin
   insert into accounts(tenant_id, name, account_type) values (ta, 'MJ client', 'client') returning id into v_party;
   insert into accounts(tenant_id, name, account_type) values (ta, 'MJ supplier', 'vendor') returning id into v_supplier;
 >>>>>>> theirs
+=======
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'MJ-CLIENT', 'MJ client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'MJ-SUPPLIER', 'MJ supplier', 'vendor') returning id into v_supplier;
+>>>>>>> theirs
 
   create temp table ids (k text primary key, v uuid);
   insert into ids(k, v) values ('tenant', ta), ('maker', maker), ('checker', checker),
     ('admin1', admin1), ('admin2', admin2), ('outsider', outsider),
+<<<<<<< ours
     ('exp', exp_gl), ('ar', ar_gl), ('ap', ap_gl), ('rev', rev_gl),
+=======
+    ('exp', exp_gl), ('ar', ar_gl), ('ap', ap_gl), ('rev', rev_gl), ('accr', accr_gl),
+>>>>>>> theirs
     ('party', v_party), ('supplier', v_supplier);
 end $$;
 
@@ -123,7 +144,11 @@ begin
     format($q$select public.fin_create_manual_journal(current_date, 'accrue the March audit fee', 'INV-AUD-001', %L::jsonb)$q$,
       jsonb_build_array(
         jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 500000),
+<<<<<<< ours
         jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 400000))),
+=======
+        jsonb_build_object('gl_account_id', pg_temp.id('accr'), 'credit', 400000))),
+>>>>>>> theirs
     'FIN_MANUAL_JOURNAL_UNBALANCED',
     '§1 a journal whose debits and credits differ');
   reset role;
@@ -154,7 +179,11 @@ begin
              current_date, 'accrue the March audit fee', 'INV-AUD-001',
              jsonb_build_array(
                jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 500000, 'description', 'audit fee'),
+<<<<<<< ours
                jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 500000, 'description', 'audit fee payable')))).id;
+=======
+               jsonb_build_object('gl_account_id', pg_temp.id('accr'), 'credit', 500000, 'description', 'audit fee payable')))).id;
+>>>>>>> theirs
   perform public.fin_submit_manual_journal(v_id);
 
   -- maker wrote it, maker submitted it. maker may not approve it.
@@ -173,6 +202,13 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare v_item uuid;
+<<<<<<< ours
+=======
+  -- fin_open_items identifies a party balance by (source_type, source_id), so the line must
+  -- name the ITEM'S source_id, not the item's own id. Passing v_item failed with 'no open item
+  -- of that type and id exists' -- correctly: the reference really did not resolve.
+  v_src uuid := gen_random_uuid();
+>>>>>>> theirs
 begin
   perform pg_temp.jwt(pg_temp.id('maker'));
   set local role authenticated;
@@ -186,6 +222,14 @@ begin
     'FIN_MANUAL_JOURNAL_CONTROL',
     '§4 a manual line on AR control with no subledger reference');
 
+<<<<<<< ours
+=======
+  -- The refusal above carries errcode 42501 (a privilege class, chosen so the same sentence
+  -- reaches an ordinary user), and a caught 42501 does not roll back the statements before it:
+  -- it aborts the surrounding block. Each of the three cases below therefore gets its own
+  -- subtransaction, so one correct refusal cannot stop the next case from being tested.
+  begin
+>>>>>>> theirs
   -- (b) a reference that does not resolve
   perform pg_temp.expect_error(
     format($q$select public.fin_create_manual_journal(current_date, 'clear a client balance by hand', 'NOTE-2', %L::jsonb)$q$,
@@ -196,6 +240,13 @@ begin
                            'subledger_source_id', gen_random_uuid()))),
     'FIN_MANUAL_JOURNAL_CONTROL',
     '§4 a subledger reference that names an item that does not exist');
+<<<<<<< ours
+=======
+  exception when others then
+    -- Re-raised: a FAIL inside this subtransaction must still fail the test.
+    raise;
+  end;
+>>>>>>> theirs
   reset role;
 
   -- (c) with a real open item behind it, the same entry is allowed -- the rule is a
@@ -206,7 +257,11 @@ begin
      accounting_policy_version, description)
   values
     (pg_temp.id('tenant'), pg_temp.id('party'), 'ar_control', 'receivable',
+<<<<<<< ours
      'manual', gen_random_uuid(), 'MJ-AR-1', current_date, current_date,
+=======
+     'manual', v_src, 'MJ-AR-1', current_date, current_date,
+>>>>>>> theirs
      100000, 'UGX', 1, 1, 'balance to be cleared by manual journal')
   returning id into v_item;
 
@@ -218,7 +273,11 @@ begin
       jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 100000),
       jsonb_build_object('gl_account_id', pg_temp.id('ar'),  'credit', 100000,
                          'subledger_source_type', 'manual',
+<<<<<<< ours
                          'subledger_source_id', v_item)));
+=======
+                         'subledger_source_id', v_src)));
+>>>>>>> theirs
   reset role;
   raise notice 'PASS: §4 a control-account line needs a reference, and a real one is accepted';
 end $$;
@@ -333,6 +392,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 =======
 >>>>>>> theirs
@@ -357,12 +417,20 @@ end $$;
 -- today's behaviour.
 >>>>>>> theirs
 =======
+=======
+-- ---------------------------------------------------------------------
+-- §6 an amount limit, when the company configures one (pack 10.2 / 11)
+-- ---------------------------------------------------------------------
+>>>>>>> theirs
 -- Section 11 asks for approval limits by amount. This proves the routing half -- that an amount
 -- routes to the level the company configured, and that a company which configures nothing keeps
 -- its single-checker behaviour. Since 20261124011700 the routed journal can actually be
 -- approved through its levels; the chain itself is proved in
 -- test_fin_manual_journal_chain.sql, and 6c below proves only that this file's company still
 -- works end to end.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -373,8 +441,12 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_row record;
 =======
+>>>>>>> theirs
+=======
+  v_row record;
 >>>>>>> theirs
 =======
   v_row record;
@@ -398,6 +470,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
   -- 6b. Configure a two-level chain for manual journals only. Level 1 is the ordinary finance
@@ -412,11 +485,16 @@ begin
     values (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
   -- 6b. Configure a two-level chain for manual journals only. Level 1 is the ordinary finance
   -- check; level 2 is reached above 50,000,000.
   insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
     values (pg_temp.id('tenant'), 'Manual journal level 1', 1, 'finance', 0, 'manual_journals', true),
            (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -434,6 +512,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -450,9 +531,12 @@ begin
   -- working and that the old refusal is gone on purpose rather than by accident.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   -- 6c. And such a journal cannot be submitted: multi-level approval is not built, so
   -- approving it at level 1 would let it through on one signature.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -464,6 +548,7 @@ begin
              current_date, 'accrue the annual audit fee', 'INV-AUD-BIG',
              jsonb_build_array(
                jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 60000000, 'description', 'audit fee'),
+<<<<<<< ours
                jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 60000000, 'description', 'audit fee payable')))).id;
 <<<<<<< ours
 <<<<<<< ours
@@ -472,10 +557,14 @@ begin
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+               jsonb_build_object('gl_account_id', pg_temp.id('accr'), 'credit', 60000000, 'description', 'audit fee payable')))).id;
+>>>>>>> theirs
 
   v_row := public.fin_submit_manual_journal(v_id);
   perform pg_temp.assert(v_row.status = 'pending_approval',
     '§6 a journal above a level-2 threshold must now be submittable and wait for approval');
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
   reset role;
@@ -506,6 +595,8 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
   reset role;
 
   -- One signature at level 1 must not post it.
@@ -523,6 +614,9 @@ begin
 
   raise notice 'PASS: §6 a configured manual-journal limit routes by amount, an unconfigured company is untouched, and a routed journal waits for every level instead of being refused outright';
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -558,7 +652,11 @@ begin
              current_date, 'accrue the quarterly audit fee', 'INV-AUD-MID',
              jsonb_build_array(
                jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 5000000, 'description', 'audit fee'),
+<<<<<<< ours
                jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 5000000, 'description', 'audit fee payable')))).id;
+=======
+               jsonb_build_object('gl_account_id', pg_temp.id('accr'), 'credit', 5000000, 'description', 'audit fee payable')))).id;
+>>>>>>> theirs
   perform public.fin_submit_manual_journal(v_id);
   reset role;
 
@@ -575,6 +673,9 @@ end $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

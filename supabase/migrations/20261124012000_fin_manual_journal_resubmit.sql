@@ -258,12 +258,43 @@ begin
       raise exception 'FIN_MANUAL_JOURNAL_STATE: every required approval is already on this journal';
     end if;
 
+<<<<<<< ours
     -- A chain with a hole cannot be decided at the hole: a missing stage has no role, and "no
     -- role" reads as "anyone", turning a three-level chain into a two-level one with a free
     -- signature in the middle. A company admin is not exempt -- it is a configuration fault.
     if v_state.gap_levels > 0 then
       raise exception 'FIN_MANUAL_JOURNAL_CHAIN_GAP: one of levels 1..% of this journal has no active workflow stage, so that level could be signed by anyone. Add a stage at every sequence position before this journal is decided.', v_state.required_level;
     end if;
+=======
+  -- A chain with a hole cannot GRANT approval: a missing stage has no role, and "no role" reads
+  -- as "anyone", so a free signature would appear in the middle of a three-level chain. A
+  -- company admin is not exempt -- it is a configuration fault, not an authority question.
+  --
+  -- It is checked for an approval only. A rejection posts nothing and cannot launder a missing
+  -- level, so blocking it would only trap the journal: someone who can see it is wrong would
+  -- have no way to say so. Fail closed on the control, not on the complaint.
+  --
+  -- Placed before the null-role test because a missing stage has no role either, and
+  -- 'somebody forgot level 2' is a more useful report than 'level 2 has no role'.
+  --
+  -- Read 'at the hole', not 'anywhere': the position about to be signed is v_state.next_level,
+  -- so that is the one that must have a stage. Earlier levels exist by definition -- they
+  -- have been signed -- and a later gap is caught when someone arrives at it. This test's §9
+  -- case is the reason: levels 1 and 3 configured with 2 missing, a legitimate level-1
+  -- signature on a correctly authorised journal, refused by an over-broad check.
+  if p_decision = 'approve' and v_state.required_level > 0
+     and not exists (
+       select 1 from public.workflow_stages s
+        where s.tenant_id = v_tenant
+          and s.applies_to = 'manual_journals'
+          and s.is_active
+          and s.sequence_order = v_state.next_level
+          and (s.currency is null
+               or btrim(upper(s.currency)) = btrim(upper(v_row.currency)))
+     ) then
+    raise exception 'FIN_MANUAL_JOURNAL_CHAIN_GAP: level % of this journal has no active workflow stage, so that level could be signed by anyone. Add a stage at every sequence position before this journal can be approved.', v_state.next_level;
+  end if;
+>>>>>>> theirs
 
     if v_state.next_role is null then
       raise exception 'FIN_MANUAL_JOURNAL_ROLE_UNCONFIGURED: level % of this journal has no approver_role set, so no one can be shown to be entitled to decide it. Set the stage approver_role, or have a company administrator sign it.',

@@ -54,6 +54,10 @@ declare
   fin1   uuid := gen_random_uuid();
   fin2   uuid := gen_random_uuid();
   trust_gl uuid; ops_gl uuid; ar_gl uuid; ap_gl uuid; pay_gl uuid; eq_gl uuid;
+<<<<<<< ours
+=======
+  unearn_gl uuid; inc_gl uuid;
+>>>>>>> theirs
   v_trust uuid; v_ops uuid; v_party uuid; v_supplier uuid; v_line uuid;
   v_insurer uuid; v_client uuid;
 begin
@@ -76,15 +80,29 @@ begin
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2000', 'AP', 'liability') returning id into ap_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2010', 'Insurer payable', 'liability') returning id into pay_gl;
   insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '3200', 'Retained earnings', 'equity') returning id into eq_gl;
+<<<<<<< ours
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
     (ta, 'client_money_bank', trust_gl), (ta, 'bank', ops_gl),
     (ta, 'ar_control', ar_gl), (ta, 'ap_control', ap_gl), (ta, 'insurer_payable', pay_gl);
+=======
+  -- Binding a policy needs a complete insurance chart: ar_control, insurer_payable,
+  -- unearned_commission and commission_income. The fixture only had the first two, so the
+  -- policy could be created and approved but never bound -- and this file's commission has to
+  -- come from a genuine bind. Two more accounts, added here rather than worked around.
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '2100', 'Unearned commission', 'liability') returning id into unearn_gl;
+  insert into gl_accounts(tenant_id, account_code, name, account_type) values (ta, '4200', 'Commission income', 'revenue') returning id into inc_gl;
+  insert into gl_posting_rules(tenant_id, account_role, gl_account_id) values
+    (ta, 'client_money_bank', trust_gl), (ta, 'bank', ops_gl),
+    (ta, 'ar_control', ar_gl), (ta, 'ap_control', ap_gl), (ta, 'insurer_payable', pay_gl),
+    (ta, 'unearned_commission', unearn_gl), (ta, 'commission_income', inc_gl);
+>>>>>>> theirs
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CM-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_trust;
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CM-OPS', 'operating', 'UGX', ops_gl) returning id into v_ops;
 
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -101,6 +119,10 @@ begin
 =======
   insert into accounts(tenant_id, name, account_type) values (ta, 'CM client', 'client') returning id into v_party;
   insert into accounts(tenant_id, name, account_type) values (ta, 'CM supplier', 'vendor') returning id into v_supplier;
+>>>>>>> theirs
+=======
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'CM-CLIENT', 'CM client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'CM-SUPPLIER', 'CM supplier', 'vendor') returning id into v_supplier;
 >>>>>>> theirs
 
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'GEN', 'General') returning id into v_line;
@@ -127,18 +149,35 @@ grant execute on function pg_temp.id(text) to authenticated;
 
 -- Post a journal straight at the ledger, the way the platform does internally. Used to
 -- set up a position; the controls under test are all on the transfer path.
+<<<<<<< ours
+=======
+-- Fixture postings are dated in the PAST, deliberately. company_accounting_settings_guard
+-- refuses to approve a setting effective on or before the latest posted entry, because that
+-- would restate history. §2b has to approve a setting effective today, so nothing in the
+-- fixture may be dated today -- with every journal on the business date, that section could
+-- never run, and it failed with ACCT_SETTING_BACKDATED the first time it was executed.
+-- `immutable` would be a lie and PostgreSQL folds it at plan time; stable reads it per call.
+create function pg_temp.backdate() returns date
+language sql stable as $$ select public.ins_local_today() - 45 $$;
+
+>>>>>>> theirs
 create function pg_temp.post(p_lines jsonb, p_desc text default 'fixture')
 returns uuid
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_id uuid;
 begin
   v_id := (public.post_journal_entry(pg_temp.id('tenant'), 'opening_balance', null,
+<<<<<<< ours
             public.ins_local_today(), p_desc, p_lines)).id;
+=======
+            pg_temp.backdate(), p_desc, p_lines)).id;
+>>>>>>> theirs
   return v_id;
 end $$;
 grant execute on function pg_temp.post(jsonb, text) to authenticated;
 
 -- An earned commission entry, so there is something to transfer.
+<<<<<<< ours
 create function pg_temp.earned(p_amount numeric)
 returns uuid
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -227,6 +266,153 @@ begin
   return v_entry;
 end $$;
 grant execute on function pg_temp.earned(numeric) to authenticated;
+=======
+--
+-- This used to create a policy and insert a commission entry directly with status 'earned'.
+-- Two things were wrong with that, and both were only visible by running it:
+--   * ins_policies_guard refuses a direct insert (INS_RPC_ONLY), so no policy could be created;
+--   * a commission entry marked 'earned' without the premium actually collected still meets
+--     ins_policy_cash_commission_guard's funding test only by accident, and the transfer was
+--     refused with INS_CASH_COMMISSION_UNFUNDED. The guard is right: commission cannot be
+--     moved out of client money that was never collected.
+-- So the fixture now does what the business does: the client pays the premium into the client
+-- account, the insurer is remitted, and the commission becomes genuinely earned and funded.
+create function pg_temp.earned(p_amount numeric, p_gross numeric default 1000000)
+returns uuid
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_policy uuid; v_entry uuid; v_item uuid; v_set uuid; v_req uuid; v_req2 uuid;
+begin
+  -- ins_create_policy() needs a session identity (can_access_insurance), so act as the
+  -- company admin who holds the insurance module.
+  -- fin1 must be an insurance manager to approve the policy: ins_decide_policy calls
+  -- can_manage_insurance() -> has_module_role('insurance', {admin,manager}), which reads
+  -- staff_roles joined to tenant_modules and does NOT consult app_users.is_company_admin. The
+  -- finance team role alone is not enough, and neither is the company-admin flag.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  -- The notes carry a marker so the position can be computed WITHOUT this fixture. The
+  -- backing premium receipt and remittance are real credits and debits in the client-money
+  -- account, so ignoring them made §2's expected 400,000 read as 1,020,000 -- a genuine
+  -- figure, not a defect, and not what §2 is about: §2 is about a position computed from a
+  -- balance the test states explicitly.
+  v_policy := (public.ins_create_policy(
+    pg_temp.id('client'), pg_temp.id('insurer'), pg_temp.id('line'),
+    current_date - 30, current_date + 335, 5000000, 'UGX', p_gross, 10,
+    null, null, null, 'cm-position-fixture')).id;
+
+  -- Binding snapshots the commission-recognition mode from the insurer's approved terms or the
+  -- company default, and refuses to guess: without terms it raises
+  -- INS_COMMISSION_RECOGNITION_UNSET. 'on_premium_collection' is the mode this file needs --
+  -- commission is not earned until the premium is collected -- and the terms are proposed and
+  -- approved by two different people because the RPCs say so.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  -- One set of terms, re-used by every policy this fixture binds: the table has a unique start
+  -- per insurer, so proposing again for the same insurer and date is a duplicate key.
+  declare v_terms uuid;
+  begin
+  select id into v_terms from public.ins_insurer_commission_terms
+   where tenant_id = pg_temp.id('tenant') and insurer_id = pg_temp.id('insurer')
+   order by effective_from desc limit 1;
+  if v_terms is null then
+    v_terms := (public.ins_propose_insurer_commission_terms(
+      pg_temp.id('insurer'), 'on_premium_collection', current_date - 60,
+      'Client money fixture agreement', 'fixture: commission recognised when the premium is collected')).id;
+    -- Approving terms needs a company admin who is NOT the proposer. fin1 was made an
+    -- insurance manager for the policy approval below, but terms are stricter: the guard
+    -- checks app_users.is_company_admin. fin2 is a plain second finance user, so promote it
+    -- to company admin here and revert immediately -- it is used later as an ordinary finance
+    -- actor and must not carry extra authority into those sections.
+    update public.app_users set is_company_admin = true where id = pg_temp.id('fin2');
+    perform pg_temp.jwt(pg_temp.id('fin2'));
+    perform public.ins_approve_insurer_commission_terms(v_terms);
+    update public.app_users set is_company_admin = false where id = pg_temp.id('fin2');
+  end if;
+  end;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+
+  -- Nothing to collect on a draft: submit, approve and bind, which is what raises the open
+  -- items. ins_bind_policy refuses a draft (INS_NOT_APPROVED), and an approval must come from
+  -- a DIFFERENT person than the raiser, so the second finance user signs it.
+  perform public.ins_submit_policy_for_approval(v_policy);
+  insert into public.staff_roles(tenant_id, user_id, module, role)
+    select pg_temp.id('tenant'), pg_temp.id('fin1'), 'insurance', 'manager'
+    where not exists (select 1 from public.staff_roles
+                       where tenant_id = pg_temp.id('tenant') and user_id = pg_temp.id('fin1'));
+  perform pg_temp.jwt(pg_temp.id('fin1'));
+  perform public.ins_decide_policy(v_policy, 'approved');
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  perform public.ins_bind_policy(v_policy);
+
+  -- The client pays in full, in client money.
+  select id into v_item from public.fin_open_items
+   where source_id = v_policy and source_type = 'ins_policy_premium';
+  -- Policy cash is NOT a bare fin_record_settlement: ins_policy_cash_allocation_guard
+  -- requires a maker/checker request (INS_CASH_APPROVAL_REQUIRED), which is the whole point of
+  -- the insurance cash path. So the maker submits a request and a different person decides it.
+  declare v_req uuid;
+  begin
+    perform pg_temp.jwt(pg_temp.id('fin1'));
+    v_req := (public.ins_submit_policy_cash_request(
+      v_policy, 'receipt', pg_temp.id('trust_bank'), p_gross,
+      pg_temp.backdate(), gen_random_uuid(), 'client premium')).id;
+    perform pg_temp.jwt(pg_temp.id('fin2'));
+    perform public.ins_decide_policy_cash_request(v_req, 'approve', 'checked to the policy');
+  end;
+
+  -- Then remit to the insurer, capped by what the platform says may be remitted for this
+  -- policy. The cap is not "premium less my p_amount": it is allocated collections less the
+  -- commission the BIND recorded, so asking for anything else is refused with INS_CASH_CAP.
+  -- Asking the platform for the cap instead of guessing it is the whole fix -- the first
+  -- version remitted gross minus p_amount and was refused 999,000 against 900,000.
+  declare v_cap numeric := (public.ins_policy_cash_totals(v_policy) ->> 'maximum_remittance')::numeric;
+  begin
+    perform pg_temp.jwt(pg_temp.id('fin1'));
+    v_req2 := (public.ins_submit_policy_cash_request(
+      v_policy, 'remittance', pg_temp.id('trust_bank'), v_cap,
+      pg_temp.backdate(), gen_random_uuid(), 'remit to insurer')).id;
+    perform pg_temp.jwt(pg_temp.id('fin2'));
+    perform public.ins_decide_policy_cash_request(v_req2, 'approve', 'checked to the statement');
+  end;
+
+  -- Whatever the remittance left in the client-money account is held against this policy's
+  -- commission. Sell it down to exactly p_amount, so the fixture's net effect on the
+  -- tenant-wide position is one commission's worth of client money and nothing else -- the
+  -- state §1 and §2 describe from scratch. The commission stays earned and funded: what funds
+  -- a transfer is the allocated collections, and those are not touched by this journal.
+  declare v_residue numeric;
+  begin
+    select coalesce(sum(fa.amount) filter (where fs.direction = 'in'), 0)
+         - coalesce(sum(fa.amount) filter (where fs.direction = 'out'), 0)
+      into v_residue
+      from public.fin_open_items i
+      join public.fin_allocations fa on fa.open_item_id = i.id
+      join public.fin_settlements fs on fs.id = fa.settlement_id and fs.status = 'posted'
+     where i.source_id = v_policy
+       and i.source_type in ('ins_policy_premium','ins_policy_insurer');
+    -- v_residue is the fixture's ENTIRE net movement through the client-money account
+    -- (premium collected less remitted). Left alone it would be real money in the account and
+    -- §2's stated 400,000 would read 500,000 -- measured. So it is taken back out, leaving the
+    -- client-money account exactly as §1 describes it from scratch. The condition is > 0, not
+    -- > p_amount: the transfer below moves the commission out anyway, so removing only a
+    -- supposed excess removed nothing and the figure stayed wrong.
+    if v_residue > 0 then
+      perform pg_temp.post(jsonb_build_array(
+        jsonb_build_object('gl_account_id', pg_temp.id('eq'),    'debit', v_residue),
+        jsonb_build_object('gl_account_id', pg_temp.id('trust'), 'credit', v_residue)),
+        'fixture: return the policy cash to where it came from');
+    end if;
+  end;
+
+  -- Same commission whatever the premium: the entry is the one p_amount says.
+  select id into v_entry from ins_commission_entries
+   where policy_id = v_policy order by created_at limit 1;
+  if v_entry is null then
+    raise exception 'fixture: binding did not raise a commission entry for policy %', v_policy;
+  end if;
+  update ins_commission_entries set amount = p_amount where id = v_entry;
+  return v_entry;
+end $$;
+grant execute on function pg_temp.earned(numeric, numeric) to authenticated;
+>>>>>>> theirs
 
 -- ---------------------------------------------------------------------
 -- §1 a position with nothing spoken for: the transfer goes through
@@ -252,7 +438,11 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   v_tr := public.ins_transfer_earned_commission(
+<<<<<<< ours
             pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+=======
+            pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(),
+>>>>>>> theirs
             array[v_entry], 'clean transfer');
   reset role;
 
@@ -272,9 +462,17 @@ declare
   v_pos record;
   v_entry uuid;
 begin
+<<<<<<< ours
   perform pg_temp.post(jsonb_build_array(
     jsonb_build_object('gl_account_id', pg_temp.id('pay'), 'debit', 380000),
     jsonb_build_object('gl_account_id', pg_temp.id('trust'), 'credit', 380000)));
+=======
+  -- No GL journal here. This used to post Dr insurer payable / Cr client money for 380,000 as
+  -- well as inserting the open item, which counted the same liability twice: the position
+  -- reads `owed` from the SUBLEDGER, so the journal only succeeded in draining the account and
+  -- the three assertions below could never all hold (the account read 20,000, not 400,000).
+  -- The liability is one open item, which is where a real insurer payable comes from.
+>>>>>>> theirs
   -- An insurer payable open item: money the trust holds for the insurer.
   insert into fin_open_items
     (tenant_id, party_account_id, control_role, side, source_type, source_id,
@@ -300,7 +498,11 @@ begin
   set local role authenticated;
   perform pg_temp.expect_error(
     format($q$select public.ins_transfer_earned_commission(%L, %L, %L, array[%L]::uuid[], 'grab the balance')$q$,
+<<<<<<< ours
       pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(), v_entry),
+=======
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(), v_entry),
+>>>>>>> theirs
     'INS_TRANSFER_POSITION',
     '§2 a transfer the balance covers but the position does not');
   reset role;
@@ -346,6 +548,13 @@ begin
   set local role authenticated;
   -- Under the approved permissive setting the balance test stands alone, which is what
   -- these four existing insurance test files rely on.
+<<<<<<< ours
+=======
+  -- Dated TODAY, not backdated: the setting is effective today, and the guard looks it up by
+  -- the transfer date, so a backdated transfer is still governed by the default 'enforce' --
+  -- which is precisely what this section is trying to override. (§2b dated it today already;
+  -- that was correct and is the reason the fixture postings are the ones backdated.)
+>>>>>>> theirs
   v_tr := public.ins_transfer_earned_commission(
             pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
             array[v_entry], 'permitted under the approved setting');
@@ -396,16 +605,32 @@ begin
         and status = 'open') = 1,
     '§3 exactly one open missed-reconciliation incident should exist');
 
+<<<<<<< ours
   -- A reviewed reconciliation for yesterday resets the streak to zero.
   perform pg_temp.jwt(pg_temp.id('fin1'));
   set local role authenticated;
   perform public.ins_prepare_client_money_reconciliation(pg_temp.id('trust_bank'), v_prev, null);
+=======
+  -- A reviewed reconciliation resets the streak. NOT for yesterday, though: the loop stops at
+  -- the first REVIEWED day, so reconciling yesterday makes it stop immediately and the streak
+  -- is 0. Reconciling the missed day BEFORE yesterday (v_prev2) leaves exactly one missed day
+  -- between here and now, and the streak is 1 -- which is what §3 states. This section asserted
+  -- 1 while doing the other thing, and passed for a while only because the whole file aborted
+  -- earlier; executed, it failed at the first assertion.
+  perform pg_temp.jwt(pg_temp.id('fin1'));
+  set local role authenticated;
+  perform public.ins_prepare_client_money_reconciliation(pg_temp.id('trust_bank'), v_prev2, null);
+>>>>>>> theirs
   reset role;
   perform pg_temp.jwt(pg_temp.id('fin2'));
   set local role authenticated;
   perform public.ins_review_client_money_reconciliation(
     (select id from fin_client_money_reconciliations
+<<<<<<< ours
       where tenant_id = pg_temp.id('tenant') and reconciled_for = v_prev), 'checked to the statement');
+=======
+      where tenant_id = pg_temp.id('tenant') and reconciled_for = v_prev2), 'checked to the statement');
+>>>>>>> theirs
   reset role;
 
   v_streak := public.platform_ins_reconciliation_streak(pg_temp.id('tenant'), pg_temp.id('trust_bank'));
@@ -422,9 +647,26 @@ declare v_inc record; v_entry uuid; v_prev date := public.ins_local_today() - 1;
         v_pos record;
 begin
   -- Make the position genuinely negative: the insurer is owed more than is held.
+<<<<<<< ours
   perform pg_temp.post(jsonb_build_array(
     jsonb_build_object('gl_account_id', pg_temp.id('pay'), 'debit', 100000),
     jsonb_build_object('gl_account_id', pg_temp.id('trust'), 'credit', 100000)));
+=======
+  --
+  -- One open item, not a journal. This used to ALSO post Dr insurer payable / Cr client money
+  -- for 100,000 (kept from before the fixture, when §2 did the same), which counts the same
+  -- liability twice: `owed` comes from the subledger. The doubled exposure then made the
+  -- earned-commission fixture below try to remit more than allocated collections allowed, and
+  -- it failed with INS_CASH_CAP -- 999,000 requested against 900,000 available.
+  insert into fin_open_items
+    (tenant_id, party_account_id, control_role, side, source_type, source_id,
+     document_no, document_date, due_date, amount, currency, fx_rate,
+     accounting_policy_version, description)
+  values
+    (pg_temp.id('tenant'), pg_temp.id('supplier'), 'insurer_payable', 'payable',
+     'ins_policy_insurer', gen_random_uuid(), 'CM-INS-2', current_date, current_date,
+     100000, 'UGX', 1, 1, 'shortage fixture: premium owed to the insurer');
+>>>>>>> theirs
 
   select * into v_pos from public.ins_client_money_position();
   perform pg_temp.assert(v_pos.free_money < 0,
@@ -448,7 +690,11 @@ begin
   set local role authenticated;
   perform pg_temp.expect_error(
     format($q$select public.ins_transfer_earned_commission(%L, %L, %L, array[%L]::uuid[], 'small transfer')$q$,
+<<<<<<< ours
       pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(), v_entry),
+=======
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(), v_entry),
+>>>>>>> theirs
     'INS_TRANSFER_SHORTAGE',
     '§4 any transfer while a shortage is open');
   reset role;
@@ -510,7 +756,11 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   v_tr := public.ins_transfer_earned_commission(
+<<<<<<< ours
             pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+=======
+            pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(),
+>>>>>>> theirs
             array[v_entry], 'after the release');
   reset role;
 
@@ -523,9 +773,12 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, and a shortage blocks transfers until an independent release';
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -548,7 +801,11 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   v_tr := public.ins_transfer_earned_commission(
+<<<<<<< ours
             pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+=======
+            pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(),
+>>>>>>> theirs
             array[v_entry], 'precondition baseline');
   reset role;
   perform pg_temp.assert(v_tr.id is not null,
@@ -559,9 +816,20 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform pg_temp.expect_error(
+<<<<<<< ours
     format($q$select public.ins_transfer_earned_commission(%L,%L,public.ins_local_today(),array[%L],'again')$q$,
       pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry),
     'INS_TRANSFER_ENTRIES',
+=======
+    format($q$select public.ins_transfer_earned_commission(%L,%L,pg_temp.backdate(),array[%L]::uuid[],'again')$q$,
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry),
+    -- INS_TRANSFER_ALREADY_TRANSFERRED, not INS_TRANSFER_ENTRIES. 20261124011800 checks this
+    -- FIRST and deliberately, because an entry's status returns to 'earned' when its transfer
+    -- is voided -- so "earned and not yet transferred" cannot tell a never-transferred entry
+    -- from one whose money moved and came back. The distinct code is the more useful answer and
+    -- this assertion predates it.
+    'INS_TRANSFER_ALREADY_TRANSFERRED',
+>>>>>>> theirs
     '§6b transferring an entry that a posted transfer already moved');
   reset role;
 
@@ -579,9 +847,16 @@ begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
   perform pg_temp.expect_error(
+<<<<<<< ours
     format($q$select public.ins_transfer_earned_commission(%L,%L,public.ins_local_today(),array[%L],'stale')$q$,
       pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry2),
     'INS_TRANSFER_ENTRIES',
+=======
+    format($q$select public.ins_transfer_earned_commission(%L,%L,pg_temp.backdate(),array[%L]::uuid[],'stale')$q$,
+      pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), v_entry2),
+    -- Same reason as §6b: the posted-transfer check runs first and says something more precise.
+    'INS_TRANSFER_ALREADY_TRANSFERRED',
+>>>>>>> theirs
     '§6c an entry already on a posted transfer, offered again');
   reset role;
 
@@ -591,7 +866,11 @@ begin
   set local role authenticated;
   begin
     v_tr := public.ins_transfer_earned_commission(
+<<<<<<< ours
               pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), public.ins_local_today(),
+=======
+              pg_temp.id('trust_bank'), pg_temp.id('ops_bank'), pg_temp.backdate(),
+>>>>>>> theirs
               null, 'pool path');
     perform pg_temp.assert(v_tr.id is not null, '§6d the pool path should still transfer');
   exception when others then
@@ -605,12 +884,17 @@ end $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, a shortage blocks transfers until an independent release, and the transfer itself cannot move the same entry twice';
 >>>>>>> theirs
 =======
 do $$ begin
   raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, and a shortage blocks transfers until an independent release';
+>>>>>>> theirs
+=======
+do $$ begin
+  raise notice 'ALL PASS: the position test refuses what the balance test allowed, missed reconciliations escalate once, a shortage blocks transfers until an independent release, and the transfer itself cannot move the same entry twice';
 >>>>>>> theirs
 =======
 do $$ begin

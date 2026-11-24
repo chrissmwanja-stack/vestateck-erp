@@ -148,6 +148,7 @@ for (const section of ['items', 'unbuilt']) {
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 console.log(
   `\n${register.items.length} policy items, ${register.unbuilt.length} unbuilt items, ` +
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked.`
@@ -231,6 +232,8 @@ console.log(
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked.`
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 // ---------------------------------------------------------------------------
@@ -306,6 +309,9 @@ console.log(
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked, ` +
   `${ae?.items?.length ?? 0} acceptance-evidence rows.`
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

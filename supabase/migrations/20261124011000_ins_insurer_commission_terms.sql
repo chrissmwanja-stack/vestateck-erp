@@ -96,6 +96,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select coalesce(new.mode = any(d.implemented_values), false)
 =======
   select coalesce(mode = any(d.implemented_values), false)
@@ -105,6 +106,15 @@ begin
 >>>>>>> theirs
 =======
   select coalesce(mode = any(d.implemented_values), false)
+>>>>>>> theirs
+=======
+  -- new.mode, not a bare `mode`: the only table in this statement is
+  -- accounting_setting_definitions (alias d), which has no mode column, so the unqualified
+  -- reference failed with 42703 'column "mode" does not exist' on EVERY insert. No commission
+  -- terms could be recorded for any insurer, which in turn made binding a policy impossible
+  -- whenever no company-wide recognition mode was approved. It was invisible to a parse check
+  -- (the body is a dollar-quoted string) and to the register gates.
+  select coalesce(new.mode = any(d.implemented_values), false)
 >>>>>>> theirs
     into v_mode_ok
     from accounting_setting_definitions d

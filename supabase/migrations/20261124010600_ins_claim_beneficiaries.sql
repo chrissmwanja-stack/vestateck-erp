@@ -178,6 +178,7 @@ returns table (currency char(3), payable numeric, held numeric, total numeric)
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     select cl.id, cl.tenant_id, cl.approved_amount, pol.currency::char(3) as currency
       from ins_claims cl
       join ins_policies pol on pol.id = cl.policy_id and pol.tenant_id = cl.tenant_id
@@ -192,6 +193,17 @@ returns table (currency char(3), payable numeric, held numeric, total numeric)
 =======
     select cl.id, cl.tenant_id, cl.approved_amount, cl.currency
       from ins_claims cl
+>>>>>>> theirs
+=======
+    select cl.id, cl.tenant_id, cl.approved_amount,
+           -- ins_claims has no currency of its own: a claim belongs to a policy and the
+           -- policy holds the currency. This read cl.currency, a column that was never
+           -- created; because the body is validated at CREATE time, that typo stopped
+           -- the whole migration from applying rather than failing quietly at call time.
+           -- Source of truth is the same one ins_claim_beneficiary_instalments uses.
+           p.currency
+      from ins_claims cl
+      join ins_policies p on p.id = cl.policy_id
 >>>>>>> theirs
      where cl.id = p_claim_id and cl.tenant_id = p_tenant_id
   ), b as (
@@ -252,8 +264,11 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_ccy    text;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -264,6 +279,9 @@ declare
   v_ccy     text;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -284,6 +302,7 @@ begin
   end if;
   select * into v_claim from ins_claims
    where id = p_claim_id and tenant_id = v_tenant for update;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -311,6 +330,12 @@ begin
   end if;
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+  if not found then
+    raise exception 'INS_NOT_FOUND: claim';
+  end if;
 >>>>>>> theirs
   if v_claim.status in ('settled', 'closed', 'repudiated') then
     raise exception 'INS_CLAIM_STATE: the beneficiaries of a % claim cannot be changed', v_claim.status;
@@ -348,9 +373,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
            then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
 =======
            then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
+>>>>>>> theirs
+=======
+           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
 >>>>>>> theirs
 =======
            then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
@@ -536,8 +565,12 @@ declare
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_ccy    text;
 =======
+>>>>>>> theirs
+=======
+  v_ccy    text;
 >>>>>>> theirs
 =======
   v_ccy    text;
@@ -562,12 +595,17 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- A claim carries no currency of its own: it is the policy's (as in claim recognition).
 =======
   -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
 >>>>>>> theirs
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 =======
+>>>>>>> theirs
+=======
+  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 >>>>>>> theirs
 =======
   -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
@@ -610,9 +648,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       (v_elem ->> 'amount')::numeric, v_ccy,
 =======
       (v_elem ->> 'amount')::numeric, v_claim.currency,
+>>>>>>> theirs
+=======
+      (v_elem ->> 'amount')::numeric, v_ccy,
 >>>>>>> theirs
 =======
       (v_elem ->> 'amount')::numeric, v_ccy,

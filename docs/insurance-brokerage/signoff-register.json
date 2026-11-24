@@ -29,12 +29,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Advance/liability account (2040) and the release-on-bind path are not built: see B2. Without them a pre-bind receipt has nowhere to sit except unallocated cash.",
 =======
       "note": "Unallocated advances are built (B2), including the release-on-bind path, so a pre-bind receipt has somewhere to sit and a policy to be applied to. What keeps this partial is evidence, not code: the migration and test have been parse-checked but never executed against a database.",
 >>>>>>> theirs
 =======
       "note": "Advance/liability account (2040) and the release-on-bind path are not built: see B2. Without them a pre-bind receipt has nowhere to sit except unallocated cash.",
+>>>>>>> theirs
+=======
+      "note": "Unallocated advances are built (B2), including the release-on-bind path, so a pre-bind receipt has somewhere to sit and a policy to be applied to. What keeps this partial is evidence, not code: the migration and test have been parse-checked but never executed against a database.",
 >>>>>>> theirs
 =======
       "note": "Unallocated advances are built (B2), including the release-on-bind path, so a pre-bind receipt has somewhere to sit and a policy to be applied to. What keeps this partial is evidence, not code: the migration and test have been parse-checked but never executed against a database.",
@@ -112,6 +116,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
         "supabase/tests/test_ins_commission_pro_rata.sql"
       ],
       "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force.",
@@ -133,11 +138,16 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
         "supabase/tests/test_ins_commission_pro_rata.sql",
         "supabase/tests/test_ins_insurer_commission_terms.sql"
       ],
       "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected; the fourth implemented mode is pro_rata_on_collection, which the allowed_values list above omits. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force. Decision 2B (per insurer) is built as B3: ins_insurer_commission_terms holds the mode agreed with each insurer, and it outranks the company setting at bind.",
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -178,12 +188,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "pro_rata_on_collection is implemented by 20261124010000 (setting) and 20261124010200 (reader), with supabase/tests/test_ins_commission_pro_rata.sql as the behaviour proof. Set implemented:true ONLY once that test has passed on a clean replay -- it was written, not run, in the environment that produced this pack. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
 =======
       "note": "pro_rata_on_collection is implemented by 20261124010100 (setting) and 20261124010200 (reader) BUT implemented stays false: the proof is supabase/tests/test_ins_commission_pro_rata.sql, which has been written and parse-checked, not executed. Flip it only when that test has passed on a clean replay. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
 >>>>>>> theirs
 =======
       "note": "pro_rata_on_collection is implemented by 20261124010000 (setting) and 20261124010200 (reader), with supabase/tests/test_ins_commission_pro_rata.sql as the behaviour proof. Set implemented:true ONLY once that test has passed on a clean replay -- it was written, not run, in the environment that produced this pack. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
+>>>>>>> theirs
+=======
+      "note": "pro_rata_on_collection is implemented by 20261124010100 (setting) and 20261124010200 (reader) BUT implemented stays false: the proof is supabase/tests/test_ins_commission_pro_rata.sql, which has been written and parse-checked, not executed. Flip it only when that test has passed on a clean replay. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
 >>>>>>> theirs
 =======
       "note": "pro_rata_on_collection is implemented by 20261124010100 (setting) and 20261124010200 (reader) BUT implemented stays false: the proof is supabase/tests/test_ins_commission_pro_rata.sql, which has been written and parse-checked, not executed. Flip it only when that test has passed on a clean replay. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
@@ -252,12 +266,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Three separate cancellation date fields are not yet modelled (only effective_date exists today): see B4.",
 =======
       "note": "Three separate cancellation date fields are built as B4: request date (proposed_at), effective date and settlement date, with evidence required before an effective date can be backdated.",
 >>>>>>> theirs
 =======
       "note": "Three separate cancellation date fields are not yet modelled (only effective_date exists today): see B4.",
+>>>>>>> theirs
+=======
+      "note": "Three separate cancellation date fields are built as B4: request date (proposed_at), effective date and settlement date, with evidence required before an effective date can be backdated.",
 >>>>>>> theirs
 =======
       "note": "Three separate cancellation date fields are built as B4: request date (proposed_at), effective date and settlement date, with evidence required before an effective date can be backdated.",
@@ -283,6 +301,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
         "2030"
 =======
         "2030",
@@ -290,6 +309,10 @@
 >>>>>>> theirs
 =======
         "2030"
+>>>>>>> theirs
+=======
+        "2030",
+        "claims write-off contra-expense (tenant-assigned code)"
 >>>>>>> theirs
 =======
         "2030",
@@ -309,12 +332,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "The two operating models, excess handling and reserve revisions are built. The stage model is not yet extended and recoveries/write-offs are absent: see B5, B8.",
 =======
       "note": "Two operating models, excess handling, reserve revisions, the stage model (B5) and recoveries and write-offs (B8) are built. Appendix B decisions of 2026-11-22 applied: Q1 a dedicated contra-claims-expense account (role ins_claim_write_off_expense) rather than a bad-debt account, with the insurer receivable pursued separately; Q4 recoveries credit the same account and are not netted into insurer receivables by default; Q3 repudiation is the ninth state, with the insurer's decision and reference recorded and reopening allowed. Write-off and recovery remain separately identifiable by journal source type, disposition kind and narrative, per the accountant's condition.",
 >>>>>>> theirs
 =======
       "note": "The two operating models, excess handling and reserve revisions are built. The stage model is not yet extended and recoveries/write-offs are absent: see B5, B8.",
+>>>>>>> theirs
+=======
+      "note": "Two operating models, excess handling, reserve revisions, the stage model (B5) and recoveries and write-offs (B8) are built. Appendix B decisions of 2026-11-22 applied: Q1 a dedicated contra-claims-expense account (role ins_claim_write_off_expense) rather than a bad-debt account, with the insurer receivable pursued separately; Q4 recoveries credit the same account and are not netted into insurer receivables by default; Q3 repudiation is the ninth state, with the insurer's decision and reference recorded and reopening allowed. Write-off and recovery remain separately identifiable by journal source type, disposition kind and narrative, per the accountant's condition.",
 >>>>>>> theirs
 =======
       "note": "Two operating models, excess handling, reserve revisions, the stage model (B5) and recoveries and write-offs (B8) are built. Appendix B decisions of 2026-11-22 applied: Q1 a dedicated contra-claims-expense account (role ins_claim_write_off_expense) rather than a bad-debt account, with the insurer receivable pursued separately; Q4 recoveries credit the same account and are not netted into insurer receivables by default; Q3 repudiation is the ninth state, with the insurer's decision and reference recorded and reopening allowed. Write-off and recovery remain separately identifiable by journal source type, disposition kind and narrative, per the accountant's condition.",
@@ -411,6 +438,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Period controls and the reversal rule exist. A manual-journal path with maker-checker and a subledger-reference requirement does not: see B6.",
 =======
       "note": "Period controls and the reversal rule exist, and a manual-journal path with maker-checker, evidence, figures frozen at submission and a subledger-reference requirement for control accounts is built (B6). Amount-based approval limits now exist for manual journals and a journal routed above level 1 is approved through every level rather than refused (B12). Still partial: the pack also asks for an extra tier for restricted accounts, and no GL account is marked restricted, so that tier does not exist. Currency and branch are not part of the routing key either.",
@@ -420,6 +448,9 @@
 >>>>>>> theirs
 =======
       "note": "Period controls and the reversal rule exist, and a manual-journal path with maker-checker, evidence, figures frozen at submission and a subledger-reference requirement for control accounts is built (B6). Still partial: the pack also asks for amount-based approval limits and an extra tier for restricted accounts on manual journals, and neither exists -- B7 built that engine for refunds only.",
+>>>>>>> theirs
+=======
+      "note": "Period controls and the reversal rule exist, and a manual-journal path with maker-checker, evidence, figures frozen at submission and a subledger-reference requirement for control accounts is built (B6). Amount-based approval limits now exist for manual journals and a journal routed above level 1 is approved through every level rather than refused (B12). Still partial: the pack also asks for an extra tier for restricted accounts, and no GL account is marked restricted, so that tier does not exist. Currency and branch are not part of the routing key either.",
 >>>>>>> theirs
 =======
       "note": "Period controls and the reversal rule exist, and a manual-journal path with maker-checker, evidence, figures frozen at submission and a subledger-reference requirement for control accounts is built (B6). Amount-based approval limits now exist for manual journals and a journal routed above level 1 is approved through every level rather than refused (B12). Still partial: the pack also asks for an extra tier for restricted accounts, and no GL account is marked restricted, so that tier does not exist. Currency and branch are not part of the routing key either.",
@@ -440,12 +471,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "code_state": "not_built",
 =======
       "code_state": "partial",
 >>>>>>> theirs
 =======
       "code_state": "not_built",
+>>>>>>> theirs
+=======
+      "code_state": "partial",
 >>>>>>> theirs
 =======
       "code_state": "partial",
@@ -461,14 +496,18 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
         "supabase/tests/test_ins_finance_pending_approvals.sql"
       ],
       "note": "Maker-checker per transaction type is built; amount-based limits and split prevention are not. See B7. This is the item most likely to block a production gate.",
 =======
+=======
+>>>>>>> theirs
         "supabase/tests/test_ins_finance_pending_approvals.sql",
         "supabase/migrations/20261124011700_fin_manual_journal_chain.sql"
       ],
       "note": "Refunds of client advances route through an approval-limit engine with per-user limits, self-approval refusal and split detection (B7), and the refund function itself refuses without an approved request. Manual journals route by amount and, above level 1, are approved level by level before anything posts (B12). Still partial, for three stated reasons: the routing key is amount and role only, so currency, branch and department are not part of it; the requirement asks for escalation, which is not built for any transaction type; and insurer remittances, commission transfers and claim payments still do not route through the engine at all. Multi-level approval exists for manual journals only -- refunds remain single-approval at a routed level.",
+<<<<<<< ours
 >>>>>>> theirs
 =======
         "supabase/tests/test_ins_finance_pending_approvals.sql"
@@ -487,6 +526,8 @@
       ],
       "note": "Refunds of client advances route through an approval-limit engine with per-user limits, self-approval refusal and split detection (B7), and the refund function itself refuses without an approved request. Manual journals route by amount and, above level 1, are approved level by level before anything posts (B12). Still partial, for three stated reasons: the routing key is amount and role only, so currency, branch and department are not part of it; the requirement asks for escalation, which is not built for any transaction type; and insurer remittances, commission transfers and claim payments still do not route through the engine at all. Multi-level approval exists for manual journals only -- refunds remain single-approval at a routed level.",
 <<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -518,12 +559,16 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Bank-account and GL segregation is enforced hard. The daily reconciliation artefact, reviewer independence, escalation and the transfer-time shortage test are absent: see B9.",
 =======
       "note": "Segregation is enforced hard, and the three items the pack names are built (B9): a transfer is refused when it would leave the client-money POSITION negative (held less what is owed to clients and insurers, which is stronger than the balance test beside it); a negative position raises a shortage that blocks transfers until an independent release; and two consecutive missed reviewed reconciliations escalate. Still partial on one operational point: nothing runs the daily check on a schedule yet, so escalation only happens when something invokes it.",
 >>>>>>> theirs
 =======
       "note": "Bank-account and GL segregation is enforced hard. The daily reconciliation artefact, reviewer independence, escalation and the transfer-time shortage test are absent: see B9.",
+>>>>>>> theirs
+=======
+      "note": "Segregation is enforced hard, and the three items the pack names are built (B9): a transfer is refused when it would leave the client-money POSITION negative (held less what is owed to clients and insurers, which is stronger than the balance test beside it); a negative position raises a shortage that blocks transfers until an independent release; and two consecutive missed reviewed reconciliations escalate. Still partial on one operational point: nothing runs the daily check on a schedule yet, so escalation only happens when something invokes it.",
 >>>>>>> theirs
 =======
       "note": "Segregation is enforced hard, and the three items the pack names are built (B9): a transfer is refused when it would leave the client-money POSITION negative (held less what is owed to clients and insurers, which is stronger than the balance test beside it); a negative position raises a shortage that blocks transfers until an independent release; and two consecutive missed reviewed reconciliations escalate. Still partial on one operational point: nothing runs the daily check on a schedule yet, so escalation only happens when something invokes it.",
@@ -770,6 +815,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "feature": "pro_rata_on_collection commission recognition",
@@ -789,10 +835,15 @@
 =======
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
       "feature": "pro_rata_on_collection commission recognition (built)",
       "requirement": "Commission recognised in proportion to premium collected on agreements that are pro-rata rather than binary.",
       "accounting_impact": "Allows commission income to be earned gradually; keeps the uncollected portion in 2020. Without it a pro-rata agreement is either recognised too early (at_placement) or too late (whole commission on final receipt).",
       "status": "built",
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -805,10 +856,13 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance"
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance",
@@ -819,6 +873,9 @@
       ],
       "note": "Built as a FOURTH mode, preserving the binary on_premium_collection rather than replacing it (decision 1A). Recognition is earned in proportion to premium collected; the uncollected portion stays in 2020. The build is code-complete and parse-checked but has never been executed: eval must pass before any sign-off treats it as proven, and the register's A3/A4 implemented flags stay false until then."
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -828,6 +885,7 @@
       "feature": "Unallocated client advances (built)",
       "requirement": "A receipt taken before bind is held as a client-money liability (2040) and released against the policy receivable when a policy binds, or refunded.",
       "accounting_impact": "Without it a pre-bind receipt is either unallocated cash or wrongly recognised premium. The liability must never be netted against insurer payable.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
       "status": "not_built",
@@ -849,6 +907,9 @@
       "status": "built",
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+      "status": "built",
 >>>>>>> theirs
 =======
       "status": "built",
@@ -864,10 +925,13 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance"
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance",
@@ -878,6 +942,9 @@
       ],
       "note": "Complete in two halves, which is why the status lagged. 20261124010300 added account 2040 and the advance lifecycle: a pre-bind receipt sits in 2040 with no receivable created, so AR is not overstated by money taken before placement, and it can be refunded. The release-on-bind half waited for B11's disposition primitive, because a party balance could only move by cash or a same-role credit note; it now posts Dr 2040 / Cr 1100 with the bank untouched. An approved refund above a threshold additionally needs an approved request, per B7."
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -887,6 +954,7 @@
       "feature": "Fail-closed commission-mode selection (built)",
       "requirement": "Binding refuses unless an explicit recognition mode is approved and in force for that policy's insurer agreement. No silent fallback to on_insurer_settlement.",
       "accounting_impact": "Prevents an unclassified insurer agreement from being accounted for on the historic default, which overstates or understates earned commission depending on the true agreement.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
       "status": "not_built",
@@ -908,6 +976,9 @@
       "status": "built",
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+      "status": "built",
 >>>>>>> theirs
 =======
       "status": "built",
@@ -923,6 +994,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance"
@@ -951,6 +1023,8 @@
       "status": "not_built",
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "evidence": [
         "supabase/migrations/20261124010200_ins_commission_pro_rata_reader.sql",
@@ -965,6 +1039,7 @@
       "requirement": "Cancellation request date, effective date and financial settlement date are recorded separately, with evidence required for a backdated effective date.",
       "accounting_impact": "Decides which period a cancellation posts to and prevents a settlement date being used as the coverage date.",
       "status": "built",
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -973,6 +1048,8 @@
 >>>>>>> theirs
 =======
       "status": "built",
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       "depends_on": [
         "A6"
@@ -982,6 +1059,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance"
@@ -1005,6 +1083,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "evidence": [
         "supabase/migrations/20261124010900_ins_cancellation_three_dates.sql",
@@ -1019,11 +1099,14 @@
       "accounting_impact": "Internal approval must not create a payment posting; recognition must follow the insurer's confirmation, and a disputed payment must not be recognised as settled.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
       "status": "built",
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1035,6 +1118,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance"
@@ -1058,6 +1142,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "evidence": [
         "supabase/migrations/20261124010400_ins_claim_stage_model.sql",
@@ -1072,6 +1158,7 @@
       "accounting_impact": "Without it any correction outside the documented flows happens as raw SQL, which has no maker-checker and no subledger reconciliation.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1080,10 +1167,13 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "depends_on": [
         "A10"
       ],
       "acceptance": "A manual journal cannot post unbalanced, cannot be approved by its maker, cannot post to a control account without a subledger reference, and cannot be edited after posting.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1119,6 +1209,10 @@
       "blocks": "production_golive",
       "note": "CENSUS CORRECTED, 24 Nov: the earlier census said three of the four criteria were met by ABSENCE. Two are met by a real control that has nothing to do with the grant on post_journal_entry. check_journal_entry_balanced is a DEFERRED CONSTRAINT TRIGGER on journal_entry_lines (baseline), so an unbalanced entry cannot be committed by anyone, including service_role and the table owner -- deferral is what lets the per-line inserts inside post_journal_entry work at all. prevent_journal_mutation blocks UPDATE and DELETE on both journal tables for everyone, with the single documented exception of voiding. So balance and immutability were always enforced; what was genuinely missing is the feature itself. BUILD: fin_manual_journals and fin_manual_journal_lines, written only through fin_create_manual_journal / fin_submit_manual_journal / fin_decide_manual_journal / fin_withdraw_manual_journal. Approval and posting are one step, so there is no window where a journal is approved but unposted or posted but unapproved. The ledger primitive stays exactly as locked as it was: post_journal_entry is called only from the approval function, after the checks, under source_type 'manual' so the existing reports that look for it keep working. CONTROL ACCOUNTS: a line on an account with is_control_account must name a subledger source type and id, and the check resolves that to a real open item in this company whose control_role posts to that same account. A reference that does not resolve is refused, because it looks reconciled while being nothing. The check runs at creation, again at submission, and again at approval -- cheap, and the failure it prevents is a subledger that silently stops agreeing with the ledger. DELIBERATE CHOICES: lines freeze the moment the journal leaves draft, not only once it posts, so the figures approved are the figures that post. A manual journal cannot be dated in the future and cannot land in a closed period. It is a company-finance instrument, so the gate is the finance role and company administration, NOT can_access_insurance() -- a company without the insurance module must be able to write one. WHAT THE PACK ASKS FOR THAT THIS DID NOT DO AT THE TIME: section 11 wants amount-based approval limits and escalation on manual journals too. B7 built that engine for refunds only, so at B6 the gate was maker-checker plus the finance role with no threshold routing. THAT GAP IS NOW CLOSED by B12, which routes a manual journal through every configured level before it posts. What B12 still does not do is escalation, and routing by currency, branch or department.",
 >>>>>>> theirs
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS CORRECTED, 24 Nov: the earlier census said three of the four criteria were met by ABSENCE. Two are met by a real control that has nothing to do with the grant on post_journal_entry. check_journal_entry_balanced is a DEFERRED CONSTRAINT TRIGGER on journal_entry_lines (baseline), so an unbalanced entry cannot be committed by anyone, including service_role and the table owner -- deferral is what lets the per-line inserts inside post_journal_entry work at all. prevent_journal_mutation blocks UPDATE and DELETE on both journal tables for everyone, with the single documented exception of voiding. So balance and immutability were always enforced; what was genuinely missing is the feature itself. BUILD: fin_manual_journals and fin_manual_journal_lines, written only through fin_create_manual_journal / fin_submit_manual_journal / fin_decide_manual_journal / fin_withdraw_manual_journal. Approval and posting are one step, so there is no window where a journal is approved but unposted or posted but unapproved. The ledger primitive stays exactly as locked as it was: post_journal_entry is called only from the approval function, after the checks, under source_type 'manual' so the existing reports that look for it keep working. CONTROL ACCOUNTS: a line on an account with is_control_account must name a subledger source type and id, and the check resolves that to a real open item in this company whose control_role posts to that same account. A reference that does not resolve is refused, because it looks reconciled while being nothing. The check runs at creation, again at submission, and again at approval -- cheap, and the failure it prevents is a subledger that silently stops agreeing with the ledger. DELIBERATE CHOICES: lines freeze the moment the journal leaves draft, not only once it posts, so the figures approved are the figures that post. A manual journal cannot be dated in the future and cannot land in a closed period. It is a company-finance instrument, so the gate is the finance role and company administration, NOT can_access_insurance() -- a company without the insurance module must be able to write one. WHAT THE PACK ASKS FOR THAT THIS DID NOT DO AT THE TIME: section 11 wants amount-based approval limits and escalation on manual journals too. B7 built that engine for refunds only, so at B6 the gate was maker-checker plus the finance role with no threshold routing. THAT GAP IS NOW CLOSED by B12, which routes a manual journal through every configured level before it posts. What B12 still does not do is escalation, and routing by currency, branch or department.",
+>>>>>>> theirs
       "evidence": [
         "supabase/migrations/20261124011100_fin_manual_journals.sql",
         "supabase/tests/test_fin_manual_journals.sql"
@@ -1131,6 +1225,7 @@
       "accounting_impact": "A control, not a posting: it governs who may release refunds, remittances, commission transfers and claim payments.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1139,10 +1234,13 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "depends_on": [
         "A11"
       ],
       "acceptance": "A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1172,6 +1270,9 @@
 =======
       "blocks": "production_golive",
 >>>>>>> theirs
+=======
+      "blocks": "production_golive",
+>>>>>>> theirs
       "note": "CENSUS 24 Nov 2026: a threshold-routing engine ALREADY EXISTED and is reused rather than duplicated. workflow_stages carries threshold_amount, approver_role, sequence_order, next_stage_low_id/next_stage_high_id, blocks_offer_submitter_approval and is_finance_terminal_stage; approval_assignments carries threshold_max; approval_actions records decisions. All 14 configured stages were applies_to='requests' with procurement roles, so no insurance refund was wired into it. BUILD: (1) extends the applies_to vocabulary with 'insurance_refunds' (workflow_stages is left otherwise untouched, and the existing 'requests' and 'invoices' behaviour is unaffected). (2) approval_actions was NOT reused: its request_id is NOT NULL and references requests(id), so it is procurement-only and cannot hold a refund. Two tables carry refunds instead -- ins_refund_requests freezes the required stage, level and role at request time, and ins_refund_approvals records each decision with its stage, level and approver. (3) platform_ins_refund_required_level() returns the highest active stage whose threshold the amount reaches, and NULL means no limit is configured, so a company that configures nothing keeps exactly today's behaviour rather than being silently blocked from refunding. (4) Level and the approver's OWN limit are separate refusals: an amount can be a level-1 refund and still exceed what that particular user may sign off, which is why approval_assignments.threshold_max is checked as well. (5) ins_refund_client_advance is re-created to refuse a refund above the threshold unless an approved request covers it. Without that last piece the whole workflow is advisory, because the money-moving function could be called directly. (6) A split is a FLAG, not a block, per pack wording: two same-day refunds to the same client whose combined value crosses a threshold are recorded on the second request with the figures that triggered the flag, and it is left to the approver to decide. LIMITS OF THE BUILD, stated plainly: currency, branch and department are not part of the routing key -- the requirement names them and this build routes on amount only, with the approver's role checked for the stage. approver_role must be one of the labels the two role tables can hold (finance or cost_control, or admin, manager, member); any other label raises INS_REFUND_ROLE_UNCONFIGURED naming the problem, and a company administrator can always decide. The build covers refunds of client advances; remittances, commission transfers and claim payments do not yet route through it.",
       "evidence": [
         "supabase/migrations/20261124010800_ins_refund_approval_limits.sql",
@@ -1185,6 +1286,7 @@
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1196,10 +1298,13 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1236,6 +1341,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "production_golive",
       "note": "Both halves are built. Write-offs: ins_write_off_claim charges the claim payable to a named expense account (20261124010500). Recoveries: ins_claim_recoveries, raised as a SEPARATE receivable with its own payer rather than as a negative claim -- an insurer underpayment is not owed by the client, and re-pricing the claim would disturb every report already relying on the approved amount. The test asserts raising a recovery leaves the approved amount and the accrual count unchanged. Commission accounts (4000/2020/1110) are refused by name at raise, per pack 7.7. Receiving goes through the ordinary settlement path so every cash guard applies. Writing off a recovery charges the loss back to the account it was credited to when raised (stored on the row, no default), so the net result on that account tells the truth. OPEN QUESTION Q4 in Appendix B: which account absorbs a recovery credit -- the code takes it as an argument.",
       "evidence": [
@@ -1251,6 +1358,7 @@
       "accounting_impact": "Client-money protection. Without the position test a transfer can leave the client-money account short even though each individual posting was valid.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1259,10 +1367,13 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "depends_on": [
         "A12"
       ],
       "acceptance": "A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1295,6 +1406,14 @@
       "evidence": [
         "supabase/migrations/20261124011200_fin_client_money_controls.sql",
         "supabase/tests/test_client_money_controls.sql"
+=======
+      "blocks": "production_golive",
+      "note": " EXECUTED, 24 Nov 2026: test_client_money_controls.sql runs end to end on PostgreSQL 19.0 (PGlite/WASM) -- 21 statements, all pass -- after being corrected against the functions that implement the behaviour. It had never run. Execution exposed that the fixture was describing a product that does not exist: a policy inserted directly (ins_policies_guard refuses it), commission marked earned on an unfunded policy (the funding guard refuses it), a subledger liability ALSO posted to the GL so the same obligation was counted twice (the position read 20,000 where the section states 400,000), a reconciliation recorded for the wrong day for the streak assertion, and fixtures dated on the business date, which makes an accounting-setting approval effective that day impossible (ACCT_SETTING_BACKDATED). It now does what a company does: create, submit, approve, bind, collect through the maker/checker cash path, remit to the capped amount. See docs/insurance-brokerage/EXECUTION_LOG.md.",
+      "evidence": [
+        "supabase/migrations/20261124011200_fin_client_money_controls.sql",
+        "supabase/tests/test_client_money_controls.sql",
+        "docs/insurance-brokerage/EXECUTION_LOG.md"
+>>>>>>> theirs
       ]
     },
     {
@@ -1304,6 +1423,7 @@
       "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -1312,10 +1432,13 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1338,6 +1461,8 @@
     }
   ]
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
       "blocks": "uat_acceptance",
@@ -1367,7 +1492,11 @@
     },
     {
       "ref": "B12",
+<<<<<<< ours
       "feature": "Multi-level approval for manual journals (built, unexecuted)",
+=======
+      "feature": "Multi-level approval for manual journals (built, executed)",
+>>>>>>> theirs
       "requirement": "A journal routed above approval level 1 must be approved at every level it routes through, by the role each level names, before it posts -- and splitting approval across levels must not be satisfiable by one person.",
       "accounting_impact": "A control, not a posting. It decides who must agree before a correction reaches the ledger, and it is the difference between a company being able to configure an amount limit and being able to use it.",
       "status": "built",
@@ -1377,6 +1506,7 @@
       ],
       "acceptance": "A journal routed to level 3 posts nothing until three distinct entitled people have approved, in order; one signature at level 1 does not post it; the raiser cannot sign any level; the same person cannot sign two levels; a level whose role nobody holds is reported as unconfigured and a company administrator can unblock it; a missing stage in the sequence is refused rather than signed by anyone; a rejection at any level rejects the journal and posts nothing.",
       "blocks": "production_golive",
+<<<<<<< ours
       "note": "CLOSES THE LAST §11 GAP FOR MANUAL JOURNALS. Until this, fin_submit_manual_journal REFUSED a journal routed above level 1 with FIN_MANUAL_JOURNAL_LEVEL. That refusal was the honest failure -- approving at level 1 would have let it through on one signature -- and it was still a wall: a company could configure a limit it could not use. BUILD: fin_manual_journal_approvals is one append-only row per decision, writable only by fin_decide_manual_journal (the RLS insert, update and delete policies all evaluate to false, so a client cannot write an approval row around the function, which is the whole control). platform_manual_journal_chain_state(uuid,uuid) reports the level routed to, how many are approved, which is next, that level's stage and role, whether the chain is satisfied, and how many sequence positions have no stage. fin_decide_manual_journal re-issued: authority comes from the role the CURRENT level names, not from the finance team, so a level asking for cost_control is signable by cost control and a level asking for manager is not signable by finance alone; the finance role and company administration are accepted at every level as the documented way out of a stranded configuration. With no stages configured, required_level is 0 and the pre-existing single-checker rule applies unchanged, so a company that has configured nothing keeps exactly today's behaviour. fin_manual_journals_awaiting_me() gives an approver the queue of what they can actually sign now. THREE BUGS FOUND AND FIXED WHILE BUILDING THIS, each against a live database before the migration was written: (1) chain state resolved the role from the stage the AMOUNT routes to rather than the stage for the level being signed, so a 100,000,000 journal in a three-level chain would have demanded the level-3 role at level 1 and told every level-1 approver they held the wrong role; (2) the first draft wrote the required LEVEL into the stage_id column; (3) a hole in the stage sequence returns no role for that level, and a null role meant ANYONE could sign it, silently turning a three-level chain into a two-level chain with a free signature in the middle -- now counted and refused as FIN_MANUAL_JOURNAL_CHAIN_GAP. NOT BUILT, stated rather than discovered later: no escalation timers (a level nobody signs simply waits; what happens when a timer fires is policy, not software); no effective dates on stages; no currency, branch or department dimension; and no chain for refunds, remittances, claim payments or commission transfers, which remain single-approval at a routed level because retrofitting one would change behaviour for companies already using them. EVIDENCE STATUS: the migration and supabase/tests/test_fin_manual_journal_chain.sql are written and parse-checked, and the chain-state and gap-detection logic were exercised against a live database while the migration was written. The test file itself has NOT been run. This is the same position B1 is in: code-complete, checked by construction, not yet proven. It must not be treated as proven until eval passes.",
       "evidence": [
         "supabase/migrations/20261124011700_fin_manual_journal_chain.sql",
@@ -1388,6 +1518,14 @@
 =======
 >>>>>>> theirs
 =======
+>>>>>>> theirs
+=======
+      "note": " EXECUTED, 24 Nov 2026: test_fin_manual_journal_chain.sql runs end to end on PostgreSQL 19.0 (PGlite/WASM) -- 25 statements, all pass. It had never run. TWO PRODUCT DEFECTS came out of it. (1) The sequence-gap check refused EVERY approval when any later level was unconfigured, so a correctly authorised level-1 signature on a journal whose level 2 was missing was refused with FIN_MANUAL_JOURNAL_CHAIN_GAP -- the journal was stuck rather than its misconfiguration reported. It now fires at the level being signed and never on a rejection, since a refusal posts nothing and blocking one only traps the journal. (2) create or replace with extra DEFAULTED parameters created an OVERLOAD rather than replacing ins_create_claim, leaving two functions that both accept a six-argument call, so every six-argument call raised 42725 regardless of argument types. Also corrected: two fixtures asserted things the product contradicts -- a staff_roles row on module 'finance', which platform_modules makes non-entitlable, and a journal raiser who was not on the finance team, which fin_create_manual_journal refuses.",
+      "evidence": [
+        "supabase/migrations/20261124011700_fin_manual_journal_chain.sql",
+        "supabase/tests/test_fin_manual_journal_chain.sql",
+        "docs/insurance-brokerage/EXECUTION_LOG.md"
+      ]
 >>>>>>> theirs
     },
     {
@@ -1406,6 +1544,7 @@
         "supabase/migrations/20261124011800_ins_transfer_lock_preconditions.sql",
         "supabase/tests/test_client_money_controls.sql"
       ]
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -1644,6 +1783,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
     },
     {
       "ref": "B14",
@@ -1662,6 +1803,7 @@
         "supabase/tests/test_fin_manual_journal_currency.sql"
       ]
 <<<<<<< ours
+<<<<<<< ours
 >>>>>>> theirs
     }
 <<<<<<< ours
@@ -1674,6 +1816,12 @@
     {
       "ref": "B15",
       "feature": "Correct and resubmit a rejected manual journal, scoped by approval round (built, unexecuted)",
+=======
+    },
+    {
+      "ref": "B15",
+      "feature": "Correct and resubmit a rejected manual journal, scoped by approval round (built, executed)",
+>>>>>>> theirs
       "requirement": "A rejection must stop the chain and return the journal for correction or cancellation, and the audit trail must preserve every submission, approval, rejection and resubmission.",
       "accounting_impact": "A control. It decides whether a corrected entry keeps one traceable history or becomes an unrelated replacement journal.",
       "status": "built",
@@ -1683,10 +1831,20 @@
       ],
       "acceptance": "A rejected journal can be reopened by its raiser with a reason and resubmitted; the corrected round counts zero prior approvals; the rejected round's approvals and rejection remain on record; the same people may sign the corrected round; and the raiser still cannot approve it.",
       "blocks": "production_golive",
+<<<<<<< ours
       "note": "CLOSES AE5 CONDITIONS C5 AND C8. 'rejected' was terminal, so correcting a rejected journal meant raising a new one -- safe, but not what the condition asks for, and it split one correction across two records. THE HAZARD THIS HAD TO SOLVE FIRST: approvals are rows on fin_manual_journal_approvals with nothing tying them to a submission, so a journal approved at level 1 and rejected at level 2, once reopened and resubmitted with changed figures, would have counted the level-1 approval and posted on one signature against figures that approver never saw. That was verified as a real sequence against a database before the design was settled. Fix: fin_manual_journals.approval_round starts at 1 and increments on reopen; fin_manual_journal_approvals.round records which round each decision belongs to; the chain counts only the current round; the one-signature-per-person rule is scoped to the round, because the people who signed the rejected figures are entitled to sign the corrected ones. Nothing is deleted, which is what makes the audit trail complete. The table guard in 20261124011100 refused ANY update to a rejected journal, which made rejection terminal at the table level as well; it is re-issued so rejected -> draft is the single permitted movement, with posted and withdrawn still immutable and the approved-figures rule unchanged. VERIFIED against a live database: round 2 sees zero prior approvals, round-1 rows survive, and round 2 completes with fresh signatures by the same people. NOT DONE: a reopened journal cannot be edited while pending (it goes back to draft first, which is the point); there is no limit on how many times a journal may be reopened, so a journal could in principle cycle indefinitely -- each cycle is a new round and needs fresh signatures, so it cannot weaken approval, but it is unbounded and an operator may want a cap; and withdrawal is still terminal, which is deliberate.",
       "evidence": [
         "supabase/migrations/20261124012000_fin_manual_journal_resubmit.sql",
         "supabase/tests/test_fin_manual_journal_resubmit.sql"
+      ]
+    }
+>>>>>>> theirs
+=======
+      "note": " EXECUTED, 24 Nov 2026: test_fin_manual_journal_resubmit.sql runs end to end on PostgreSQL 19.0 (PGlite/WASM) -- 17 statements, all pass. It had never run. THE RESUBMIT PATH WAS UNREACHABLE ON A FRESH DATABASE and this is why: 20261124011900 re-issued the two-argument refund lookup with a widened OUT list, which PostgreSQL accepts on an empty database and refuses with 42P13 'cannot change return type of existing function' on any already-provisioned one -- a migration that only applies to a virgin schema is not a migration. Both defects in this file's dependency chain (that one, and the plpgsql-body validation that made 20261124010300 unappliable) were found by running the stack, not by reading it.",
+      "evidence": [
+        "supabase/migrations/20261124012000_fin_manual_journal_resubmit.sql",
+        "supabase/tests/test_fin_manual_journal_resubmit.sql",
+        "docs/insurance-brokerage/EXECUTION_LOG.md"
       ]
     }
 >>>>>>> theirs
@@ -1750,8 +1908,14 @@
         },
         "required_evidence": "Approved behaviour specification; regression tests for the permitted and the prohibited action; a two-connection test proving the second transfer is refused.",
         "evidence_present": [
+<<<<<<< ours
           "supabase/migrations/20261124011200_fin_client_money_controls.sql",
           "supabase/tests/test_client_money_controls.sql  (single-connection permitted and prohibited paths: §1 clean transfer succeeds, §2 position test refuses)"
+=======
+          "supabase/migrations/20261124011200_fin_client_money_controls.sql  (the policy-level lock in ins_transfer_earned_commission)",
+          "supabase/tests/test_client_money_controls.sql  (single-connection permitted and prohibited paths: §1 clean transfer succeeds, §2 position test refuses) -- EXECUTED, 24 Nov 2026, PostgreSQL 19.0 (PGlite/WASM), 21 statements, all pass",
+          "docs/insurance-brokerage/EXECUTION_LOG.md  (harness, shims, and the fixture defects that execution exposed)"
+>>>>>>> theirs
         ],
         "evidence_missing": [
           "A two-connection concurrency test. The existing harness (scripts/test-ins-cancellation-cash-concurrency.ts) requires a local disposable *_cash_test database and two psql connections. It could not be run in the environment where this change was verified: no psql client and no Docker. THE LOCK IS THEREFORE UNPROVEN. It is correct by reading and by PostgreSQL's documented semantics for SELECT ... FOR UPDATE, and that is all."
@@ -1771,7 +1935,12 @@
           "an unconfigured company acquires no manual-journal approval level, while a refund from the same company still falls back to its mandatory second finance approver;",
           "a 60,000,000 journal routes to level 2 and is refused at submission with FIN_MANUAL_JOURNAL_LEVEL and stays in draft; a 40,000,000 one submits;",
           "ins_posting_role_readiness() reports an unmapped claims account, flips to mapped when one is assigned, and names the same account ins_claim_contra_account resolves;",
+<<<<<<< ours
           "supabase/tests/test_ins_claims_account_readiness.sql passed verbatim."
+=======
+          "supabase/tests/test_ins_claims_account_readiness.sql passed verbatim.",
+          "Re-run of the migration stack and five test files, 24 Nov 2026, on PostgreSQL 19.0 (PGlite/WASM): 143/143 migrations apply to an empty database, and test_fin_manual_journal_chain, test_fin_manual_journal_currency, test_fin_manual_journal_resubmit, test_fin_manual_journals and test_client_money_controls all pass. Six defects that made migrations unappliable or controls unreachable were found by this and are listed in EXECUTION_LOG.md; four assertions that contradicted the product were corrected against the implementing function."
+>>>>>>> theirs
         ],
         "evidence_explicitly_not_established": [
           "Full document creation and persistence",
@@ -1808,7 +1977,11 @@
         "subject": "Manual journals routed above approval level 1: a refusal replaced by an approval chain (B12)",
         "classification": "deliberate_behaviour_change",
         "approved": true,
+<<<<<<< ours
         "approved_by": "reviewer, 22 November 2026 -- approved in principle, conditional on eight named controls. Five are met; one is not (C4, currency); two are partial (C5 resubmission, C8 resubmission audit). The row remains a production-go-live blocker until those three are resolved and the evidence is executed.",
+=======
+        "approved_by": "reviewer, 22 November 2026 -- approved in principle, conditional on eight named controls. As of 24 November 2026 all eight are met: C1 routed journal enters workflow; C2 levels in sequence; C3 maker-checker separation; C4 thresholds and roles applied against amount, CURRENCY and transaction type (B14); C5 a rejection stops the chain and returns the journal for correction (B15); C6 posted journals immutable, corrected by reversal; C7 missing configuration fails closed; C8 audit preserves every submission, approval, rejection and resubmission (B15). The evidence for the manual-journal chain, the currency key, the resubmit path and the single/multi-level paths has been EXECUTED, not merely written: see docs/insurance-brokerage/EXECUTION_LOG.md. The row remains a production-go-live blocker only for AE3 (no document workflow demonstrated) and AE4 (no UAT), which are separate rows and are not satisfied by executing guards.",
+>>>>>>> theirs
         "behaviour_specification": {
           "what_changed": "A manual journal routed to a level above 1 used to be REFUSED AT SUBMISSION with FIN_MANUAL_JOURNAL_LEVEL. It is now accepted for submission and held: it posts only when every level from 1 to the routed level has been approved, in order, by distinct people holding the role each level names, none of them the person who raised it.",
           "which_actions_become_unavailable": "The action that becomes genuinely unavailable is the one that was never correct: posting a routed journal on a single signature. Concretely, a user holding only the finance role can no longer complete a routed journal alone; the person who raised a journal can no longer approve it at any level, including as a company administrator; one person can no longer take two levels of the same journal; and approving a level whose role you do not hold is refused. The one refusal that was removed -- submitting a routed journal -- was a wall, not a control, because it blocked the entry entirely rather than routing it.",
@@ -1846,8 +2019,13 @@
             "id": "C5",
             "requirement": "A rejection must stop the chain and return the journal for correction or cancellation.",
 <<<<<<< ours
+<<<<<<< ours
             "status": "partially_met",
             "note": "Stopping the chain is met: a rejection at any level closes the journal as rejected, records the level that refused it, and posts nothing (§10). RETURNING IT FOR CORRECTION IS NOT MET: 'rejected' is terminal, so the only correction is to raise a new journal. That is safe but it is not what the condition asks for, and it splits the audit trail across two journals."
+=======
+            "status": "met",
+            "note": "Both halves now hold. Stopping the chain was already true: a rejection at any level closes the journal, records the level that refused it, and posts nothing. Returning it FOR CORRECTION is now built (B15): fin_reopen_manual_journal takes a rejected journal back to draft, limited to the raiser or a company administrator, and only with a reason. Only 'rejected' can be reopened -- a posted journal is still corrected by reversal, a withdrawn one stays withdrawn."
+>>>>>>> theirs
 =======
             "status": "met",
             "note": "Both halves now hold. Stopping the chain was already true: a rejection at any level closes the journal, records the level that refused it, and posts nothing. Returning it FOR CORRECTION is now built (B15): fin_reopen_manual_journal takes a rejected journal back to draft, limited to the raiser or a company administrator, and only with a reason. Only 'rejected' can be reopened -- a posted journal is still corrected by reversal, a withdrawn one stays withdrawn."
@@ -1869,8 +2047,13 @@
             "id": "C8",
             "requirement": "Audit history must preserve every submission, approval, rejection and resubmission.",
 <<<<<<< ours
+<<<<<<< ours
             "status": "partially_met",
             "note": "Submission, per-level approval and rejection are recorded: fin_manual_journal_approvals holds an append-only row per decision with its level, stage, the role required on the day and the comment, and log_platform_event records submission, each level approval and the post. RESUBMISSION IS NOT MET because no resubmission path exists (see C5). A journal submitted by a company with no chain configured also writes no chain event, which is correct but worth knowing when reading the trail."
+=======
+            "status": "met",
+            "note": "Submission, per-level approval, rejection, reopening and posting are all recorded, and now on the SAME journal rather than split across a replacement. fin_manual_journal_approvals carries an append-only row per decision with its round, level, stage, the role required on the day and the comment; nothing is deleted when a journal is reopened, so the rejected round remains readable beside the corrected one. log_platform_event records submission, each level approval, the rejection, the reopen and the post. RESIDUAL: a journal submitted by a company with no chain configured writes no chain event, which is correct but worth knowing when reading the trail."
+>>>>>>> theirs
 =======
             "status": "met",
             "note": "Submission, per-level approval, rejection, reopening and posting are all recorded, and now on the SAME journal rather than split across a replacement. fin_manual_journal_approvals carries an append-only row per decision with its round, level, stage, the role required on the day and the comment; nothing is deleted when a journal is reopened, so the rejected round remains readable beside the corrected one. log_platform_event records submission, each level approval, the rejection, the reopen and the post. RESIDUAL: a journal submitted by a company with no chain configured writes no chain event, which is correct but worth knowing when reading the trail."
@@ -1880,6 +2063,7 @@
         "required_evidence": "Tests for single-level and multi-level approval; tests proving the correct approval order; tests proving maker-checker separation; tests proving missing configuration blocks posting safely; and an end-to-end routed-journal test demonstrating submission through final posting.",
         "evidence_present": [
           "supabase/migrations/20261124011700_fin_manual_journal_chain.sql  (the chain; RLS makes fin_manual_journal_approvals writable only by fin_decide_manual_journal)",
+<<<<<<< ours
           "supabase/tests/test_fin_manual_journal_chain.sql  (single-level §1 and §1b; multi-level and order §2; ledger untouched until the last signature §4; maker-checker §5; one person cannot take two levels §6; wrong role §7; company admin may sign any level §7b; unheld role unconfigured §8; sequence gap refused §9; rejection stops the chain §10; queue §11; direct insert refused §12; §3 is the submission-through-posting path) -- WRITTEN, PARSE-CHECKED, NOT RUN",
           "supabase/tests/test_fin_manual_journals.sql  (§6c rewritten: the old assertion that a routed journal CANNOT BE SUBMITTED is replaced by the assertion that it waits for every level) -- PARSE-CHECKED, NOT RUN",
           "supabase/migrations/20261124011900_fin_approval_currency_key.sql  (currency in the routing key; all five live routing cases exercised against a database)",
@@ -1889,6 +2073,16 @@
           "supabase/tests/test_fin_manual_journal_currency.sql  (currency tiers, fail-closed null currency, untrimmed codes) -- WRITTEN, PARSE-CHECKED, NOT RUN",
           "supabase/migrations/20261124012000_fin_manual_journal_resubmit.sql  (rejected -> draft, approval rounds; round scoping verified against a live database)",
           "supabase/tests/test_fin_manual_journal_resubmit.sql  (reopen limits; round opens with zero approvals; rejected-round history preserved; same people may sign the new round; raiser still refused; round on every decision) -- WRITTEN, PARSE-CHECKED, NOT RUN"
+>>>>>>> theirs
+=======
+          "supabase/tests/test_fin_manual_journal_chain.sql  (single-level §1 and §1b; multi-level and order §2; ledger untouched until the last signature §4; maker-checker §5; one person cannot take two levels §6; wrong role §7; company admin may sign any level §7b; unheld role unconfigured §8; sequence gap refused §9; rejection stops the chain §10; queue §11; direct insert refused §12; §3 is the submission-through-posting path) -- EXECUTED, 24 Nov 2026, on PostgreSQL 19.0 (PGlite/WASM): the whole file passes",
+          "supabase/tests/test_fin_manual_journals.sql  (§6c rewritten: the old assertion that a routed journal CANNOT BE SUBMITTED is replaced by the assertion that it waits for every level) -- PARSE-CHECKED, NOT RUN",
+          "supabase/migrations/20261124011900_fin_approval_currency_key.sql  (currency in the routing key; all five live routing cases exercised against a database)",
+          "supabase/tests/test_fin_manual_journal_currency.sql  (currency tiers, fail-closed null currency, untrimmed codes) -- EXECUTED, 24 Nov 2026, on PostgreSQL 19.0 (PGlite/WASM): the whole file passes",
+          "supabase/migrations/20261124012000_fin_manual_journal_resubmit.sql  (rejected -> draft, approval rounds; round scoping verified against a live database)",
+          "supabase/tests/test_fin_manual_journal_resubmit.sql  (reopen limits; round opens with zero approvals; rejected-round history preserved; same people may sign the new round; raiser still refused; round on every decision) -- EXECUTED, 24 Nov 2026, on PostgreSQL 19.0 (PGlite/WASM): the whole file passes",
+          "docs/insurance-brokerage/EXECUTION_LOG.md  (what was run, on what, with which shims, and what it does not establish)",
+          "supabase/tests/harness/run-migrations-and-tests.mjs  (the runner: applies all 143 migrations to an empty database, then executes each named test file statement by statement; prints every shim it applies)"
 >>>>>>> theirs
         ],
         "evidence_missing": [
@@ -1905,6 +2099,9 @@
 }
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
