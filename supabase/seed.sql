@@ -889,6 +889,26 @@ begin
   select id into v_line_prop  from ins_product_lines where tenant_id = v_t and code = 'PROP';
   select id into v_line_med   from ins_product_lines where tenant_id = v_t and code = 'MED';
 
+  -- 4b. Insurer commission terms. Binding fails closed when neither an approved
+  --     insurer agreement nor a reviewed company setting names a commission
+  --     recognition mode (INS_COMMISSION_RECOGNITION_UNSET, 20261124011000), so each
+  --     seeded insurer gets an approved term before any policy is bound. The mode is
+  --     on_insurer_settlement, which is what an unconfigured company used to get, so
+  --     the seeded journals and the specs that read them are unchanged.
+  --     Inserted directly (as with the regulatory parameters below) because the
+  --     approve RPC needs is_company_admin and the only seeded company admin
+  --     belongs to another tenant. The table's own CHECKs still hold: approved_by
+  --     differs from proposed_by, and both are real users of this company.
+  --     effective_from is set well back so it covers every seeded inception date.
+  insert into ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select v_t, i.id, 'on_insurer_settlement', current_date - 400, 'approved',
+         'Seed: UAT placement agreement',
+         'Seed data: commission is recognised when the insurer net item is settled.',
+         v_u_fin_m, v_u_admin, now()
+    from (values (v_ins_a), (v_ins_b), (v_ins_c)) as i(id);
+
   -- 5. Clients, policies and a claim, through the app RPCs as the account manager.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_u_mgr, 'role', 'authenticated')::text, true);
