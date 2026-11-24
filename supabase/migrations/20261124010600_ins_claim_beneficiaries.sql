@@ -234,7 +234,10 @@ declare
   v_claim   ins_claims%rowtype;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- ins_claims carries no currency of its own: a claim belongs to a policy, and the
@@ -242,6 +245,9 @@ declare
   -- not exist, which is how this was first written.
   v_ccy     text;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -260,6 +266,10 @@ begin
    where id = p_claim_id and tenant_id = v_tenant for update;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 >>>>>>> theirs
@@ -304,7 +314,11 @@ begin
       case when nullif(v_elem ->> 'fixed_amount', '') is not null
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
            then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
+=======
+           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
+>>>>>>> theirs
 =======
            then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
 >>>>>>> theirs
@@ -488,6 +502,10 @@ declare
   v_claim  ins_claims%rowtype;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_ccy    text;
+>>>>>>> theirs
 =======
   v_ccy    text;
 >>>>>>> theirs
@@ -509,6 +527,11 @@ begin
   end if;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
@@ -549,7 +572,11 @@ begin
       v_tenant, v_claim.id, v_no, (v_elem ->> 'expected_on')::date,
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       (v_elem ->> 'amount')::numeric, v_claim.currency,
+=======
+      (v_elem ->> 'amount')::numeric, v_ccy,
+>>>>>>> theirs
 =======
       (v_elem ->> 'amount')::numeric, v_ccy,
 >>>>>>> theirs

@@ -342,10 +342,13 @@ begin
     -- Refuse the obvious structural mistakes with a sentence rather than letting a
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     -- posting fail later on a control total.
     if v_acct.is_header then
       raise exception 'FIN_MANUAL_JOURNAL_ACCOUNT: line % posts to % (%), which is a header account. Post to the account below it.', v_no, v_acct.account_code, v_acct.name;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
     -- posting fail later on a control total. gl_accounts has no header concept -- its
@@ -354,6 +357,9 @@ begin
     if v_acct.is_control_account then
       raise exception 'FIN_MANUAL_JOURNAL_ACCOUNT: line % posts to % (%), which is a control account. A manual journal may not post to a control account; post to the subledger instead.', v_no, v_acct.account_code, v_acct.name;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

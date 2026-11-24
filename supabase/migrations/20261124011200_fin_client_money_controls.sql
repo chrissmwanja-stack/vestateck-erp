@@ -129,6 +129,7 @@ begin
          client_money - client_refunds - insurer_payable - claim_payable
     from (
 <<<<<<< ours
+<<<<<<< ours
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
              coalesce(o.client_refunds, 0) as client_refunds,
@@ -139,6 +140,8 @@ begin
     ) p
    order by currency;
 =======
+=======
+>>>>>>> theirs
       -- Qualified through p: every one of these names is ALSO an OUT parameter of this
       -- function, and an unqualified reference to a name that is both an output variable
       -- and a column raises 'column reference is ambiguous' at runtime. Parsing does not
@@ -156,6 +159,9 @@ begin
    -- a column raises 'column reference is ambiguous' at runtime -- which parsing does not
    -- catch. The alias makes it unambiguously the column.
    order by p.currency;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 
@@ -349,15 +355,21 @@ declare
   v_inc  fin_client_money_incidents%rowtype;
 begin
 <<<<<<< ours
+<<<<<<< ours
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
      where p_currency is null or currency = p_currency
 =======
+=======
+>>>>>>> theirs
   -- Aliased for the same reason as the ORDER BY above: `currency` is an OUT parameter of
   -- this function too, so an unqualified column reference beside p_currency is ambiguous.
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.

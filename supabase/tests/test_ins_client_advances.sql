@@ -17,6 +17,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -25,6 +26,8 @@
 --                                                                        migration
 --                                                                        header)
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -62,6 +65,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -103,8 +109,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -355,6 +367,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
@@ -362,6 +375,8 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_refused boolean := false;
         v_release_refused boolean := false;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -392,7 +407,10 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
 -- opposite: that the advance clears 2040 and reduces AR without touching cash.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 --
@@ -402,6 +420,9 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
 -- that covers the amount. That order is the safer one and is asserted below. The balance
 -- cap itself is asserted where it is still reachable -- when the request is raised.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -412,6 +433,7 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_pol uuid;
         v_line uuid; v_insurer uuid;
         v_cash_before numeric;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -500,6 +522,8 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 begin
   -- The balance cap is enforced when the request is raised.
   perform pg_temp.jwt(pg_temp.id('maker'));
@@ -528,6 +552,9 @@ begin
   reset role;
   perform pg_temp.assert(v_refused, '§5 one finance user must not release client money alone');
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -581,6 +608,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

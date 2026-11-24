@@ -314,6 +314,110 @@ begin
   raise notice 'PASS: §7 finance-only, and a rejection leaves the ledger untouched';
 end $$;
 
+<<<<<<< ours
+=======
+-- ---------------------------------------------------------------------
+-- §6 an amount limit, when the company configures one (pack 10.2 / 11)
+-- ---------------------------------------------------------------------
+-- Section 11 asks for approval limits by amount; B7 built the engine for refunds only, so a
+-- very large manual journal still needed exactly one second person. This proves the two
+-- halves of the fix and, just as importantly, that a company which configures nothing keeps
+-- today's behaviour.
+do $$
+declare
+  v_id uuid;
+  v_lvl record;
+begin
+  -- 6a. No configuration means no extra level. This is the default, and it must not change.
+  select * into v_lvl from public.platform_approval_required_level(
+    pg_temp.id('tenant'), 100000000, 'manual_journals');
+  perform pg_temp.assert(v_lvl.stage_id is null,
+    '§6 an unconfigured company must not acquire a manual-journal limit by accident');
+
+  -- A refund, by contrast, still falls back to the minimum control (Appendix B Q2).
+  select * into v_lvl from public.platform_approval_required_level(
+    pg_temp.id('tenant'), 1, 'insurance_refunds');
+  perform pg_temp.assert(v_lvl.stage_id is null and v_lvl.approver_role = 'finance',
+    '§6 the refund default must survive the engine being generalised');
+
+  -- 6b. Configure a level-2 threshold for manual journals only.
+  insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
+    values (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+
+  select * into v_lvl from public.platform_approval_required_level(
+    pg_temp.id('tenant'), 60000000, 'manual_journals');
+  perform pg_temp.assert(v_lvl.level = 2,
+    format('§6 a 60,000,000 journal must route to level 2, got level %s', coalesce(v_lvl.level::text, 'none')));
+
+  select * into v_lvl from public.platform_approval_required_level(
+    pg_temp.id('tenant'), 40000000, 'manual_journals');
+  perform pg_temp.assert(v_lvl.stage_id is null or v_lvl.level < 2,
+    '§6 a 40,000,000 journal must stay below the configured threshold');
+
+  -- 6c. And such a journal cannot be submitted: multi-level approval is not built, so
+  -- approving it at level 1 would let it through on one signature.
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  v_id := (public.fin_create_manual_journal(
+             current_date, 'accrue the annual audit fee', 'INV-AUD-BIG',
+             jsonb_build_array(
+               jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 60000000, 'description', 'audit fee'),
+               jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 60000000, 'description', 'audit fee payable')))).id;
+  perform pg_temp.expect_error(
+    format($q$select public.fin_submit_manual_journal(%L)$q$, v_id),
+    'FIN_MANUAL_JOURNAL_LEVEL',
+    '§6 a journal above a configured level-2 threshold cannot be submitted until multi-level approval exists');
+  reset role;
+
+  raise notice 'PASS: §6 a configured manual-journal limit routes by amount, and an unconfigured company is untouched';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- §7 a per-user ceiling, independent of the stage
+-- ---------------------------------------------------------------------
+-- Section 11 asks for limits by role as well as amount. A user assigned a maximum cannot
+-- sign off above it even when the stage alone would allow it -- the same rule B7 applies to
+-- refunds.
+do $$
+declare
+  v_id uuid;
+  v_stage uuid;
+begin
+  select id into v_stage from workflow_stages
+   where tenant_id = pg_temp.id('tenant') and applies_to = 'manual_journals' and is_active
+   order by sequence_order limit 1;
+
+  insert into approval_assignments (tenant_id, user_id, workflow_stage_id, scope_type, threshold_max)
+    values (pg_temp.id('tenant'), pg_temp.id('checker'), v_stage, 'global', 1000000);
+
+  perform pg_temp.assert(
+    public.platform_approval_user_limit(pg_temp.id('tenant'), pg_temp.id('checker'), 'manual_journals') = 1000000,
+    '§7 the per-user ceiling must be read for the manual_journals chain');
+
+  -- A journal above the checker's own ceiling but below the stage threshold, so only the
+  -- per-user limit can refuse it.
+  perform pg_temp.jwt(pg_temp.id('maker'));
+  set local role authenticated;
+  v_id := (public.fin_create_manual_journal(
+             current_date, 'accrue the quarterly audit fee', 'INV-AUD-MID',
+             jsonb_build_array(
+               jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 5000000, 'description', 'audit fee'),
+               jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 5000000, 'description', 'audit fee payable')))).id;
+  perform public.fin_submit_manual_journal(v_id);
+  reset role;
+
+  perform pg_temp.jwt(pg_temp.id('checker'));
+  set local role authenticated;
+  perform pg_temp.expect_error(
+    format($q$select public.fin_decide_manual_journal(%L, 'approve', 'looks fine to me')$q$, v_id),
+    'FIN_MANUAL_JOURNAL_LIMIT',
+    '§7 a checker cannot approve above their own assigned ceiling');
+  reset role;
+
+  raise notice 'PASS: §7 the per-user ceiling refuses a signature above it';
+end $$;
+
+>>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: manual journals cannot be unbalanced, self-approved, or posted to a control account without a resolving subledger reference, and they cannot be edited after posting';
 end $$;

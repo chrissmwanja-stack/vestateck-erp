@@ -88,7 +88,10 @@ begin
     (ta, 'unearned_commission', unearned_gl);
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Appendix B Q1/Q4: the one contra-claims-expense account a write-off and a recovery
@@ -98,6 +101,9 @@ begin
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id)
     values (ta, 'ins_claim_write_off_expense', bad_debt_gl);
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -304,7 +310,13 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- Commission is refused by name.
+=======
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
+>>>>>>> theirs
 =======
   -- Commission is refused. Since Appendix B Q1 the account is configured once on the
   -- posting role, so naming a different account at the call site is itself refused --
@@ -323,6 +335,7 @@ begin
     v_refused := true;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_COMMISSION%' or sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 writing off into a commission account must be refused, got: ' || sqlerrm);
   end;
@@ -332,6 +345,8 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 naming an account other than the configured contra-claims-expense account must be refused, got: ' || sqlerrm);
   end;
@@ -339,6 +354,9 @@ begin
   -- And with no account named, the configured one is used.
   perform ins_write_off_claim(v_claim.id, 50000, null, 'insurer shortfall accepted');
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
