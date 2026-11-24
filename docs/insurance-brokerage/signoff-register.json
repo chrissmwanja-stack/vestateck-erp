@@ -1,0 +1,694 @@
+{
+  "_comment": "Source of truth for the accountant sign-off register. docs/insurance-brokerage/ACCOUNTANT_PACK.md section 16 is GENERATED from this file by scripts/gen-signoff-register.mjs. Validated in CI by scripts/check-signoff-register.mjs, which checks the setting exists with the allowed values AND that declared evidence files exist. It cannot prove accounting behaviour is correct: that is what the evidence and the reviewed_at field are for.",
+  "version": 2,
+  "policy_doc": "docs/insurance-brokerage/ACCOUNTANT_PACK.md",
+  "gates": [
+    "policy_approval",
+    "uat_acceptance",
+    "production_golive"
+  ],
+  "items": [
+    {
+      "ref": "A1",
+      "area": "Premium recognition and pre-binding advances",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Gross premium is recognised at bind as a receivable from the client and a payable to the insurer. A receipt taken before bind is a liability (unallocated client advance) until and unless a policy binds, at which point it is allocated against that policy's receivable rather than recognised as new cash.",
+      "code_state": "partial",
+      "blocking_gate": "uat_acceptance",
+      "settings": [],
+      "accounts": [
+        "1100",
+        "1020",
+        "2010",
+        "2040"
+      ],
+      "evidence": [],
+      "note": "Advance/liability account (2040) and the release-on-bind path are not built: see B2. Without them a pre-bind receipt has nowhere to sit except unallocated cash.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A2",
+      "area": "Insurer settlement: gross basis and net exceptions",
+      "approver": [
+        "accountant",
+        "legal"
+      ],
+      "decision": "The insurer payable is booked gross and commission is a separate receivable (1110), never a deduction from what the insurer is owed. A net-settlement arrangement is a controlled exception requiring a documented insurer agreement, legal confirmation, accountant approval, an effective date and audit history, scoped to that insurer agreement.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "ins.insurer_remittance_basis",
+          "allowed_values": [
+            "gross_premium",
+            "net_of_commission"
+          ],
+          "selected_value": "gross_premium",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "1100",
+        "1110",
+        "2010",
+        "4000"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_settlement_basis.sql",
+        "supabase/tests/test_ins_commission.sql"
+      ],
+      "note": "Open legal question: whether any insurer agreement may lawfully set off commission against premium without conflicting with Insurance Act s.90(3).",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A3",
+      "area": "Commission recognition methods",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Recognition follows the insurer agreement, in four selectable modes: at_placement (unconditional entitlement at bind), on_premium_collection (earned when the client's receipt covers the premium; a partial receipt earns nothing), pro_rata_on_collection (earned proportionally to premium collected), on_insurer_settlement (earned when the insurer's item is settled). Every policy must have an explicit mode in force at bind; there is no silent default.",
+      "code_state": "partial",
+      "blocking_gate": "uat_acceptance",
+      "settings": [
+        {
+          "key": "ins.commission_recognition",
+          "allowed_values": [
+            "on_insurer_settlement",
+            "at_placement",
+            "on_premium_collection",
+            "over_policy_term"
+          ],
+          "selected_value": "explicit_per_agreement",
+          "implemented": false
+        }
+      ],
+      "accounts": [
+        "1110",
+        "2020",
+        "4000"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_commission_recognition_mode.sql",
+        "supabase/tests/test_ins_commission_on_premium_collection.sql",
+        "supabase/tests/test_ins_commission_pro_rata.sql"
+      ],
+      "note": "Four modes are selectable and implemented after 20261124010000/011000; the register keeps implemented:false for A3 until test_ins_commission_pro_rata.sql has passed on a clean replay. on_premium_collection remains BINARY by design (a partial receipt earns nothing); pro_rata_on_collection is the proportional mode. over_policy_term is not implemented and cannot be selected. Fail-closed (decision 2) is in the same migration: bind refuses when no approved mode is in force.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A4",
+      "area": "Partial collection and commission clawbacks",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Where the agreement is pro-rata, commission is earned in proportion to premium collected and the unearned balance remains in 2020. On cancellation, clawback is proportional to the approved return premium and may never exceed commission previously recognised; it is absorbed by the deferred pool first, then reverses recognised income, then becomes a recoverable from operating funds, replenishing client money where necessary.",
+      "code_state": "partial",
+      "blocking_gate": "uat_acceptance",
+      "settings": [
+        {
+          "key": "ins.commission_recognition",
+          "allowed_values": [
+            "on_insurer_settlement",
+            "at_placement",
+            "on_premium_collection",
+            "over_policy_term"
+          ],
+          "selected_value": "pro_rata_on_collection",
+          "implemented": false
+        }
+      ],
+      "accounts": [
+        "2020",
+        "4000",
+        "1020"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_commission_pro_rata.sql",
+        "supabase/tests/test_ins_cancellation_posting.sql"
+      ],
+      "note": "pro_rata_on_collection is implemented by 20261124010000 (setting) and 20261124010200 (reader), with supabase/tests/test_ins_commission_pro_rata.sql as the behaviour proof. Set implemented:true ONLY once that test has passed on a clean replay -- it was written, not run, in the environment that produced this pack. The cancellation clawback ordering (deferred, then income, then recoverable) is built and tested.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A5",
+      "area": "Co-insurance accounting",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Each participating insurer carries its own participation percentage, lead status, commission rate, settlement method, recognition trigger and tax treatment. Shares must total 100% with exactly one lead insurer. The allocation of premium, commission, liabilities, receipts, remittances and cancellation adjustments follows those shares.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "1100",
+        "1110",
+        "2010",
+        "2020"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_coinsurance_charges.sql"
+      ],
+      "note": "100% / single-lead enforcement is applied at bind and at approval.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A6",
+      "area": "Cancellation, refunds and return premium",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "A cancellation preserves the original policy and financial history and distinguishes request date, effective date and financial settlement date. Return premium requested, approved, received and refunded are separate states; an approved refund is never treated as cash received, and no insurer receivable is raised merely because a refund was requested. The difference between original and return premium is never automatically brokerage income: insurer-retained short-period premium belongs to the insurer, brokerage fees only where contractually authorised, and statutory charges to their statutory recipient.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "ins.cancellation_treatment",
+          "allowed_values": [
+            "pro_rata_refund",
+            "short_rate_refund",
+            "no_refund"
+          ],
+          "selected_value": "pro_rata_refund",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "2010",
+        "2030",
+        "2020",
+        "4000",
+        "4100"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_cancellation_calculation.sql",
+        "supabase/tests/test_ins_cancellation_posting.sql",
+        "supabase/tests/test_ins_cancellation_cash.sql"
+      ],
+      "note": "Three separate cancellation date fields are not yet modelled (only effective_date exists today): see B4.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A7",
+      "area": "Claims accounting and recoveries",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Insurer-direct claims record administration, the insurer's decision and payment evidence, and never create brokerage cash, bank or payable entries. Brokerage-managed claims record the insurer receivable, funds received, the claimant payable and payments. Internal approval alone never creates a payment posting. Recoveries (overpayments, third-party, insurer underpayment, instalment) and authorised write-offs are recognised separately and never as a reduction of commission.",
+      "code_state": "partial",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "1120",
+        "2030"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_claim_payments.sql",
+        "supabase/tests/test_ins_claim_reserve_revisions.sql",
+        "supabase/tests/test_ins_claim_documents.sql"
+      ],
+      "note": "The two operating models, excess handling and reserve revisions are built. The stage model is not yet extended and recoveries/write-offs are absent: see B5, B8.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A8",
+      "area": "Foreign currency and revaluation",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Books remain in UGX. The policy exchange rate at bind is preserved and is not replaced by later market rates except through an authorised amendment or reversal. Original currency value, the UGX equivalent at bind, the settlement rate and realised and unrealised gain or loss are tracked separately, with rate overrides before bind requiring authority, reason and audit history.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "4900",
+        "4901",
+        "5910",
+        "5911",
+        "5900"
+      ],
+      "evidence": [
+        "supabase/tests/test_foreign_bind_transfer.sql",
+        "supabase/tests/test_foreign_cancellation.sql",
+        "supabase/tests/test_foreign_claims.sql"
+      ],
+      "note": "Rates are held to 8 decimals. Revaluation runs through fin_revalue_fx at period end.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A9",
+      "area": "Migration and opening balances",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "The cut-over date is the day before production go-live. Existing policies are imported as existing business with original inception and expiry dates preserved, not treated as newly issued. Opening balances distinguish historical bills, receipts, receivables, payables, earned and deferred commission, claims balances, statutory liabilities and currency balances. Historical receipts and bills already represented in opening balances are not re-posted. Every migrated record carries a migration identifier and traceable source. Material unexplained differences prevent migration approval.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "migration.earned_commission_treatment",
+          "allowed_values": [
+            "opening_balances",
+            "other_approved"
+          ],
+          "selected_value": "opening_balances",
+          "implemented": true
+        },
+        {
+          "key": "migration.partially_paid_import",
+          "allowed_values": [
+            "full_billed_plus_receipts",
+            "verified_opening_balances_only"
+          ],
+          "selected_value": "full_billed_plus_receipts",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "3900",
+        "3200"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_import_opening_from_history.sql",
+        "supabase/tests/test_ins_import_control_totals.sql",
+        "supabase/tests/test_ins_opening_acceptance_gate.sql"
+      ],
+      "note": "Opening balances are gated: one post per company, and a correction requires an explicit reopen with a reason.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A10",
+      "area": "Accounting periods and manual journals",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "A closed period may be reopened only with a documented reason, senior finance approval, independent maker-checker approval, audit history, reclosure and retention of revised period-end reports; the requester never approves their own reopening. Manual journals must balance, carry finance maker and independent checker, state evidence and reason, reference the subledger for control-account entries, and be immutable once posted, corrected only by reversal or authorised adjustment. Manual journals must not silently create a difference between the general ledger and an operational subledger.",
+      "code_state": "partial",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "*"
+      ],
+      "evidence": [
+        "supabase/tests/test_fin_period_controls.sql"
+      ],
+      "note": "Period controls and the reversal rule exist. A manual-journal path with maker-checker and a subledger-reference requirement does not: see B6.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A11",
+      "area": "Financial approval limits",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Approval limits are configurable by transaction type, amount, currency, role, level and branch, applied separately to refunds, insurer remittances, commission transfers, claim payments, intermediary commissions and manual journals, with multi-level approval, escalation, effective dates and audit history. Splitting a transaction to stay under a threshold is prevented.",
+      "code_state": "not_built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [],
+      "evidence": [
+        "supabase/tests/test_ins_finance_pending_approvals.sql"
+      ],
+      "note": "Maker-checker per transaction type is built; amount-based limits and split prevention are not. See B7. This is the item most likely to block a production gate.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A12",
+      "area": "Client-money accounting and reconciliation",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Client money is strictly separated from operating money: separate bank accounts with distinct GL accounts, corresponding client-money liability and control accounts, tracking of amounts owed to insurers, clients and beneficiaries, prevention of transfers leaving the client-money position short, commission transfers only where entitlement is established, and appropriate approvals and audit history. A designated officer completes a daily client-money reconciliation and a separate person independently reviews it, comparing bank balance, cashbook, client-money liabilities, unallocated advances, available commission and unmatched items; missed reconciliations are escalated. A suspected shortage raises a high-priority alert and incident record, notifies management, restricts commission transfers and non-essential withdrawals, and requires independent approval to release those restrictions, distinguishing a genuine shortage from delayed bank feeds.",
+      "code_state": "partial",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "1020",
+        "1000",
+        "1100",
+        "2010",
+        "2020"
+      ],
+      "evidence": [
+        "supabase/tests/test_fin_bank_accounts.sql",
+        "supabase/tests/test_bank_reconciliation.sql",
+        "supabase/tests/test_ins_policy_cash.sql"
+      ],
+      "note": "Bank-account and GL segregation is enforced hard. The daily reconciliation artefact, reviewer independence, escalation and the transfer-time shortage test are absent: see B9.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A13",
+      "area": "Statutory charges and remittances",
+      "approver": [
+        "accountant",
+        "legal"
+      ],
+      "decision": "Statutory charges are versioned catalogue entries naming legal basis, insurance class, calculation basis, rate, exemptions, collector, remitter, statutory recipient, payable account and effective date. No unverified rate may be active as a mandatory production charge. The Insurance Training Levy (0.5% of gross direct premium) is verified; the IRA levy and stamp duty are not and must remain inactive until an instrument is cited.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "ins.statutory_charge_enforcement",
+          "allowed_values": [
+            "advisory",
+            "required"
+          ],
+          "selected_value": "advisory",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "2060",
+        "2070",
+        "2080"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_statutory_charge_catalogue.sql",
+        "supabase/tests/test_ins_statutory_charges_on_policy.sql",
+        "supabase/tests/test_ins_statutory_charge_trace.sql"
+      ],
+      "note": "A rate cannot be marked verified without a source reference. enforcement=required raises the premium of every policy bound thereafter, which is why advisory is the default and why the choice is the accountant's.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A14",
+      "area": "VAT, withholding tax and broker-fee classification",
+      "approver": [
+        "accountant",
+        "tax"
+      ],
+      "decision": "Every broker fee declares its class: insurance_brokerage (exempt under Schedule 3 of the VAT Act) or other_taxable_service, the latter requiring a stated reason. The exemption is the default and departing from it is a recorded decision. Agent and intermediary commission tax treatment is configurable per agreement and never assumed uniform. Withheld tax is an asset (1210), never a reduction of revenue and never a liability of the brokerage. The former ins.broker_fee_vat setting is withdrawn; classification, not a company-wide switch, governs the treatment.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "ins.agent_commission_taxable",
+          "allowed_values": [
+            "taxable",
+            "not_taxable"
+          ],
+          "selected_value": "taxable",
+          "implemented": true
+        },
+        {
+          "key": "ins.agent_commission_wht",
+          "allowed_values": [
+            "applicable",
+            "not_applicable"
+          ],
+          "selected_value": "applicable",
+          "implemented": true
+        },
+        {
+          "key": "ins.agent_commission_basis",
+          "allowed_values": [
+            "gross_commission",
+            "net_commission"
+          ],
+          "selected_value": "gross_commission",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "4100",
+        "1200",
+        "2100",
+        "1210",
+        "2200"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_client_broker_fees.sql",
+        "supabase/tests/test_ins_agent_commission.sql",
+        "supabase/tests/test_wht_posting.sql"
+      ],
+      "note": "ins.broker_fee_vat is deleted by 20261124010000. Client-side WHT on a client-paid brokerage fee is not automatically applied and the rate is seeded unapproved: accountant confirmation is required before activation.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A15",
+      "area": "Intermediary commission accounting",
+      "approver": [
+        "accountant",
+        "legal"
+      ],
+      "decision": "Intermediary registration, agency agreements and commission accrual/payment are separate concerns. The register distinguishes insurer-appointed agents, independent brokers, sub-agents and referral partners, each agreement carrying its own rates, tax settings and accrual trigger. Accrual and payment remain subject to accountant approval of the accounting treatment and legal confirmation of Ugandan sub-agency requirements. Agents are never treated as employees.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "5010",
+        "1210",
+        "2200"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_agent_commission.sql",
+        "supabase/tests/test_ins_intermediaries.sql"
+      ],
+      "note": "Agent share is an expense (5010), not a netting of the brokerage's own commission. The expense-versus-netting question needs the accountant's confirmation.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A16",
+      "area": "Financial reporting and reconciliation",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Reporting supports PDF and Excel exports and printable layouts, filtered by date and period, branch, class, insurer, client and currency, and identifies generation date and user while distinguishing draft, pending, approved and posted. The management dashboard covers premium production, earned and deferred commission, client receivables, insurer balances and remittances, claims exposure, cancellations and refunds, client-money and operating-bank positions, foreign exchange and profitability by branch, insurer and class, with actual, forecast and pending amounts distinguished. All financial reports reconcile to the general ledger and supporting subledgers.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "*"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_reports_batch1.sql",
+        "supabase/tests/test_ins_reports_batch2.sql",
+        "supabase/tests/test_ins_reports_batch3.sql",
+        "supabase/tests/test_ins_reports_batch4.sql",
+        "supabase/tests/test_ins_dashboard_summary.sql"
+      ],
+      "note": "Actual-versus-forecast presentation is present in the production report; branch-level profitability depends on branch dimensions being populated.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A17",
+      "area": "Business day and posting-date rules (DR-46)",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Accounting dates follow the Africa/Kampala business day rather than the database's UTC date. A document's posting date, a receipt's voidable date, the closed-period test, accounting-setting lookups and statutory-parameter lookups all resolve against the Kampala day. This determines which accounting period a transaction between 00:00 and 03:00 Kampala time falls into.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [],
+      "evidence": [
+        "supabase/tests/test_fin_period_controls.sql",
+        "supabase/tests/test_ins_reports_batch1.sql"
+      ],
+      "note": "Business-date functions are business_today() and ins_local_date()/ins_local_today(). The same day applies platform-wide from 20261122090000 and 20261122100000.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A18",
+      "area": "Endorsement cancellation and financial reversal",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "An endorsement is unwound as its own approved document before a policy may be cancelled. Its credit notes are voided, its open items cleared through the endorsement clearing account, and the commission it booked is returned to unearned rather than left recognised. Nothing is deleted: the reversal is a set of journals that mirror the original line for line.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "2020",
+        "4000",
+        "1110",
+        "2010"
+      ],
+      "evidence": [
+        "supabase/tests/test_endorsement_cancellation.sql",
+        "supabase/tests/test_endorsement_posting.sql"
+      ],
+      "note": "Where commission was already transferred to operating funds, the clawback becomes a recoverable and client money is replenished.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A19",
+      "area": "Opening position, retained earnings and migration balancing",
+      "approver": [
+        "accountant"
+      ],
+      "decision": "Earned commission up to cut-over is carried in opening balances through retained earnings (3200) and only the unearned remainder is deferred in 2020. Opening balances post through the opening balance clearing account (3900) and must balance to zero before the position is accepted. A correction after posting requires an explicit reopen with a recorded reason.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [
+        {
+          "key": "migration.earned_commission_treatment",
+          "allowed_values": [
+            "opening_balances",
+            "other_approved"
+          ],
+          "selected_value": "opening_balances",
+          "implemented": true
+        }
+      ],
+      "accounts": [
+        "3900",
+        "3200",
+        "2020"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_import_opening_from_history.sql",
+        "supabase/tests/test_ins_opening_acceptance_gate.sql"
+      ],
+      "note": "Control totals are re-applied across the gate-hole fixes of 20261110180000 and 20261111090000.",
+      "reviewed_at": null
+    },
+    {
+      "ref": "A20",
+      "area": "Broker-fee classification and its accounting and tax treatment",
+      "approver": [
+        "accountant",
+        "tax"
+      ],
+      "decision": "A brokerage fee is a distinct supply from premium and from a statutory charge, recognised in 4100, and is VAT-exempt by default as an insurance service. A separate non-brokerage service is classified other_taxable_service with a stated reason and is standard-rated at the governance-held rate. Fee classification, not a company-level switch, governs the treatment.",
+      "code_state": "built",
+      "blocking_gate": "production_golive",
+      "settings": [],
+      "accounts": [
+        "4100",
+        "1200",
+        "2100"
+      ],
+      "evidence": [
+        "supabase/tests/test_ins_client_broker_fees.sql"
+      ],
+      "note": "Fees invoiced before 17 November 2026 keep their VAT because that output tax was declared.",
+      "reviewed_at": null
+    }
+  ],
+  "unbuilt": [
+    {
+      "ref": "B1",
+      "feature": "pro_rata_on_collection commission recognition",
+      "requirement": "Commission recognised in proportion to premium collected on agreements that are pro-rata rather than binary.",
+      "accounting_impact": "Allows commission income to be earned gradually; keeps the uncollected portion in 2020. Without it a pro-rata agreement is either recognised too early (at_placement) or too late (whole commission on final receipt).",
+      "status": "not_built",
+      "depends_on": [
+        "A3",
+        "A4"
+      ],
+      "acceptance": "A partial collection of 50% of premium earns exactly 50% of commission, the remainder stays in 2020, a further collection earns the balance, and voiding a receipt reverses only the portion that receipt earned.",
+      "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B2",
+      "feature": "Unallocated client advances",
+      "requirement": "A receipt taken before bind is held as a client-money liability (2040) and released against the policy receivable when a policy binds, or refunded.",
+      "accounting_impact": "Without it a pre-bind receipt is either unallocated cash or wrongly recognised premium. The liability must never be netted against insurer payable.",
+      "status": "not_built",
+      "depends_on": [
+        "A1"
+      ],
+      "acceptance": "A receipt with no policy creates a 2040 credit and no receivable; binding a policy allocates it and clears 2040; an unallocated advance is visible on the client statement as a liability and is refundable.",
+      "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B3",
+      "feature": "Fail-closed commission-mode selection",
+      "requirement": "Binding refuses unless an explicit recognition mode is approved and in force for that policy's insurer agreement. No silent fallback to on_insurer_settlement.",
+      "accounting_impact": "Prevents an unclassified insurer agreement from being accounted for on the historic default, which overstates or understates earned commission depending on the true agreement.",
+      "status": "not_built",
+      "depends_on": [
+        "A3"
+      ],
+      "acceptance": "A policy on an insurer with no configured mode cannot bind and the error names the insurer and the missing setting; configuring the mode allows the bind and the chosen mode is frozen into the accounting snapshot.",
+      "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B4",
+      "feature": "Three cancellation dates",
+      "requirement": "Cancellation request date, effective date and financial settlement date are recorded separately, with evidence required for a backdated effective date.",
+      "accounting_impact": "Decides which period a cancellation posts to and prevents a settlement date being used as the coverage date.",
+      "status": "not_built",
+      "depends_on": [
+        "A6"
+      ],
+      "acceptance": "A cancellation requested in period 1, effective in period 2 and settled in period 3 posts to the settlement period while reporting its effective date; a backdated effective date without evidence is refused.",
+      "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B5",
+      "feature": "Extended claim stage model",
+      "requirement": "Eight stages: reported, assessed, internally approved, insurer confirmed, funded, partially paid, fully paid, closed, plus the Coverage under review and Payment disputed states.",
+      "accounting_impact": "Internal approval must not create a payment posting; recognition must follow the insurer's confirmation, and a disputed payment must not be recognised as settled.",
+      "status": "not_built",
+      "depends_on": [
+        "A7"
+      ],
+      "acceptance": "A claim moves through all eight stages with an audit row each; internal approval creates no journal; insurer confirmation creates the receivable; partial payment leaves a visible balance; a disputed payment is excluded from settled totals.",
+      "blocks": "uat_acceptance"
+    },
+    {
+      "ref": "B6",
+      "feature": "Manual journals with maker-checker",
+      "requirement": "A manual-journal path requiring a balanced entry, finance maker and independent checker, evidence and reason, subledger reference for control accounts, immutability, and reversal instead of editing.",
+      "accounting_impact": "Without it any correction outside the documented flows happens as raw SQL, which has no maker-checker and no subledger reconciliation.",
+      "status": "not_built",
+      "depends_on": [
+        "A10"
+      ],
+      "acceptance": "A manual journal cannot post unbalanced, cannot be approved by its maker, cannot post to a control account without a subledger reference, and cannot be edited after posting.",
+      "blocks": "production_golive"
+    },
+    {
+      "ref": "B7",
+      "feature": "Approval limits and split prevention",
+      "requirement": "Amount-based approval limits by transaction type, currency, role, level and branch, with escalation, plus detection of transaction splitting.",
+      "accounting_impact": "A control, not a posting: it governs who may release refunds, remittances, commission transfers and claim payments.",
+      "status": "not_built",
+      "depends_on": [
+        "A11"
+      ],
+      "acceptance": "A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split.",
+      "blocks": "production_golive"
+    },
+    {
+      "ref": "B8",
+      "feature": "Claims recoveries and write-offs",
+      "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
+      "accounting_impact": "Recoveries must not be recorded as negative commission; write-offs need authorisation and their own expense line.",
+      "status": "not_built",
+      "depends_on": [
+        "A7"
+      ],
+      "acceptance": "A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account.",
+      "blocks": "production_golive"
+    },
+    {
+      "ref": "B9",
+      "feature": "Daily client-money reconciliation and shortage response",
+      "requirement": "A daily reconciliation prepared by one officer and independently reviewed, with a client-money position test at commission-transfer time, escalation of missed reconciliations, and a shortage incident flow.",
+      "accounting_impact": "Client-money protection. Without the position test a transfer can leave the client-money account short even though each individual posting was valid.",
+      "status": "not_built",
+      "depends_on": [
+        "A12"
+      ],
+      "acceptance": "A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released.",
+      "blocks": "production_golive"
+    },
+    {
+      "ref": "B10",
+      "feature": "Beneficiaries, death claims and instalment settlements",
+      "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
+      "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
+      "status": "not_built",
+      "depends_on": [
+        "A7"
+      ],
+      "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+      "blocks": "uat_acceptance"
+    }
+  ]
+}
