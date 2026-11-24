@@ -175,8 +175,9 @@ returns table (currency char(3), payable numeric, held numeric, total numeric)
     set search_path to 'public', 'pg_temp'
     as $$
   with c as (
-    select cl.id, cl.tenant_id, cl.approved_amount, cl.currency
+    select cl.id, cl.tenant_id, cl.approved_amount, pol.currency::char(3) as currency
       from ins_claims cl
+      join ins_policies pol on pol.id = cl.policy_id and pol.tenant_id = cl.tenant_id
      where cl.id = p_claim_id and cl.tenant_id = p_tenant_id
   ), b as (
     select bn.*,
@@ -232,43 +233,6 @@ create or replace function public.ins_set_claim_beneficiaries(
 declare
   v_tenant  uuid := get_my_tenant_id();
   v_claim   ins_claims%rowtype;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-  -- ins_claims carries no currency of its own: a claim belongs to a policy, and the
-  -- policy holds the currency. Read from there rather than from a column that does
-  -- not exist, which is how this was first written.
-  v_ccy     text;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
   v_elem    jsonb;
   v_no      integer := 0;
   v_pct_total numeric := 0;
@@ -282,30 +246,6 @@ begin
   end if;
   select * into v_claim from ins_claims
    where id = p_claim_id and tenant_id = v_tenant for update;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
@@ -342,31 +282,7 @@ begin
       nullif(v_elem ->> 'share_pct', '')::numeric,
       nullif(v_elem ->> 'fixed_amount', '')::numeric,
       case when nullif(v_elem ->> 'fixed_amount', '') is not null
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
            then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
-=======
-           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
->>>>>>> theirs
       coalesce(nullif(v_elem ->> 'status', ''), 'payable'),
       nullif(btrim(coalesce(v_elem ->> 'held_reason', '')), ''),
       auth.uid()
@@ -542,30 +458,6 @@ create or replace function public.ins_schedule_claim_instalments(
 declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-  v_ccy    text;
->>>>>>> theirs
-=======
-  v_ccy    text;
->>>>>>> theirs
-=======
-  v_ccy    text;
->>>>>>> theirs
-=======
-  v_ccy    text;
->>>>>>> theirs
-=======
-  v_ccy    text;
->>>>>>> theirs
-=======
-  v_ccy    text;
->>>>>>> theirs
   v_elem   jsonb;
   v_no     integer := 0;
   v_sum    numeric := 0;
@@ -579,36 +471,6 @@ begin
   if not found then
     raise exception 'INS_NOT_FOUND: claim';
   end if;
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
-=======
-  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
-  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
->>>>>>> theirs
   if v_claim.recognised_at is null then
     raise exception 'INS_CLAIM_NOT_RECOGNISED: recognise the claim before scheduling instalments against it';
   end if;
@@ -639,31 +501,7 @@ begin
       tenant_id, claim_id, instalment_no, expected_on, amount, currency, notes, created_by
     ) values (
       v_tenant, v_claim.id, v_no, (v_elem ->> 'expected_on')::date,
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
       (v_elem ->> 'amount')::numeric, v_claim.currency,
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
-=======
-      (v_elem ->> 'amount')::numeric, v_ccy,
->>>>>>> theirs
       nullif(btrim(coalesce(v_elem ->> 'notes', '')), ''), auth.uid()
     );
   end loop;

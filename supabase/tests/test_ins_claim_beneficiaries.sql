@@ -77,7 +77,7 @@ begin
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'BEN-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, name, account_type) values (ta, 'Bereaved client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Bereaved client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Bereaved client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'individual', v_party) returning id into v_client;

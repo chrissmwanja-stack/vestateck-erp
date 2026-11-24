@@ -86,7 +86,7 @@ begin
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
     values (ta, 'CLM-TRUST', 'client_money', 'UGX', trust_gl) returning id into v_bank;
 
-  insert into accounts(tenant_id, name, account_type) values (ta, 'Claim client', 'client') returning id into v_party;
+  insert into accounts(tenant_id, account_code, name, account_type) values (ta, 'T-' || substr(gen_random_uuid()::text, 1, 8), 'Claim client', 'client') returning id into v_party;
   insert into bd_clients(tenant_id, name) values (ta, 'Claim client') returning id into v_bd;
   insert into ins_clients(tenant_id, client_id, client_type, party_account_id)
     values (ta, v_bd, 'corporate', v_party) returning id into v_client;
@@ -340,139 +340,6 @@ begin
   raise notice 'PASS: §7 coverage under review blocks recognition of insurer liability';
 end $$;
 
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
--- ---------------------------------------------------------------------
--- §8 repudiation is the ninth state, and it keeps its grounds (Appendix B Q3)
--- ---------------------------------------------------------------------
--- The accountant accepted repudiation as a ninth stage and attached conditions: it must
--- stay distinguishable from a paid claim and from a merely closed one, it must record the
--- insurer's decision, date, reason and correspondence, and it must be reopenable.
---
--- Note that before this section existed, NOTHING could set a claim to 'repudiated'. The
--- value was in the CHECK and reported by ins_claim_stage(), but no function wrote it, so
--- the state was reportable and unreachable.
-do $$
-declare
-  v_claim   ins_claims%rowtype;
-  v_policy  uuid;
-  v_refused boolean := false;
-  v_stage   text;
-  v_events  integer;
-begin
-  v_policy := pg_temp.make_policy();
-
-  perform pg_temp.jwt(pg_temp.id('mgr'));
-  set local role authenticated;
-  v_claim := ins_create_claim(v_policy, current_date - 5, current_date - 4,
-                              'Storm damage to roof', 'REP-REF-1', 300000);
-
-  -- 8a. A repudiation with no reference behind it is refused: a claim declined with
-  -- nothing to point at cannot be reviewed or challenged.
-  begin
-    perform ins_set_claim_repudiation(v_claim.id, current_date, 'Insurer declined: wear and tear', '   ');
-    raise exception 'FAIL: §8 a repudiation with no reference must be refused';
-  exception when others then
-    if sqlerrm not like 'INS_REPUDIATION_REFERENCE%' then raise; end if;
-  end;
-
-  -- 8b. With grounds, it records the state and the evidence.
-  perform ins_set_claim_repudiation(
-    v_claim.id, current_date - 1,
-    'Insurer declined: pre-existing wear and tear, not storm damage',
-    'DECL-2026-0912');
-  reset role;
-
-  select * into v_claim from ins_claims where id = v_claim.id;
-  perform pg_temp.assert(v_claim.status = 'repudiated',
-    '§8 the claim must be stored as repudiated');
-  perform pg_temp.assert(v_claim.repudiation_reference = 'DECL-2026-0912',
-    '§8 the insurer''s decision reference must be kept, got ' || coalesce(v_claim.repudiation_reference, '(null)'));
-  perform pg_temp.assert(v_claim.repudiation_date = current_date - 1,
-    '§8 the insurer''s decision date must be kept');
-
-  v_stage := ins_claim_stage(v_claim.id);
-  perform pg_temp.assert(v_stage = 'repudiated',
-    '§8 the stage must report repudiation rather than closing the claim, got ' || coalesce(v_stage, '(none)'));
-
-  select count(*) into v_events from ins_claim_events
-   where claim_id = v_claim.id and to_status = 'repudiated';
-  perform pg_temp.assert(v_events = 1,
-    '§8 the repudiation must leave exactly one audit row, got ' || v_events);
-
-  -- 8c. The grounds cannot be quietly rewritten while the claim stays repudiated.
-  perform pg_temp.jwt(pg_temp.id('mgr'));
-  set local role authenticated;
-  begin
-    perform set_config('ins.via_rpc', 'on', true);
-    update ins_claims set repudiation_reason = 'changed my mind' where id = v_claim.id;
-    raise exception 'FAIL: §8 the grounds for a repudiation must not be rewritable';
-  exception when others then
-    if sqlerrm not like 'INS_REPUDIATION_IMMUTABLE%' then raise; end if;
-  end;
-
-  -- 8d. It can be reopened, and the grounds survive the reopening.
-  perform ins_reopen_claim(v_claim.id, 'Insurer reversed its decision after a loss adjuster review');
-  reset role;
-
-  select * into v_claim from ins_claims where id = v_claim.id;
-  perform pg_temp.assert(v_claim.status = 'assessing',
-    '§8 reopening returns the claim to assessing, got ' || v_claim.status);
-  perform pg_temp.assert(v_claim.repudiation_reference = 'DECL-2026-0912',
-    '§8 reopening must keep the record of what the insurer decided');
-  perform pg_temp.assert(v_claim.repudiation_reopened_at is not null,
-    '§8 reopening must be dated so the gap is visible');
-  perform pg_temp.assert(ins_claim_stage(v_claim.id) = 'assessed',
-    '§8 a reopened claim is assessed again, got ' || coalesce(ins_claim_stage(v_claim.id), '(none)'));
-
-  -- 8e. Only a repudiated claim is reopened this way.
-  v_refused := false;
-  perform pg_temp.jwt(pg_temp.id('mgr'));
-  set local role authenticated;
-  begin
-    perform ins_reopen_claim(v_claim.id, 'trying again');
-  exception when others then
-    v_refused := true;
-    perform pg_temp.assert(sqlerrm like 'INS_CLAIM_STATE%',
-      '§8 reopening a claim that is not repudiated must be refused as INS_CLAIM_STATE, got: ' || sqlerrm);
-  end;
-  reset role;
-  perform pg_temp.assert(v_refused, '§8 only a repudiated claim may be reopened');
-
-  raise notice 'PASS: §8 repudiation is a ninth state with recorded grounds, and it can be reopened';
-end $$;
-
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: the eight stages follow the ledger, internal approval posts nothing, confirmation posts the receivable, and review states gate recognition';
 end $$;

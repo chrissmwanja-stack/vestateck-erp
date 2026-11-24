@@ -67,33 +67,3 @@ python3 scripts/verification/extract.py <file.sql> "create or replace function p
 `$$`. Searching for a newline-preceded `$$;` runs straight past the object and returns the
 next one too, which produced a false "this function is fine" reading exactly once. The whole
 point of this helper is to make that mistake hard to repeat.
-<<<<<<< ours
-<<<<<<< ours
-=======
-=======
->>>>>>> theirs
-
-## `insert_column_check.py` — does a test's INSERT actually name columns that exist?
-
-```bash
-python3 scripts/verification/insert_column_check.py supabase/tests/*.sql
-```
-
-Compares every `insert into <table> (<cols>)` against
-`docs/insurance-brokerage/schema-columns.snapshot.json`.
-
-**Why:** a committed end-to-end test inserted `currency` into `ins_commission_entries`, a
-column that has never existed in the baseline or in any migration, and separately created a
-bound policy with `status = 'active'` while leaving `bound_at` null and
-`net_premium_to_insurer` unset, violating `ins_policies_bound_check`. Both would have
-failed at the file's own fixture, before a single control was exercised. Neither is visible
-to a parser: PostgreSQL resolves identifiers in an INSERT column list only when the
-statement runs.
-
-**Read a clean run narrowly.** It proves there are no column-name typos. It cannot see a
-NOT NULL column you forgot to supply, a CHECK you violate, or a trigger that refuses the row
-— and all three occur in the same file this was written for.
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs

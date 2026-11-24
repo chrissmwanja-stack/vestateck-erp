@@ -144,7 +144,7 @@ begin
   end loop;
 end $$;
 
-revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public;
+revoke all on function public.platform_ins_escalate_missed_reconciliations(uuid, date) from public, anon, authenticated;
 grant execute on function public.platform_ins_escalate_missed_reconciliations(uuid, date) to service_role;
 
 comment on function public.platform_ins_escalate_missed_reconciliations(uuid, date) is

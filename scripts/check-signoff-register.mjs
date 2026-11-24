@@ -144,90 +144,9 @@ for (const section of ['items', 'unbuilt']) {
   }
 }
 
-<<<<<<< ours
-<<<<<<< ours
 console.log(
   `\n${register.items.length} policy items, ${register.unbuilt.length} unbuilt items, ` +
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked.`
-=======
-=======
->>>>>>> theirs
-// ---------------------------------------------------------------------------
-// Acceptance evidence
-// ---------------------------------------------------------------------------
-// Added because the register could otherwise be satisfied by building things. The
-// distinction that matters to a reviewer is not "is it built" but "how much has been
-// demonstrated": executing a guard is not executing a workflow, and neither is UAT.
-// These rules make an upgrade of that claim a visible edit rather than a silent one.
-const ae = register.acceptance_evidence;
-if (!ae) {
-  fail('register.acceptance_evidence is missing -- every pack must state how far its claims are demonstrated');
-} else {
-  const levels = new Set(Object.keys(ae.levels ?? {}));
-  if (!levels.size) fail('acceptance_evidence.levels is empty');
-  const aeSeen = new Set();
-  let aeEvidence = 0;
-
-  for (const row of ae.items ?? []) {
-    const where = `acceptance evidence ${row.ref ?? '(no ref)'}`;
-    if (!row.ref) { fail(`${where}: missing ref`); continue; }
-    if (!/^AE\d+$/.test(row.ref)) fail(`${where}: ref must match /^AE\\d+$/`);
-    if (aeSeen.has(row.ref)) fail(`${where}: duplicate ref`);
-    aeSeen.add(row.ref);
-    if (seen.has(row.ref)) fail(`${where}: ref collides with an A/B item ref`);
-    if (aeSeen.size && !levels.has(row.classification)) {
-      fail(`${where}: classification "${row.classification}" is not one of ${[...levels].join(', ')}`);
-    }
-    if (!gates.has(row.blocking_gate) && row.blocking_gate !== null) {
-      fail(`${where}: blocking_gate "${row.blocking_gate}" is not one of ${[...gates].join(', ')} (or null)`);
-    }
-
-    // A deliberate behaviour change is only approved if it says what it blocks, when, and
-    // how a mistaken action is corrected. A change that cannot answer those is not specified.
-    if (row.classification === 'deliberate_behaviour_change') {
-      const spec = row.behaviour_specification;
-      if (!spec) { fail(`${where}: a deliberate behaviour change needs a behaviour_specification`); continue; }
-      for (const field of ['what_changed', 'which_actions_become_unavailable', 'trigger_condition',
-                           'observable_effect', 'harm_prevented', 'authorised_correction_route']) {
-        if (!spec[field] || String(spec[field]).length < 10) {
-          fail(`${where}: behaviour_specification.${field} is missing or too short to be a specification`);
-        }
-      }
-      if (row.approved !== true) fail(`${where}: the reviewer approved this change; approved must be true`);
-      if (!row.approved_by) fail(`${where}: approved_by is required when approved is true`);
-    }
-
-    // Guard-level evidence must not quietly become acceptance. If a row claims this level it
-    // must carry something it was run against, and must state what it does NOT establish.
-    if (row.classification === 'guard_level_verification') {
-      if (!(row.evidence_present ?? []).length) {
-        fail(`${where}: guard-level verification with no evidence_present`);
-      }
-      if (!(row.evidence_explicitly_not_established ?? []).length) {
-        fail(`${where}: guard-level verification must list what it does not establish`);
-      }
-    }
-
-    // Anything not yet approved must not carry evidence, or the next reader will read the
-    // evidence as acceptance.
-    if (row.approved === false && (row.evidence_present ?? []).length) {
-      fail(`${where}: approved is false but evidence_present is not empty -- move it to the row that owns it`);
-    }
-
-    for (const e of row.evidence_present ?? []) {
-      if (e.includes('/') && !e.includes(' ')) { evidenceCount++; aeEvidence++; }
-    }
-  }
-}
-
-console.log(
-  `\n${register.items.length} policy items, ${register.unbuilt.length} unbuilt items, ` +
-  `${settingCount} setting assertions, ${evidenceCount} evidence files checked, ` +
-  `${ae?.items?.length ?? 0} acceptance-evidence rows.`
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
 );
 
 if (process.exitCode) {
