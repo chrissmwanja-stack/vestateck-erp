@@ -17,9 +17,17 @@
 --
 --   BUILT   account 2040, the posting role, the advance subledger, taking an
 --           advance, refunding it, and the client statement.
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
+=======
+--   BUILT (from 20261124010500)   releasing an advance to a policy, once the
+--           subledger gained a non-cash movement (fin_open_item_dispositions).
+--           The first cut of this migration refused it, correctly, because no such
+--           mechanism existed; the reasoning is kept at the end of this header
+--           because it explains why the release is posted the way it is.
+>>>>>>> theirs
 --
 -- I did not discover this by assuming: I checked every mechanism against the live
 -- guards, and the design that looks obvious does not work.
@@ -52,10 +60,17 @@
 -- signed-off decision because it adds a third consumption source to the subledger
 -- -- which is precisely the kind of change the accountant pack exists to gate.
 --
+<<<<<<< ours
 -- Until then an advance can be taken and refunded but not applied, which still
 -- removes the AR overstatement for money taken before a policy exists. Calling
 -- ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than
 -- posting something that cannot reconcile.
+=======
+-- That was the state at this migration. 20261124010500 supplies the reclass source
+-- (fin_open_item_dispositions), so the release in section 7 is now a real posting
+-- and the earlier refusal has been replaced. The analysis above is kept because it
+-- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
+>>>>>>> theirs
 
 -- ---------------------------------------------------------------------
 -- 1. Platform reference data: the account and the role
@@ -584,12 +599,32 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+<<<<<<< ours
 -- 7. ins_apply_client_advance: not available yet, and says so
 -- ---------------------------------------------------------------------
 -- Registered as B11 (blocking production go-live). Deliberately a hard refusal:
 -- a stub that silently returned would let the UI report an advance as released
 -- while 2040 still carried it, which is worse than a missing feature. The reason
 -- it cannot be implemented on the current schema is in the header.
+=======
+-- 7. ins_apply_client_advance: release the advance to a policy
+-- ---------------------------------------------------------------------
+-- Pack criterion: "binding a policy allocates it and clears 2040".
+--
+-- This was refused in the first cut of B2 because the subledger had no way to move
+-- a party balance without cash. 20261124010500 supplies it (fin_open_item_dispositions),
+-- so the release is now a real posting:
+--
+--     Dr 2040 unallocated client advances   (the advance item falls)
+--     Cr 1100 accounts receivable control   (the premium it paid stops being owed)
+--
+-- Cash does not move: it arrived at receipt and moving it again would double-count
+-- client money. The premium item itself is NOT swept in on its own: if the advance
+-- is the whole payment, the premium item is cleared by the normal receipt path as
+-- before. What this guarantees is the liability side -- 2040 falls by exactly the
+-- amount released, and the subledger agrees because the disposition counts as
+-- consumption.
+>>>>>>> theirs
 create or replace function public.ins_apply_client_advance(
   p_advance_id uuid,
   p_policy_id uuid,
@@ -599,11 +634,24 @@ create or replace function public.ins_apply_client_advance(
     language plpgsql security definer
     set search_path to 'public', 'pg_temp'
     as $$
+<<<<<<< ours
 declare v_adv ins_client_advances%rowtype;
+=======
+declare
+  v_tenant   uuid := get_my_tenant_id();
+  v_adv      ins_client_advances%rowtype;
+  v_policy   ins_policies%rowtype;
+  v_adv_item fin_open_items%rowtype;
+  v_premium  fin_open_items%rowtype;
+  v_ar_gl    uuid;
+  v_open     numeric;
+  v_disp     fin_open_item_dispositions%rowtype;
+>>>>>>> theirs
 begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
   end if;
+<<<<<<< ours
 
   select * into v_adv from ins_client_advances
    where id = p_advance_id and tenant_id = get_my_tenant_id();
@@ -613,6 +661,93 @@ begin
 
   raise exception 'INS_ADVANCE_RELEASE_NOT_AVAILABLE: advance % is recorded on 2040 and cannot yet be released to a policy. Releasing it is a cross-control-account reclass, and the subledger has no source for one (fin_open_item_consumed counts settlements and same-role credit notes only). Refund the advance, or register the receipt against the premium directly once the policy exists. Tracked as B11.',
     v_adv.id;
+=======
+  if not is_finance_team_member('finance') then
+    raise exception 'INS_ADVANCE_FINANCE: releasing a client advance requires the finance role' using errcode = '42501';
+  end if;
+
+  select * into v_adv from ins_client_advances
+   where id = p_advance_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_NOT_FOUND: advance % is not on this company', p_advance_id;
+  end if;
+  if v_adv.status = 'refunded' then
+    raise exception 'INS_ADVANCE_REFUNDED: advance % has already been refunded', v_adv.id;
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'INS_ADVANCE_AMOUNT: the amount to apply must be greater than zero';
+  end if;
+
+  select * into v_policy from ins_policies
+   where id = p_policy_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_POLICY: policy % is not on this company', p_policy_id;
+  end if;
+
+  -- Client money is client money: A's advance cannot pay B's premium.
+  if v_policy.client_id is distinct from v_adv.client_id then
+    raise exception 'INS_ADVANCE_PARTY: advance % belongs to a different client than policy %; client money cannot be applied across clients',
+      v_adv.id, v_policy.policy_no;
+  end if;
+  if v_policy.status not in ('bound','active','endorsed','renewed') then
+    raise exception 'INS_ADVANCE_POLICY_STATE: policy % is %; an advance can only be applied to a bound policy',
+      v_policy.policy_no, v_policy.status;
+  end if;
+
+  v_open := public.fin_open_item_consumed(v_adv.open_item_id);
+  if v_open + p_amount > v_adv.amount - v_adv.refunded_amount then
+    raise exception 'INS_ADVANCE_EXCEEDS: advance % has % available, % cannot be applied',
+      v_adv.id, v_adv.amount - v_adv.refunded_amount - v_open, p_amount;
+  end if;
+
+  select * into v_adv_item from fin_open_items
+   where id = v_adv.open_item_id and tenant_id = v_tenant for update;
+  if not found then
+    raise exception 'INS_ADVANCE_ITEM: the open item for advance % is missing', v_adv.id;
+  end if;
+
+  -- The policy must owe something for the advance to be paying it.
+  select * into v_premium from fin_open_items
+   where tenant_id = v_tenant and source_type = 'ins_policy_premium'
+     and source_id = v_policy.id and side = 'receivable'
+   order by created_at limit 1;
+  if not found then
+    raise exception 'INS_ADVANCE_NO_PREMIUM: policy % has no premium receivable to release the advance against', v_policy.policy_no;
+  end if;
+  if v_premium.currency <> v_adv.currency then
+    raise exception 'INS_ADVANCE_CURRENCY: the advance is in %, the policy premium is in %',
+      v_adv.currency, v_premium.currency;
+  end if;
+  if v_premium.party_account_id is distinct from v_adv_item.party_account_id then
+    raise exception 'INS_ADVANCE_PARTY: the advance and the policy premium are held against different client accounts';
+  end if;
+
+  v_ar_gl := get_posting_account(v_tenant, 'ar_control');
+  if v_ar_gl is null then
+    raise exception 'INS_ADVANCE_ACCOUNT: this company has no ar_control posting rule';
+  end if;
+
+  v_disp := public.ins_dispose_open_item(
+    v_adv.open_item_id,
+    'advance_release',
+    p_amount,
+    v_ar_gl,
+    coalesce(nullif(btrim(p_notes), ''),
+             'Advance released against ' || v_policy.policy_no),
+    current_date);
+
+  update ins_client_advances
+     set applied_amount = applied_amount + p_amount,
+         applied_policy_id = coalesce(applied_policy_id, p_policy_id),
+         applied_at = now(),
+         journal_entry_id = coalesce(journal_entry_id, v_disp.journal_entry_id),
+         status = case when applied_amount + p_amount + refunded_amount >= amount
+                       then 'applied' else 'partly_applied' end
+   where id = v_adv.id
+  returning * into v_adv;
+
+  return v_adv;
+>>>>>>> theirs
 end;
 $$;
 

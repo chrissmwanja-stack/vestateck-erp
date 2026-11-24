@@ -5,6 +5,7 @@
 -- The pack's criteria, and which of them this file proves:
 --
 --   "A receipt with no policy creates a 2040 credit and no receivable"   §1
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -12,14 +13,26 @@
 --                                                                        see the
 --                                                                        migration
 --                                                                        header)
+=======
+--   "binding a policy allocates it and clears 2040"                      §5
+--                                                                        (B11's
+--                                                                        disposition
+--                                                                        primitive)
+>>>>>>> theirs
 --   "an unallocated advance is visible on the client statement"          §3
 --   "and is refundable"                                                  §4
 --
 -- §2 proves the part of the AR criterion that matters most: taking an advance does
 -- NOT create a receivable, so AR is not overstated by money paid before the policy.
 --
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 --
 -- One transaction, rolled back. Disposable database only.
 -- =====================================================================
@@ -198,12 +211,28 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
 declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_temp.id('tenant'));
         v_refused boolean := false;
         v_release_refused boolean := false;
+=======
+-- §5 over-refunding is refused, and the release now works
+-- ---------------------------------------------------------------------
+-- This section previously asserted that the release refused with
+-- INS_ADVANCE_RELEASE_NOT_AVAILABLE. That was true of the first cut of B2, before
+-- 20261124010500 gave the subledger a non-cash movement. It now has to prove the
+-- opposite: that the advance clears 2040 and reduces AR without touching cash.
+do $$
+declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_temp.id('tenant'));
+        v_refused boolean := false;
+        v_adv_row ins_client_advances%rowtype;
+        v_pol uuid;
+        v_line uuid; v_insurer uuid;
+        v_cash_before numeric;
+>>>>>>> theirs
 begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
   set local role authenticated;
@@ -214,6 +243,7 @@ begin
     perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
       '§5 over-refund should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
   end;
+<<<<<<< ours
 
   -- The release is refused by name, not silently.
   begin
@@ -228,6 +258,49 @@ begin
   perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
   perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
   raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
+=======
+  reset role;
+  perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
+
+  -- A bound policy for the same client, so the advance has something to pay.
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  insert into ins_product_lines(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADV', 'Advance line') returning id into v_line;
+  insert into ins_insurers(tenant_id, code, name) values (pg_temp.id('tenant'), 'ADVINS', 'Advance Insurer') returning id into v_insurer;
+  v_pol := ins_create_policy(pg_temp.id('client'), v_insurer, v_line,
+                             current_date, current_date + 300, 1000000, 'UGX', 1000000, 10,
+                             null, null, 'Advance release policy', null);
+  reset role;
+  insert into ins_policy_insurer_shares
+    (tenant_id, policy_id, insurer_id, is_lead, share_pct, commission_rate_pct, reviewed)
+  values (pg_temp.id('tenant'), v_pol, v_insurer, true, 100, 10, true);
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform ins_submit_policy_for_approval(v_pol);
+  reset role;
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  perform ins_bind_policy(v_pol);
+  reset role;
+
+  v_cash_before := pg_temp.balance(pg_temp.id('trust'), true);
+
+  perform pg_temp.jwt(pg_temp.id('mgr'));
+  set local role authenticated;
+  v_adv_row := public.ins_apply_client_advance(v_adv, v_pol, 300000, 'released against the bound policy');
+  reset role;
+
+  perform pg_temp.assert(v_adv_row.applied_amount = 300000,
+    format('§5 applied_amount should be 300,000, got %s', v_adv_row.applied_amount));
+  perform pg_temp.assert(v_adv_row.applied_policy_id = v_pol,
+    '§5 the advance should record the policy it was released against');
+  -- 2040 is a liability: releasing reduces the credit, so credit-positive falls by 300,000.
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('adv'), true) = 200000,
+    format('§5 2040 should fall to 200,000, got %s', pg_temp.balance(pg_temp.id('adv'), true)));
+  perform pg_temp.assert(pg_temp.balance(pg_temp.id('trust'), true) = v_cash_before,
+    '§5 releasing an advance must not move cash');
+  raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
+>>>>>>> theirs
 end $$;
 
 -- ---------------------------------------------------------------------

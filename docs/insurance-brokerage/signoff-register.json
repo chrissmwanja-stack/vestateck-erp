@@ -661,16 +661,27 @@
     },
     {
       "ref": "B8",
+<<<<<<< ours
       "feature": "Claims recoveries and write-offs",
       "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "not_built",
+=======
+      "feature": "Claims recoveries (not built) and write-offs (built)",
+      "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
+      "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
+      "status": "partial",
+>>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account.",
       "blocks": "production_golive",
+<<<<<<< ours
       "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
+=======
+      "note": "Write-offs are BUILT on the disposition primitive: ins_write_off_claim reduces the claim payable into a named expense account, refuses commission accounts, and leaves an ins_claim_events audit row. The absorbing account is an OPEN QUESTION in Appendix B -- the code takes it as an argument rather than choosing. Recoveries (raising a recovery against a claim, allocating it when received, never touching commission accounts) are still NOT BUILT and are the next increment. The B11 blocker that previously covered both is resolved for write-offs."
+>>>>>>> theirs
     },
     {
       "ref": "B9",
@@ -686,14 +697,22 @@
     },
     {
       "ref": "B10",
+<<<<<<< ours
       "feature": "Beneficiaries, death claims and instalment settlements",
       "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
       "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
       "status": "not_built",
+=======
+      "feature": "Beneficiaries, death claims and instalment settlements (built)",
+      "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
+      "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
+      "status": "built",
+>>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
       "blocks": "uat_acceptance"
 <<<<<<< ours
@@ -726,6 +745,32 @@
 >>>>>>> theirs
 =======
       "note": "Verified against the live guards: fin_credit_applications_guard requires a note and its item to share side and control_role, so a note cannot move value from a 2040 payable to an AR receivable; a journal alone does not move fin_open_item_consumed(), which counts only posted settlements and posted same-role credit notes; a settlement cannot stand in because it names a bank account and posts Dr bank / Cr control, moving cash that did not move; subledger_only settlements require a cash_bank_transactions row. Preferred fix: add fin_open_item_reclasses (journal + two open items, no bank) and count it in fin_open_item_consumed. Needs its own sign-off because it adds a consumption source. Until then ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than posting something unreconcilable. Second confirmation: claim write-offs (B8) need the same missing primitive, so one schema change unblocks both that and advance release."
+>>>>>>> theirs
+=======
+      "blocks": "uat_acceptance",
+      "note": "Built on the existing claim payable item; no new accounting primitive was needed. Percentage OR fixed allotments, either alone or mixed, must total the approved claim amount -- a death benefit that allocates only part of itself would leave an amount nobody is entitled to. The held-share rule is enforced by a DEFERRED constraint trigger, because the claim has ONE open item and the payment rows are inserted after the settlement: only a deferred check sees the whole transaction. A held share contributes nothing to what is payable and is never redistributed. Editing allotments is refused if it would put payable below what has already been paid, which is how a dispute would otherwise be nullified after the money went out. Instalments carry expected date, actual date, amount and evidence, and settle the existing approved balance -- the test asserts the accrual journal count is unchanged after a second instalment. Death claims require the representative and the authority relied on (probate, letters of administration, mandate).",
+      "evidence": [
+        "supabase/migrations/20261124010600_ins_claim_beneficiaries.sql",
+        "supabase/tests/test_ins_claim_beneficiaries.sql"
+      ]
+    },
+    {
+      "ref": "B11",
+      "feature": "Non-cash party-balance movement (dispositions) -- built",
+      "requirement": "An advance held on 2040 can be released against a bound policy of the same client: 2040 falls, AR falls, cash does not move, and both open items show the consumption.",
+      "accounting_impact": "Without this an advance can be taken and refunded but never applied, so premium paid before placement stays on 2040 until it is either refunded or posted again. 2040 is correct; the mechanism to clear it against a policy is missing.",
+      "accounting_basis": "The subledger records party-balance movement in exactly two ways: settlement allocations (cash) and same-role credit notes. A cross-role reclass is a third kind, and does not exist.",
+      "status": "built",
+      "depends_on": [
+        "B2"
+      ],
+      "acceptance": "A release of 250,000 leaves 2040 down by 250,000 and AR down by 250,000 with the bank unchanged; the open item shows the consumption; over-release is refused; a write-off reduces 2030 into the named expense account; commission accounts are refused; a control account cannot be the counterparty; a disposition cannot be edited or deleted.",
+      "blocks": "production_golive",
+      "note": "Built as one primitive serving both needs. fin_open_item_dispositions records a non-cash movement of a party balance, and fin_open_item_consumed() now counts posted dispositions as a third source, so every existing guard and the ageing view see the reduced balance without being touched. The consumption arithmetic moved into fin_open_item_consumption_v so the function and fin_open_item_balances cannot disagree. Advance release is Dr 2040 / Cr AR, forced by double entry. A write-off needs an account the policy chooses, so the caller MUST name it: it must be a non-control account and it may not be a commission account. Choosing that account here would be the software inventing accounting policy. OPEN QUESTION for the accountant (Appendix B): which account absorbs a claim write-off.",
+      "evidence": [
+        "supabase/migrations/20261124010500_fin_open_item_dispositions.sql",
+        "supabase/tests/test_fin_open_item_dispositions.sql"
+      ]
 >>>>>>> theirs
     }
   ]
