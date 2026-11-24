@@ -645,7 +645,12 @@
         "A10"
       ],
       "acceptance": "A manual journal cannot post unbalanced, cannot be approved by its maker, cannot post to a control account without a subledger reference, and cannot be edited after posting.",
+<<<<<<< ours
       "blocks": "production_golive"
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS 24 Nov 2026: there is no user-facing manual journal at all. post_journal_entry() is not executable by `authenticated` (verified: anon=false, authenticated=false, service_role=true), so users cannot post an arbitrary journal today. That means three of the four criteria are met by ABSENCE rather than by control: nothing can be posted unbalanced, nothing can be edited after posting, and there is no maker to approve their own entry, because there is no entry to make. The feature itself does not exist. B6 is therefore a real build, not a hardening task: a manual journal needs a maker-checker workflow, a control-account-with-subledger-reference rule, and a posting path that reuses post_journal_entry under a SECURITY DEFINER wrapper. Smaller than the register implied in one respect -- there is no existing unguarded path to close -- but it adds a new posting surface, which is the opposite of a safe small change."
+>>>>>>> theirs
     },
     {
       "ref": "B7",
@@ -657,6 +662,7 @@
         "A11"
       ],
       "acceptance": "A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split.",
+<<<<<<< ours
       "blocks": "production_golive"
     },
     {
@@ -674,10 +680,20 @@
       "status": "partial",
 >>>>>>> theirs
 =======
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS 24 Nov 2026: a threshold-routing engine ALREADY EXISTS and is reusable. workflow_stages has threshold_amount, approver_role, next_stage_low_id/next_stage_high_id (low/high routing), blocks_offer_submitter_approval and is_finance_terminal_stage; approval_assignments has threshold_max; approval_actions records the decisions. BUT all 14 configured stages have applies_to='requests' with procurement roles (Cost Control Engineer, Procurement & Logistics Chief, Project Manager...). No insurance refusal or refund is wired into it, so there is no limit on a refund today beyond the generic finance role. Split prevention (two same-day refunds just under a limit) does not exist in any form. B7 is therefore genuinely smaller than the register implied: configure insurance refund stages with thresholds, route refunds through the existing engine, and add the split check as a query over the same table. No new approval machinery is needed."
+    },
+    {
+      "ref": "B8",
+>>>>>>> theirs
       "feature": "Claims recoveries and write-offs (built)",
       "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "built",
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       "depends_on": [
         "A7"
@@ -686,17 +702,23 @@
       "blocks": "production_golive",
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
 =======
       "note": "Write-offs are BUILT on the disposition primitive: ins_write_off_claim reduces the claim payable into a named expense account, refuses commission accounts, and leaves an ins_claim_events audit row. The absorbing account is an OPEN QUESTION in Appendix B -- the code takes it as an argument rather than choosing. Recoveries (raising a recovery against a claim, allocating it when received, never touching commission accounts) are still NOT BUILT and are the next increment. The B11 blocker that previously covered both is resolved for write-offs."
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
       "note": "Both halves are built. Write-offs: ins_write_off_claim charges the claim payable to a named expense account (20261124010500). Recoveries: ins_claim_recoveries, raised as a SEPARATE receivable with its own payer rather than as a negative claim -- an insurer underpayment is not owed by the client, and re-pricing the claim would disturb every report already relying on the approved amount. The test asserts raising a recovery leaves the approved amount and the accrual count unchanged. Commission accounts (4000/2020/1110) are refused by name at raise, per pack 7.7. Receiving goes through the ordinary settlement path so every cash guard applies. Writing off a recovery charges the loss back to the account it was credited to when raised (stored on the row, no default), so the net result on that account tells the truth. OPEN QUESTION Q4 in Appendix B: which account absorbs a recovery credit -- the code takes it as an argument.",
       "evidence": [
         "supabase/migrations/20261124010700_ins_claim_recoveries.sql",
         "supabase/tests/test_ins_claim_recoveries.sql",
         "supabase/migrations/20261124010500_fin_open_item_dispositions.sql"
       ]
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
     },
     {
@@ -709,6 +731,7 @@
         "A12"
       ],
       "acceptance": "A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released.",
+<<<<<<< ours
       "blocks": "production_golive"
     },
     {
@@ -722,11 +745,21 @@
 =======
 =======
 >>>>>>> theirs
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS 24 Nov 2026: reconciliation machinery exists but none of the three criteria do. Present: bank_reconciliations, fin_bank_reconciliation_position(), fin_bank_reconciliation_review(), ins_policy_cash_reconciliation_events, and a set of insurance cash guards (ins_policy_cash_reconciliation_guard, ins_cancellation_cash_reconciliation_guard) that enforce third-person checking and immutability of matched cash. Absent: (1) nothing refuses a transfer that would leave the client-money position negative -- platform_ins_cash_position_before_cancellation() COMPUTES the position but does not refuse on it; (2) there is no escalation for consecutive missed reconciliations -- no schedule, no counter, no notification; (3) a shortage raises no incident and blocks nothing, so client money can keep moving through a known shortage. B9 is the largest of the three because the daily-reconciliation cycle itself does not exist, only per-transaction checks."
+    },
+    {
+      "ref": "B10",
+>>>>>>> theirs
       "feature": "Beneficiaries, death claims and instalment settlements (built)",
       "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
       "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -734,6 +767,7 @@
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -772,6 +806,8 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "note": "Built on the existing claim payable item; no new accounting primitive was needed. Percentage OR fixed allotments, either alone or mixed, must total the approved claim amount -- a death benefit that allocates only part of itself would leave an amount nobody is entitled to. The held-share rule is enforced by a DEFERRED constraint trigger, because the claim has ONE open item and the payment rows are inserted after the settlement: only a deferred check sees the whole transaction. A held share contributes nothing to what is payable and is never redistributed. Editing allotments is refused if it would put payable below what has already been paid, which is how a dispute would otherwise be nullified after the money went out. Instalments carry expected date, actual date, amount and evidence, and settle the existing approved balance -- the test asserts the accrual journal count is unchanged after a second instalment. Death claims require the representative and the authority relied on (probate, letters of administration, mandate).",
       "evidence": [
@@ -797,6 +833,9 @@
         "supabase/tests/test_fin_open_item_dispositions.sql"
       ]
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

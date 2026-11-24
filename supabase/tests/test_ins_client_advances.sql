@@ -7,6 +7,7 @@
 --   "A receipt with no policy creates a 2040 credit and no receivable"   §1
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -17,11 +18,16 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      §5
 --                                                                        (B11's
 --                                                                        disposition
 --                                                                        primitive)
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -33,8 +39,14 @@
 --
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -225,6 +237,7 @@ end $$;
 -- ---------------------------------------------------------------------
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
@@ -232,6 +245,8 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_refused boolean := false;
         v_release_refused boolean := false;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- §5 over-refunding is refused, and the release now works
@@ -248,6 +263,9 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_line uuid; v_insurer uuid;
         v_cash_before numeric;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -261,6 +279,7 @@ begin
     perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
       '§5 over-refund should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
   end;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 
@@ -278,6 +297,8 @@ begin
   perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
   raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   reset role;
@@ -322,6 +343,9 @@ begin
     '§5 releasing an advance must not move cash');
   raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

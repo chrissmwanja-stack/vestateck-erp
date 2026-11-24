@@ -19,10 +19,13 @@
 --           advance, refunding it, and the client statement.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   NOT BUILT   releasing an advance to a policy. ins_apply_client_advance exists
 --           and deliberately raises: the schema has no way to do it correctly.
 --           The reason is set out below and registered as blocking work (B11).
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 --   BUILT (from 20261124010500)   releasing an advance to a policy, once the
@@ -31,6 +34,9 @@
 --           mechanism existed; the reasoning is kept at the end of this header
 --           because it explains why the release is posted the way it is.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -68,6 +74,7 @@
 --
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- Until then an advance can be taken and refunded but not applied, which still
 -- removes the AR overstatement for money taken before a policy exists. Calling
 -- ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than
@@ -75,11 +82,16 @@
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 -- That was the state at this migration. 20261124010500 supplies the reclass source
 -- (fin_open_item_dispositions), so the release in section 7 is now a real posting
 -- and the earlier refusal has been replaced. The analysis above is kept because it
 -- explains why the release is posted Dr 2040 / Cr AR rather than as a credit note.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -613,6 +625,7 @@ $$;
 -- ---------------------------------------------------------------------
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- 7. ins_apply_client_advance: not available yet, and says so
 -- ---------------------------------------------------------------------
 -- Registered as B11 (blocking production go-live). Deliberately a hard refusal:
@@ -620,6 +633,8 @@ $$;
 -- while 2040 still carried it, which is worse than a missing feature. The reason
 -- it cannot be implemented on the current schema is in the header.
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- 7. ins_apply_client_advance: release the advance to a policy
@@ -640,6 +655,9 @@ $$;
 -- amount released, and the subledger agrees because the disposition counts as
 -- consumption.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -654,8 +672,11 @@ create or replace function public.ins_apply_client_advance(
     as $$
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 declare v_adv ins_client_advances%rowtype;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 declare
@@ -668,6 +689,9 @@ declare
   v_open     numeric;
   v_disp     fin_open_item_dispositions%rowtype;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -675,6 +699,7 @@ begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
   end if;
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 
@@ -687,6 +712,8 @@ begin
   raise exception 'INS_ADVANCE_RELEASE_NOT_AVAILABLE: advance % is recorded on 2040 and cannot yet be released to a policy. Releasing it is a cross-control-account reclass, and the subledger has no source for one (fin_open_item_consumed counts settlements and same-role credit notes only). Refund the advance, or register the receipt against the premium directly once the policy exists. Tracked as B11.',
     v_adv.id;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   if not is_finance_team_member('finance') then
@@ -775,6 +802,9 @@ begin
 
   return v_adv;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
