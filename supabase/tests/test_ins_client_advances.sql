@@ -14,6 +14,7 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -22,6 +23,8 @@
 --                                                                        migration
 --                                                                        header)
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -50,6 +53,9 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -82,8 +88,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -316,6 +328,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
@@ -323,6 +336,8 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_refused boolean := false;
         v_release_refused boolean := false;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -360,6 +375,9 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -396,6 +414,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 
   -- The release is refused by name, not silently.
   begin
@@ -411,6 +430,8 @@ begin
   perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
   raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -476,6 +497,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

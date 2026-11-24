@@ -215,6 +215,10 @@ declare
   v_date     date := coalesce(p_entry_date, current_date);
   v_desc     text;
   v_version  integer;
+<<<<<<< ours
+=======
+  v_claim_status text;
+>>>>>>> theirs
 begin
   if not can_access_insurance() then
     raise exception 'INS_FORBIDDEN: insurance access required' using errcode = '42501';
@@ -328,6 +332,26 @@ begin
   )
   returning * into v_row;
 
+<<<<<<< ours
+=======
+  -- Every disposition against a claim is written to the claim's own audit trail here,
+  -- in the one place all four kinds pass through. Writing it in each kind's own caller
+  -- instead missed the recovery write-off entirely: a recovery declared uncollectable
+  -- moved the ledger and left no trace on the claim it came from.
+  if v_item.source_type in ('ins_claim_client', 'ins_claim_insurer') then
+    select c.status into v_claim_status
+      from public.ins_claims c
+     where c.id = v_item.source_id and c.tenant_id = v_tenant;
+    insert into public.ins_claim_events (tenant_id, claim_id, from_status, to_status, note)
+    values (v_tenant, v_item.source_id, v_claim_status, v_claim_status,
+            case p_kind
+              when 'claim_write_off' then 'Written off '
+              when 'claim_recovery_uncollectable' then 'Recovery written off '
+              else 'Disposed ' end
+            || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
+  end if;
+
+>>>>>>> theirs
   return v_row;
 end;
 $$;
@@ -389,7 +413,18 @@ create or replace function public.ins_write_off_claim(
   p_claim_id uuid,
   p_amount numeric,
   p_expense_gl_account_id uuid,
+<<<<<<< ours
   p_reason text
+=======
+  p_reason text,
+  -- A recognised claim leaves TWO open items from one journal: the insurer receivable
+  -- and the claimant payable. Writing off only the payable closes the claim while
+  -- leaving the receivable open for ever -- nothing would ever clear it, because the
+  -- claim it belongs to is closed. Default false preserves today's behaviour, because
+  -- whether the insurer receivable goes with it, or is chased separately, is an
+  -- accounting decision and not one this migration should take.
+  p_also_write_off_insurer boolean default false
+>>>>>>> theirs
 ) returns fin_open_item_dispositions
     language plpgsql security definer
     set search_path to 'public', 'pg_temp'
@@ -400,6 +435,10 @@ declare
   v_item   fin_open_items%rowtype;
   v_gl     gl_accounts%rowtype;
   v_row    fin_open_item_dispositions%rowtype;
+<<<<<<< ours
+=======
+  v_ins_item fin_open_items%rowtype;
+>>>>>>> theirs
   v_forbidden uuid;
 begin
   if not can_manage_insurance() then
@@ -452,19 +491,47 @@ begin
     raise exception 'INS_WRITE_OFF_NO_ITEM: claim % has no client claim payable (2030) open item; recognise the receivable before writing anything off', v_claim.claim_no;
   end if;
 
+<<<<<<< ours
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
   insert into ins_claim_events (tenant_id, claim_id, from_status, to_status, note)
   values (v_tenant, v_claim.id, v_claim.status, v_claim.status,
           'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
+=======
+  -- ins_dispose_open_item() records the claim event itself, because it is the one path
+  -- every claim disposition takes. Writing a second one here would double the trail.
+  v_row := public.ins_dispose_open_item(
+    v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
+
+  -- The insurer receivable side of the same claim. Same amount, same account, same
+  -- date, so the pair reads as one decision rather than two.
+  if p_also_write_off_insurer then
+    select * into v_ins_item from fin_open_items
+     where tenant_id = v_tenant
+       and source_type = 'ins_claim_insurer'
+       and source_id = v_claim.id
+       and control_role = 'insurer_claim_receivable'
+     order by created_at limit 1 for update;
+    if found then
+      perform public.ins_dispose_open_item(
+        v_ins_item.id, 'claim_write_off', p_amount, v_gl.id,
+        p_reason || ' (insurer receivable)', current_date);
+    end if;
+  end if;
+>>>>>>> theirs
 
   return v_row;
 end;
 $$;
 
+<<<<<<< ours
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
+>>>>>>> theirs
 
 revoke all on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) from public;
 grant execute on function public.ins_dispose_open_item(uuid, text, numeric, uuid, text, date) to authenticated;

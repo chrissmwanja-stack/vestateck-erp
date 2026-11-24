@@ -60,12 +60,15 @@ create table if not exists ins_cancellation_date_evidence (
   id                uuid primary key default gen_random_uuid(),
   tenant_id         uuid not null references tenants(id) on delete cascade,
 <<<<<<< ours
+<<<<<<< ours
   cancellation_id   uuid not null references ins_policy_cancellations(id) on delete cascade,
   -- Which of the three dates this evidence is about. Only the effective date can be
   -- backdated, but recording the subject means the table stays honest if that changes.
   about_date        text not null default 'effective' check (about_date in ('effective', 'settlement')),
   the_date          date not null,
 =======
+=======
+>>>>>>> theirs
   -- nullable on purpose: see the "why the evidence may arrive first" note under the
   -- table. Evidence is an INPUT to a backdated submission, so at the moment it is
   -- recorded the proposal it will support does not exist yet.
@@ -81,6 +84,9 @@ create table if not exists ins_cancellation_date_evidence (
   -- about is not fixed until the proposal it supports is submitted. Filled from the
   -- proposal at that moment, so the two can never disagree.
   the_date          date,
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   -- What the evidence IS, in the words of the person relying on it: a dated client
   -- instruction, an insurer cancellation notice, a registered letter. Free text is
@@ -95,20 +101,29 @@ create table if not exists ins_cancellation_date_evidence (
   unique (cancellation_id, about_date)
 );
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- One unattached evidence row per (tenant, proposal, subject date). Partial rather
 -- than a plain unique constraint: attached rows are governed by the constraint above,
 -- and their request_key is cleared, which a plain constraint would not police anyway.
 create unique index if not exists ins_cancellation_date_evidence_pending_key
   on ins_cancellation_date_evidence (tenant_id, request_key, about_date)
   where cancellation_id is null and request_key is not null;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
 comment on table ins_cancellation_date_evidence is
   'Evidence supporting a date on a cancellation. Required before an effective date earlier than the request date can be posted. One row per (cancellation, subject date).';
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- Why the evidence may arrive before the proposal it supports
 -- ----------------------------------------------------------
 -- The obvious design -- submit first, refuse, then record evidence against the
@@ -123,6 +138,9 @@ comment on table ins_cancellation_date_evidence is
 -- to the row in the same transaction. The refusal still happens at submit time, as the
 -- pack requires, but it now names an action that can actually be taken.
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 alter table ins_cancellation_date_evidence enable row level security;
 
@@ -280,14 +298,20 @@ create or replace function public.ins_record_cancellation_date_evidence(
   p_evidence_ref text,
   p_evidence_date date,
 <<<<<<< ours
+<<<<<<< ours
   p_note text default null
 =======
+=======
+>>>>>>> theirs
   p_note text default null,
   -- Give this INSTEAD of p_cancellation_id when the evidence is being captured
   -- before a backdated proposal exists -- which is the normal case, because a
   -- backdated submission is refused without it. Pass the same request key you are
   -- about to submit with; the submission consumes the evidence.
   p_request_key uuid default null
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 ) returns public.ins_cancellation_date_evidence
 language plpgsql
@@ -299,6 +323,10 @@ declare
   v_cxl    public.ins_policy_cancellations%rowtype;
   v_row    public.ins_cancellation_date_evidence%rowtype;
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_the_date date;
+>>>>>>> theirs
 =======
   v_the_date date;
 >>>>>>> theirs
@@ -308,7 +336,10 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   if p_evidence_date is null or p_evidence_date > public.ins_local_today() then
     raise exception 'INS_CANCELLATION_EVIDENCE_INPUT: the evidence date must be today or earlier';
   end if;
@@ -348,6 +379,9 @@ begin
     return v_row;
   end if;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   select * into v_cxl from public.ins_policy_cancellations
    where id = p_cancellation_id and tenant_id = v_tenant;
@@ -355,13 +389,17 @@ begin
     raise exception 'INS_NOT_FOUND: cancellation';
   end if;
 <<<<<<< ours
+<<<<<<< ours
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   if v_cxl.status = 'posted' then
     raise exception 'INS_CANCELLATION_EVIDENCE_STATE: cancellation % has already posted; evidence must be recorded before it posts, otherwise it is a justification added after the fact',
       coalesce(v_cxl.cancellation_no, v_cxl.id::text);
   end if;
+<<<<<<< ours
 <<<<<<< ours
   if p_evidence_date is null or p_evidence_date > public.ins_local_today() then
     raise exception 'INS_CANCELLATION_EVIDENCE_INPUT: the evidence date must be today or earlier';
@@ -375,6 +413,8 @@ begin
      btrim(p_evidence_kind), btrim(p_evidence_ref), p_evidence_date,
      auth.uid(), nullif(btrim(coalesce(p_note, '')), ''))
 =======
+=======
+>>>>>>> theirs
 
   v_the_date := v_cxl.effective_date;
   insert into public.ins_cancellation_date_evidence
@@ -384,12 +424,19 @@ begin
     (v_tenant, p_cancellation_id, null, 'effective', v_the_date, btrim(p_evidence_kind),
      btrim(p_evidence_ref), p_evidence_date, auth.uid(),
      nullif(btrim(coalesce(p_note, '')), ''))
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   on conflict (cancellation_id, about_date) do update
     set evidence_kind = excluded.evidence_kind,
         evidence_ref  = excluded.evidence_ref,
         evidence_date = excluded.evidence_date,
 <<<<<<< ours
+<<<<<<< ours
+=======
+        the_date      = excluded.the_date,
+>>>>>>> theirs
 =======
         the_date      = excluded.the_date,
 >>>>>>> theirs
@@ -401,9 +448,14 @@ begin
   return v_row;
 end $$;
 <<<<<<< ours
+<<<<<<< ours
 
 revoke all on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text) from public, anon;
 grant execute on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text) to authenticated;
+=======
+revoke all on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text, uuid) from public, anon;
+grant execute on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text, uuid) to authenticated;
+>>>>>>> theirs
 =======
 revoke all on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text, uuid) from public, anon;
 grant execute on function public.ins_record_cancellation_date_evidence(uuid, text, text, date, text, uuid) to authenticated;
@@ -606,11 +658,14 @@ set search_path to 'public', 'pg_temp'
 as $$
 declare
 <<<<<<< ours
+<<<<<<< ours
   v_status text;
 begin
   select c.status into v_status from public.ins_policy_cancellations c
    where c.id = coalesce(old.cancellation_id, new.cancellation_id);
 =======
+=======
+>>>>>>> theirs
   v_id     uuid := coalesce(new.cancellation_id, old.cancellation_id);
   v_status text;
 begin
@@ -621,6 +676,9 @@ begin
     return coalesce(new, old);
   end if;
   select c.status into v_status from public.ins_policy_cancellations c where c.id = v_id;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   if v_status = 'posted' then
     raise exception 'INS_CANCELLATION_EVIDENCE_STATE: evidence for a posted cancellation cannot be changed or removed';
@@ -639,11 +697,14 @@ create trigger ins_cancellation_date_evidence_guard
 -- 7. Say it at submit time, too
 -- ---------------------------------------------------------------------
 <<<<<<< ours
+<<<<<<< ours
 -- Same function, called from the submission path, so the person entering a backdated
 -- cancellation is told before Finance ever sees it. The body is identical to the
 -- version in 20261108000100 apart from writing the cancellation number, calling the
 -- check, and making the request date explicit.
 =======
+=======
+>>>>>>> theirs
 -- Re-issued from 20261108000200. It is a re-issue rather than an edit because the
 -- submission path has to consume the evidence, and the check cannot simply be bolted
 -- on the end: see the "why the evidence may arrive first" note under section 2.
@@ -654,6 +715,9 @@ create trigger ins_cancellation_date_evidence_guard
 -- event row with them. That would have let a backdated cancellation be raised over the
 -- top of a live one and left the audit trail without its 'proposed' event, so the body
 -- below is the live body with the evidence handling added, not a rewrite from scratch.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 create or replace function public.ins_submit_policy_cancellation(
   p_policy_id uuid,
@@ -672,6 +736,7 @@ declare
   quote jsonb;
   v_method text;
 begin
+<<<<<<< ours
 <<<<<<< ours
   perform public.ins_policy_cash_require_finance();
 
@@ -693,6 +758,8 @@ begin
       return c;
     end if;
 =======
+=======
+>>>>>>> theirs
   -- Finance, acting as themselves. Unchanged from the live definition. B4 used to
   -- require only that SOME can_manage_insurance() user was present, which let anyone
   -- who can edit a policy raise a cash-affecting cancellation.
@@ -766,19 +833,28 @@ begin
                         and e.evidence_date <= public.ins_local_today()) then
     raise exception 'INS_CANCELLATION_BACKDATED_NO_EVIDENCE: the effective date % is earlier than today, so this is a backdated cancellation and needs the dated instruction or notice it rests on. Record it first with ins_record_cancellation_date_evidence(p_cancellation_id => null, p_request_key => %, ...) using the same request key, then submit again.',
       p_effective_date, p_request_key;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   end if;
 
   quote := public.ins_preview_policy_cancellation(p_policy_id, p_effective_date, p_insurer_terms, p_charge_refunds);
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   if exists (select 1 from public.ins_policy_cancellations
               where policy_id = p_policy_id
                 and status in ('proposed', 'prepared', 'posting', 'posted')) then
     raise exception 'INS_CANCELLATION_EXISTS: a live proposal or posted cancellation already exists';
   end if;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   insert into public.ins_policy_cancellations
     (tenant_id, policy_id, request_key, reason, effective_date, insurer_terms,
@@ -789,11 +865,14 @@ begin
   returning * into c;
 
 <<<<<<< ours
+<<<<<<< ours
   -- A backdated effective date is refused here, with the instruction that fixes it,
   -- rather than surfacing later at posting. The proposal row is left in place so the
   -- person can record the evidence and retry with the same request key.
   perform public.ins_cancellation_effective_evidence_check(c.id);
 =======
+=======
+>>>>>>> theirs
   -- Attach any evidence captured for this request key, and record the date it is
   -- evidence about now that the proposal has fixed it.
   update public.ins_cancellation_date_evidence
@@ -806,6 +885,9 @@ begin
 
   insert into public.ins_cancellation_events (tenant_id, cancellation_id, event, actor_id)
   values (c.tenant_id, c.id, 'proposed', auth.uid());
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
   return c;

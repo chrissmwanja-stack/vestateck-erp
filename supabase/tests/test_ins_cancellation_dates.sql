@@ -362,7 +362,10 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §6 the real submission path, which every other section above skips
 -- ---------------------------------------------------------------------
@@ -475,6 +478,9 @@ begin
   raise notice 'PASS: §6 a backdated cancellation is proposable, via evidence captured before the submission';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: three dates are recorded separately, a backdated effective date needs evidence, and the period comes from the cash';
