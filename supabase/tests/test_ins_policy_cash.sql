@@ -37,6 +37,27 @@ begin
   perform public.ins_decide_policy(p_id, 'approved');
   perform set_config('request.jwt.claims', coalesce(v_claims, ''), true);
 
+  -- Binding fails closed without a commission recognition mode (20261124011000):
+  -- seed an approved insurer term (on_insurer_settlement, the pre-terms default)
+  -- unless the insurer already has one or the company has configured a setting.
+  -- Maker = the original caller, checker = the approver above.
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select pol.tenant_id, pol.insurer_id, 'on_insurer_settlement', pol.inception_date - 400,
+         'approved', 'Test fixture: placement agreement',
+         'Test fixture: commission is recognised when the insurer net item is settled.',
+         (v_claims::json ->> 'sub')::uuid, v_appr, now()
+    from public.ins_policies pol
+   where pol.id = p_id
+     and not exists (select 1 from public.ins_insurer_commission_terms t
+                      where t.tenant_id = pol.tenant_id and t.insurer_id = pol.insurer_id
+                        and t.status = 'approved' and t.effective_from <= pol.inception_date
+                        and (t.effective_to is null or t.effective_to >= pol.inception_date))
+     and not exists (select 1 from public.company_accounting_settings s
+                      where s.tenant_id = pol.tenant_id and s.setting_key = 'ins.commission_recognition'
+                        and s.status = 'approved' and s.effective_from <= pol.inception_date);
+
   p := public.ins_bind_policy(p_id);
   return p;
 end $$;
