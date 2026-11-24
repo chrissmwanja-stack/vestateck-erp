@@ -217,6 +217,10 @@ declare
   v_version  integer;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_claim_status text;
+>>>>>>> theirs
 =======
   v_claim_status text;
 >>>>>>> theirs
@@ -338,7 +342,10 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- Every disposition against a claim is written to the claim's own audit trail here,
@@ -359,6 +366,9 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -423,18 +433,24 @@ create or replace function public.ins_write_off_claim(
   p_claim_id uuid,
   p_amount numeric,
 <<<<<<< ours
+<<<<<<< ours
   p_expense_gl_account_id uuid,
 <<<<<<< ours
   p_reason text
 =======
   p_reason text,
 =======
+=======
+>>>>>>> theirs
   -- Optional since Appendix B Q1. When omitted the contra-claims-expense account is
   -- resolved from the ins_claim_write_off_expense posting role, which is where the
   -- accountant put the decision. When given it must BE that account: "one account for
   -- both" is only true if a caller cannot point the write-off somewhere else.
   p_expense_gl_account_id uuid default null,
   p_reason text default null,
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   -- A recognised claim leaves TWO open items from one journal: the insurer receivable
   -- and the claimant payable. Writing off only the payable closes the claim while
@@ -444,6 +460,9 @@ create or replace function public.ins_write_off_claim(
   -- accounting decision and not one this migration should take.
   p_also_write_off_insurer boolean default false
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -459,8 +478,13 @@ declare
   v_row    fin_open_item_dispositions%rowtype;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
   v_ins_item fin_open_items%rowtype;
+>>>>>>> theirs
+=======
+  v_ins_item fin_open_items%rowtype;
+  v_contra  uuid;
 >>>>>>> theirs
 =======
   v_ins_item fin_open_items%rowtype;
@@ -484,11 +508,14 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
   select * into v_gl from gl_accounts
    where id = p_expense_gl_account_id and tenant_id = v_tenant;
   if not found then
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', p_expense_gl_account_id;
 =======
+=======
+>>>>>>> theirs
   -- Appendix B Q1/Q4: one contra-claims-expense account for the write-off and the
   -- recovery. Resolved from the posting role when not supplied.
   v_contra := coalesce(p_expense_gl_account_id, public.ins_claim_contra_account(v_tenant));
@@ -505,6 +532,9 @@ begin
    where id = v_contra and tenant_id = v_tenant;
   if not found then
     raise exception 'INS_WRITE_OFF_ACCOUNT: account % is not a GL account of this company', v_contra;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   end if;
   if v_gl.account_type not in ('expense', 'revenue') then
@@ -539,6 +569,7 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   v_row := public.ins_dispose_open_item(
     v_item.id, 'claim_write_off', p_amount, v_gl.id, p_reason, current_date);
 
@@ -546,6 +577,8 @@ begin
   values (v_tenant, v_claim.id, v_claim.status, v_claim.status,
           'Written off ' || p_amount || ' to account ' || v_gl.account_code || ': ' || btrim(p_reason));
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- ins_dispose_open_item() records the claim event itself, because it is the one path
@@ -569,6 +602,9 @@ begin
     end if;
   end if;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -579,8 +615,13 @@ $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text) to authenticated;
+=======
+revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
+grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;
+>>>>>>> theirs
 =======
 revoke all on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) from public;
 grant execute on function public.ins_write_off_claim(uuid, numeric, uuid, text, boolean) to authenticated;

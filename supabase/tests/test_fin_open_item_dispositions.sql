@@ -87,13 +87,19 @@ begin
     (ta, 'insurer_claim_receivable', recv_gl), (ta, 'commission_income', comm_gl),
     (ta, 'unearned_commission', unearned_gl);
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- Appendix B Q1/Q4: the one contra-claims-expense account a write-off and a recovery
   -- both post to. Mapped here to the fixture's bad-debt account so the existing balance
   -- assertions still describe the posting, while the account itself is now chosen by
   -- mapping rather than passed at every call.
   insert into gl_posting_rules(tenant_id, account_role, gl_account_id)
     values (ta, 'ins_claim_write_off_expense', bad_debt_gl);
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 
   insert into fin_bank_accounts(tenant_id, name, kind, currency, gl_account_id)
@@ -297,7 +303,13 @@ begin
   v_baddebt_before := pg_temp.balance(pg_temp.id('baddebt'));
 
 <<<<<<< ours
+<<<<<<< ours
   -- Commission is refused by name.
+=======
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
+>>>>>>> theirs
 =======
   -- Commission is refused. Since Appendix B Q1 the account is configured once on the
   -- posting role, so naming a different account at the call site is itself refused --
@@ -310,6 +322,7 @@ begin
   exception when others then
     v_refused := true;
 <<<<<<< ours
+<<<<<<< ours
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_COMMISSION%' or sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 writing off into a commission account must be refused, got: ' || sqlerrm);
   end;
@@ -317,12 +330,17 @@ begin
   -- The real write-off.
   perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('baddebt'), 'insurer shortfall accepted');
 =======
+=======
+>>>>>>> theirs
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 naming an account other than the configured contra-claims-expense account must be refused, got: ' || sqlerrm);
   end;
 
   -- And with no account named, the configured one is used.
   perform ins_write_off_claim(v_claim.id, 50000, null, 'insurer shortfall accepted');
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   reset role;
 

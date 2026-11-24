@@ -128,6 +128,7 @@ begin
   select currency, client_money, client_refunds, insurer_payable, claim_payable,
          client_money - client_refunds - insurer_payable - claim_payable
     from (
+<<<<<<< ours
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
              coalesce(o.client_refunds, 0) as client_refunds,
@@ -137,6 +138,25 @@ begin
         full outer join owed o on o.currency = h.currency
     ) p
    order by currency;
+=======
+      -- Qualified through p: every one of these names is ALSO an OUT parameter of this
+      -- function, and an unqualified reference to a name that is both an output variable
+      -- and a column raises 'column reference is ambiguous' at runtime. Parsing does not
+      -- catch it -- this is exactly the class of defect that only a real database finds.
+      select p.currency,
+             p.client_money,
+             p.client_refunds,
+             p.insurer_payable,
+             p.claim_payable
+        from held h
+        full outer join owed o on o.currency = h.currency
+    ) p
+   -- Qualified on purpose. `currency` is also an OUT parameter of this RETURNS TABLE
+   -- function, and an unqualified reference to a name that is both an output variable and
+   -- a column raises 'column reference is ambiguous' at runtime -- which parsing does not
+   -- catch. The alias makes it unambiguously the column.
+   order by p.currency;
+>>>>>>> theirs
 end $$;
 
 revoke all on function public.platform_ins_client_money_position(uuid, date) from public;
@@ -328,9 +348,17 @@ declare
   v_pos record;
   v_inc  fin_client_money_incidents%rowtype;
 begin
+<<<<<<< ours
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
      where p_currency is null or currency = p_currency
+=======
+  -- Aliased for the same reason as the ORDER BY above: `currency` is an OUT parameter of
+  -- this function too, so an unqualified column reference beside p_currency is ambiguous.
+  for v_pos in
+    select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
+     where p_currency is null or pos.currency = p_currency
+>>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
     if v_pos.free_money < 0 then

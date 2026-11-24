@@ -341,7 +341,10 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §8 repudiation is the ninth state, and it keeps its grounds (Appendix B Q3)
 -- ---------------------------------------------------------------------
@@ -442,6 +445,9 @@ begin
   raise notice 'PASS: §8 repudiation is a ninth state with recorded grounds, and it can be reopened';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: the eight stages follow the ledger, internal approval posts nothing, confirmation posts the receivable, and review states gate recognition';

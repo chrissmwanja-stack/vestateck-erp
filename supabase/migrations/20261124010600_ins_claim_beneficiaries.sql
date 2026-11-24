@@ -233,11 +233,17 @@ declare
   v_tenant  uuid := get_my_tenant_id();
   v_claim   ins_claims%rowtype;
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- ins_claims carries no currency of its own: a claim belongs to a policy, and the
   -- policy holds the currency. Read from there rather than from a column that does
   -- not exist, which is how this was first written.
   v_ccy     text;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   v_elem    jsonb;
   v_no      integer := 0;
@@ -253,6 +259,10 @@ begin
   select * into v_claim from ins_claims
    where id = p_claim_id and tenant_id = v_tenant for update;
 <<<<<<< ours
+<<<<<<< ours
+=======
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
 >>>>>>> theirs
@@ -293,7 +303,11 @@ begin
       nullif(v_elem ->> 'fixed_amount', '')::numeric,
       case when nullif(v_elem ->> 'fixed_amount', '') is not null
 <<<<<<< ours
+<<<<<<< ours
            then coalesce(nullif(v_elem ->> 'currency', ''), v_claim.currency) end,
+=======
+           then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
+>>>>>>> theirs
 =======
            then coalesce(nullif(v_elem ->> 'currency', ''), v_ccy) end,
 >>>>>>> theirs
@@ -473,6 +487,10 @@ declare
   v_tenant uuid := get_my_tenant_id();
   v_claim  ins_claims%rowtype;
 <<<<<<< ours
+<<<<<<< ours
+=======
+  v_ccy    text;
+>>>>>>> theirs
 =======
   v_ccy    text;
 >>>>>>> theirs
@@ -490,6 +508,11 @@ begin
     raise exception 'INS_NOT_FOUND: claim';
   end if;
 <<<<<<< ours
+<<<<<<< ours
+=======
+  -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
+  select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
+>>>>>>> theirs
 =======
   -- Currency lives on the policy, not on the claim. See the note in ins_set_claim_beneficiaries.
   select p.currency into v_ccy from ins_policies p where p.id = v_claim.policy_id;
@@ -525,7 +548,11 @@ begin
     ) values (
       v_tenant, v_claim.id, v_no, (v_elem ->> 'expected_on')::date,
 <<<<<<< ours
+<<<<<<< ours
       (v_elem ->> 'amount')::numeric, v_claim.currency,
+=======
+      (v_elem ->> 'amount')::numeric, v_ccy,
+>>>>>>> theirs
 =======
       (v_elem ->> 'amount')::numeric, v_ccy,
 >>>>>>> theirs

@@ -279,7 +279,10 @@ begin
 end $$;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- §9 the shipped stage means every refund needs a second person (Appendix B Q2)
 -- ---------------------------------------------------------------------
@@ -317,6 +320,9 @@ begin
   raise notice 'PASS: §9 every client-advance refund requires an independent second approver';
 end $$;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 do $$ begin
   raise notice 'ALL PASS: refund limits route by amount and by the approver''s own limit, self-approval is refused, splits are flagged, and the execution path enforces the approval';

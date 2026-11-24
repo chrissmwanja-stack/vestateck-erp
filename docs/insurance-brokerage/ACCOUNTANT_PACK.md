@@ -140,6 +140,9 @@ Selectable per insurer agreement.
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -175,6 +178,9 @@ money that came back.
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -188,6 +194,7 @@ insurer agreement has no configured mode **fails** and names the insurer and the
 B3, and it is the change that makes the per-agreement classification in this section actually
 load-bearing.
 
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -4841,6 +4848,423 @@ balances and remittances, claims exposure, cancellations and refunds, client-mon
 positions, foreign exchange, and profitability by branch, insurer and class, with actual, forecast and
 pending amounts distinguished.
 
+=======
+The mode is recorded **against the insurer**, as a term of the agreement, with the clause it rests
+on, an effective period and two approving signatures. The company-wide setting remains as the
+fallback for insurers with no negotiated term on file, and an agreement always outranks it. The
+order applied at bind is: the gross-settlement override, then a deliberate per-policy override,
+then the insurer's terms, then the company setting, then refusal. A per-insurer readiness report
+shows which insurers are covered and which will refuse to bind, and why.
+
+Two consequences worth stating before go-live. There is **no backfill**: existing insurers are not
+seeded with whatever mode they happen to be on today, because stamping a decision nobody made is
+the failure this control exists to prevent. Until each insurer is covered by terms or by a reviewed
+company default, policies for that insurer **will not bind** — that is the control working, but it
+is a deliberate outage risk and must be timed. And the existing `ins.commission_recognition`
+registry still advertises a fourth value, `over_policy_term`, which has no reader and cannot be
+chosen; the implemented modes are the four in this section.
+
+### 4.5 Settlement and recognition are separate dimensions
+
+Not every combination is sensible. Gross settlement with `on_premium_collection` or
+`pro_rata_on_collection` cannot coexist — under gross the premium crosses in full, so there is
+nothing left to collect — and the software refuses the combination by name at bind rather than
+silently choosing one. The remainder of the compatibility matrix is for the accountant to approve,
+particularly where net settlement changes the timing or legal basis of the entitlement.
+
+### 4.6 Confirmations required
+
+Which insurer agreements are `at_placement`, `on_premium_collection`, `pro_rata_on_collection` or
+`on_insurer_settlement`; that the collection triggers are the **client's** receipt and not the
+insurer's settlement or a credit note; that a voided receipt reverses recognition; the
+compatibility matrix; and the deferred-commission and income accounts.
+
+---
+
+## 5. Cancellations, refunds and clawbacks
+
+### 5.1 Principles
+
+A cancellation preserves the original policy and financial history. The system records three
+separate dates: cancellation requested, cancellation effective, and financial settlement. The
+effective date must be supported by insurer confirmation or another appropriate authority.
+Backdated cancellations require evidence, a reason and authorised approval. Closed periods are
+never silently rewritten.
+
+Three dates are policy and all three are now modelled (B4). The request date is the moment the
+cancellation was entered; the effective date is the coverage date; the settlement date is the period
+the cancellation financially falls into. The settlement date is derived from the cash rather than typed
+in, so a person cannot move a cancellation between periods by editing a field. A backdated effective
+date requires dated evidence, and is refused at submission and again at posting.
+
+Because the refusal happens at submission, the evidence is captured **before** the submission, against
+the same request key the proposal will be submitted with, and the submission attaches it. The refusal
+message names the function to call. This ordering is deliberate: a refusal raised after the proposal is
+written would roll the proposal back with it, leaving the evidence nothing to attach to and the same
+cancellation refused on every retry.
+
+### 5.2 Return premium
+
+Distinguish: return premium requested, approved, actually received or credited; client refund
+payable; client refund actually paid; deductions and charges. An approved refund is never treated
+as cash received, and no insurer receivable is created merely because a refund was requested. A
+separate client refund obligation may still arise where the brokerage has an independent
+contractual or legal duty to refund.
+
+### 5.3 Deductions are never automatically income
+
+| Deduction | Belongs to |
+|---|---|
+| Insurer-retained short-period premium | the insurer |
+| Brokerage cancellation fee | the brokerage, only where contractually authorised |
+| Statutory charges | the relevant statutory recipient |
+| Other authorised deductions | the appropriate beneficiary |
+
+The difference between original and return premium never becomes brokerage income by default.
+
+### 5.4 Commission clawback
+
+Proportional to the **approved** return premium, and never more than commission previously
+recognised. Where commission has already been transferred to operating funds, record the clawback
+against the original transaction, identify what is recoverable from operating funds, replenish
+client money where necessary, block further transfers if the client-money position is deficient,
+and require approval with a retained audit trail.
+
+In the ledger the clawback is absorbed in a fixed order: the deferred pool (2020) first, then
+recognised income (4000), then a recoverable from operating funds. Those are three different
+movements, not one.
+
+### 5.5 Confirmations required
+
+Credit-note and reversal entries; whether returned commission goes back to deferred or reverses
+income; treatment of transferred commission; approved-but-unpaid return premiums; the accounting
+date for a backdated cancellation; cancellation after insurer settlement.
+
+---
+
+## 6. Co-insurance
+
+Each participating insurer has independent records for participation percentage, lead status,
+commission rate, settlement method, recognition trigger, tax treatment, receipts and outstanding
+balances, and cancellation adjustments. Shares must total 100% with exactly one lead insurer;
+both are enforced at bind.
+
+The accountant must approve the allocation of premium, commission, insurer liabilities, receipts,
+remittances and cancellation adjustments across participants.
+
+---
+
+## 7. Claims
+
+### 7.1 Operating models
+
+**Insurer-direct** — the insurer pays the claimant. The system records administration, the
+insurer's decision and payment evidence, and creates **no** brokerage cash, bank or payable entry
+for funds it never handled.
+
+**Brokerage-managed** — the brokerage receives insurer funds and pays claimants. The system
+records the insurer receivable (1120), funds received, the claimant payable (2030) and payments.
+
+### 7.2 Stages
+
+The policy recognises eight stages — reported, assessed, internally approved, insurer confirmed,
+funded, partially paid, fully paid, closed — plus two states, **Coverage under review** and
+**Payment disputed**. Internal approval alone never creates a payment posting.
+
+**Repudiation is a ninth state** and is not in the list above (Appendix B Q3, awaiting the
+accountant). The schema has always carried it, and `ins_claim_stage()` reports it: a claim the
+insurer has declined is materially different from a claim that was paid, and collapsing it
+into *closed* would hide the population a claims review cares about most. The list needs the
+correction, not the code.
+
+B5 is built (`20261124010400_ins_claim_stage_model.sql`). `ins_claims.review_state` exists
+with both review states constrained, and `ins_claim_stage()` maps the six stored statuses
+onto all eight stage names. The stored statuses are still `notified, assessing, approved,
+settled, repudiated, closed`; the eight stages are derived from those plus the review state,
+the approved amount, recognitions and posted payments. Internal approval creates no posting.
+
+### 7.3–7.7 Review, late notification, death claims, instalments, recoveries
+
+A claim arising while a cancellation effective date is disputed is registered and marked
+*Coverage under review*; it is never auto-rejected and no insurer liability is recognised before
+confirmation. A claim registered after expiry is accepted where the insured event occurred during
+cover, recording incident date, client notification, insurer notification and insurer
+acknowledgement, and is flagged for review rather than rejected.
+
+Authorised representatives may report a claim after the policyholder's death. Multiple
+beneficiaries are supported on percentage or fixed allocations; percentages must total 100%;
+disputed shares are held until insurer confirmation or legal determination while undisputed shares
+may proceed; disputed shares are never redistributed automatically.
+
+Instalments each carry their own expected date, actual payment date, amount and evidence, and a
+subsequent receipt settles the existing approved balance rather than creating fresh recognition. A
+disputed direct payment is marked *Payment disputed* until resolved, with the original evidence and
+the dispute retained.
+
+Excess rules are configurable by policy terms, class, insurer agreement and claim type; authorised
+overrides require reasons and audit history. Recoveries cover overpayments, third-party recoveries,
+insurer underpayments, instalment recoveries, disputes and authorised write-offs.
+
+Beneficiaries, death claims, instalments, extended stages and recoveries are all unbuilt — B10,
+B5, B8. They are in the register precisely so that approving this section is not mistaken for
+certifying them.
+
+### 7.8 Confirmations required
+
+Recognition date and entries for insurer-confirmed claims, brokerage-managed claims, excess,
+recoveries, overpayments, write-offs and claim reversals.
+
+---
+
+## 8. Foreign currency
+
+The books remain in UGX. The rate used at bind is preserved and is not replaced by later market
+rates except through an authorised amendment or reversal. The system tracks the transaction
+currency and value, the UGX equivalent at bind, the settlement rate and realised and unrealised
+gain or loss separately.
+
+Rate overrides before bind require authority, reason and audit history; once bound the rate is
+locked. Realised and unrealised are separate accounts (4900/4901 gains, 5910/5911 losses, 5900
+rounding).
+
+The accountant must confirm exchange-rate sources, revaluation frequency, entries and presentation.
+
+---
+
+## 9. Migration and opening balances
+
+### 9.1 Cut-over
+
+The cut-over date is the day before production go-live. Transactions after cut-over go through the
+system. Existing policies are imported as existing business with original inception and expiry
+preserved — never as newly issued. Migrated policies retain accounting-policy version 1 unless an
+approved migration process says otherwise. Every migrated record carries a migration identifier and
+traceable source.
+
+### 9.2 What the migration must distinguish
+
+Historical premium bills, historical receipts, outstanding client receivables, outstanding insurer
+payables, commission earned before cut-over, commission deferred at cut-over, claims receivable and
+payable, statutory liabilities and foreign-currency balances. Receipts and bills already represented
+in opening balances are not re-posted.
+
+### 9.3 Reconciliation before approval
+
+| Area | Required reconciliation |
+|---|---|
+| General ledger | balanced trial balance |
+| Client receivables | to client and policy records |
+| Insurer payables | to insurer and policy records |
+| Bank balances | to bank statements |
+| Commission | earned and deferred, per policy/agreement |
+| Claims | receivable and payable per claim |
+| Statutory liabilities | balances per recipient |
+| Foreign currency | balances per currency |
+
+Material unexplained differences prevent migration approval. Opening balances post through 3900,
+which must net to zero, with commission earned up to cut-over carried in 3200 and only the unearned
+remainder in 2020.
+
+---
+
+## 10. Accounting periods and manual journals
+
+### 10.1 Period reopening
+
+A closed period may be reopened only with a documented reason, appropriate senior finance approval,
+independent maker-checker approval, audit history of all changes, period reclosure and retention of
+the revised period-end reports. The requester never approves their own reopening.
+
+### 10.2 Manual journals
+
+Balanced entries; finance maker and independent checker; supporting evidence and reason; subledger
+references for control-account journals; immutable posted entries; reversal or authorised adjustment
+instead of editing; additional approval for restricted accounts. A manual journal must never silently
+create a difference between the general ledger and an operational subledger.
+
+A governed manual-journal path exists (B6). Balance and immutability were never actually at risk — both
+had real controls long before this: balance is a deferred constraint trigger that no role can bypass, and
+both journal tables reject UPDATE and DELETE for everyone. What was missing was the feature, and the two
+controls that matter once a person can write entries at all:
+
+- **Nobody approves their own journal.** Approval and posting happen in one step, so there is no window
+  where a journal is approved but unposted, or posted but unapproved.
+- **A control account needs a subledger reference, and it has to resolve.** A line on AR or AP control
+  must name an open item that exists in this company on a role posting to that same account. A reference
+  that resolves to nothing is refused, because it looks reconciled while being nothing. This is checked at
+  creation, at submission and again at approval.
+
+Figures freeze the moment a journal leaves draft, so the lines approved are the lines that post. Two gaps
+are recorded rather than glossed: there is **no amount-based approval limit** on manual journals — section
+11 asks for one and B7 built that engine for refunds only, so a very large journal needs exactly one second
+person; and **no additional approval tier for restricted accounts**, which this section also asks for.
+
+### 10.3 Business day (DR-46)
+
+Accounting dates follow the **Africa/Kampala** business day, not the database's UTC date. Posting
+dates, the voidable date of a receipt, the closed-period test, accounting-setting lookups and
+statutory-parameter lookups all resolve against the Kampala day. This decides which period a
+transaction between 00:00 and 03:00 Kampala time falls into, and it applies platform-wide from
+migrations `20261122090000` and `20261122100000`. A17.
+
+---
+
+## 11. Financial approval limits
+
+Thresholds are configurable by transaction type, amount, currency, role, approval level and branch,
+and apply separately to refunds, insurer remittances, commission transfers, claim payments,
+intermediary commissions and manual journals, with multi-level approval, escalation, effective dates
+and audit history. Splitting a transaction to stay under a threshold must be prevented.
+
+Refunds of client advances now route through that engine (B7): a limit per stage, a limit per user in
+addition to the stage, maker-checker that refuses self-approval, and a split flag. The refund function
+itself refuses when an approved request does not cover the amount, so the workflow is enforced rather
+than advisory. Three gaps are recorded rather than glossed: the routing key is **amount only**, so
+currency, branch and department are not yet part of it; only client-advance refunds are routed, and
+insurer remittances, commission transfers, claim payments and manual journals are not; and a split is
+flagged for the approver rather than blocked, which is what this section asks for but leaves the
+judgement with a person.
+
+---
+
+## 12. Statutory charges and taxation
+
+### 12.1 The catalogue
+
+Each charge names its legal basis, applicable class, calculation basis, rate or fixed amount,
+exemptions, collection responsibility, remittance responsibility, statutory recipient, liability
+account and effective date. A rate cannot be marked verified without citing the instrument that
+verified it.
+
+| Charge | Rate | Verified | Billed |
+|---|---|---|---|
+| Insurance Training Levy | 0.5% of gross direct premium | **Yes** — Insurance Act s.141(3), SI No. 100 of 2020 reg. 17(2) | Yes |
+| IRA regulatory levy | 1.5% (unconfirmed) | No — press summaries only | **No**, inactive |
+| Stamp duty, general policy | UGX 35,000 (unconfirmed) | No — press summaries only | **No**, inactive |
+
+No unverified charge is active as a mandatory production charge. Enforcement is `advisory` by
+default: turning it to `required` makes bind refuse a policy whose charges were not priced and
+acknowledged, and raises the premium of every policy bound from then on — a commercial decision,
+which is why it is not the default.
+
+### 12.2 Brokerage fees
+
+A brokerage fee is a distinct supply from premium and from a statutory charge, recognised in 4100,
+and is **VAT-exempt by default** as an insurance service (VAT Act Cap 344, Schedule 3). A separate
+non-brokerage service is classified `other_taxable_service` with a stated reason and is
+standard-rated. Classification, not a company-wide switch, governs the treatment — the former
+`ins.broker_fee_vat` setting is withdrawn (decision 5).
+
+Fees invoiced before 17 November 2026 under the old 18% treatment keep their VAT, because that
+output tax was declared.
+
+### 12.3 Intermediary commission taxation
+
+Treatment is configurable per agreement; the system does not assume every intermediary commission
+carries identical withholding. Withheld tax is an asset (1210), never a reduction of revenue and
+never a liability of the brokerage.
+
+---
+
+## 13. Intermediary commission
+
+Intermediary registration, agency agreements and commission accrual/payment are separate concerns.
+The register distinguishes insurer-appointed agents, independent brokers, sub-agents and referral
+partners, each agreement carrying its own rates, tax settings and accrual trigger. The agent's share
+is an **expense (5010)**, not a netting of the brokerage's own commission, so both the gross
+commission and the agent cost remain visible. Agents are never treated as employees.
+
+Accrual and payment remain subject to the accountant's approval of the treatment and legal
+confirmation of applicable Ugandan sub-agency requirements.
+
+---
+
+## 14. Client-money protection
+
+### 14.1 Separation
+
+Separate client-money and operating bank accounts, corresponding liability and control accounts,
+tracking of funds owed to insurers, clients and beneficiaries, prevention of transfers that would
+leave the client-money account short, commission transfers only where entitlement is established,
+and approvals with audit history.
+
+Segregation is enforced in the schema today: a bank account cannot change between operating and
+client money, and two bank accounts cannot share a GL account.
+
+### 14.2 Daily reconciliation
+
+A designated finance officer completes a daily client-money reconciliation comparing bank balance,
+cashbook, client-money liabilities, unallocated advances, available commission and unmatched items;
+a separate person independently reviews it; missed reconciliations are escalated.
+
+The escalation is **automated, not remembered**. Two scheduled jobs run each morning before the
+business day: one computes the client-money position for every company and raises or refreshes a
+shortage incident, the other counts consecutive missed reconciliations per client-money bank account
+and escalates at two. Both run across every company with insurance enabled, not only the one whose
+user happened to open a screen — the interactive functions take their company from the signed-in
+user, so they cannot run on a schedule at all.
+
+Two consequences worth knowing at go-live. If the scheduling extension is unavailable, the migration
+applies and names the two functions to call from an external scheduler rather than failing silently.
+And an incident raised by the job records that **the system** found it, not a person — the difference
+between "we knew" and "it was found", which matters when the shortage is later reviewed.
+
+### 14.3 Shortage response
+
+A suspected shortage raises a high-priority alert and an incident record, notifies management,
+restricts commission transfers and non-essential withdrawals, and requires independent approval to
+release those restrictions. The system must distinguish a genuine shortage from a delayed bank feed.
+Essential or legally required payments follow a controlled exception process.
+
+All of this is built (B9), with one operational gap that is stated rather than glossed.
+
+The **position test** applies at transfer time and is fail-closed: a transfer is refused when it
+would leave the position negative, where the position is client money held *less* the money already
+owed to clients, insurers and claimants. That is stronger than the balance test it sits beside, and
+the difference is the whole point — a trust account can hold a large balance and still be short,
+because the balance belongs to other people. The two tests are kept together because they state
+different things: one says the money is there, the other says it is free.
+
+A negative position raises a **shortage incident** and blocks every commission transfer in that
+currency, including one that would otherwise fit. It is released only by someone other than the
+person who raised it, and only once the position is no longer negative — a release that leaves the
+money short is a note, not a control.
+
+**Missed reconciliations** are counted in business days without a *reviewed* daily reconciliation.
+A reconciliation that has been prepared but not reviewed does not count, which is the four-eyes
+failure this section names. Two consecutive missed days escalate, raising one incident that is
+refreshed daily rather than a new one every morning.
+
+Two things to know before go-live:
+
+- **Nothing runs the daily check on a schedule yet.** The functions exist and are callable, but the
+  repository has no job that calls them each morning. Until that is wired, escalation happens only
+  when something invokes it. This is the one part of B9 that is real work still outstanding, and it
+  lives outside a migration.
+- **There is a documented escape hatch**, because some regulators require commission to be banked in
+  client money. `ins.client_money_position_test` defaults to enforcing the position test and can be
+  set to permissive only through company accounting settings, proposed and approved by two different
+  people. It is a signed decision, not a code path.
+
+**Open for the accountant:** the free-money figure treats receivables from insurers
+(`insurer_claim_receivable`, `commission_receivable`) as calls on client money alongside
+`insurer_payable`. That is a judgement about what the account is holding the money for and should be
+confirmed rather than assumed.
+
+---
+
+## 15. Financial reporting
+
+PDF and Excel exports and printable layouts; filters for date and period, branch, class, insurer,
+client and currency; every report identifies its generation date and user and distinguishes draft,
+pending, approved and posted.
+
+The dashboard covers premium production, earned and deferred commission, client receivables, insurer
+balances and remittances, claims exposure, cancellations and refunds, client-money and operating-bank
+positions, foreign exchange, and profitability by branch, insurer and class, with actual, forecast and
+pending amounts distinguished.
+
+>>>>>>> theirs
 All financial reports reconcile to the general ledger and supporting subledgers.
 
 ---
@@ -5000,6 +5424,7 @@ _______________________________________________________________________
 | 8 | Sign-off is for the production accounting policy, with UAT acceptance and go-live as separate gates | §1 |
 
 <<<<<<< ours
+<<<<<<< ours
 ## Appendix B — open questions the code refuses to answer for you
 
 These are accounting-policy choices. The software now makes each one *expressible*
@@ -5008,6 +5433,8 @@ thing this pack exists to prevent. Each needs an answer before the gate shown.
 
 | # | Question | Where the software stands | Needed by |
 =======
+=======
+>>>>>>> theirs
 ## Appendix B — the five open questions, now answered
 
 These were accounting-policy choices. The software made each one *expressible* without
@@ -5019,6 +5446,9 @@ now records the decision alongside the question, so the reasoning survives with 
 answers are implemented in `20261124011300_appendix_b_decisions.sql`.
 
 | # | Question | Where the software stood before the decision | Gate it blocked |
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 |---|---|---|---|
 | Q1 | **Which account absorbs a claim write-off?** A claim balance on 2030 has to go somewhere when it is written off. Options: a bad-debt expense, a dedicated "claim write-offs" expense, or against commission income (rejected in code — see below). | `ins_write_off_claim()` requires the caller to name the account. It must be a real, non-control expense or revenue account, and the `commission_income`, `unearned_commission` and `commission_receivable` **posting roles** are refused — by role, so the refusal follows your mapping rather than matching account numbers. No default exists. Note the direction: the entry is Dr 2030 / **Cr** the named account, so naming an expense account credits it. | production go-live (B8) |
@@ -5028,7 +5458,10 @@ answers are implemented in `20261124011300_appendix_b_decisions.sql`.
 | Q5 | **What counts as a call on client money?** The free-position figure subtracts client refunds, insurer payable and claim payable from the money held — those are unarguable. It also subtracts receivables the *brokerage* is owed by insurers (`insurer_claim_receivable`, `commission_receivable`). Whether money the firm has not yet received should reduce what it treats as free is a judgement: treating it as a call is prudent, but it can refuse transfers that would in fact have been covered. | `platform_ins_client_money_position()` currently counts them. Changing the list is a one-line change to one function; the control-role list is the whole policy. | production go-live (B9) |
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 ### The decisions
 
 | # | Decision | Recorded effect in the code |
@@ -5057,6 +5490,9 @@ The code distinguishes them without relying on anyone remembering to:
 There is deliberately **one** posting role, not two, because the accountant asked for one
 account. If reporting ever needs the split at account level, that is a second role and a
 migration — not a silent second account.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 On Q1, the reason commission accounts are refused in code rather than left to
 judgement: §7.7 says a recovery "never touches commission accounts". A write-off is
@@ -5067,6 +5503,9 @@ period the write-off was made rather than the period the claim arose.
 ## Appendix B — What version 1 said that version 2 changes
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
