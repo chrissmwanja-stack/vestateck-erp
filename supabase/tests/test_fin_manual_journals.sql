@@ -317,6 +317,7 @@ end $$;
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 =======
 >>>>>>> theirs
@@ -329,10 +330,25 @@ end $$;
 -- very large manual journal still needed exactly one second person. This proves the two
 -- halves of the fix and, just as importantly, that a company which configures nothing keeps
 -- today's behaviour.
+=======
+-- ---------------------------------------------------------------------
+-- §6 an amount limit, when the company configures one (pack 10.2 / 11)
+-- ---------------------------------------------------------------------
+-- Section 11 asks for approval limits by amount. This proves the routing half -- that an amount
+-- routes to the level the company configured, and that a company which configures nothing keeps
+-- its single-checker behaviour. Since 20261124011700 the routed journal can actually be
+-- approved through its levels; the chain itself is proved in
+-- test_fin_manual_journal_chain.sql, and 6c below proves only that this file's company still
+-- works end to end.
+>>>>>>> theirs
 do $$
 declare
   v_id uuid;
   v_lvl record;
+<<<<<<< ours
+=======
+  v_row record;
+>>>>>>> theirs
 begin
   -- 6a. No configuration means no extra level. This is the default, and it must not change.
   select * into v_lvl from public.platform_approval_required_level(
@@ -346,9 +362,17 @@ begin
   perform pg_temp.assert(v_lvl.stage_id is null and v_lvl.approver_role = 'finance',
     '§6 the refund default must survive the engine being generalised');
 
+<<<<<<< ours
   -- 6b. Configure a level-2 threshold for manual journals only.
   insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
     values (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+=======
+  -- 6b. Configure a two-level chain for manual journals only. Level 1 is the ordinary finance
+  -- check; level 2 is reached above 50,000,000.
+  insert into workflow_stages (tenant_id, name, sequence_order, approver_role, threshold_amount, applies_to, is_active)
+    values (pg_temp.id('tenant'), 'Manual journal level 1', 1, 'finance', 0, 'manual_journals', true),
+           (pg_temp.id('tenant'), 'Manual journal level 2', 2, 'admin', 50000000, 'manual_journals', true);
+>>>>>>> theirs
 
   select * into v_lvl from public.platform_approval_required_level(
     pg_temp.id('tenant'), 60000000, 'manual_journals');
@@ -360,8 +384,21 @@ begin
   perform pg_temp.assert(v_lvl.stage_id is null or v_lvl.level < 2,
     '§6 a 40,000,000 journal must stay below the configured threshold');
 
+<<<<<<< ours
   -- 6c. And such a journal cannot be submitted: multi-level approval is not built, so
   -- approving it at level 1 would let it through on one signature.
+=======
+  -- 6c. A journal routed to level 2 can now be submitted, and one signature does not post it.
+  --
+  -- This section used to assert the opposite: that submission was REFUSED with
+  -- FIN_MANUAL_JOURNAL_LEVEL, because multi-level approval was not built and approving such a
+  -- journal at level 1 would have let it through on one signature. That refusal was the honest
+  -- failure and it was still a wall. 20261124011700 builds the chain, so the assertion moves
+  -- from "you may not submit it" to "you may not post it on one signature", which is the
+  -- behaviour the pack actually asks for. The full chain is proved in
+  -- test_fin_manual_journal_chain.sql; what belongs here is that this file's company keeps
+  -- working and that the old refusal is gone on purpose rather than by accident.
+>>>>>>> theirs
   perform pg_temp.jwt(pg_temp.id('maker'));
   set local role authenticated;
   v_id := (public.fin_create_manual_journal(
@@ -369,6 +406,7 @@ begin
              jsonb_build_array(
                jsonb_build_object('gl_account_id', pg_temp.id('exp'), 'debit', 60000000, 'description', 'audit fee'),
                jsonb_build_object('gl_account_id', pg_temp.id('ap'),  'credit', 60000000, 'description', 'audit fee payable')))).id;
+<<<<<<< ours
   perform pg_temp.expect_error(
     format($q$select public.fin_submit_manual_journal(%L)$q$, v_id),
     'FIN_MANUAL_JOURNAL_LEVEL',
@@ -376,6 +414,28 @@ begin
   reset role;
 
   raise notice 'PASS: §6 a configured manual-journal limit routes by amount, and an unconfigured company is untouched';
+=======
+
+  v_row := public.fin_submit_manual_journal(v_id);
+  perform pg_temp.assert(v_row.status = 'pending_approval',
+    '§6 a journal above a level-2 threshold must now be submittable and wait for approval');
+  reset role;
+
+  -- One signature at level 1 must not post it.
+  perform pg_temp.jwt(pg_temp.id('checker'));
+  set local role authenticated;
+  v_row := public.fin_decide_manual_journal(v_id, 'approve', 'level one checked to the invoice');
+  reset role;
+  perform pg_temp.assert(v_row.status = 'pending_approval',
+    '§6 level 1 of a level-2 journal must leave it pending, not post it');
+  perform pg_temp.assert(v_row.journal_entry_id is null,
+    '§6 level 1 of a level-2 journal must not produce a journal entry');
+  perform pg_temp.assert(
+    (select count(*) from public.journal_entries where source_id = v_id and source_type = 'manual') = 0,
+    '§6 nothing may be posted to the ledger until the last level signs');
+
+  raise notice 'PASS: §6 a configured manual-journal limit routes by amount, an unconfigured company is untouched, and a routed journal waits for every level instead of being refused outright';
+>>>>>>> theirs
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -425,6 +485,9 @@ end $$;
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

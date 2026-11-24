@@ -145,10 +145,13 @@ for (const section of ['items', 'unbuilt']) {
 }
 
 <<<<<<< ours
+<<<<<<< ours
 console.log(
   `\n${register.items.length} policy items, ${register.unbuilt.length} unbuilt items, ` +
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked.`
 =======
+=======
+>>>>>>> theirs
 // ---------------------------------------------------------------------------
 // Acceptance evidence
 // ---------------------------------------------------------------------------
@@ -221,6 +224,9 @@ console.log(
   `\n${register.items.length} policy items, ${register.unbuilt.length} unbuilt items, ` +
   `${settingCount} setting assertions, ${evidenceCount} evidence files checked, ` +
   `${ae?.items?.length ?? 0} acceptance-evidence rows.`
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 );
 

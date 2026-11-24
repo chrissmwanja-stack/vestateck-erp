@@ -68,7 +68,10 @@ python3 scripts/verification/extract.py <file.sql> "create or replace function p
 next one too, which produced a false "this function is fine" reading exactly once. The whole
 point of this helper is to make that mistake hard to repeat.
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 
 ## `insert_column_check.py` — does a test's INSERT actually name columns that exist?
 
@@ -90,4 +93,7 @@ statement runs.
 **Read a clean run narrowly.** It proves there are no column-name typos. It cannot see a
 NOT NULL column you forgot to supply, a CHECK you violate, or a trigger that refuses the row
 — and all three occur in the same file this was written for.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs

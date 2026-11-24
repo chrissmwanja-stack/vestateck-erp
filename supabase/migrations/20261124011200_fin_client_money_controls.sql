@@ -127,12 +127,15 @@ begin
   )
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   select currency, client_money, client_refunds, insurer_payable, claim_payable,
          client_money - client_refunds - insurer_payable - claim_payable
     from (
 <<<<<<< ours
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- THIS list is the one that must qualify. Every name here is also an OUT parameter of
@@ -151,6 +154,9 @@ begin
       -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
       -- `client_money`; that name only comes into existence on this line.
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -162,6 +168,7 @@ begin
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
    order by currency;
@@ -192,12 +199,17 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
    -- Qualified for consistency with the SELECT list. Measured on PostgreSQL: an unqualified
    -- ORDER BY resolves to the output column and does NOT raise 42702, so this one is not
    -- load-bearing -- but leaving the two lists looking different invites the next reader to
    -- "tidy" the one that is.
    order by p.currency;
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -396,6 +408,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
      where p_currency is null or currency = p_currency
@@ -414,6 +427,8 @@ begin
 =======
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
   -- Aliased because `currency` is an OUT parameter of this function too, and inside a
   -- FOR-over-query the OUT parameter takes precedence: verified on PostgreSQL that an
   -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
@@ -423,6 +438,9 @@ begin
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -557,7 +575,10 @@ begin
   end if;
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 
@@ -580,6 +601,9 @@ begin
      for update;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -614,6 +638,7 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- The old guard's figure, kept because it is a different statement from the
   -- position test and both are worth making: this one says the account HOLDS the
   -- money, the position test says the money is free. Neither implies the other.
@@ -626,6 +651,8 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -657,7 +684,10 @@ begin
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the position
@@ -679,6 +709,9 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -802,7 +835,10 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 -- platform_ins_transfer_before_cancellation_impl is now unreferenced: the only caller was
@@ -813,6 +849,9 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 -- commission transfers. It is executable by service_role only.
 
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

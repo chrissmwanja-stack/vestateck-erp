@@ -130,6 +130,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_policy uuid; v_entry uuid;
 begin
 <<<<<<< ours
+<<<<<<< ours
   insert into ins_policies
     (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
      inception_date, expiry_date, currency, gross_premium, sum_insured,
@@ -145,6 +146,8 @@ begin
   values
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'UGX', 'earned', current_date)
 =======
+=======
+>>>>>>> theirs
   -- A bound policy has to satisfy ins_policies_bound_check: with status 'active',
   -- gross_premium > 0, commission_amount and net_premium_to_insurer must both be present,
   -- they must sum to gross_premium, and bound_at must be set. This fixture originally set
@@ -173,6 +176,9 @@ begin
     (tenant_id, policy_id, insurer_share_id, amount, status, earned_on)
   values
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'earned', current_date)
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   returning id into v_entry;
 
