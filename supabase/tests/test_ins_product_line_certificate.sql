@@ -4,6 +4,23 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -113,7 +130,7 @@ begin
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MOT','Cars') returning id into line_mot;
   insert into ins_product_lines(tenant_id,code,name,requires_certificate) values(ta,'MOTOR','Motor fleet',false) returning id into line_motor;
   insert into ins_product_lines(tenant_id,code,name) values(ta,'FIRE','Fire') returning id into line_fire;
-  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c := ins_register_client('Certificate line client','corporate',null,null,null,'low');
 
   select requires_certificate into flag from ins_product_lines where id = line_mot;

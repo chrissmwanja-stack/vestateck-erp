@@ -326,6 +326,28 @@ jobs:
       # Blocking since 16 Oct 2026: the committed file was regenerated from a clean
       # local replay of supabase/migrations with the same CLI version this job pins.
       # Fix a failure with scripts/gen-types.ps1 (UTF-8; a plain PowerShell `>` writes UTF-16).
+      # The accountant sign-off register (docs/insurance-brokerage/signoff-register.json).
+      # Two distinct checks, because they fail for different reasons:
+      #
+      #  1. REGISTER VALIDITY -- every setting an A-item depends on exists, the value
+      #     the pack claims as approved is one the setting actually allows, and every
+      #     evidence file cited exists. This deliberately runs against the just-replayed
+      #     database (--db), so it validates what will ship rather than a stale snapshot.
+      #
+      #  2. DOC FRESHNESS -- section 16 of ACCOUNTANT_PACK.md is generated from the JSON,
+      #     so a hand-edited table or a JSON change without a regenerate fails here.
+      #
+      # What neither check proves: that the accounting BEHAVIOUR is correct. A setting
+      # can exist, allow the value and still not do what the policy says. That is what
+      # the cited SQL test is for, and why `implemented: true` is a claim a reviewer
+      # signs rather than something these scripts infer. See the header of
+      # scripts/check-signoff-register.mjs.
+      - name: Validate the accountant sign-off register against the replayed database
+        run: node scripts/check-signoff-register.mjs --db "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+
+      - name: Check the sign-off register tables in the pack are up to date
+        run: node scripts/gen-signoff-register.mjs --check
+
       - name: Check generated types match the migrations
         run: |
           supabase gen types typescript --local --schema public > /tmp/types.local.ts

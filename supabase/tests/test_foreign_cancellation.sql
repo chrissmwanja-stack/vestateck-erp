@@ -19,6 +19,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -192,9 +209,9 @@ begin
   insert into regulatory_parameters (tenant_id, parameter_key, value_num, effective_from, source_ref)
     values (ta, 'fx.rate_max_age_days', 90, date '2000-01-01', 'UNVERIFIED: test fixture') returning id into reg_id;
   update regulatory_parameters set status = 'approved', approved_by = approver, approved_at = now() where id = reg_id;
-  insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (ta, 'USD', current_date - 1, 3700, 'fixture') returning id into fx_id;
+  insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (ta, 'USD', public.ins_local_today() - 1, 3700, 'fixture') returning id into fx_id;
   update fx_rates set status = 'approved', approved_by = approver, approved_at = now() where id = fx_id;
-  insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (ta, 'USD', current_date, 3800, 'fixture') returning id into fx_id;
+  insert into fx_rates (tenant_id, currency, rate_date, rate, source) values (ta, 'USD', public.ins_local_today(), 3800, 'fixture') returning id into fx_id;
   update fx_rates set status = 'approved', approved_by = approver, approved_at = now() where id = fx_id;
   perform set_config('reg.via_rpc', 'off', true);
   perform set_config('fx.via_rpc', 'off', true);
@@ -205,7 +222,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (ta, 'MOTOR', 'Motor') returning id into v_line;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_insr;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_insr; perform pg_temp.seed_commission_terms();
   reset role;
 
   -------------------------------------------------------------------
@@ -216,7 +233,7 @@ begin
   declare cc ins_clients%rowtype;
   begin
     cc := ins_register_client('FC client', 'corporate', null, null, null, 'low');
-    p_usd := ins_create_policy(cc.id, v_insr, v_line, current_date - 1, current_date + 335,
+    p_usd := ins_create_policy(cc.id, v_insr, v_line, public.ins_local_today() - 1, public.ins_local_today() + 335,
                                20000, 'USD', 10000, 10, v_branch, null, 'FC fleet', null);
     perform pg_temp.motor_cert(p_usd.id); p_usd := pg_temp.approve_and_bind(p_usd.id);
   end;
@@ -236,7 +253,7 @@ begin
     jsonb_build_object('method', 'manual_review', 'contract_reference', 'Alpha agreed full cancellation terms',
                        'manual_return_premium', '10000')));
   key := gen_random_uuid();
-  v_cxl := ins_submit_policy_cancellation(p_usd.id, current_date, terms, '[]'::jsonb, 'Insurer agreed full cancellation', key);
+  v_cxl := ins_submit_policy_cancellation(p_usd.id, public.ins_local_today(), terms, '[]'::jsonb, 'Insurer agreed full cancellation', key);
   reset role;
   perform pg_temp.assert(v_cxl.status = 'proposed', 'the proposal is open');
 

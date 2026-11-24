@@ -1,0 +1,14 @@
+-- Fix: tenant_read_only_guard was missing on the tenant_id tables added by the
+-- pack-v2 migrations (20261124010200 .. 20261124012000):
+--   ins_claim_beneficiaries, ins_claim_instalments, ins_claim_recoveries,
+--   ins_refund_requests, ins_refund_approvals, ins_insurer_commission_terms,
+--   ins_cancellation_date_evidence, ins_client_advances,
+--   fin_open_item_dispositions, fin_manual_journals, fin_manual_journal_lines,
+--   fin_manual_journal_approvals, fin_client_money_incidents,
+--   fin_client_money_reconciliations.
+-- check_live_security_drift.sql caught it (14 problems).
+--
+-- Fix forward (rule 9): those migrations are already applied and are not edited.
+-- Same remedy as 20261119160000. Idempotent: it only attaches the trigger where
+-- it is missing, so it is safe to apply live.
+select public.apply_tenant_read_only_guard();

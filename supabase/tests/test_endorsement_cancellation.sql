@@ -24,6 +24,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -106,7 +123,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare e ins_policy_endorsements%rowtype;
 begin
   perform pg_temp.jwt(p_manager);
-  e := public.ins_propose_policy_endorsement(p_policy, current_date, p_terms, '{}'::jsonb, p_reason, gen_random_uuid());
+  e := public.ins_propose_policy_endorsement(p_policy, public.ins_local_today(), p_terms, '{}'::jsonb, p_reason, gen_random_uuid());
   perform pg_temp.jwt(p_fin1);
   e := public.ins_prepare_policy_endorsement(e.id, p_clearing);
   perform pg_temp.jwt(p_fin2);
@@ -117,7 +134,7 @@ end $$;
 -- A payment against one open item, straight through the settlement path.
 create function pg_temp.pay(p_bank uuid, p_dir text, p_party uuid, p_item uuid, p_amount numeric)
 returns public.fin_settlements language sql as $$
-  select public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, current_date,
+  select public.fin_record_settlement(p_bank, p_dir, p_party, p_amount, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('open_item_id', p_item, 'amount', p_amount)),
     'e4', 'E4 test');
 $$;
@@ -185,7 +202,7 @@ begin
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (ta, 'MOTOR', 'Motor') returning id into v_line;
   insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct)
-    values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_alpha;
+    values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_alpha; perform pg_temp.seed_commission_terms();
   reset role;
 
   perform pg_temp.jwt(mgr);
@@ -194,16 +211,16 @@ begin
   begin
     cc := ins_register_client('E4 client', 'corporate', null, null, null, 'low');
     v_client := cc.id;
-    pa := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pa := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             50000000, 'UGX', 1000000, 10, v_branch, null, 'E4 policy A', null);
     perform pg_temp.motor_cert(pa.id); pa := pg_temp.approve_and_bind(pa.id);
-    pb := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pb := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             20000000, 'UGX', 400000, 10, v_branch, null, 'E4 policy B', null);
     perform pg_temp.motor_cert(pb.id); pb := pg_temp.approve_and_bind(pb.id);
-    pc := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pc := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             30000000, 'UGX', 600000, 10, v_branch, null, 'E4 policy C', null);
     perform pg_temp.motor_cert(pc.id); pc := pg_temp.approve_and_bind(pc.id);
-    pd := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pd := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             10000000, 'UGX', 300000, 10, v_branch, null, 'E4 policy D', null);
     perform pg_temp.motor_cert(pd.id); pd := pg_temp.approve_and_bind(pd.id);
   end;
@@ -375,7 +392,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   perform pg_temp.expect_error(
-    format('select ins_submit_policy_cancellation(%L::uuid, current_date,
+    format('select ins_submit_policy_cancellation(%L::uuid, public.ins_local_today(),
               jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''terms'',
                 jsonb_build_object(''method'', ''manual_review'', ''contract_reference'', ''Alpha agreed terms'',
                                    ''manual_return_premium'', ''100000''))),
@@ -393,17 +410,17 @@ begin
     declare cc ins_clients%rowtype;
     begin
       select * into cc from ins_clients where id = v_client;
-      ph := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+      ph := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                               9000000, 'UGX', 270000, 10, v_branch, null, 'E4 policy H', null);
       perform pg_temp.motor_cert(ph.id); ph := pg_temp.approve_and_bind(ph.id);
     end;
-    perform ins_submit_policy_cancellation(ph.id, current_date,
+    perform ins_submit_policy_cancellation(ph.id, public.ins_local_today(),
       jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'terms',
         jsonb_build_object('method', 'manual_review', 'contract_reference', 'Alpha agreed cancellation terms',
                            'manual_return_premium', '90000'))),
       '[]'::jsonb, 'Client cancelling policy H', gen_random_uuid());
     perform pg_temp.expect_error(
-      format('select ins_propose_policy_endorsement(%L::uuid, current_date,
+      format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(),
                 jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''agreed_delta'', ''1000'')),
                 ''{}''::jsonb, ''Endorsing a policy under cancellation'', %L::uuid)',
              ph.id, v_alpha::text, gen_random_uuid()),
@@ -425,7 +442,7 @@ begin
     declare cc ins_clients%rowtype;
     begin
       select * into cc from ins_clients where id = v_client;
-      pf := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+      pf := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                               15000000, 'UGX', 500000, 10, v_branch, null, 'E4 policy F', null);
       perform pg_temp.motor_cert(pf.id); pf := pg_temp.approve_and_bind(pf.id);
     end;
@@ -466,7 +483,7 @@ begin
   -- blocker 1 (the guard) and blocker 2 (the credit-note refusal).
   perform pg_temp.jwt(mgr);
   set local role authenticated;
-  q := ins_preview_policy_cancellation(pa.id, current_date,
+  q := ins_preview_policy_cancellation(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'terms',
       jsonb_build_object('method', 'manual_review', 'contract_reference', 'Alpha agreed cancellation terms',
                          'manual_return_premium', '500000'))),
@@ -480,7 +497,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   perform pg_temp.expect_error(
-    format('select ins_submit_policy_cancellation(%L::uuid, current_date,
+    format('select ins_submit_policy_cancellation(%L::uuid, public.ins_local_today(),
               jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''terms'',
                 jsonb_build_object(''method'', ''manual_review'', ''contract_reference'', ''Alpha agreed terms'',
                                    ''manual_return_premium'', ''100000''))),
@@ -502,11 +519,11 @@ begin
     declare cc ins_clients%rowtype;
     begin
       select * into cc from ins_clients where id = v_client;
-      pi := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+      pi := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                               8000000, 'UGX', 240000, 10, v_branch, null, 'E4 policy I', null);
       perform pg_temp.motor_cert(pi.id); pi := pg_temp.approve_and_bind(pi.id);
     end;
-    e1 := ins_propose_policy_endorsement(pi.id, current_date,
+    e1 := ins_propose_policy_endorsement(pi.id, public.ins_local_today(),
       jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '1000')),
       '{}'::jsonb, 'E4 proposal that is never posted', gen_random_uuid());
     reset role;

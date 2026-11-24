@@ -20,6 +20,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -166,7 +183,7 @@ begin
   perform pg_temp.jwt(mgr);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (ta, 'MOTOR', 'Motor') returning id into v_line;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_alpha;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_alpha; perform pg_temp.seed_commission_terms();
   reset role;
 
   perform pg_temp.jwt(mgr);
@@ -174,10 +191,10 @@ begin
   declare cc ins_clients%rowtype;
   begin
     cc := ins_register_client('END client', 'corporate', null, null, null, 'low');
-    pa := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pa := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             50000000, 'UGX', 1000000, 10, v_branch, null, 'END fleet', null);
     perform pg_temp.motor_cert(pa.id); pa := pg_temp.approve_and_bind(pa.id);
-    pb := ins_create_policy(cc.id, v_alpha, v_line, current_date - 45, current_date + 320,
+    pb := ins_create_policy(cc.id, v_alpha, v_line, public.ins_local_today() - 45, public.ins_local_today() + 320,
                             20000000, 'UGX', 400000, 10, v_branch, null, 'END second', null);
     perform pg_temp.motor_cert(pb.id); pb := pg_temp.approve_and_bind(pb.id);
   end;
@@ -190,7 +207,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(mgr);
   set local role authenticated;
-  q := ins_preview_policy_endorsement(pa.id, current_date,
+  q := ins_preview_policy_endorsement(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'method', 'pro_rata', 'annual_delta', '100000')),
     '{}'::jsonb);
   perform pg_temp.assert((q ->> 'premium_delta')::numeric = 87671.23,
@@ -202,7 +219,7 @@ begin
   perform pg_temp.assert((q -> 'shares' -> 0 ->> 'basis') = 'pro_rata', 'the basis is recorded');
 
   -- An agreed delta wins as-is; a return is signed and carries its commission clawback.
-  q := ins_preview_policy_endorsement(pa.id, current_date,
+  q := ins_preview_policy_endorsement(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '-50000')),
     '{}'::jsonb);
   perform pg_temp.assert((q ->> 'premium_delta')::numeric = -50000 and (q ->> 'commission_delta')::numeric = -5000,
@@ -214,7 +231,7 @@ begin
   -------------------------------------------------------------------
   -- 2. Propose: durable, with the stored quote, idempotent by key.
   -------------------------------------------------------------------
-  e1 := ins_propose_policy_endorsement(pa.id, current_date,
+  e1 := ins_propose_policy_endorsement(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'method', 'pro_rata', 'annual_delta', '100000')),
     jsonb_build_object('risk_description', 'Fleet grew to 26 vehicles'),
     'Fleet expansion approved by Alpha', gen_random_uuid());
@@ -228,17 +245,17 @@ begin
                             where endorsement_id = e1.id and event = 'proposed') = 1,
     'the proposal is journalled');
 
-  e2 := ins_propose_policy_endorsement(pa.id, current_date,
+  e2 := ins_propose_policy_endorsement(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'method', 'pro_rata', 'annual_delta', '100000')),
     jsonb_build_object('risk_description', 'Fleet grew to 26 vehicles'),
     'Fleet expansion approved by Alpha', e1.request_key);
   perform pg_temp.assert(e2.id = e1.id, 'the same request key returns the same proposal');
   perform pg_temp.expect_error(
-    format('select ins_propose_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb, ''Different payload entirely'', %L::uuid)',
+    format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb, ''Different payload entirely'', %L::uuid)',
            pa.id, e1.request_key),
     'INS_ENDORSEMENT_RETRY_CONFLICT', 'a different payload under the same key');
   perform pg_temp.expect_error(
-    format('select ins_propose_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb, ''Another live proposal'', %L::uuid)',
+    format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb, ''Another live proposal'', %L::uuid)',
            pa.id, gen_random_uuid()),
     'INS_ENDORSEMENT_EXISTS', 'a second live proposal on the same policy');
   raise notice 'PASS: proposals are durable, idempotent and one-per-policy';
@@ -250,7 +267,7 @@ begin
   -- The cross-guard fires at insert time, after the cancellation preview, so
   -- the probe carries terms the preview accepts.
   perform pg_temp.expect_error(
-    format('select ins_submit_policy_cancellation(%L::uuid, current_date,
+    format('select ins_submit_policy_cancellation(%L::uuid, public.ins_local_today(),
               jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''terms'',
                 jsonb_build_object(''method'', ''manual_review'', ''contract_reference'', ''Alpha agreed cancellation terms'',
                                    ''manual_return_premium'', ''500000''))),
@@ -261,20 +278,20 @@ begin
   select status into st from ins_policy_endorsements where id = e1.id;
   perform pg_temp.assert(st = 'withdrawn', 'the endorsement is withdrawn');
 
-  cxl := ins_submit_policy_cancellation(pa.id, current_date,
+  cxl := ins_submit_policy_cancellation(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'terms',
       jsonb_build_object('method', 'manual_review', 'contract_reference', 'Alpha agreed cancellation terms',
                          'manual_return_premium', '500000'))),
     '[]'::jsonb, 'Insurer agreed to cancel the policy', gen_random_uuid());
   perform pg_temp.expect_error(
-    format('select ins_propose_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb, ''Endorsing a dying policy'', %L::uuid)',
+    format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb, ''Endorsing a dying policy'', %L::uuid)',
            pa.id, gen_random_uuid()),
     'INS_ENDORSEMENT_CXL_LIVE', 'an endorsement while a cancellation is in flight');
   -- The cross-guard also stands as a table trigger, for paths that skip the RPC.
   reset role;
   perform pg_temp.expect_error(
     format('insert into ins_policy_endorsements (tenant_id, policy_id, effective_date, request_key, reason, insurer_terms, changes, proposed_by, calculation)
-            values (%L::uuid, %L::uuid, current_date, %L::uuid, ''Direct insert while cancellation live'', ''[]''::jsonb, ''{}''::jsonb, %L::uuid, ''{}''::jsonb)',
+            values (%L::uuid, %L::uuid, public.ins_local_today(), %L::uuid, ''Direct insert while cancellation live'', ''[]''::jsonb, ''{}''::jsonb, %L::uuid, ''{}''::jsonb)',
            ta, pa.id, gen_random_uuid(), mgr),
     'INS_CANCELLATION_LIVE', 'a raw insert while a cancellation is in flight');
   perform pg_temp.jwt(mgr);
@@ -285,7 +302,7 @@ begin
   -------------------------------------------------------------------
   -- 4. Withdraw rules: proposer only, open case, real reason.
   -------------------------------------------------------------------
-  e1 := ins_propose_policy_endorsement(pa.id, current_date,
+  e1 := ins_propose_policy_endorsement(pa.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '25000')),
     '{}'::jsonb, 'Third vehicle added to the schedule', gen_random_uuid());
   perform pg_temp.jwt(mgr2);
@@ -303,39 +320,39 @@ begin
   -- 5. The validation battery.
   -------------------------------------------------------------------
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date + 1, ''[]''::jsonb, ''{}''::jsonb)', pa.id),
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today() + 1, ''[]''::jsonb, ''{}''::jsonb)', pa.id),
     'INS_ENDORSEMENT_INPUT', 'a future effective date');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date,
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(),
               jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''agreed_delta'', ''1000'')), ''{}''::jsonb)',
            pb.id, gen_random_uuid()::text),
     'INS_ENDORSEMENT_INPUT', 'an insurer that is not on the policy');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date,
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(),
               jsonb_build_array(
                 jsonb_build_object(''insurer_id'', %L::text, ''agreed_delta'', ''1000''),
                 jsonb_build_object(''insurer_id'', %L::text, ''agreed_delta'', ''2000'')), ''{}''::jsonb)',
            pb.id, v_alpha::text, v_alpha::text),
     'INS_ENDORSEMENT_INPUT', 'the same insurer twice');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date,
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(),
               jsonb_build_array(jsonb_build_object(''insurer_id'', %L::text, ''method'', ''magic'')), ''{}''::jsonb)',
            pb.id, v_alpha::text),
     'INS_ENDORSEMENT_INPUT', 'an unknown rating method');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb,
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb,
               jsonb_build_object(''gross_premium'', 999))', pa.id),
     'INS_ENDORSEMENT_INPUT', 'a field that is not endorsable');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb,
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb,
               jsonb_build_object(''sum_insured'', -5))', pa.id),
     'INS_ENDORSEMENT_INPUT', 'a non-positive sum insured');
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb)', pa.id),
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb)', pa.id),
     'INS_ENDORSEMENT_INPUT', 'an endorsement that changes nothing');
 
   -- A descriptive-only endorsement is legitimate (zero premium delta).
-  q := ins_preview_policy_endorsement(pa.id, current_date, '[]'::jsonb,
+  q := ins_preview_policy_endorsement(pa.id, public.ins_local_today(), '[]'::jsonb,
     jsonb_build_object('sum_insured', 60000000, 'notes', 'Sum insured aligned with the fleet schedule'));
   perform pg_temp.assert((q ->> 'premium_zero')::boolean = true
      and (q ->> 'premium_delta')::numeric = 0, 'a zero-premium endorsement is allowed');
@@ -351,7 +368,7 @@ begin
   -------------------------------------------------------------------
   perform pg_temp.jwt(mgr);
   set local role authenticated;
-  e1 := ins_propose_policy_endorsement(pb.id, current_date,
+  e1 := ins_propose_policy_endorsement(pb.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '10000')),
     '{}'::jsonb, 'Second vehicle added', gen_random_uuid());
   perform pg_temp.expect_error(
@@ -375,7 +392,7 @@ begin
      and (q ->> 'current_gross_premium')::numeric = (q ->> 'bound_gross_premium')::numeric
      and (q ->> 'cancellation_in_flight')::boolean = false,
     'with nothing posted, current equals bound');
-  e1 := ins_propose_policy_endorsement(pb.id, current_date,
+  e1 := ins_propose_policy_endorsement(pb.id, public.ins_local_today(),
     jsonb_build_array(jsonb_build_object('insurer_id', v_alpha::text, 'agreed_delta', '10000')),
     '{}'::jsonb, 'Vehicle added after all', gen_random_uuid());
   q := ins_endorsement_review_position(pb.id);
@@ -390,17 +407,17 @@ begin
   perform pg_temp.jwt(mem);
   set local role authenticated;
   perform pg_temp.expect_error(
-    format('select ins_preview_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb)', pa.id),
+    format('select ins_preview_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb)', pa.id),
     'INS_FORBIDDEN', 'a member-only user reading the calculation');
   perform pg_temp.expect_error(
-    format('select ins_propose_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb, ''Member cannot propose'', %L::uuid)',
+    format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb, ''Member cannot propose'', %L::uuid)',
            pa.id, gen_random_uuid()),
     'INS_FORBIDDEN', 'a member-only user proposing');
   reset role;
   perform pg_temp.jwt(out_);
   set local role authenticated;
   perform pg_temp.expect_error(
-    format('select ins_propose_policy_endorsement(%L::uuid, current_date, ''[]''::jsonb, ''{}''::jsonb, ''Outsider'', %L::uuid)',
+    format('select ins_propose_policy_endorsement(%L::uuid, public.ins_local_today(), ''[]''::jsonb, ''{}''::jsonb, ''Outsider'', %L::uuid)',
            pa.id, gen_random_uuid()),
     'INS_FORBIDDEN', 'an outsider proposing');
   reset role;

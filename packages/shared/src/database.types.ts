@@ -2959,6 +2959,13 @@ export type Database = {
             foreignKeyName: "fin_allocations_item_fk"
             columns: ["tenant_id", "open_item_id"]
             isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
+          },
+          {
+            foreignKeyName: "fin_allocations_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
             referencedRelation: "fin_open_items"
             referencedColumns: ["tenant_id", "id"]
           },
@@ -3052,6 +3059,147 @@ export type Database = {
           },
         ]
       }
+      fin_client_money_incidents: {
+        Row: {
+          bank_account_id: string | null
+          created_at: string
+          currency: string
+          detail: Json
+          detected_automatically: boolean
+          detected_by: string | null
+          detected_on: string
+          id: string
+          incident_no: string | null
+          kind: string
+          release_note: string | null
+          released_at: string | null
+          released_by: string | null
+          shortage: number
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          created_at?: string
+          currency: string
+          detail?: Json
+          detected_automatically?: boolean
+          detected_by?: string | null
+          detected_on: string
+          id?: string
+          incident_no?: string | null
+          kind?: string
+          release_note?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          shortage: number
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          created_at?: string
+          currency?: string
+          detail?: Json
+          detected_automatically?: boolean
+          detected_by?: string | null
+          detected_on?: string
+          id?: string
+          incident_no?: string | null
+          kind?: string
+          release_note?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          shortage?: number
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_client_money_incidents_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_client_money_incidents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_client_money_reconciliations: {
+        Row: {
+          bank_account_id: string
+          book_balance: number
+          created_at: string
+          currency: string
+          difference: number | null
+          id: string
+          prepared_at: string
+          prepared_by: string
+          reconciled_for: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          statement_balance: number | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          bank_account_id: string
+          book_balance: number
+          created_at?: string
+          currency: string
+          difference?: number | null
+          id?: string
+          prepared_at?: string
+          prepared_by: string
+          reconciled_for: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          statement_balance?: number | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          bank_account_id?: string
+          book_balance?: number
+          created_at?: string
+          currency?: string
+          difference?: number | null
+          id?: string
+          prepared_at?: string
+          prepared_by?: string
+          reconciled_for?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          statement_balance?: number | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_client_money_reconciliations_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_client_money_reconciliations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_credit_applications: {
         Row: {
           amount: number
@@ -3087,6 +3235,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fin_open_item_balances"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "fin_credit_applications_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
           },
           {
             foreignKeyName: "fin_credit_applications_item_fk"
@@ -3252,6 +3407,351 @@ export type Database = {
             columns: ["void_journal_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_manual_journal_approvals: {
+        Row: {
+          approver_id: string
+          comment: string
+          decided_at: string
+          decision: string
+          id: string
+          journal_id: string
+          level: number
+          required_role: string | null
+          round: number
+          stage_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          approver_id: string
+          comment: string
+          decided_at?: string
+          decision: string
+          id?: string
+          journal_id: string
+          level: number
+          required_role?: string | null
+          round?: number
+          stage_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          approver_id?: string
+          comment?: string
+          decided_at?: string
+          decision?: string
+          id?: string
+          journal_id?: string
+          level?: number
+          required_role?: string | null
+          round?: number
+          stage_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_manual_journal_approvals_journal_id_fkey"
+            columns: ["journal_id"]
+            isOneToOne: false
+            referencedRelation: "fin_manual_journals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journal_approvals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journal_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_manual_journal_lines: {
+        Row: {
+          created_at: string
+          credit: number
+          debit: number
+          description: string | null
+          gl_account_id: string
+          id: string
+          journal_id: string
+          line_no: number
+          subledger_source_id: string | null
+          subledger_source_type: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          gl_account_id: string
+          id?: string
+          journal_id: string
+          line_no: number
+          subledger_source_id?: string | null
+          subledger_source_type?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          gl_account_id?: string
+          id?: string
+          journal_id?: string
+          line_no?: number
+          subledger_source_id?: string | null
+          subledger_source_type?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_manual_journal_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journal_lines_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journal_lines_journal_id_fkey"
+            columns: ["journal_id"]
+            isOneToOne: false
+            referencedRelation: "fin_manual_journals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journal_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_manual_journals: {
+        Row: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        Insert: {
+          approval_round?: number
+          created_at?: string
+          currency: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entry_date: string
+          id?: string
+          journal_entry_id?: string | null
+          journal_no?: string | null
+          posted_at?: string | null
+          purpose: string
+          reference: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tenant_id: string
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string
+        }
+        Update: {
+          approval_round?: number
+          created_at?: string
+          currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entry_date?: string
+          id?: string
+          journal_entry_id?: string | null
+          journal_no?: string | null
+          posted_at?: string | null
+          purpose?: string
+          reference?: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tenant_id?: string
+          total_credit?: number
+          total_debit?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_manual_journals_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_manual_journals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_open_item_dispositions: {
+        Row: {
+          accounting_policy_version: number
+          amount: number
+          control_role: string
+          counterparty_gl_account_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string
+          kind: string
+          open_item_id: string
+          party_account_id: string
+          reason: string
+          side: string
+          source_id: string | null
+          source_type: string | null
+          tenant_id: string
+        }
+        Insert: {
+          accounting_policy_version?: number
+          amount: number
+          control_role: string
+          counterparty_gl_account_id: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          journal_entry_id: string
+          kind: string
+          open_item_id: string
+          party_account_id: string
+          reason: string
+          side: string
+          source_id?: string | null
+          source_type?: string | null
+          tenant_id: string
+        }
+        Update: {
+          accounting_policy_version?: number
+          amount?: number
+          control_role?: string
+          counterparty_gl_account_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          journal_entry_id?: string
+          kind?: string
+          open_item_id?: string
+          party_account_id?: string
+          reason?: string
+          side?: string
+          source_id?: string | null
+          source_type?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_open_item_dispositions_gl_fk"
+            columns: ["counterparty_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_gl_fk"
+            columns: ["counterparty_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_balances"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_item_fk"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cash_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_journal_fk"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_open_item_dispositions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -5570,6 +6070,13 @@ export type Database = {
             foreignKeyName: "ins_cancellation_credit_links_tenant_id_open_item_id_fkey"
             columns: ["tenant_id", "open_item_id"]
             isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_credit_links_tenant_id_open_item_id_fkey"
+            columns: ["tenant_id", "open_item_id"]
+            isOneToOne: false
             referencedRelation: "fin_open_items"
             referencedColumns: ["tenant_id", "id"]
           },
@@ -5579,6 +6086,73 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_policy_cash_items"
             referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_cancellation_date_evidence: {
+        Row: {
+          about_date: string
+          cancellation_id: string | null
+          evidence_date: string
+          evidence_kind: string
+          evidence_ref: string
+          id: string
+          note: string | null
+          recorded_at: string
+          recorded_by: string
+          request_key: string | null
+          tenant_id: string
+          the_date: string | null
+        }
+        Insert: {
+          about_date?: string
+          cancellation_id?: string | null
+          evidence_date: string
+          evidence_kind: string
+          evidence_ref: string
+          id?: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by: string
+          request_key?: string | null
+          tenant_id: string
+          the_date?: string | null
+        }
+        Update: {
+          about_date?: string
+          cancellation_id?: string | null
+          evidence_date?: string
+          evidence_kind?: string
+          evidence_ref?: string
+          id?: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          request_key?: string | null
+          tenant_id?: string
+          the_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_cancellation_date_evidence_cancellation_id_fkey"
+            columns: ["cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_commission_ledger"
+            referencedColumns: ["cancellation_id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_date_evidence_cancellation_id_fkey"
+            columns: ["cancellation_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policy_cancellations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_date_evidence_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -5721,6 +6295,13 @@ export type Database = {
             foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey"
             columns: ["tenant_id", "original_item_id"]
             isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_original_item_id_fkey"
+            columns: ["tenant_id", "original_item_id"]
+            isOneToOne: false
             referencedRelation: "fin_open_items"
             referencedColumns: ["tenant_id", "id"]
           },
@@ -5737,6 +6318,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fin_open_item_balances"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey"
+            columns: ["tenant_id", "recovery_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
           },
           {
             foreignKeyName: "ins_cancellation_insurer_adjust_tenant_id_recovery_item_id_fkey"
@@ -6137,6 +6725,82 @@ export type Database = {
           },
         ]
       }
+      ins_claim_beneficiaries: {
+        Row: {
+          beneficiary_no: number
+          claim_id: string
+          contact: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          fixed_amount: number | null
+          held_reason: string | null
+          id: string
+          name: string
+          relationship: string | null
+          share_pct: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          beneficiary_no: number
+          claim_id: string
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          fixed_amount?: number | null
+          held_reason?: string | null
+          id?: string
+          name: string
+          relationship?: string | null
+          share_pct?: number | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          beneficiary_no?: number
+          claim_id?: string
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          fixed_amount?: number | null
+          held_reason?: string | null
+          id?: string
+          name?: string
+          relationship?: string | null
+          share_pct?: number | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_beneficiaries_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_beneficiaries_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_claim_beneficiaries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_correspondence: {
         Row: {
           body: string | null
@@ -6311,6 +6975,89 @@ export type Database = {
           },
         ]
       }
+      ins_claim_instalments: {
+        Row: {
+          amount: number
+          claim_id: string
+          claim_payment_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          evidence_ref: string | null
+          expected_on: string
+          id: string
+          instalment_no: number
+          notes: string | null
+          paid_amount: number | null
+          paid_on: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          claim_id: string
+          claim_payment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          evidence_ref?: string | null
+          expected_on: string
+          id?: string
+          instalment_no: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_on?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          claim_id?: string
+          claim_payment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          evidence_ref?: string | null
+          expected_on?: string
+          id?: string
+          instalment_no?: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_on?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_instalments_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_instalments_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_claim_instalments_claim_payment_id_fkey"
+            columns: ["claim_payment_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_claim_instalments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_payments: {
         Row: {
           accounting_policy_version: number
@@ -6397,6 +7144,115 @@ export type Database = {
           },
         ]
       }
+      ins_claim_recoveries: {
+        Row: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          credit_gl_account_id: string
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          open_item_id: string | null
+          payer_party_account_id: string
+          raised_on: string
+          reason: string
+          received_amount: number
+          recovery_no: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          written_off_amount: number
+        }
+        Insert: {
+          amount: number
+          claim_id: string
+          created_at?: string
+          created_by?: string | null
+          credit_gl_account_id: string
+          currency: string
+          id?: string
+          journal_entry_id?: string | null
+          kind: string
+          open_item_id?: string | null
+          payer_party_account_id: string
+          raised_on: string
+          reason: string
+          received_amount?: number
+          recovery_no: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          written_off_amount?: number
+        }
+        Update: {
+          amount?: number
+          claim_id?: string
+          created_at?: string
+          created_by?: string | null
+          credit_gl_account_id?: string
+          currency?: string
+          id?: string
+          journal_entry_id?: string | null
+          kind?: string
+          open_item_id?: string | null
+          payer_party_account_id?: string
+          raised_on?: string
+          reason?: string
+          received_amount?: number
+          recovery_no?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          written_off_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_claim_recoveries_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claim_cash_position"
+            referencedColumns: ["claim_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_recoveries_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ins_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_claim_recoveries_payer_party_account_id_fkey"
+            columns: ["payer_party_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_claim_recoveries_payer_party_account_id_fkey"
+            columns: ["payer_party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_recoveries_payer_party_account_id_fkey"
+            columns: ["payer_party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "ins_claim_recoveries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ins_claim_reserve_history: {
         Row: {
           claim_id: string
@@ -6460,12 +7316,17 @@ export type Database = {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -6474,7 +7335,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -6484,12 +7359,17 @@ export type Database = {
           approved_amount?: number | null
           assigned_to?: string | null
           claim_no: string
+          claim_type?: string
           created_at?: string
           created_by?: string | null
+          deceased_on?: string | null
           excess_amount?: number
           excess_handling?: string
           id?: string
+          insurer_acknowledged_date?: string | null
           insurer_claim_ref?: string | null
+          insurer_notified_date?: string | null
+          late_notification?: boolean
           loss_date: string
           loss_description: string
           notified_date?: string
@@ -6498,7 +7378,21 @@ export type Database = {
           policy_id: string
           recognised_at?: string | null
           recognised_by?: string | null
+          representative_authority?: string | null
+          representative_contact?: string | null
+          representative_name?: string | null
+          representative_relationship?: string | null
+          repudiated_at?: string | null
+          repudiated_by?: string | null
+          repudiation_date?: string | null
+          repudiation_reason?: string | null
+          repudiation_reference?: string | null
+          repudiation_reopen_reason?: string | null
+          repudiation_reopened_at?: string | null
+          repudiation_reopened_by?: string | null
           reserve_amount?: number
+          review_note?: string | null
+          review_state?: string | null
           settled_at?: string | null
           status?: string
           tenant_id: string
@@ -6508,12 +7402,17 @@ export type Database = {
           approved_amount?: number | null
           assigned_to?: string | null
           claim_no?: string
+          claim_type?: string
           created_at?: string
           created_by?: string | null
+          deceased_on?: string | null
           excess_amount?: number
           excess_handling?: string
           id?: string
+          insurer_acknowledged_date?: string | null
           insurer_claim_ref?: string | null
+          insurer_notified_date?: string | null
+          late_notification?: boolean
           loss_date?: string
           loss_description?: string
           notified_date?: string
@@ -6522,7 +7421,21 @@ export type Database = {
           policy_id?: string
           recognised_at?: string | null
           recognised_by?: string | null
+          representative_authority?: string | null
+          representative_contact?: string | null
+          representative_name?: string | null
+          representative_relationship?: string | null
+          repudiated_at?: string | null
+          repudiated_by?: string | null
+          repudiation_date?: string | null
+          repudiation_reason?: string | null
+          repudiation_reference?: string | null
+          repudiation_reopen_reason?: string | null
+          repudiation_reopened_at?: string | null
+          repudiation_reopened_by?: string | null
           reserve_amount?: number
+          review_note?: string | null
+          review_state?: string | null
           settled_at?: string | null
           status?: string
           tenant_id?: string
@@ -6566,6 +7479,118 @@ export type Database = {
           },
           {
             foreignKeyName: "ins_claims_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_client_advances: {
+        Row: {
+          amount: number
+          applied_amount: number
+          applied_at: string | null
+          applied_policy_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          open_item_id: string
+          receipt_settlement_id: string
+          received_on: string
+          reference: string | null
+          refund_journal_id: string | null
+          refunded_amount: number
+          refunded_at: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          applied_amount?: number
+          applied_at?: string | null
+          applied_policy_id?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          open_item_id: string
+          receipt_settlement_id: string
+          received_on: string
+          reference?: string | null
+          refund_journal_id?: string | null
+          refunded_amount?: number
+          refunded_at?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          applied_amount?: number
+          applied_at?: string | null
+          applied_policy_id?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          open_item_id?: string
+          receipt_settlement_id?: string
+          received_on?: string
+          reference?: string | null
+          refund_journal_id?: string | null
+          refunded_amount?: number
+          refunded_at?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_client_advances_applied_policy_id_fkey"
+            columns: ["applied_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_statement"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_client_advances_applied_policy_id_fkey"
+            columns: ["applied_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_client_advances_applied_policy_id_fkey"
+            columns: ["applied_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_production_book"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_client_advances_applied_policy_id_fkey"
+            columns: ["applied_policy_id"]
+            isOneToOne: false
+            referencedRelation: "ins_renewal_pipeline"
+            referencedColumns: ["policy_id"]
+          },
+          {
+            foreignKeyName: "ins_client_advances_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "ins_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_client_advances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -6666,6 +7691,8 @@ export type Database = {
           amount: number
           created_at: string
           earned_by: string | null
+          earned_cumulative: number
+          earned_last_amount: number | null
           earned_on: string | null
           id: string
           insurer_share_id: string | null
@@ -6680,6 +7707,8 @@ export type Database = {
           amount: number
           created_at?: string
           earned_by?: string | null
+          earned_cumulative?: number
+          earned_last_amount?: number | null
           earned_on?: string | null
           id?: string
           insurer_share_id?: string | null
@@ -6694,6 +7723,8 @@ export type Database = {
           amount?: number
           created_at?: string
           earned_by?: string | null
+          earned_cumulative?: number
+          earned_last_amount?: number | null
           earned_on?: string | null
           id?: string
           insurer_share_id?: string | null
@@ -6746,6 +7777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fin_open_item_balances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_commission_entries_source_open_item_id_fkey"
+            columns: ["source_open_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["open_item_id"]
           },
           {
             foreignKeyName: "ins_commission_entries_source_open_item_id_fkey"
@@ -7470,6 +8508,78 @@ export type Database = {
           },
           {
             foreignKeyName: "ins_import_rows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_insurer_commission_terms: {
+        Row: {
+          agreed_ref: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          mode: string
+          proposed_at: string
+          proposed_by: string
+          rationale: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          agreed_ref: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          insurer_id: string
+          mode: string
+          proposed_at?: string
+          proposed_by: string
+          rationale: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          agreed_ref?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          insurer_id?: string
+          mode?: string
+          proposed_at?: string
+          proposed_by?: string
+          rationale?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_insurer_commission_terms_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "ins_insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_insurer_commission_terms_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -8340,6 +9450,7 @@ export type Database = {
           refund_item_id: string | null
           request_key: string
           review_note: string | null
+          settlement_date: string | null
           status: string
           tenant_id: string
         }
@@ -8368,6 +9479,7 @@ export type Database = {
           refund_item_id?: string | null
           request_key: string
           review_note?: string | null
+          settlement_date?: string | null
           status?: string
           tenant_id: string
         }
@@ -8396,6 +9508,7 @@ export type Database = {
           refund_item_id?: string | null
           request_key?: string
           review_note?: string | null
+          settlement_date?: string | null
           status?: string
           tenant_id?: string
         }
@@ -8462,6 +9575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fin_open_item_balances"
             referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ins_policy_cancellations_tenant_id_refund_item_id_fkey"
+            columns: ["tenant_id", "refund_item_id"]
+            isOneToOne: false
+            referencedRelation: "fin_open_item_consumption_v"
+            referencedColumns: ["tenant_id", "open_item_id"]
           },
           {
             foreignKeyName: "ins_policy_cancellations_tenant_id_refund_item_id_fkey"
@@ -9686,6 +10806,186 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ins_product_lines"
             referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ins_refund_approvals: {
+        Row: {
+          acted_on_behalf_of: string | null
+          approver_id: string
+          comment: string
+          decided_at: string
+          decision: string
+          id: string
+          level: number
+          refund_id: string
+          stage_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          acted_on_behalf_of?: string | null
+          approver_id: string
+          comment: string
+          decided_at?: string
+          decision: string
+          id?: string
+          level: number
+          refund_id: string
+          stage_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          acted_on_behalf_of?: string | null
+          approver_id?: string
+          comment?: string
+          decided_at?: string
+          decision?: string
+          id?: string
+          level?: number
+          refund_id?: string
+          stage_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_refund_approvals_acted_on_behalf_of_fkey"
+            columns: ["acted_on_behalf_of"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_approvals_refund_id_fkey"
+            columns: ["refund_id"]
+            isOneToOne: false
+            referencedRelation: "ins_refund_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_approvals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ins_refund_requests: {
+        Row: {
+          advance_id: string
+          amount: number
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          party_account_id: string
+          reason: string
+          refund_no: string
+          requested_at: string
+          requested_by: string
+          required_level: number | null
+          required_role: string | null
+          required_stage_id: string | null
+          settlement_id: string | null
+          split_detail: string | null
+          split_flagged: boolean
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          currency: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          party_account_id: string
+          reason: string
+          refund_no: string
+          requested_at?: string
+          requested_by: string
+          required_level?: number | null
+          required_role?: string | null
+          required_stage_id?: string | null
+          settlement_id?: string | null
+          split_detail?: string | null
+          split_flagged?: boolean
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          party_account_id?: string
+          reason?: string
+          refund_no?: string
+          requested_at?: string
+          requested_by?: string
+          required_level?: number | null
+          required_role?: string | null
+          required_stage_id?: string | null
+          settlement_id?: string | null
+          split_detail?: string | null
+          split_flagged?: boolean
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ins_refund_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "ins_client_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_requests_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_requests_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_vendor_evaluation"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "ins_refund_requests_party_account_id_fkey"
+            columns: ["party_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_wht_report"
+            referencedColumns: ["vendor_account_id"]
+          },
+          {
+            foreignKeyName: "ins_refund_requests_required_stage_id_fkey"
+            columns: ["required_stage_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ins_refund_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -15150,6 +16450,7 @@ export type Database = {
           approver_role: string
           blocks_offer_submitter_approval: boolean
           created_at: string
+          currency: string | null
           id: string
           is_active: boolean
           is_finance_terminal_stage: boolean
@@ -15167,6 +16468,7 @@ export type Database = {
           approver_role: string
           blocks_offer_submitter_approval?: boolean
           created_at?: string
+          currency?: string | null
           id?: string
           is_active?: boolean
           is_finance_terminal_stage?: boolean
@@ -15184,6 +16486,7 @@ export type Database = {
           approver_role?: string
           blocks_offer_submitter_approval?: boolean
           created_at?: string
+          currency?: string | null
           id?: string
           is_active?: boolean
           is_finance_terminal_stage?: boolean
@@ -15566,6 +16869,7 @@ export type Database = {
           credited_amount: number | null
           currency: string | null
           description: string | null
+          disposed_amount: number | null
           document_date: string | null
           document_no: string | null
           due_date: string | null
@@ -15601,6 +16905,25 @@ export type Database = {
             referencedRelation: "v_wht_report"
             referencedColumns: ["vendor_account_id"]
           },
+          {
+            foreignKeyName: "fin_open_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_open_item_consumption_v: {
+        Row: {
+          allocated_amount: number | null
+          consumed_amount: number | null
+          credited_amount: number | null
+          disposed_amount: number | null
+          open_item_id: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
           {
             foreignKeyName: "fin_open_items_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -17760,6 +19083,45 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_create_manual_journal: {
+        Args: {
+          p_entry_date: string
+          p_lines: Json
+          p_purpose: string
+          p_reference: string
+        }
+        Returns: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_manual_journals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fin_create_open_item: {
         Args: {
           p_amount: number
@@ -17844,11 +19206,65 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_decide_manual_journal: {
+        Args: { p_decision: string; p_journal_id: string; p_note: string }
+        Returns: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_manual_journals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fin_delete_accounting_period: {
         Args: { p_period_id: string; p_reason: string }
         Returns: undefined
       }
       fin_ledger_currency: { Args: { p_tenant_id: string }; Returns: string }
+      fin_manual_journal_check_control_lines: {
+        Args: { p_journal_id: string }
+        Returns: undefined
+      }
+      fin_manual_journals_awaiting_me: {
+        Args: never
+        Returns: {
+          already_signed: boolean
+          amount: number
+          approved_levels: number
+          currency: string
+          entry_date: string
+          journal_id: string
+          journal_no: string
+          next_level: number
+          next_role: string
+          purpose: string
+          required_level: number
+        }[]
+      }
       fin_open_item_consumed: {
         Args: { p_open_item_id: string }
         Returns: number
@@ -17984,6 +19400,40 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fin_reopen_manual_journal: {
+        Args: { p_journal_id: string; p_reason: string }
+        Returns: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_manual_journals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fin_revalue_fx: {
         Args: { p_as_of: string }
         Returns: {
@@ -18004,6 +19454,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "fx_revaluation_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_submit_manual_journal: {
+        Args: { p_journal_id: string }
+        Returns: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_manual_journals"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -18149,6 +19633,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "fin_settlements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fin_withdraw_manual_journal: {
+        Args: { p_journal_id: string; p_reason: string }
+        Returns: {
+          approval_round: number
+          created_at: string
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          journal_no: string | null
+          posted_at: string | null
+          purpose: string
+          reference: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          total_credit: number
+          total_debit: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_manual_journals"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -19269,6 +20787,42 @@ export type Database = {
       }
       ins_agent_payment_position: { Args: never; Returns: Json }
       ins_agent_wht_for: { Args: { p_on: string }; Returns: Json }
+      ins_apply_client_advance: {
+        Args: {
+          p_advance_id: string
+          p_amount: number
+          p_notes?: string
+          p_policy_id: string
+        }
+        Returns: {
+          amount: number
+          applied_amount: number
+          applied_at: string | null
+          applied_policy_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          open_item_id: string
+          receipt_settlement_id: string
+          received_on: string
+          reference: string | null
+          refund_journal_id: string | null
+          refunded_amount: number
+          refunded_at: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_client_advances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_apply_statutory_charges: {
         Args: {
           p_add_missing_params?: boolean
@@ -19316,6 +20870,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_policy_endorsements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_approve_insurer_commission_terms: {
+        Args: { p_id: string }
+        Returns: {
+          agreed_ref: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          mode: string
+          proposed_at: string
+          proposed_by: string
+          rationale: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_commission_terms"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -19465,6 +21046,24 @@ export type Database = {
         }
         Returns: Json
       }
+      ins_cancellation_dates: {
+        Args: { p_cancellation_id: string }
+        Returns: {
+          effective_date: string
+          effective_is_backdated: boolean
+          evidence_held: boolean
+          request_date: string
+          settlement_date: string
+        }[]
+      }
+      ins_cancellation_effective_evidence_check: {
+        Args: { p_cancellation_id: string }
+        Returns: undefined
+      }
+      ins_cancellation_settlement_date: {
+        Args: { p_cancellation_id: string }
+        Returns: string
+      }
       ins_charge_allocation_replay: {
         Args: { p_policy_id: string }
         Returns: {
@@ -19481,12 +21080,17 @@ export type Database = {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -19495,7 +21099,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -19508,9 +21126,62 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_claim_beneficiary_payable: {
+        Args: { p_claim_id: string }
+        Returns: {
+          currency: string
+          held: number
+          payable: number
+          total: number
+        }[]
+      }
+      ins_claim_beneficiary_percentage_total: {
+        Args: { p_claim_id: string }
+        Returns: number
+      }
+      ins_claim_contra_account: {
+        Args: { p_tenant_id: string }
+        Returns: string
+      }
+      ins_claim_stage: { Args: { p_claim_id: string }; Returns: string }
       ins_clear_renewal_outcome: {
         Args: { p_policy_id: string }
         Returns: undefined
+      }
+      ins_client_advance_statement: {
+        Args: { p_client_id: string }
+        Returns: {
+          advance_id: string
+          amount: number
+          applied: number
+          applied_to_policy: string
+          available: number
+          document_no: string
+          received_on: string
+          reference: string
+          refunded: number
+          status: string
+        }[]
+      }
+      ins_client_money_check: {
+        Args: { p_currency?: string }
+        Returns: {
+          blocked: boolean
+          currency: string
+          free_money: number
+          incident_id: string
+        }[]
+      }
+      ins_client_money_position: {
+        Args: { p_as_of?: string }
+        Returns: {
+          claim_payable: number
+          client_money: number
+          client_refunds: number
+          currency: string
+          free_money: number
+          insurer_payable: number
+        }[]
       }
       ins_commission_bank_accounts: {
         Args: never
@@ -19522,13 +21193,29 @@ export type Database = {
           name: string
         }[]
       }
+      ins_commission_mode_readiness: {
+        Args: never
+        Returns: {
+          agreed_ref: string
+          effective_from: string
+          insurer_code: string
+          insurer_id: string
+          insurer_name: string
+          mode: string
+          says: string
+          source: string
+          will_bind: boolean
+        }[]
+      }
       ins_commission_recognition_mode: {
         Args: { p_policy_id: string }
         Returns: string
       }
       ins_create_claim: {
         Args: {
+          p_accept_out_of_period?: boolean
           p_insurer_claim_ref?: string
+          p_late_reason?: string
           p_loss_date: string
           p_loss_description: string
           p_notified_date: string
@@ -19539,12 +21226,17 @@ export type Database = {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -19553,7 +21245,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -19918,6 +21624,7 @@ export type Database = {
           refund_item_id: string | null
           request_key: string
           review_note: string | null
+          settlement_date: string | null
           status: string
           tenant_id: string
         }
@@ -20039,9 +21746,106 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_decide_refund: {
+        Args: { p_comment: string; p_decision: string; p_refund_id: string }
+        Returns: {
+          advance_id: string
+          amount: number
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          party_account_id: string
+          reason: string
+          refund_no: string
+          requested_at: string
+          requested_by: string
+          required_level: number | null
+          required_role: string | null
+          required_stage_id: string | null
+          settlement_id: string | null
+          split_detail: string | null
+          split_flagged: boolean
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_refund_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_dispose_open_item: {
+        Args: {
+          p_amount: number
+          p_counterparty_gl_account_id: string
+          p_entry_date?: string
+          p_kind: string
+          p_open_item_id: string
+          p_reason: string
+        }
+        Returns: {
+          accounting_policy_version: number
+          amount: number
+          control_role: string
+          counterparty_gl_account_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string
+          kind: string
+          open_item_id: string
+          party_account_id: string
+          reason: string
+          side: string
+          source_id: string | null
+          source_type: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_open_item_dispositions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_earn_commission_on_collection: {
         Args: { p_reverse: boolean; p_settlement_id: string }
         Returns: number
+      }
+      ins_earn_commission_pro_rata: {
+        Args: { p_reverse: boolean; p_settlement_id: string }
+        Returns: number
+      }
+      ins_end_insurer_commission_terms: {
+        Args: { p_ends_on: string; p_id: string; p_reason: string }
+        Returns: {
+          agreed_ref: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          mode: string
+          proposed_at: string
+          proposed_by: string
+          rationale: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_commission_terms"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ins_end_insurer_product_rate: {
         Args: { p_effective_to: string; p_id: string }
@@ -20123,6 +21927,16 @@ export type Database = {
       ins_ensure_insurer_account: {
         Args: { p_insurer_id: string }
         Returns: string
+      }
+      ins_escalate_missed_reconciliations: {
+        Args: { p_as_of?: string }
+        Returns: {
+          bank_account_id: string
+          bank_name: string
+          escalated: boolean
+          incident_id: string
+          missed_days: number
+        }[]
       }
       ins_fee_withholding_position: { Args: never; Returns: Json }
       ins_finance_pending_approvals: {
@@ -20469,6 +22283,39 @@ export type Database = {
         Returns: string[]
       }
       ins_opening_accepted_for: { Args: { p_tenant: string }; Returns: boolean }
+      ins_pay_claim_instalment: {
+        Args: {
+          p_bank_account_id: string
+          p_evidence_ref: string
+          p_instalment_id: string
+          p_notes?: string
+          p_payment_date: string
+          p_reference: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          claim_payment_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          evidence_ref: string | null
+          expected_on: string
+          id: string
+          instalment_no: number
+          notes: string | null
+          paid_amount: number | null
+          paid_on: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_instalments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_place_quote: {
         Args: { p_quote_id: string }
         Returns: {
@@ -20618,6 +22465,47 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: Json
       }
+      ins_posting_role_readiness: {
+        Args: never
+        Returns: {
+          account_code: string
+          account_name: string
+          account_role: string
+          blocks: string
+          mapped: boolean
+          says: string
+        }[]
+      }
+      ins_prepare_client_money_reconciliation: {
+        Args: {
+          p_bank_account_id: string
+          p_for_date?: string
+          p_statement_balance?: number
+        }
+        Returns: {
+          bank_account_id: string
+          book_balance: number
+          created_at: string
+          currency: string
+          difference: number | null
+          id: string
+          prepared_at: string
+          prepared_by: string
+          reconciled_for: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          statement_balance: number | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_client_money_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_prepare_endorsement_cancellation: {
         Args: { p_endorsement_id: string; p_reason: string }
         Returns: {
@@ -20688,6 +22576,7 @@ export type Database = {
           refund_item_id: string | null
           request_key: string
           review_note: string | null
+          settlement_date: string | null
           status: string
           tenant_id: string
         }
@@ -20811,6 +22700,40 @@ export type Database = {
           warnings: string[]
         }[]
       }
+      ins_propose_insurer_commission_terms: {
+        Args: {
+          p_agreed_ref: string
+          p_effective_from: string
+          p_effective_to?: string
+          p_insurer_id: string
+          p_mode: string
+          p_rationale: string
+        }
+        Returns: {
+          agreed_ref: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          mode: string
+          proposed_at: string
+          proposed_by: string
+          rationale: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          withdrawn_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_insurer_commission_terms"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_propose_policy_endorsement: {
         Args: {
           p_changes: Json
@@ -20861,18 +22784,98 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_raise_claim_recovery: {
+        Args: {
+          p_amount: number
+          p_claim_id: string
+          p_credit_gl_account_id: string
+          p_kind: string
+          p_payer_party_account_id: string
+          p_raised_on?: string
+          p_reason: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          credit_gl_account_id: string
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          open_item_id: string | null
+          payer_party_account_id: string
+          raised_on: string
+          reason: string
+          received_amount: number
+          recovery_no: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          written_off_amount: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_recoveries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_receive_claim_recovery: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_notes?: string
+          p_received_on: string
+          p_recovery_id: string
+          p_reference?: string
+        }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          credit_gl_account_id: string
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          open_item_id: string | null
+          payer_party_account_id: string
+          raised_on: string
+          reason: string
+          received_amount: number
+          recovery_no: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          written_off_amount: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_recoveries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_recognise_claim_receivable: {
         Args: { p_claim_id: string; p_insurer_confirmation: string }
         Returns: {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -20881,7 +22884,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -20890,6 +22907,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_record_cancellation_date_evidence: {
+        Args: {
+          p_cancellation_id: string
+          p_evidence_date: string
+          p_evidence_kind: string
+          p_evidence_ref: string
+          p_note?: string
+          p_request_key?: string
+        }
+        Returns: {
+          about_date: string
+          cancellation_id: string | null
+          evidence_date: string
+          evidence_kind: string
+          evidence_ref: string
+          id: string
+          note: string | null
+          recorded_at: string
+          recorded_by: string
+          request_key: string | null
+          tenant_id: string
+          the_date: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_cancellation_date_evidence"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -20999,6 +23046,107 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_record_client_advance: {
+        Args: {
+          p_amount: number
+          p_bank_account_id: string
+          p_client_id: string
+          p_notes?: string
+          p_received_on: string
+          p_reference?: string
+        }
+        Returns: {
+          amount: number
+          applied_amount: number
+          applied_at: string | null
+          applied_policy_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          open_item_id: string
+          receipt_settlement_id: string
+          received_on: string
+          reference: string | null
+          refund_journal_id: string | null
+          refunded_amount: number
+          refunded_at: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_client_advances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_record_death_claim: {
+        Args: {
+          p_deceased_on: string
+          p_description: string
+          p_loss_date: string
+          p_notified_date: string
+          p_policy_id: string
+          p_representative_authority: string
+          p_representative_contact: string
+          p_representative_name: string
+          p_representative_relationship: string
+          p_reserve_amount?: number
+        }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          claim_type: string
+          created_at: string
+          created_by: string | null
+          deceased_on: string | null
+          excess_amount: number
+          excess_handling: string
+          id: string
+          insurer_acknowledged_date: string | null
+          insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
+          reserve_amount: number
+          review_note: string | null
+          review_state: string | null
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_record_fee_withholding: {
         Args: {
           p_basis: string
@@ -21056,6 +23204,52 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_refund_client_advance: {
+        Args: {
+          p_advance_id: string
+          p_amount: number
+          p_bank_account_id: string
+          p_reason: string
+          p_refunded_on: string
+        }
+        Returns: {
+          amount: number
+          applied_amount: number
+          applied_at: string | null
+          applied_policy_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          open_item_id: string
+          receipt_settlement_id: string
+          received_on: string
+          reference: string | null
+          refund_journal_id: string | null
+          refunded_amount: number
+          refunded_at: string | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_client_advances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_refund_required_level: {
+        Args: { p_amount: number }
+        Returns: {
+          approver_role: string
+          level: number
+          stage_id: string
+          threshold_amount: number
+        }[]
+      }
       ins_register_client: {
         Args: {
           p_client_type?: string
@@ -21102,11 +23296,90 @@ export type Database = {
         }
         Returns: string
       }
+      ins_release_shortage: {
+        Args: { p_incident_id: string; p_note: string }
+        Returns: {
+          bank_account_id: string | null
+          created_at: string
+          currency: string
+          detail: Json
+          detected_automatically: boolean
+          detected_by: string | null
+          detected_on: string
+          id: string
+          incident_no: string | null
+          kind: string
+          release_note: string | null
+          released_at: string | null
+          released_by: string | null
+          shortage: number
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_client_money_incidents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_remittance_due_date: {
         Args: { p_receipt_date: string; p_tenant_id: string }
         Returns: string
       }
       ins_renewal_notification_sweep: { Args: never; Returns: number }
+      ins_reopen_claim: {
+        Args: { p_claim_id: string; p_reason: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          claim_type: string
+          created_at: string
+          created_by: string | null
+          deceased_on: string | null
+          excess_amount: number
+          excess_handling: string
+          id: string
+          insurer_acknowledged_date: string | null
+          insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
+          reserve_amount: number
+          review_note: string | null
+          review_state: string | null
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_report_cancellation_register: {
         Args: { p_from: string; p_include_imported?: boolean; p_to: string }
         Returns: {
@@ -21407,6 +23680,37 @@ export type Database = {
           uncollected: number
         }[]
       }
+      ins_request_refund: {
+        Args: { p_advance_id: string; p_amount: number; p_reason: string }
+        Returns: {
+          advance_id: string
+          amount: number
+          currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          party_account_id: string
+          reason: string
+          refund_no: string
+          requested_at: string
+          requested_by: string
+          required_level: number | null
+          required_role: string | null
+          required_stage_id: string | null
+          settlement_id: string | null
+          split_detail: string | null
+          split_flagged: boolean
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_refund_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_reverse_policy: {
         Args: {
           p_policy_id: string
@@ -21442,18 +23746,49 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_review_client_money_reconciliation: {
+        Args: { p_id: string; p_note: string }
+        Returns: {
+          bank_account_id: string
+          book_balance: number
+          created_at: string
+          currency: string
+          difference: number | null
+          id: string
+          prepared_at: string
+          prepared_by: string
+          reconciled_for: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          statement_balance: number | null
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_client_money_reconciliations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ins_revise_claim_reserve: {
         Args: { p_claim_id: string; p_new_amount: number; p_reason: string }
         Returns: {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -21462,7 +23797,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -21530,6 +23879,58 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ins_schedule_claim_instalments: {
+        Args: { p_claim_id: string; p_instalments: Json }
+        Returns: {
+          amount: number
+          claim_id: string
+          claim_payment_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          evidence_ref: string | null
+          expected_on: string
+          id: string
+          instalment_no: number
+          notes: string | null
+          paid_amount: number | null
+          paid_on: string | null
+          status: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_instalments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      ins_set_claim_beneficiaries: {
+        Args: { p_beneficiaries: Json; p_claim_id: string }
+        Returns: {
+          beneficiary_no: number
+          claim_id: string
+          contact: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          fixed_amount: number | null
+          held_reason: string | null
+          id: string
+          name: string
+          relationship: string | null
+          share_pct: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_beneficiaries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       ins_set_claim_document: {
         Args: {
           p_claim_id: string
@@ -21551,6 +23952,171 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ins_claim_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_claim_insurer_dates: {
+        Args: {
+          p_claim_id: string
+          p_insurer_acknowledged: string
+          p_insurer_notified: string
+        }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          claim_type: string
+          created_at: string
+          created_by: string | null
+          deceased_on: string | null
+          excess_amount: number
+          excess_handling: string
+          id: string
+          insurer_acknowledged_date: string | null
+          insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
+          reserve_amount: number
+          review_note: string | null
+          review_state: string | null
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_claim_repudiation: {
+        Args: {
+          p_claim_id: string
+          p_reason: string
+          p_reference: string
+          p_repudiation_date: string
+        }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          claim_type: string
+          created_at: string
+          created_by: string | null
+          deceased_on: string | null
+          excess_amount: number
+          excess_handling: string
+          id: string
+          insurer_acknowledged_date: string | null
+          insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
+          reserve_amount: number
+          review_note: string | null
+          review_state: string | null
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_set_claim_review_state: {
+        Args: { p_claim_id: string; p_note: string; p_state: string }
+        Returns: {
+          approved_amount: number | null
+          assigned_to: string | null
+          claim_no: string
+          claim_type: string
+          created_at: string
+          created_by: string | null
+          deceased_on: string | null
+          excess_amount: number
+          excess_handling: string
+          id: string
+          insurer_acknowledged_date: string | null
+          insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
+          loss_date: string
+          loss_description: string
+          notified_date: string
+          paid_amount: number
+          payment_mode: string | null
+          policy_id: string
+          recognised_at: string | null
+          recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
+          reserve_amount: number
+          review_note: string | null
+          review_state: string | null
+          settled_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claims"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -21796,6 +24362,7 @@ export type Database = {
           refund_item_id: string | null
           request_key: string
           review_note: string | null
+          settlement_date: string | null
           status: string
           tenant_id: string
         }
@@ -22006,12 +24573,17 @@ export type Database = {
           approved_amount: number | null
           assigned_to: string | null
           claim_no: string
+          claim_type: string
           created_at: string
           created_by: string | null
+          deceased_on: string | null
           excess_amount: number
           excess_handling: string
           id: string
+          insurer_acknowledged_date: string | null
           insurer_claim_ref: string | null
+          insurer_notified_date: string | null
+          late_notification: boolean
           loss_date: string
           loss_description: string
           notified_date: string
@@ -22020,7 +24592,21 @@ export type Database = {
           policy_id: string
           recognised_at: string | null
           recognised_by: string | null
+          representative_authority: string | null
+          representative_contact: string | null
+          representative_name: string | null
+          representative_relationship: string | null
+          repudiated_at: string | null
+          repudiated_by: string | null
+          repudiation_date: string | null
+          repudiation_reason: string | null
+          repudiation_reference: string | null
+          repudiation_reopen_reason: string | null
+          repudiation_reopened_at: string | null
+          repudiation_reopened_by: string | null
           reserve_amount: number
+          review_note: string | null
+          review_state: string | null
           settled_at: string | null
           status: string
           tenant_id: string
@@ -22221,6 +24807,70 @@ export type Database = {
       ins_withdraw_policy_endorsement: {
         Args: { p_endorsement_id: string; p_reason: string }
         Returns: undefined
+      }
+      ins_write_off_claim: {
+        Args: {
+          p_also_write_off_insurer?: boolean
+          p_amount: number
+          p_claim_id: string
+          p_expense_gl_account_id?: string
+          p_reason?: string
+        }
+        Returns: {
+          accounting_policy_version: number
+          amount: number
+          control_role: string
+          counterparty_gl_account_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          journal_entry_id: string
+          kind: string
+          open_item_id: string
+          party_account_id: string
+          reason: string
+          side: string
+          source_id: string | null
+          source_type: string | null
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_open_item_dispositions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ins_write_off_claim_recovery: {
+        Args: { p_amount: number; p_reason: string; p_recovery_id: string }
+        Returns: {
+          amount: number
+          claim_id: string
+          created_at: string
+          created_by: string | null
+          credit_gl_account_id: string
+          currency: string
+          id: string
+          journal_entry_id: string | null
+          kind: string
+          open_item_id: string | null
+          payer_party_account_id: string
+          raised_on: string
+          reason: string
+          received_amount: number
+          recovery_no: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          written_off_amount: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ins_claim_recoveries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       is_business_dev: { Args: never; Returns: boolean }
       is_business_dev_admin: { Args: never; Returns: boolean }
@@ -22517,6 +25167,25 @@ export type Database = {
           p_write: boolean
         }
         Returns: Json
+      }
+      platform_approval_required_level: {
+        Args: {
+          p_amount: number
+          p_applies_to: string
+          p_currency?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          approver_role: string
+          currency: string
+          level: number
+          stage_id: string
+          threshold_amount: number
+        }[]
+      }
+      platform_approval_user_limit: {
+        Args: { p_applies_to: string; p_tenant_id: string; p_user_id: string }
+        Returns: number
       }
       platform_digest_summary: { Args: { p_payload: Json }; Returns: string }
       platform_fin_backfill_bank_accounts: {
@@ -23009,6 +25678,7 @@ export type Database = {
           refund_item_id: string | null
           request_key: string
           review_note: string | null
+          settlement_date: string | null
           status: string
           tenant_id: string
         }
@@ -23046,6 +25716,49 @@ export type Database = {
       platform_ins_cash_position_before_cancellation: {
         Args: { p_policy_id: string }
         Returns: Json
+      }
+      platform_ins_claim_beneficiary_payable: {
+        Args: { p_claim_id: string; p_tenant_id: string }
+        Returns: {
+          currency: string
+          held: number
+          payable: number
+          total: number
+        }[]
+      }
+      platform_ins_client_money_check: {
+        Args: { p_currency?: string; p_tenant_id: string }
+        Returns: {
+          blocked: boolean
+          currency: string
+          free_money: number
+          incident_id: string
+        }[]
+      }
+      platform_ins_client_money_check_logged: { Args: never; Returns: number }
+      platform_ins_client_money_free: {
+        Args: { p_as_of?: string; p_currency: string; p_tenant_id: string }
+        Returns: number
+      }
+      platform_ins_client_money_position: {
+        Args: { p_as_of?: string; p_tenant_id: string }
+        Returns: {
+          claim_payable: number
+          client_money: number
+          client_refunds: number
+          currency: string
+          free_money: number
+          insurer_payable: number
+        }[]
+      }
+      platform_ins_commission_mode: {
+        Args: { p_insurer_id: string; p_on: string; p_tenant_id: string }
+        Returns: {
+          agreed_ref: string
+          mode: string
+          source: string
+          terms_id: string
+        }[]
       }
       platform_ins_create_renewal_legacy_impl: {
         Args: { p_policy_id: string }
@@ -23164,6 +25877,20 @@ export type Database = {
         Args: { p_value: string }
         Returns: number
       }
+      platform_ins_escalate_missed_reconciliations: {
+        Args: { p_as_of?: string; p_tenant_id: string }
+        Returns: {
+          bank_account_id: string
+          bank_name: string
+          escalated: boolean
+          incident_id: string
+          missed_days: number
+        }[]
+      }
+      platform_ins_escalate_reconciliations_logged: {
+        Args: never
+        Returns: number
+      }
       platform_ins_import_allocate: {
         Args: { p_shares: Json; p_total: number }
         Returns: {
@@ -23225,6 +25952,71 @@ export type Database = {
         Args: { p_in_progress?: boolean; p_policy_id: string }
         Returns: Json
       }
+      platform_ins_raise_shortage: {
+        Args: {
+          p_actor: string
+          p_currency: string
+          p_detail?: Json
+          p_shortage: number
+          p_tenant_id: string
+        }
+        Returns: {
+          bank_account_id: string | null
+          created_at: string
+          currency: string
+          detail: Json
+          detected_automatically: boolean
+          detected_by: string | null
+          detected_on: string
+          id: string
+          incident_no: string | null
+          kind: string
+          release_note: string | null
+          released_at: string | null
+          released_by: string | null
+          shortage: number
+          status: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fin_client_money_incidents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_ins_reconciliation_streak: {
+        Args: {
+          p_as_of?: string
+          p_bank_account_id: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
+      platform_ins_refund_required_level:
+        | {
+            Args: { p_amount: number; p_tenant_id: string }
+            Returns: {
+              approver_role: string
+              level: number
+              stage_id: string
+              threshold_amount: number
+            }[]
+          }
+        | {
+            Args: { p_amount: number; p_currency: string; p_tenant_id: string }
+            Returns: {
+              approver_role: string
+              currency: string
+              level: number
+              stage_id: string
+              threshold_amount: number
+            }[]
+          }
+      platform_ins_refund_user_limit: {
+        Args: { p_tenant_id: string; p_user_id: string }
+        Returns: number
+      }
       platform_ins_transfer_before_cancellation_impl: {
         Args: {
           p_entry_ids?: string[]
@@ -23261,6 +26053,18 @@ export type Database = {
         }
       }
       platform_job_runs_prune: { Args: never; Returns: number }
+      platform_manual_journal_chain_state: {
+        Args: { p_journal_id: string; p_tenant_id: string }
+        Returns: {
+          approved_levels: number
+          complete: boolean
+          gap_levels: number
+          next_level: number
+          next_role: string
+          next_stage_id: string
+          required_level: number
+        }[]
+      }
       platform_module_activity: {
         Args: { p_days?: number }
         Returns: {
@@ -23394,6 +26198,10 @@ export type Database = {
         Returns: number
       }
       platform_session_is_mfa: { Args: never; Returns: boolean }
+      platform_user_holds_role: {
+        Args: { p_role: string; p_tenant_id: string; p_user_id: string }
+        Returns: boolean
+      }
       platform_users_directory: {
         Args: {
           p_kind?: string

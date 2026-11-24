@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Blocks a commit whose STAGED content contains an unresolved merge-conflict marker.
+# Same pattern as scripts/check-conflict-markers.sh (the CI gate), applied before the commit
+# exists, so a half-applied patch or a conflicted merge cannot be committed by accident --
+# including by tooling that runs `git add -A && git commit` without checking the exit code
+# of the step before it.
+#
+# Enable once per clone:   git config core.hooksPath scripts/git-hooks
+# (Git for Windows runs hooks with its bundled bash, so this works from PowerShell too.)
+# Bypassing it (git commit --no-verify) is deliberate and visible in your shell history.
+set -euo pipefail
+PATTERN='^(<{7}|>{7})( |$)'
+HITS="$(git grep --cached -nIE "$PATTERN" -- . ':!scripts/git-hooks/pre-commit' ':!scripts/check-conflict-markers.sh' || true)"
+if [ -n "$HITS" ]; then
+  COUNT="$(printf '%s\n' "$HITS" | wc -l | tr -d ' ')"
+  FILES="$(printf '%s\n' "$HITS" | cut -d: -f1 | sort -u)"
+  echo "pre-commit: BLOCKED -- $COUNT unresolved merge-conflict marker line(s) in the staged files:" >&2
+  printf '%s\n' "$FILES" | sed 's/^/  /' >&2
+  echo "First hits:" >&2
+  printf '%s\n' "$HITS" | head -5 | cut -c1-160 >&2
+  echo "Resolve them (keep the intended side, delete the marker lines), re-stage, and commit again." >&2
+  echo "If a patch or merge just left these, do NOT commit: undo it (git restore --staged . ; git checkout -- .) and find out why it conflicted." >&2
+  exit 1
+fi

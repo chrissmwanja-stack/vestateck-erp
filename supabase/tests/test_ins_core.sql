@@ -24,6 +24,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -319,7 +336,7 @@ begin
   perform pg_temp.jwt(u_mgr_b);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (v_tb, 'MOTOR', 'Motor B') returning id into v_pl_b;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_tb, 'BETA', 'Beta Assurance', 10) returning id into v_insr_b;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_tb, 'BETA', 'Beta Assurance', 10) returning id into v_insr_b; perform pg_temp.seed_commission_terms();
   cb := ins_register_client('Beta Client', 'corporate', null, null, null, 'medium');
   pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, current_date, current_date + 365, 1000000, 100000, 10);
   reset role;
@@ -348,18 +365,18 @@ begin
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name, class) values (v_ta, 'MOTOR', 'Motor', 'general') returning id into v_pl;
   insert into ins_product_lines (tenant_id, code, name, is_active) values (v_ta, 'OLDLINE', 'Retired line', false) returning id into v_pl_off;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_insr;
-  insert into ins_insurers (tenant_id, code, name, is_active) values (v_ta, 'DORMANT', 'Dormant Insurer', false) returning id into v_insr_off;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha Assurance', 10) returning id into v_insr; perform pg_temp.seed_commission_terms();
+  insert into ins_insurers (tenant_id, code, name, is_active) values (v_ta, 'DORMANT', 'Dormant Insurer', false) returning id into v_insr_off; perform pg_temp.seed_commission_terms();
 
   perform pg_temp.expect_error(
     format('insert into ins_insurers (tenant_id, code, name) values (%L, ''ALPHA'', ''Duplicate'')', v_ta),
-    'ins_insurers_tenant_code_key', 'duplicate insurer code');
+    'ins_insurers_tenant_code_key', 'duplicate insurer code'); perform pg_temp.seed_commission_terms();
   perform pg_temp.expect_error(
     format('insert into ins_insurers (tenant_id, code, name) values (%L, ''bad code'', ''Bad'')', v_ta),
-    'ins_insurers_code_check', 'insurer code format');
+    'ins_insurers_code_check', 'insurer code format'); perform pg_temp.seed_commission_terms();
   perform pg_temp.expect_error(
     format('insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (%L, ''HIGH'', ''High'', 100)', v_ta),
-    'ins_insurers_commission_check', 'insurer commission of 100');
+    'ins_insurers_commission_check', 'insurer commission of 100'); perform pg_temp.seed_commission_terms();
   perform pg_temp.expect_error(
     format('insert into ins_product_lines (tenant_id, code, name, class) values (%L, ''ODD'', ''Odd'', ''marine'')', v_ta),
     'ins_product_lines_class_check', 'product line class');
@@ -369,7 +386,7 @@ begin
   set local role authenticated;
   perform pg_temp.expect_state(
     format('insert into ins_insurers (tenant_id, code, name) values (%L, ''MEMBR'', ''Member insurer'')', v_ta),
-    '42501', 'member inserting an insurer');
+    '42501', 'member inserting an insurer'); perform pg_temp.seed_commission_terms();
   perform pg_temp.expect_state(
     format('insert into ins_product_lines (tenant_id, code, name) values (%L, ''MEMBR'', ''Member line'')', v_ta),
     '42501', 'member inserting a product line');
@@ -993,7 +1010,7 @@ begin
     and not has_function_privilege('anon', 'public.ins_create_policy(uuid,uuid,uuid,date,date,numeric,text,numeric,numeric,text,text)', 'execute')
     and not has_function_privilege('anon', 'public.ins_create_renewal_draft(uuid)', 'execute')
     and not has_function_privilege('anon', 'public.ins_bind_policy(uuid)', 'execute')
-    and not has_function_privilege('anon', 'public.ins_create_claim(uuid,date,date,text,text,numeric)', 'execute')
+    and not has_function_privilege('anon', 'public.ins_create_claim(uuid,date,date,text,text,numeric,boolean,text)', 'execute')
     and not has_function_privilege('anon', 'public.ins_transition_claim(uuid,text,text,numeric)', 'execute'),
     'anon must not execute any insurance RPC');
   perform pg_temp.assert(

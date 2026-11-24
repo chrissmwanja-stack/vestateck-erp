@@ -23,6 +23,23 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 create function pg_temp.assert(p_ok boolean, p_msg text)
 returns void language plpgsql as $$
 begin
@@ -141,7 +158,7 @@ join pg_temp.g_ids i on a.tenant_id = i.ta;
 -- lines, and a BD client with an insurance profile.
 select set_config('ins.via_rpc', 'on', true);
 insert into ins_insurers (tenant_id, code, name, is_active)
-select ta, 'GATEINS1', 'Gate Insurer', true from pg_temp.g_ids;
+select ta, 'GATEINS1', 'Gate Insurer', true from pg_temp.g_ids; select pg_temp.seed_commission_terms();
 insert into ins_product_lines (tenant_id, code, name, class, is_active)
 select ta, 'GEN', 'General', 'general', true from pg_temp.g_ids;
 insert into bd_clients (tenant_id, name)

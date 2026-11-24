@@ -4,7 +4,9 @@ param(
 )
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $results = @()
-foreach ($f in Get-ChildItem $Dir -Filter *.sql -Recurse | Sort-Object FullName) {
+# harness/ holds the standalone-Postgres replay prelude, not a Supabase test; CI's
+# supabase/tests/*.sql glob skips it too.
+foreach ($f in Get-ChildItem $Dir -Filter *.sql -Recurse | Where-Object { $_.FullName -notmatch '[\\/]harness[\\/]' } | Sort-Object FullName) {
   $out = Get-Content $f.FullName -Raw -Encoding UTF8 |
     docker exec -i $Container psql -U postgres -d postgres -v ON_ERROR_STOP=1 2>&1 |
     Out-String

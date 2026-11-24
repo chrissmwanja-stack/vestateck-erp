@@ -1,0 +1,160 @@
+[
+  {
+    "key": "allow_self_approved_bank_adjustments",
+    "allowed_values": [
+      "true",
+      "false"
+    ],
+    "default_value": "false",
+    "implemented_values": [
+      "true",
+      "false"
+    ],
+    "requires_legal_review": true
+  },
+  {
+    "key": "ins.agent_commission_basis",
+    "allowed_values": [
+      "gross_commission",
+      "net_commission"
+    ],
+    "default_value": "gross_commission",
+    "implemented_values": [
+      "gross_commission"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.agent_commission_taxable",
+    "allowed_values": [
+      "taxable",
+      "not_taxable"
+    ],
+    "default_value": "taxable",
+    "implemented_values": [
+      "taxable"
+    ],
+    "requires_legal_review": true
+  },
+  {
+    "key": "ins.agent_commission_wht",
+    "allowed_values": [
+      "applicable",
+      "not_applicable"
+    ],
+    "default_value": "applicable",
+    "implemented_values": [
+      "applicable"
+    ],
+    "requires_legal_review": true
+  },
+  {
+    "key": "ins.cancellation_treatment",
+    "allowed_values": [
+      "pro_rata_refund",
+      "short_rate_refund",
+      "no_refund"
+    ],
+    "default_value": "pro_rata_refund",
+    "implemented_values": [
+      "pro_rata_refund",
+      "short_rate_refund",
+      "no_refund"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.client_money_position_test",
+    "allowed_values": [
+      "enforce",
+      "permissive"
+    ],
+    "default_value": "enforce",
+    "implemented_values": [
+      "enforce",
+      "permissive"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.commission_earning",
+    "allowed_values": [
+      "immediate",
+      "deferred_over_time"
+    ],
+    "default_value": "deferred_over_time",
+    "implemented_values": [
+      "deferred_over_time"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.commission_recognition",
+    "allowed_values": [
+      "on_insurer_settlement",
+      "at_placement",
+      "on_premium_collection",
+      "pro_rata_on_collection",
+      "over_policy_term"
+    ],
+    "default_value": "on_insurer_settlement",
+    "implemented_values": [
+      "on_insurer_settlement",
+      "at_placement",
+      "on_premium_collection",
+      "pro_rata_on_collection"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "ins.insurer_remittance_basis",
+    "allowed_values": [
+      "gross_premium",
+      "net_of_commission"
+    ],
+    "default_value": "gross_premium",
+    "implemented_values": [
+      "gross_premium"
+    ],
+    "requires_legal_review": true
+  },
+  {
+    "key": "ins.statutory_charge_enforcement",
+    "allowed_values": [
+      "advisory",
+      "required"
+    ],
+    "default_value": "advisory",
+    "implemented_values": [
+      "advisory",
+      "required"
+    ],
+    "requires_legal_review": false
+  },
+  {
+    "key": "migration.earned_commission_treatment",
+    "allowed_values": [
+      "opening_balances",
+      "other_approved"
+    ],
+    "default_value": "opening_balances",
+    "implemented_values": [
+      "opening_balances",
+      "other_approved"
+    ],
+    "requires_legal_review": true
+  },
+  {
+    "key": "migration.partially_paid_import",
+    "allowed_values": [
+      "full_billed_plus_receipts",
+      "verified_opening_balances_only"
+    ],
+    "default_value": "full_billed_plus_receipts",
+    "implemented_values": [
+      "full_billed_plus_receipts",
+      "verified_opening_balances_only"
+    ],
+    "requires_legal_review": false
+  }
+]
