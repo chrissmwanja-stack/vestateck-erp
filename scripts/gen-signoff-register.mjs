@@ -60,6 +60,26 @@ const bRows = register.unbuilt
   )
   .join('\n');
 
+<<<<<<< ours
+=======
+const classLabel = {
+  deliberate_behaviour_change: 'Deliberate behaviour change',
+  guard_level_verification: 'Guard-level verification',
+  end_to_end_not_demonstrated: 'Not yet demonstrated',
+  uat_pending: 'Pending',
+};
+
+const ae = register.acceptance_evidence ?? { items: [] };
+const aeRows = (ae.items ?? [])
+  .map((r) => {
+    const state = r.approved
+      ? `Approved${r.approved_by ? ` (${r.approved_by})` : ''}`
+      : 'Not yet approved';
+    return `| **${r.ref}** | ${r.subject} | ${classLabel[r.classification] ?? r.classification} | ${state} | ${r.required_evidence} |`;
+  })
+  .join('\n');
+
+>>>>>>> theirs
 const block = `${BEGIN}
 <!-- Do not edit by hand. Edit docs/insurance-brokerage/signoff-register.json and run
      node scripts/gen-signoff-register.mjs -->
@@ -84,6 +104,25 @@ item blocking "UAT acceptance" must be complete before the business signs UAT.
 |---|---|---|---|---|---|
 ${bRows}
 
+<<<<<<< ours
+=======
+### 16.3 How far each claim has been demonstrated
+
+**Built and demonstrated are different things.** A control can be built, parse-checked, and
+still never have refused anything; a guard can be shown to execute without the document
+workflow around it working. This table states which is which, because a reviewer deciding
+whether the protection is real is asking this question, not the one in §16.1.
+
+Kept in \`signoff-register.json\` under \`acceptance_evidence\` and validated: a row claiming
+guard-level evidence must list what it does **not** establish, a deliberate behaviour change
+must state what it blocks, under what condition, and how a mistake is corrected, and a row
+that is not approved may not carry evidence.
+
+| Ref | Subject | Classification | State | Required evidence |
+|---|---|---|---|---|
+${aeRows}
+
+>>>>>>> theirs
 ${END}`;
 
 const source = readFileSync(PACK, 'utf8');

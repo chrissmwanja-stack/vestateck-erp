@@ -126,12 +126,15 @@ begin
      group by i.currency
   )
 <<<<<<< ours
+<<<<<<< ours
   select currency, client_money, client_refunds, insurer_payable, claim_payable,
          client_money - client_refunds - insurer_payable - claim_payable
     from (
 <<<<<<< ours
 <<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- THIS list is the one that must qualify. Every name here is also an OUT parameter of
   -- this function, and PostgreSQL raises 42702 'column reference is ambiguous' for a bare
   -- reference in a SELECT list -- measured, not assumed. An unqualified ORDER BY does not
@@ -147,6 +150,9 @@ begin
       -- nothing to qualify and no OUT parameter in scope for the inner subquery's own
       -- namespace. Qualifying these as h.* would be wrong -- `held` carries `amt`, not
       -- `client_money`; that name only comes into existence on this line.
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       select coalesce(h.currency, o.currency) as currency,
              coalesce(h.amt, 0) as client_money,
@@ -156,6 +162,7 @@ begin
         from held h
         full outer join owed o on o.currency = h.currency
     ) p
+<<<<<<< ours
 <<<<<<< ours
    order by currency;
 =======
@@ -183,11 +190,16 @@ begin
 =======
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
    -- Qualified for consistency with the SELECT list. Measured on PostgreSQL: an unqualified
    -- ORDER BY resolves to the output column and does NOT raise 42702, so this one is not
    -- load-bearing -- but leaving the two lists looking different invites the next reader to
    -- "tidy" the one that is.
    order by p.currency;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 
@@ -383,6 +395,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today())
      where p_currency is null or currency = p_currency
@@ -399,6 +412,8 @@ begin
 =======
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
   -- Aliased because `currency` is an OUT parameter of this function too, and inside a
   -- FOR-over-query the OUT parameter takes precedence: verified on PostgreSQL that an
   -- unqualified `currency` here raises 42702. (An unqualified ORDER BY, by contrast, does
@@ -407,6 +422,9 @@ begin
   for v_pos in
     select * from public.platform_ins_client_money_position(v_tenant, public.ins_local_today()) pos
      where p_currency is null or pos.currency = p_currency
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   loop
     -- A negative free position raises (or refreshes) the shortage, whoever asks.
@@ -538,7 +556,10 @@ begin
     raise exception 'INS_FORBIDDEN: no company context' using errcode = '42501';
   end if;
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 
   -- Serialise concurrent transfers before reading any position.
   --
@@ -558,6 +579,9 @@ begin
    order by p.id
      for update;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   if p_transfer_date is null or p_transfer_date > public.ins_local_today() + 1 then
     raise exception 'INS_TRANSFER_INPUT: the transfer date is required and cannot be in the future';
@@ -589,6 +613,7 @@ begin
   v_foreign := v_ccy <> public.fin_ledger_currency(v_tenant);
 
 <<<<<<< ours
+<<<<<<< ours
   -- The old guard's figure, kept because it is a different statement from the
   -- position test and both are worth making: this one says the account HOLDS the
   -- money, the position test says the money is free. Neither implies the other.
@@ -601,6 +626,8 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
   select array_agg(e.id order by e.id), sum(e.amount), max(e.earned_on)
@@ -629,7 +656,10 @@ begin
   end if;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
   -- The old guard's figure, kept because it is a different statement from the position
   -- test and both are worth making: this one says the account HOLDS the money, the
   -- position test says the money is free. Neither implies the other.
@@ -648,6 +678,9 @@ begin
       v_from.name, v_trust, v_total;
   end if;
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
   -- ---------------------------------------------------------------
   -- B9 (3): an open shortage blocks every transfer in that currency, including one
@@ -768,7 +801,10 @@ revoke all on function public.ins_transfer_earned_commission(uuid, uuid, date, u
 grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date, uuid[], text) to authenticated;
 
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 -- platform_ins_transfer_before_cancellation_impl is now unreferenced: the only caller was
 -- the wrapper above, whose body this function now contains. It is left in place rather than
 -- dropped -- dropping a function in a migration that other branches may still reference is a
@@ -776,6 +812,9 @@ grant execute on function public.ins_transfer_earned_commission(uuid, uuid, date
 -- Recorded here because a reader who finds it will otherwise reasonably assume it governs
 -- commission transfers. It is executable by service_role only.
 
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 -- ---------------------------------------------------------------------
 -- 5. The daily cycle: who prepared it, who reviewed it, how many days missed

@@ -129,6 +129,7 @@ returns uuid
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_policy uuid; v_entry uuid;
 begin
+<<<<<<< ours
   insert into ins_policies
     (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
      inception_date, expiry_date, currency, gross_premium, sum_insured,
@@ -143,6 +144,36 @@ begin
     (tenant_id, policy_id, insurer_share_id, amount, currency, status, earned_on)
   values
     (pg_temp.id('tenant'), v_policy, null, p_amount, 'UGX', 'earned', current_date)
+=======
+  -- A bound policy has to satisfy ins_policies_bound_check: with status 'active',
+  -- gross_premium > 0, commission_amount and net_premium_to_insurer must both be present,
+  -- they must sum to gross_premium, and bound_at must be set. This fixture originally set
+  -- only commission_amount and left bound_at null, so it violated the check on its first
+  -- insert and the file could never have run past its own helper.
+  insert into ins_policies
+    (tenant_id, policy_no, client_id, insurer_id, product_line_id, status,
+     inception_date, expiry_date, currency, gross_premium, sum_insured,
+     commission_rate_pct, commission_amount, net_premium_to_insurer, bound_at, transaction_type)
+  values
+    (pg_temp.id('tenant'), 'CM-' || substr(gen_random_uuid()::text, 1, 6),
+     pg_temp.id('client'), pg_temp.id('insurer'), pg_temp.id('line'), 'active',
+     current_date - 30, current_date + 335, 'UGX', 1000000, 5000000, 10,
+     p_amount, 1000000 - p_amount, now(), 'new_business')
+  returning id into v_policy;
+
+  -- ins_commission_entries has NO currency column. It has not had one in the baseline or in
+  -- any later migration -- checked against information_schema on a live database, which
+  -- returns zero rows for it. The currency of a commission entry is the policy's currency,
+  -- which is why nothing needs to store it here.
+  --
+  -- This insert carried `currency` for a while, which made the whole file fail at its first
+  -- fixture with 42703 before a single control was exercised. Nothing caught it because the
+  -- file had never been executed: it was written, parse-checked, and trusted.
+  insert into ins_commission_entries
+    (tenant_id, policy_id, insurer_share_id, amount, status, earned_on)
+  values
+    (pg_temp.id('tenant'), v_policy, null, p_amount, 'earned', current_date)
+>>>>>>> theirs
   returning id into v_entry;
 
   return v_entry;

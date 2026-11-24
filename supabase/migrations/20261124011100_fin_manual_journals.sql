@@ -344,10 +344,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     -- posting fail later on a control total.
     if v_acct.is_header then
       raise exception 'FIN_MANUAL_JOURNAL_ACCOUNT: line % posts to % (%), which is a header account. Post to the account below it.', v_no, v_acct.account_code, v_acct.name;
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -362,6 +365,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs

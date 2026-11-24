@@ -90,7 +90,10 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -106,6 +109,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -318,7 +324,13 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
   -- Commission is refused by name.
+=======
+  -- Commission is refused. Since Appendix B Q1 the account is configured once on the
+  -- posting role, so naming a different account at the call site is itself refused --
+  -- whichever account is named, and commission accounts included.
+>>>>>>> theirs
 =======
   -- Commission is refused. Since Appendix B Q1 the account is configured once on the
   -- posting role, so naming a different account at the call site is itself refused --
@@ -349,6 +361,7 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
     perform pg_temp.assert(sqlerrm like 'INS_WRITE_OFF_COMMISSION%' or sqlerrm like 'INS_WRITE_OFF_ACCOUNT%',
       '§5 writing off into a commission account must be refused, got: ' || sqlerrm);
   end;
@@ -356,6 +369,8 @@ begin
   -- The real write-off.
   perform ins_write_off_claim(v_claim.id, 50000, pg_temp.id('baddebt'), 'insurer shortfall accepted');
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -371,6 +386,9 @@ begin
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
