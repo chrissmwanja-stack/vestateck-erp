@@ -646,6 +646,7 @@
       ],
       "acceptance": "A manual journal cannot post unbalanced, cannot be approved by its maker, cannot post to a control account without a subledger reference, and cannot be edited after posting.",
 <<<<<<< ours
+<<<<<<< ours
       "blocks": "production_golive"
 =======
       "blocks": "production_golive",
@@ -658,10 +659,22 @@
       "requirement": "Amount-based approval limits by transaction type, currency, role, level and branch, with escalation, plus detection of transaction splitting.",
       "accounting_impact": "A control, not a posting: it governs who may release refunds, remittances, commission transfers and claim payments.",
       "status": "not_built",
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS 24 Nov 2026: there is no user-facing manual journal at all. post_journal_entry() is not executable by `authenticated` (verified: anon=false, authenticated=false, service_role=true), so users cannot post an arbitrary journal today. That means three of the four criteria are met by ABSENCE rather than by control: nothing can be posted unbalanced, nothing can be edited after posting, and there is no maker to approve their own entry, because there is no entry to make. The feature itself does not exist. B6 is therefore a real build, not a hardening task: a manual journal needs a maker-checker workflow, a control-account-with-subledger-reference rule, and a posting path that reuses post_journal_entry under a SECURITY DEFINER wrapper. Smaller than the register implied in one respect -- there is no existing unguarded path to close -- but it adds a new posting surface, which is the opposite of a safe small change."
+    },
+    {
+      "ref": "B7",
+      "feature": "Approval limits and split prevention (built)",
+      "requirement": "Amount-based approval limits by transaction type, currency, role, level and branch, with escalation, plus detection of transaction splitting.",
+      "accounting_impact": "A control, not a posting: it governs who may release refunds, remittances, commission transfers and claim payments.",
+      "status": "built",
+>>>>>>> theirs
       "depends_on": [
         "A11"
       ],
       "acceptance": "A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split.",
+<<<<<<< ours
 <<<<<<< ours
       "blocks": "production_golive"
     },
@@ -687,11 +700,25 @@
     {
       "ref": "B8",
 >>>>>>> theirs
+=======
+      "blocks": "production_golive",
+      "note": "CENSUS 24 Nov 2026: a threshold-routing engine ALREADY EXISTED and is reused rather than duplicated. workflow_stages carries threshold_amount, approver_role, sequence_order, next_stage_low_id/next_stage_high_id, blocks_offer_submitter_approval and is_finance_terminal_stage; approval_assignments carries threshold_max; approval_actions records decisions. All 14 configured stages were applies_to='requests' with procurement roles, so no insurance refund was wired into it. BUILD: (1) extends the applies_to vocabulary with 'insurance_refunds' (workflow_stages is left otherwise untouched, and the existing 'requests' and 'invoices' behaviour is unaffected). (2) approval_actions was NOT reused: its request_id is NOT NULL and references requests(id), so it is procurement-only and cannot hold a refund. Two tables carry refunds instead -- ins_refund_requests freezes the required stage, level and role at request time, and ins_refund_approvals records each decision with its stage, level and approver. (3) platform_ins_refund_required_level() returns the highest active stage whose threshold the amount reaches, and NULL means no limit is configured, so a company that configures nothing keeps exactly today's behaviour rather than being silently blocked from refunding. (4) Level and the approver's OWN limit are separate refusals: an amount can be a level-1 refund and still exceed what that particular user may sign off, which is why approval_assignments.threshold_max is checked as well. (5) ins_refund_client_advance is re-created to refuse a refund above the threshold unless an approved request covers it. Without that last piece the whole workflow is advisory, because the money-moving function could be called directly. (6) A split is a FLAG, not a block, per pack wording: two same-day refunds to the same client whose combined value crosses a threshold are recorded on the second request with the figures that triggered the flag, and it is left to the approver to decide. LIMITS OF THE BUILD, stated plainly: currency, branch and department are not part of the routing key -- the requirement names them and this build routes on amount only, with the approver's role checked for the stage. approver_role must be one of the labels the two role tables can hold (finance or cost_control, or admin, manager, member); any other label raises INS_REFUND_ROLE_UNCONFIGURED naming the problem, and a company administrator can always decide. The build covers refunds of client advances; remittances, commission transfers and claim payments do not yet route through it.",
+      "evidence": [
+        "supabase/migrations/20261124010800_ins_refund_approval_limits.sql",
+        "supabase/tests/test_ins_refund_approval_limits.sql"
+      ]
+    },
+    {
+      "ref": "B8",
+>>>>>>> theirs
       "feature": "Claims recoveries and write-offs (built)",
       "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "built",
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -703,11 +730,14 @@
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
       "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
 =======
       "note": "Write-offs are BUILT on the disposition primitive: ins_write_off_claim reduces the claim payable into a named expense account, refuses commission accounts, and leaves an ins_claim_events audit row. The absorbing account is an OPEN QUESTION in Appendix B -- the code takes it as an argument rather than choosing. Recoveries (raising a recovery against a claim, allocating it when received, never touching commission accounts) are still NOT BUILT and are the next increment. The B11 blocker that previously covered both is resolved for write-offs."
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
       "note": "Both halves are built. Write-offs: ins_write_off_claim charges the claim payable to a named expense account (20261124010500). Recoveries: ins_claim_recoveries, raised as a SEPARATE receivable with its own payer rather than as a negative claim -- an insurer underpayment is not owed by the client, and re-pricing the claim would disturb every report already relying on the approved amount. The test asserts raising a recovery leaves the approved amount and the accrual count unchanged. Commission accounts (4000/2020/1110) are refused by name at raise, per pack 7.7. Receiving goes through the ordinary settlement path so every cash guard applies. Writing off a recovery charges the loss back to the account it was credited to when raised (stored on the row, no default), so the net result on that account tells the truth. OPEN QUESTION Q4 in Appendix B: which account absorbs a recovery credit -- the code takes it as an argument.",
@@ -717,6 +747,9 @@
         "supabase/migrations/20261124010500_fin_open_item_dispositions.sql"
       ]
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -732,6 +765,7 @@
       ],
       "acceptance": "A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released.",
 <<<<<<< ours
+<<<<<<< ours
       "blocks": "production_golive"
     },
     {
@@ -746,11 +780,16 @@
 =======
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
       "blocks": "production_golive",
       "note": "CENSUS 24 Nov 2026: reconciliation machinery exists but none of the three criteria do. Present: bank_reconciliations, fin_bank_reconciliation_position(), fin_bank_reconciliation_review(), ins_policy_cash_reconciliation_events, and a set of insurance cash guards (ins_policy_cash_reconciliation_guard, ins_cancellation_cash_reconciliation_guard) that enforce third-person checking and immutability of matched cash. Absent: (1) nothing refuses a transfer that would leave the client-money position negative -- platform_ins_cash_position_before_cancellation() COMPUTES the position but does not refuse on it; (2) there is no escalation for consecutive missed reconciliations -- no schedule, no counter, no notification; (3) a shortage raises no incident and blocks nothing, so client money can keep moving through a known shortage. B9 is the largest of the three because the daily-reconciliation cycle itself does not exist, only per-transaction checks."
     },
     {
       "ref": "B10",
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       "feature": "Beneficiaries, death claims and instalment settlements (built)",
       "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
@@ -758,6 +797,9 @@
       "status": "built",
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -767,6 +809,7 @@
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
@@ -808,6 +851,8 @@
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "note": "Built on the existing claim payable item; no new accounting primitive was needed. Percentage OR fixed allotments, either alone or mixed, must total the approved claim amount -- a death benefit that allocates only part of itself would leave an amount nobody is entitled to. The held-share rule is enforced by a DEFERRED constraint trigger, because the claim has ONE open item and the payment rows are inserted after the settlement: only a deferred check sees the whole transaction. A held share contributes nothing to what is payable and is never redistributed. Editing allotments is refused if it would put payable below what has already been paid, which is how a dispute would otherwise be nullified after the money went out. Instalments carry expected date, actual date, amount and evidence, and settle the existing approved balance -- the test asserts the accrual journal count is unchanged after a second instalment. Death claims require the representative and the authority relied on (probate, letters of administration, mandate).",
       "evidence": [
@@ -834,6 +879,9 @@
       ]
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
