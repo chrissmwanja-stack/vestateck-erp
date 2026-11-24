@@ -60,6 +60,9 @@ Three template accounts (Operating Bank, Cash, Client Money Bank) are flagged
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -77,11 +80,14 @@ mechanism does not exist, so this appendix states what the posting must be while
 it cannot yet be made. See B11 in the register.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 **Not in the chart today.** There is no account for **unallocated client advances** — the
 liability B2/A1 require. The pack proposes **2040 Unallocated Client Advances** (liability,
 posting role `client_advance_payable`). That code is a *proposal pending the accountant's
 confirmation*, not an existing code, and it is marked as such wherever it appears.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -101,6 +107,9 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 | 1 | Receipt with no policy yet **— built** | 1020 Client Money Bank | **2040** Unallocated Client Advances |
@@ -108,6 +117,7 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 | 2b | …and commission, if earned at bind | 1110 Commission Receivable | 4000 Commission Income |
 | 2c | …or if deferred | 1110 Commission Receivable | 2020 Unearned Commission |
 | 3 | Allocate the advance to the policy **— not built (B11)** | **2040** Unallocated Client Advances | 1100 AR Control |
+<<<<<<< ours
 <<<<<<< ours
 =======
 | 1 | Receipt with no policy yet | 1020 Client Money Bank | **2040** Unallocated Client Advances *(proposed)* |
@@ -125,6 +135,8 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 >>>>>>> theirs
 =======
 >>>>>>> theirs
+=======
+>>>>>>> theirs
 | 4 | Client pays after bind | 1020 Client Money Bank | 1100 AR Control |
 | 5 | Remit premium to the insurer (gross) | 2010 Insurer Payable | 1020 Client Money Bank |
 
@@ -132,6 +144,9 @@ Debits left, credits right. Amounts in the transaction currency unless FX is not
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
 =======
 >>>>>>> theirs
 =======
@@ -145,8 +160,11 @@ cleared against a policy. The reclass needs a third subledger source; B11 sets o
 why the obvious ones fail. Until then an advance is refundable but not applicable.
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
 =======
 `commission_income`, `unearned_commission`. Line 1 and 3 need the proposed `client_advance_payable`.
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 =======
 >>>>>>> theirs
@@ -272,10 +290,15 @@ commission move money 1020 → 1000 and are reversible, each side matched in ban
 <<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
+<<<<<<< ours
    receipt is a liability rather than unearned income. Created on 24 Nov 2026; the treatment still
    needs sign-off, and the release mechanism that line 3 needs is B11.
 =======
    receipt is a liability rather than unearned income. *This code does not exist yet.*
+>>>>>>> theirs
+=======
+   receipt is a liability rather than unearned income. Created on 24 Nov 2026; the treatment still
+   needs sign-off, and the release mechanism that line 3 needs is B11.
 >>>>>>> theirs
 =======
    receipt is a liability rather than unearned income. Created on 24 Nov 2026; the treatment still

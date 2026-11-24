@@ -6,6 +6,7 @@
 --
 --   "A receipt with no policy creates a 2040 credit and no receivable"   §1
 <<<<<<< ours
+<<<<<<< ours
 --   "binding a policy allocates it and clears 2040"                      NOT PROVEN
 --                                                                        (B11: no
 --                                                                        reclass
@@ -14,10 +15,15 @@
 --                                                                        migration
 --                                                                        header)
 =======
+=======
+>>>>>>> theirs
 --   "binding a policy allocates it and clears 2040"                      §5
 --                                                                        (B11's
 --                                                                        disposition
 --                                                                        primitive)
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 --   "an unallocated advance is visible on the client statement"          §3
 --   "and is refundable"                                                  §4
@@ -26,8 +32,14 @@
 -- NOT create a receivable, so AR is not overstated by money paid before the policy.
 --
 <<<<<<< ours
+<<<<<<< ours
 -- §5 proves the release is refused rather than half-done, so nobody can ship a UI
 -- that believes an advance was applied.
+=======
+-- §5 proves both halves: an over-refund is refused, and a release now clears 2040
+-- against AR with cash untouched. Before B11's disposition primitive the release
+-- refused; a test that still expected the refusal would be asserting a bug.
+>>>>>>> theirs
 =======
 -- §5 proves both halves: an over-refund is refused, and a release now clears 2040
 -- against AR with cash untouched. Before B11's disposition primitive the release
@@ -212,6 +224,7 @@ end $$;
 
 -- ---------------------------------------------------------------------
 <<<<<<< ours
+<<<<<<< ours
 -- §5 over-refunding is refused, and so is the unimplemented release
 -- ---------------------------------------------------------------------
 do $$
@@ -219,6 +232,8 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_refused boolean := false;
         v_release_refused boolean := false;
 =======
+=======
+>>>>>>> theirs
 -- §5 over-refunding is refused, and the release now works
 -- ---------------------------------------------------------------------
 -- This section previously asserted that the release refused with
@@ -232,6 +247,9 @@ declare v_adv uuid := (select id from ins_client_advances where tenant_id = pg_t
         v_pol uuid;
         v_line uuid; v_insurer uuid;
         v_cash_before numeric;
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 begin
   perform pg_temp.jwt(pg_temp.id('mgr'));
@@ -243,6 +261,7 @@ begin
     perform pg_temp.assert(sqlerrm like 'INS_ADVANCE_EXCEEDS%',
       '§5 over-refund should be refused as INS_ADVANCE_EXCEEDS, got: ' || sqlerrm);
   end;
+<<<<<<< ours
 <<<<<<< ours
 
   -- The release is refused by name, not silently.
@@ -259,6 +278,8 @@ begin
   perform pg_temp.assert(v_release_refused, '§5 the unimplemented release must refuse, not pretend');
   raise notice 'PASS: §5 over-refund and the unimplemented release are both refused by name';
 =======
+=======
+>>>>>>> theirs
   reset role;
   perform pg_temp.assert(v_refused, '§5 refunding more than the balance must be refused');
 
@@ -300,6 +321,9 @@ begin
   perform pg_temp.assert(pg_temp.balance(pg_temp.id('trust'), true) = v_cash_before,
     '§5 releasing an advance must not move cash');
   raise notice 'PASS: §5 over-refund refused, and the release clears 2040 against AR without moving cash';
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
 end $$;
 

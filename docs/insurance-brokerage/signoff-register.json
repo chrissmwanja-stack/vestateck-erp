@@ -662,6 +662,7 @@
     {
       "ref": "B8",
 <<<<<<< ours
+<<<<<<< ours
       "feature": "Claims recoveries and write-offs",
       "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
@@ -672,15 +673,30 @@
       "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "partial",
 >>>>>>> theirs
+=======
+      "feature": "Claims recoveries and write-offs (built)",
+      "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
+      "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
+      "status": "built",
+>>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account.",
       "blocks": "production_golive",
 <<<<<<< ours
+<<<<<<< ours
       "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
 =======
       "note": "Write-offs are BUILT on the disposition primitive: ins_write_off_claim reduces the claim payable into a named expense account, refuses commission accounts, and leaves an ins_claim_events audit row. The absorbing account is an OPEN QUESTION in Appendix B -- the code takes it as an argument rather than choosing. Recoveries (raising a recovery against a claim, allocating it when received, never touching commission accounts) are still NOT BUILT and are the next increment. The B11 blocker that previously covered both is resolved for write-offs."
+>>>>>>> theirs
+=======
+      "note": "Both halves are built. Write-offs: ins_write_off_claim charges the claim payable to a named expense account (20261124010500). Recoveries: ins_claim_recoveries, raised as a SEPARATE receivable with its own payer rather than as a negative claim -- an insurer underpayment is not owed by the client, and re-pricing the claim would disturb every report already relying on the approved amount. The test asserts raising a recovery leaves the approved amount and the accrual count unchanged. Commission accounts (4000/2020/1110) are refused by name at raise, per pack 7.7. Receiving goes through the ordinary settlement path so every cash guard applies. Writing off a recovery charges the loss back to the account it was credited to when raised (stored on the row, no default), so the net result on that account tells the truth. OPEN QUESTION Q4 in Appendix B: which account absorbs a recovery credit -- the code takes it as an argument.",
+      "evidence": [
+        "supabase/migrations/20261124010700_ins_claim_recoveries.sql",
+        "supabase/tests/test_ins_claim_recoveries.sql",
+        "supabase/migrations/20261124010500_fin_open_item_dispositions.sql"
+      ]
 >>>>>>> theirs
     },
     {
@@ -698,20 +714,27 @@
     {
       "ref": "B10",
 <<<<<<< ours
+<<<<<<< ours
       "feature": "Beneficiaries, death claims and instalment settlements",
       "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
       "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
       "status": "not_built",
 =======
+=======
+>>>>>>> theirs
       "feature": "Beneficiaries, death claims and instalment settlements (built)",
       "requirement": "Authorised representatives reporting after a policyholder's death, multiple beneficiaries with percentage or fixed allocations totalling 100%, disputed shares held until determination, and instalment settlements each with their own dates, amounts and evidence.",
       "accounting_impact": "Determines who is paid and when; a disputed share must never be redistributed automatically and an instalment receipt must settle the existing balance rather than create new recognition.",
       "status": "built",
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
       "depends_on": [
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
 <<<<<<< ours
 <<<<<<< ours
       "blocks": "uat_acceptance"
@@ -747,6 +770,8 @@
       "note": "Verified against the live guards: fin_credit_applications_guard requires a note and its item to share side and control_role, so a note cannot move value from a 2040 payable to an AR receivable; a journal alone does not move fin_open_item_consumed(), which counts only posted settlements and posted same-role credit notes; a settlement cannot stand in because it names a bank account and posts Dr bank / Cr control, moving cash that did not move; subledger_only settlements require a cash_bank_transactions row. Preferred fix: add fin_open_item_reclasses (journal + two open items, no bank) and count it in fin_open_item_consumed. Needs its own sign-off because it adds a consumption source. Until then ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than posting something unreconcilable. Second confirmation: claim write-offs (B8) need the same missing primitive, so one schema change unblocks both that and advance release."
 >>>>>>> theirs
 =======
+=======
+>>>>>>> theirs
       "blocks": "uat_acceptance",
       "note": "Built on the existing claim payable item; no new accounting primitive was needed. Percentage OR fixed allotments, either alone or mixed, must total the approved claim amount -- a death benefit that allocates only part of itself would leave an amount nobody is entitled to. The held-share rule is enforced by a DEFERRED constraint trigger, because the claim has ONE open item and the payment rows are inserted after the settlement: only a deferred check sees the whole transaction. A held share contributes nothing to what is payable and is never redistributed. Editing allotments is refused if it would put payable below what has already been paid, which is how a dispute would otherwise be nullified after the money went out. Instalments carry expected date, actual date, amount and evidence, and settle the existing approved balance -- the test asserts the accrual journal count is unchanged after a second instalment. Death claims require the representative and the authority relied on (probate, letters of administration, mandate).",
       "evidence": [
@@ -771,6 +796,9 @@
         "supabase/migrations/20261124010500_fin_open_item_dispositions.sql",
         "supabase/tests/test_fin_open_item_dispositions.sql"
       ]
+<<<<<<< ours
+>>>>>>> theirs
+=======
 >>>>>>> theirs
     }
   ]
