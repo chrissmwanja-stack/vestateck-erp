@@ -620,15 +620,20 @@
     },
     {
       "ref": "B5",
-      "feature": "Extended claim stage model",
+      "feature": "Claim stage model and the two review states (built)",
       "requirement": "Eight stages: reported, assessed, internally approved, insurer confirmed, funded, partially paid, fully paid, closed, plus the Coverage under review and Payment disputed states.",
       "accounting_impact": "Internal approval must not create a payment posting; recognition must follow the insurer's confirmation, and a disputed payment must not be recognised as settled.",
-      "status": "not_built",
+      "status": "built",
       "depends_on": [
         "A7"
       ],
       "acceptance": "A claim moves through all eight stages with an audit row each; internal approval creates no journal; insurer confirmation creates the receivable; partial payment leaves a visible balance; a disputed payment is excluded from settled totals.",
-      "blocks": "uat_acceptance"
+      "blocks": "uat_acceptance",
+      "evidence": [
+        "supabase/migrations/20261124010400_ins_claim_stage_model.sql",
+        "supabase/tests/test_ins_claim_stages.sql"
+      ],
+      "note": "Built additively. The eight stages are COMPUTED by ins_claim_stage() from status, recognised_at and posted payments -- nothing is stored, so a stage cannot drift from the ledger. ins_claim_payments.kind already separates insurer_receipt (funding) from client_payout, which is what makes funded/partially_paid/fully_paid derivable. The two review states ARE stored (coverage_under_review, payment_disputed) because they are judgements, not totals, and both require a note. ins_claims_guard now refuses recognition while coverage is under review, per pack 7.3. ins_create_claim accepts an out-of-period loss only with an explicit acknowledgement plus a reason, and records late_notification. The status vocabulary was NOT renamed: it is referenced by ten functions including void_journal_entry() and ins_cancelled_policy_guard(), and a rename of that breadth in an unreplayed migration is a worse risk than the gain. v2 7.2 lists eight stages and omits repudiation; the state exists and is needed, so it is kept and reported."
     },
     {
       "ref": "B6",
@@ -658,13 +663,14 @@
       "ref": "B8",
       "feature": "Claims recoveries and write-offs",
       "requirement": "Recovery types (overpayment, third-party, insurer underpayment, instalment), disputes, authorised write-offs and adjustments.",
-      "accounting_impact": "Recoveries must not be recorded as negative commission; write-offs need authorisation and their own expense line.",
+      "accounting_impact": "Without recoveries and write-offs, an overpayment to a claimant stays on 2030 indefinitely, overstating the client claim payable.",
       "status": "not_built",
       "depends_on": [
         "A7"
       ],
       "acceptance": "A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account.",
-      "blocks": "production_golive"
+      "blocks": "production_golive",
+      "note": "Blocked by the same missing primitive as B11, verified: writing off a claim balance means consuming a client_claim_payable (2030) open item, and fin_credit_notes.control_role does not permit 2030, while a settlement would post a bank movement that did not happen. Until the reclass/write-off primitive exists, a write-off has no correct posting. Recoveries raised against a claim and allocated on receipt are buildable now and are the next increment."
     },
     {
       "ref": "B9",
@@ -688,7 +694,16 @@
         "A7"
       ],
       "acceptance": "A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual.",
+<<<<<<< ours
       "blocks": "uat_acceptance"
+<<<<<<< ours
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+      "blocks": "uat_acceptance",
+      "note": "Beneficiary allocation and instalments are buildable and are the next increment after recoveries. Shares must total 100%, a disputed share is held while undisputed shares pay, and a second instalment must reduce the balance without fresh recognition -- all of which rest on the existing claim payable item and need no new accounting primitive. Death-claim representation is a record-keeping extension to ins_claims."
+>>>>>>> theirs
     },
     {
       "ref": "B11",
@@ -702,7 +717,16 @@
       ],
       "acceptance": "A release of 750,000 leaves 2040 down by 750,000 and AR down by 750,000 with the bank unchanged; both open items show the consumption; releasing more than available is refused; releasing across clients is refused; voiding the reclass restores both balances.",
       "blocks": "production_golive",
+<<<<<<< ours
       "note": "Verified against the live guards: fin_credit_applications_guard requires a note and its item to share side and control_role, so a note cannot move value from a 2040 payable to an AR receivable; a journal alone does not move fin_open_item_consumed(), which counts only posted settlements and posted same-role credit notes; a settlement cannot stand in because it names a bank account and posts Dr bank / Cr control, moving cash that did not move; subledger_only settlements require a cash_bank_transactions row. Preferred fix: add fin_open_item_reclasses (journal + two open items, no bank) and count it in fin_open_item_consumed. Needs its own sign-off because it adds a consumption source. Until then ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than posting something unreconcilable."
+<<<<<<< ours
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+      "note": "Verified against the live guards: fin_credit_applications_guard requires a note and its item to share side and control_role, so a note cannot move value from a 2040 payable to an AR receivable; a journal alone does not move fin_open_item_consumed(), which counts only posted settlements and posted same-role credit notes; a settlement cannot stand in because it names a bank account and posts Dr bank / Cr control, moving cash that did not move; subledger_only settlements require a cash_bank_transactions row. Preferred fix: add fin_open_item_reclasses (journal + two open items, no bank) and count it in fin_open_item_consumed. Needs its own sign-off because it adds a consumption source. Until then ins_apply_client_advance raises INS_ADVANCE_RELEASE_NOT_AVAILABLE rather than posting something unreconcilable. Second confirmation: claim write-offs (B8) need the same missing primitive, so one schema change unblocks both that and advance release."
+>>>>>>> theirs
     }
   ]
 }

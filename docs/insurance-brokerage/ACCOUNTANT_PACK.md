@@ -435,6 +435,7 @@ confirmation of applicable Ugandan sub-agency requirements.
 ## 14. Client-money protection
 
 ### 14.1 Separation
+<<<<<<< ours
 
 Separate client-money and operating bank accounts, corresponding liability and control accounts,
 tracking of funds owed to insurers, clients and beneficiaries, prevention of transfers that would
@@ -468,6 +469,41 @@ PDF and Excel exports and printable layouts; filters for date and period, branch
 client and currency; every report identifies its generation date and user and distinguishes draft,
 pending, approved and posted.
 
+=======
+
+Separate client-money and operating bank accounts, corresponding liability and control accounts,
+tracking of funds owed to insurers, clients and beneficiaries, prevention of transfers that would
+leave the client-money account short, commission transfers only where entitlement is established,
+and approvals with audit history.
+
+Segregation is enforced in the schema today: a bank account cannot change between operating and
+client money, and two bank accounts cannot share a GL account.
+
+### 14.2 Daily reconciliation
+
+A designated finance officer completes a daily client-money reconciliation comparing bank balance,
+cashbook, client-money liabilities, unallocated advances, available commission and unmatched items;
+a separate person independently reviews it; missed reconciliations are escalated.
+
+### 14.3 Shortage response
+
+A suspected shortage raises a high-priority alert and an incident record, notifies management,
+restricts commission transfers and non-essential withdrawals, and requires independent approval to
+release those restrictions. The system must distinguish a genuine shortage from a delayed bank feed.
+Essential or legally required payments follow a controlled exception process.
+
+The position test at transfer time, the daily artefact, reviewer independence and the incident flow
+are B9 and block go-live.
+
+---
+
+## 15. Financial reporting
+
+PDF and Excel exports and printable layouts; filters for date and period, branch, class, insurer,
+client and currency; every report identifies its generation date and user and distinguishes draft,
+pending, approved and posted.
+
+>>>>>>> theirs
 The dashboard covers premium production, earned and deferred commission, client receivables, insurer
 balances and remittances, claims exposure, cancellations and refunds, client-money and operating-bank
 positions, foreign exchange, and profitability by branch, insurer and class, with actual, forecast and
@@ -529,13 +565,20 @@ item blocking "UAT acceptance" must be complete before the business signs UAT.
 | **B2** | Unallocated client advances | Not built | A1 | UAT acceptance | A receipt with no policy creates a 2040 credit and no receivable; binding a policy allocates it and clears 2040; an unallocated advance is visible on the client statement as a liability and is refundable. |
 | **B3** | Fail-closed commission-mode selection | Not built | A3 | UAT acceptance | A policy on an insurer with no configured mode cannot bind and the error names the insurer and the missing setting; configuring the mode allows the bind and the chosen mode is frozen into the accounting snapshot. |
 | **B4** | Three cancellation dates | Not built | A6 | UAT acceptance | A cancellation requested in period 1, effective in period 2 and settled in period 3 posts to the settlement period while reporting its effective date; a backdated effective date without evidence is refused. |
-| **B5** | Extended claim stage model | Not built | A7 | UAT acceptance | A claim moves through all eight stages with an audit row each; internal approval creates no journal; insurer confirmation creates the receivable; partial payment leaves a visible balance; a disputed payment is excluded from settled totals. |
+| **B5** | Claim stage model and the two review states (built) | built | A7 | UAT acceptance | A claim moves through all eight stages with an audit row each; internal approval creates no journal; insurer confirmation creates the receivable; partial payment leaves a visible balance; a disputed payment is excluded from settled totals. |
 | **B6** | Manual journals with maker-checker | Not built | A10 | production go-live | A manual journal cannot post unbalanced, cannot be approved by its maker, cannot post to a control account without a subledger reference, and cannot be edited after posting. |
 | **B7** | Approval limits and split prevention | Not built | A11 | production go-live | A refund above a user's limit routes to the next level; the same user cannot approve it; two same-day refunds to the same payee just under the limit are flagged as a possible split. |
 | **B8** | Claims recoveries and write-offs | Not built | A7 | production go-live | A recovery is raised against a claim, allocated when received, and never touches commission accounts; a write-off requires approval and posts to an identifiable account. |
 | **B9** | Daily client-money reconciliation and shortage response | Not built | A12 | production go-live | A transfer that would leave the client-money position negative is refused; two consecutive missed reconciliations escalate; a shortage raises an incident and blocks further transfers until independently released. |
 | **B10** | Beneficiaries, death claims and instalment settlements | Not built | A7 | UAT acceptance | A death claim records the representative and beneficiaries; percentages must total 100%; a disputed share is held while undisputed shares pay; a second instalment reduces the balance without a new claim accrual. |
+<<<<<<< ours
+<<<<<<< ours
 | **B11** | Subledger cross-control reclass -- releasing a client advance to a policy | Not built | B2 | production go-live | A release of 750,000 leaves 2040 down by 750,000 and AR down by 750,000 with the bank unchanged; both open items show the consumption; releasing more than available is refused; releasing across clients is refused; voiding the reclass restores both balances. |
+=======
+>>>>>>> theirs
+=======
+| **B11** | Subledger cross-control reclass -- releasing a client advance to a policy | Not built | B2 | production go-live | A release of 750,000 leaves 2040 down by 750,000 and AR down by 750,000 with the bank unchanged; both open items show the consumption; releasing more than available is refused; releasing across clients is refused; voiding the reclass restores both balances. |
+>>>>>>> theirs
 
 <!-- END GENERATED: SIGN-OFF REGISTER -->
 
