@@ -118,6 +118,7 @@ describe('NewClaim', () => {
     policyError = { message: 'permission denied for table ins_policies' };
     renderForm();
     expect(await screen.findByText('permission denied for table ins_policies')).toBeTruthy();
+    expect(screen.queryByText('There are no bound policies to claim against.')).toBeNull(); // a failed load is not "no policies"
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
