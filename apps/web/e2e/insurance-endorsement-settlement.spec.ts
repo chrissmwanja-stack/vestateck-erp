@@ -87,7 +87,7 @@ async function openPolicy(page: Page, client: string) {
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();
   await expect(page).toHaveURL(/\/insurance\/policies\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('Endorsements')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Endorsements', { exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
 /** The one posted row whose reason contains the marker (the marker is unique per run). */
