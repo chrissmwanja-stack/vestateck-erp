@@ -16,6 +16,23 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -231,7 +248,7 @@ begin
   perform pg_temp.jwt(manager);
   set local role authenticated;
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'MOTOR', 'Motor') returning id into line_id;
-  insert into ins_insurers(tenant_id, code, name) values (ta, 'ALPHA', 'Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id, code, name) values (ta, 'ALPHA', 'Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c := ins_register_client('Hardening client', 'corporate', null, null, null, 'low');
   p := ins_create_policy(c.id, insurer, line_id, current_date, current_date + 365, 50000, 'UGX', 1000, 10, null, null);
   perform pg_temp.motor_cert(p.id); p := pg_temp.approve_and_bind(p.id);
@@ -248,6 +265,55 @@ begin
     'INS_PARTY_ACCOUNT_RPC_ONLY', 'direct party account change');
 
   raise notice 'PASS: guards and touch trigger still fire for an ordinary Insurance manager';
+end $$;
+
+-- ---------------------------------------------------------------------
+-- 5. Accountant pack v2 (20261124010100..20261124012000) SECURITY DEFINER
+--    functions: none executable by anon or PUBLIC; no trigger or platform_*
+--    helper executable by authenticated; every one pins search_path.
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+begin
+  for r in
+    select p.oid, p.oid::regprocedure::text as sig, p.proname, p.prorettype = 'trigger'::regtype as is_trig, p.proconfig
+    from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and p.prosecdef
+      and (
+        p.proname like 'ins\_%'
+        or p.proname like 'platform\_ins\_%'
+        or p.proname like 'platform\_fin\_%'
+        or p.proname like 'platform\_approval\_%'
+        or p.proname in (
+          'fin_open_item_consumed',
+          'fin_dispose_open_item',
+          'fin_require_manual_journal_reverser',
+          'fin_reverse_manual_journal',
+          'fin_resubmit_manual_journal',
+          'fin_manual_journals_reversal_guard',
+          'platform_session_is_mfa',
+          'platform_require_mfa_for',
+          'platform_gl_posting_roles'
+        )
+      )
+  loop
+    perform pg_temp.assert(not has_function_privilege('anon', r.oid, 'EXECUTE'),
+      r.sig || ' must not be executable by anon');
+    perform pg_temp.assert(not exists (
+      select 1 from aclexplode(coalesce((select proacl from pg_proc where oid = r.oid), acldefault('f', (select proowner from pg_proc where oid = r.oid)))) a
+      where a.grantee = 0 and a.privilege_type = 'EXECUTE'
+    ), r.sig || ' must not be executable by PUBLIC');
+    if r.is_trig or (r.proname like 'platform\_%' and r.proname not in ('platform_gl_posting_roles', 'platform_has_admin', 'platform_session_is_mfa', 'platform_require_mfa_for')) then
+      perform pg_temp.assert(not has_function_privilege('authenticated', r.oid, 'EXECUTE'),
+        r.sig || ' must not be executable by authenticated');
+    end if;
+    perform pg_temp.assert(exists (
+      select 1 from unnest(coalesce(r.proconfig, '{}')) c where c like 'search_path=%'
+    ), r.sig || ' must pin search_path');
+  end loop;
+  raise notice 'PASS: accountant pack v2 SECURITY DEFINER functions (grants and search_path)';
 end $$;
 
 rollback;

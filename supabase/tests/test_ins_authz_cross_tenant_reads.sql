@@ -19,6 +19,23 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 create function pg_temp.expect_error(p_sql text, p_needle text, p_label text)
 returns void language plpgsql as $$
 begin
@@ -75,7 +92,7 @@ begin
 
   perform pg_temp.jwt(mgr_a); set local role authenticated;
   insert into ins_product_lines(tenant_id, code, name) values (ta, 'MOTOR', 'Motor') returning id into line_id;
-  insert into ins_insurers(tenant_id, code, name) values (ta, 'ALPHA', 'Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id, code, name) values (ta, 'ALPHA', 'Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c := ins_register_client('Cross-read client', 'corporate', null, null, null, 'low');
   p := ins_create_policy(c.id, insurer, line_id, current_date, current_date + 365, 50000, 'UGX', 1000, 10, null, null);
   reset role;

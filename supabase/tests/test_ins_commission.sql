@@ -19,6 +19,43 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language plpgsql security definer set search_path = public, auth, pg_temp as $$
+begin
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+  perform set_config('acct.via_rpc', 'on', true);
+  insert into public.company_accounting_settings
+    (tenant_id, setting_key, value, effective_from, rationale, status, review_status)
+  select distinct i.tenant_id, 'ins.client_money_position_test', 'permissive', date '2000-01-01',
+         'test fixture: per-policy balance test', 'draft', 'unreviewed'
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.company_accounting_settings s
+      where s.tenant_id = i.tenant_id and s.setting_key = 'ins.client_money_position_test'
+   ) and not exists (
+     select 1 from public.journal_entries je
+      where je.tenant_id = i.tenant_id
+   );
+  update public.company_accounting_settings
+     set status = 'approved',
+         approved_by = (select id from auth.users order by id limit 1),
+         approved_at = now()
+   where setting_key = 'ins.client_money_position_test' and status = 'draft';
+  perform set_config('acct.via_rpc', 'off', true);
+end $$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -287,7 +324,7 @@ begin
   perform pg_temp.jwt(u_mgr_b);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (v_tb, 'MOTOR', 'Motor B') returning id into v_pl_b;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_tb, 'BETA', 'Beta', 10) returning id into v_insr_b;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_tb, 'BETA', 'Beta', 10) returning id into v_insr_b; perform pg_temp.seed_commission_terms();
   cb := ins_register_client('Beta Client', 'corporate', null, null, null, 'medium');
   pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, 100000, 10);
   reset role;
@@ -295,7 +332,7 @@ begin
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (v_ta, 'MOTOR', 'Motor') returning id into v_pl;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha', 10) returning id into v_insr;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha', 10) returning id into v_insr; perform pg_temp.seed_commission_terms();
   c1 := ins_register_client('Acme Holdings', 'corporate', null, null, null, 'low');
   p1 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
   p2 := pg_temp.newpol(c1.id, v_insr, v_pl, 1000000, 10);
@@ -495,7 +532,7 @@ begin
   set local role authenticated;
   perform pg_temp.expect_error(format('select ins_transfer_earned_commission(%L, %L, current_date, array[%L, %L]::uuid[])',
                                       v_trust_bank, v_oper_bank, e1, e2),
-                               'INS_TRANSFER_ENTRIES', 'including an already transferred entry in a batch');
+                               'INS_TRANSFER_ALREADY_TRANSFERRED', 'including an already transferred entry in a batch');
   reset role;
   raise notice 'PASS: transfer posts Dr operating / Cr client money and marks only the chosen entries';
 

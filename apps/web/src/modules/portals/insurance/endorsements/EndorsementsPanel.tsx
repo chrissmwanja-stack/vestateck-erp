@@ -507,9 +507,18 @@ export default function EndorsementsPanel({
                 <TextField
                   label={`Agreed premium delta — ${s.name}`}
                   value={terms[idx]?.agreed_delta ?? ''}
-                  onChange={(e) =>
-                    setTerms(terms.map((x, i) => (i === idx ? { ...x, agreed_delta: e.target.value } : x)))
-                  }
+                  onChange={(e) => {
+                    // Build from `shares`, not from `terms`: if the form was opened before the
+                    // shares finished loading, `terms` is still empty and mapping over it would
+                    // silently drop what the user typed.
+                    const value = e.target.value;
+                    setTerms(
+                      shares.map((sh, i) => ({
+                        insurer_id: sh.insurer_id,
+                        agreed_delta: i === idx ? value : terms[i]?.agreed_delta ?? '',
+                      })),
+                    );
+                  }}
                   helperText="Signed; negative for a return premium. Leave empty for a descriptive-only endorsement."
                   fullWidth
                 />

@@ -3,6 +3,43 @@
 \set ON_ERROR_STOP on
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language plpgsql security definer set search_path = public, auth, pg_temp as $$
+begin
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+  perform set_config('acct.via_rpc', 'on', true);
+  insert into public.company_accounting_settings
+    (tenant_id, setting_key, value, effective_from, rationale, status, review_status)
+  select distinct i.tenant_id, 'ins.client_money_position_test', 'permissive', date '2000-01-01',
+         'test fixture: per-policy balance test', 'draft', 'unreviewed'
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.company_accounting_settings s
+      where s.tenant_id = i.tenant_id and s.setting_key = 'ins.client_money_position_test'
+   ) and not exists (
+     select 1 from public.journal_entries je
+      where je.tenant_id = i.tenant_id
+   );
+  update public.company_accounting_settings
+     set status = 'approved',
+         approved_by = (select id from auth.users order by id limit 1),
+         approved_at = now()
+   where setting_key = 'ins.client_money_position_test' and status = 'draft';
+  perform set_config('acct.via_rpc', 'off', true);
+end $$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -144,7 +181,7 @@ begin
   insert into fin_bank_accounts(tenant_id,name,kind,currency) values(tb,'OTHER-TRUST','operating','UGX') returning id into otherbank;
   perform pg_temp.jwt(manager); set local role authenticated;
   insert into ins_product_lines(tenant_id,code,name) values(ta,'MOTOR','Motor') returning id into line_id;
-  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer;
+  insert into ins_insurers(tenant_id,code,name) values(ta,'ALPHA','Alpha') returning id into insurer; perform pg_temp.seed_commission_terms();
   c:=ins_register_client('Premium cash client','corporate',null,null,null,'low');
   p:=ins_create_policy(c.id,insurer,line_id,current_date,current_date+365,50000,'UGX',1000,10,null,null);
   perform pg_temp.motor_cert(p.id); p:=pg_temp.approve_and_bind(p.id);
@@ -162,7 +199,7 @@ begin
   insert into gl_accounts(tenant_id,account_code,name,account_type) values(ta,'2100','Output VAT liability','liability') returning id into tax_gl;
   insert into gl_posting_rules(tenant_id,account_role,gl_account_id) values(ta,'vat_output',tax_gl);
   perform pg_temp.jwt(manager); set local role authenticated;
-  insert into ins_insurers(tenant_id,code,name,claim_payment_mode) values(ta,'BETA','Beta co-insurer','via_broker') returning id into beta;
+  insert into ins_insurers(tenant_id,code,name,claim_payment_mode) values(ta,'BETA','Beta co-insurer','via_broker') returning id into beta; perform pg_temp.seed_commission_terms();
   config:=jsonb_build_array(jsonb_build_object('insurer_id',insurer,'is_lead',true,'share_pct',60,'commission_rate_pct',10,'insurer_policy_no','A-001','reviewed',true),
     jsonb_build_object('insurer_id',beta,'is_lead',false,'share_pct',40,'commission_rate_pct',20,'insurer_policy_no','B-001','reviewed',true));
   charge_config:=jsonb_build_array(

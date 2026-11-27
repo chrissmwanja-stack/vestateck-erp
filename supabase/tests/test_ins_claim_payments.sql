@@ -20,6 +20,23 @@
 
 begin;
 
+create or replace function pg_temp.seed_commission_terms() returns void
+language sql security definer set search_path = public, auth, pg_temp as $$
+  insert into public.ins_insurer_commission_terms
+    (tenant_id, insurer_id, mode, effective_from, status, agreed_ref, rationale,
+     proposed_by, approved_by, approved_at)
+  select i.tenant_id, i.id, 'on_insurer_settlement', date '2000-01-01', 'approved',
+         'TEST-FIXTURE', 'test fixture default commission terms',
+         (select id from auth.users order by id limit 1),
+         (select id from auth.users order by id offset 1 limit 1),
+         now()
+    from public.ins_insurers i
+   where not exists (
+     select 1 from public.ins_insurer_commission_terms t
+      where t.tenant_id = i.tenant_id and t.insurer_id = i.id and t.status = 'approved'
+   );
+$$;
+
 -- Approval-workflow fix (20261106230000): bind now requires status =
 -- 'approved', so tests go through submit -> approve -> bind.
 create function pg_temp.approve_and_bind(p_id uuid) returns public.ins_policies
@@ -283,7 +300,7 @@ begin
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (v_tb, 'MOTOR', 'Motor B') returning id into v_pl_b;
   insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct, claim_payment_mode)
-    values (v_tb, 'BETAB', 'Beta B', 10, 'via_broker') returning id into v_insr_b;
+    values (v_tb, 'BETAB', 'Beta B', 10, 'via_broker') returning id into v_insr_b; perform pg_temp.seed_commission_terms();
   cb := ins_register_client('Beta Client', 'corporate', null, null, null, 'medium');
   pb := pg_temp.newpol(cb.id, v_insr_b, v_pl_b, 100000, 10);
   perform pg_temp.motor_cert(pb.id); pb := pg_temp.approve_and_bind(pb.id);
@@ -292,8 +309,8 @@ begin
   perform pg_temp.jwt(u_mgr);
   set local role authenticated;
   insert into ins_product_lines (tenant_id, code, name) values (v_ta, 'MOTOR', 'Motor') returning id into v_pl;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha', 10) returning id into v_alpha;
-  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct, claim_payment_mode) values (v_ta, 'BETA', 'Beta', 10, 'via_broker') returning id into v_beta;
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct) values (v_ta, 'ALPHA', 'Alpha', 10) returning id into v_alpha; perform pg_temp.seed_commission_terms();
+  insert into ins_insurers (tenant_id, code, name, default_commission_rate_pct, claim_payment_mode) values (v_ta, 'BETA', 'Beta', 10, 'via_broker') returning id into v_beta; perform pg_temp.seed_commission_terms();
   c1 := ins_register_client('Acme Holdings', 'corporate', null, null, null, 'low');
   pa := pg_temp.newpol(c1.id, v_alpha, v_pl, 1000000, 10); perform pg_temp.motor_cert(pa.id); pa := pg_temp.approve_and_bind(pa.id);
   pbk := pg_temp.newpol(c1.id, v_beta,  v_pl, 1000000, 10); perform pg_temp.motor_cert(pbk.id); pbk := pg_temp.approve_and_bind(pbk.id);
