@@ -10,7 +10,7 @@ import {
   Typography,
   Button,
 } from "@mui/material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
+import { Notifications as NotificationsIcon } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useToast } from "../../lib/toastContext";
