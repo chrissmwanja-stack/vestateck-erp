@@ -96,3 +96,53 @@ features shipped after that list was written.
 | G2 | Sections 3 and 4 passed, or each exception recorded with owner, date and reason | Open |
 | G3 | Any tenant with a legacy book has run the in-force import and the opening acceptance gate (`test_ins_opening_acceptance_gate.sql`) | Open |
 | G4 | Owner records the go-live date and the register's Approved count in this file | Open |
+
+
+---
+
+## 6. Supplementary gates from the 23 November accountant reconciliation
+
+**Reconciliation document:** `ACCOUNTANT_SIGN_OFF_RECONCILIATION.md`. These gates supplement, and do not close, the existing A/R/E/P/G gates. All are **Open** until evidence is recorded. The reconciliation branch is not a production approval.
+
+### Accounting policy gates (blocking)
+
+| Gate | Criterion | Confirmer | Status | Evidence |
+|---|---|---|---|---|
+| A11 | Pre-bind premium advances: approved liability account/role, receipt, allocation, refund and ageing journals | Accountant | Open | |
+| A12 | Gross settlement as safe default; net settlement unavailable unless specific agreement has legal/compliance approval and accountant-approved journals | Accountant + Compliance adviser | Open | |
+| A13 | Approved matrix for every supported combination of insurer settlement basis and commission recognition trigger | Accountant | Open | |
+| A14 | Co-insurance accounting by insurer agreement, including mixed settings, return premiums and clawbacks | Accountant | Open | |
+| A15 | Client-money bank/liability reconciliation equation, available-funds calculation and permitted commission transfer | Accountant + Compliance adviser | Open | |
+| A16 | Claims excess, partial payments, overpayments, recoveries and write-offs | Accountant | Open | |
+| A17 | FX policy-rate lock, pre-bind override, realised/unrealised FX and reversal treatment | Accountant | Open | |
+| A18 | Opening balances, policy-level migration reconciliation and earned/unearned commission cut-over | Accountant | Open | |
+| A19 | Period reopening, configurable approvals and manual journals to control accounts | Accountant | Open | |
+| A20 | Reports/dashboard definitions and tie-outs to posted GL and subledgers | Accountant | Open | |
+
+### Regulatory / compliance gates (blocking)
+
+| Gate | Criterion | Confirmer | Status | Evidence |
+|---|---|---|---|---|
+| R6 | Written opinion on any insurer-specific contractual set-off and Insurance Act s.90(3); gross remains default pending opinion | Ugandan legal/compliance adviser | Open | |
+| R7 | Client-money segregation, permitted withdrawals, daily reconciliation, shortage response and trust-account obligations | Ugandan legal/compliance adviser | Open | |
+| R8 | Charge collector/remitter responsibility, instrument-backed rates, remittance and refundability for each statutory charge | Ugandan legal/compliance adviser | Open | |
+| R9 | Tax treatment of client fees, insurer commission and intermediary commission confirmed against current law and facts | Accountant / tax adviser | Open | |
+
+### Engineering and UAT gates (blocking)
+
+| Gate | Criterion | Status | Evidence |
+|---|---|---|---|
+| E15 | Pre-bind client advances can be received, allocated to a subsequently bound policy, refunded and reconciled without duplicate cash or AR postings | Open | |
+| E16 | Agreement-level settlement and recognition settings are snapshotted to each insurer policy share; unsupported combinations are blocked | Open | |
+| E17 | Gross is default; net exception requires recorded agreement evidence, compliance approval, accountant-approved effective date and audit history | Open | |
+| E18 | Co-insurance tests cover multiple insurers with different settlement/recognition settings and per-insurer cancellation/FX treatment | Open | |
+| E19 | Claim overpayment and recovery workflow covers claimant, third party and insurer balances, receipts, disputes, instalments and write-offs | Open | |
+| E20 | Daily client-money reconciliation has preparer/reviewer separation, ageing of unmatched items and escalation | Open | |
+| E21 | Confirmed client-money shortage triggers restrictions and incident workflow; transient bank-feed delays do not falsely trigger; release is independently approved | Open | |
+| E22 | Period reopening is maker-checker, fully audited and requires re-close with revised reports | Open | |
+| E23 | Approval thresholds are configurable by transaction type/role/currency and anti-splitting controls are tested | Open | |
+| E24 | Manual journals to control accounts require subledger references and produce a GL/subledger difference report | Open | |
+| E25 | Financial exports/print layouts and dashboard figures are UAT-checked against ledger and report sources | Open | |
+| E26 | Migration opening trial balance, policy/client/insurer/claim subledgers, banks and FX reconcile with zero unexplained material differences | Open | |
+
+No gate in this supplement is marked passed by owner confirmation alone.
