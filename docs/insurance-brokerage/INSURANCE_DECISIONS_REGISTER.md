@@ -140,3 +140,35 @@ This table maps each unsigned row to the register so a signature updates the rig
 | Section 5.15 | DR-28 |
 | Not yet a pack row: in-force import | DR-31 |
 | Not yet a pack row: client brokerage-fee WHT and VAT | DR-15, DR-17 |
+
+
+---
+
+## Owner-confirmed requirements: accountant reconciliation, 23 November 2026
+
+These entries record the owner's requirements confirmed during the 23 November accountant-signoff discussion. They do not replace earlier DR rows, approve accounting treatments or constitute legal advice. The detailed treatment and outstanding professional decisions are in `ACCOUNTANT_SIGN_OFF_RECONCILIATION.md`.
+
+| ID | Owner-confirmed requirement | Type | Decider | Status | Next step |
+|---|---|---|---|---|---|
+| OR-01 | Insurer settlement arrangement varies by the particular insurer agreement; selection is made separately for each insurer agreement | Commercial / Accounting | Owner | Owner-confirmed; professional approval pending | Gross safe default; net exception requires legal/compliance and accountant approval. Reconcile with DR-13 and DR-29 |
+| OR-02 | All three commission recognition triggers are acceptable and are selected separately for each insurer agreement | Accounting | Owner | Owner-confirmed; accountant approval pending | Approve full settlement/recognition combination matrix; reconcile DR-08 and DR-11 |
+| OR-03 | Co-insurance must preserve each insurer's own participation and financial arrangement | Accounting / Commercial | Owner | Owner-confirmed; accountant approval pending | Validate per-insurer journals, rounding, returns and clawbacks |
+| OR-04 | Support insurer-direct and brokerage-managed claims | Claims / Accounting | Owner | Owner-confirmed; accountant approval pending | Confirm recognition, excess and cash-handling journals |
+| OR-05 | Excess rules are configurable; authorised overrides require a reason and audit trail | Claims / Control | Owner | Owner-confirmed | Verify implementation and UAT |
+| OR-06 | Support partial claim receipts and payments, balances, reversals and reconciliation | Claims / Accounting | Owner | Owner-confirmed | Verify end-to-end and UAT |
+| OR-07 | Support recovery of claim overpayments from claimants and recoveries from third parties | Claims / Accounting | Owner | Owner-confirmed; not evidenced as built | Design recovery subledger and accountant-approved journals |
+| OR-08 | Policy transaction currency is separate from UGX functional books; policy FX rate is fixed at policy take-up unless an alternative is agreed | Accounting / Commercial | Owner | Owner-confirmed; accountant approval pending | Approve FX measurement and revaluation treatment |
+| OR-09 | Authorised pre-bind FX overrides are permitted with reason, approval and audit history | Control | Owner | Owner-confirmed | Verify implementation and tests |
+| OR-10 | Migration cut-over is the day immediately before production go-live; new transactions run in Vesta Portal from go-live | Commercial / Accounting | Owner | Owner-confirmed | Set actual date at launch and reconcile opening balances |
+| OR-11 | Opening migration balances must fully reconcile, including trial balance and all supporting control subledgers | Accounting | Owner | Owner-confirmed; accountant approval pending | Complete migration acceptance gate |
+| OR-12 | Closed accounting periods may be reopened through a controlled process | Accounting / Control | Owner | Owner-confirmed | Define maker-checker and period re-close controls |
+| OR-13 | Period reopening requires two different people: requester and approver | Control | Owner | Owner-confirmed | Engineering and UAT evidence required |
+| OR-14 | Financial approval thresholds vary by transaction type and approval role | Control | Owner | Owner-confirmed; not evidenced as fully built | Implement configurable limits, escalation and anti-splitting |
+| OR-15 | Manual journals may target GL control accounts subject to approval, supporting references and audit controls | Accounting / Control | Owner | Owner-confirmed; accountant approval pending | Confirm subledger safeguards and UAT |
+| OR-16 | Financial reports support Excel, PDF and print-friendly output | Reporting | Owner | Owner-confirmed | Verify coverage and report-to-ledger tie-outs |
+| OR-17 | Management dashboard shows premium production, commission, insurer balances, claims, cash and profitability | Reporting | Owner | Owner-confirmed | Verify dashboard scope and tie-outs |
+| OR-18 | Client money and brokerage operating funds must remain strictly separated; transfers must not leave beneficiary obligations underfunded | Regulatory / Accounting | Owner | Owner-confirmed; legal/accountant approval pending | Confirm statutory trust rules and available-funds calculation |
+| OR-19 | Client-money accounts require mandatory daily reconciliation with separate preparer and reviewer | Control / Regulatory | Owner | Owner-confirmed | Verify frequency, workflow and UAT |
+| OR-20 | Confirmed client-money shortages trigger restrictions, alerts and incident management; release requires independent approval | Control / Regulatory | Owner | Owner-confirmed; implementation and legal review pending | Build verified-shortage detection, exception and release workflow |
+
+**Important:** OR-01 and OR-02 are independent settings. The system must not assume that gross/net settlement determines when commission is earned. Net settlement is not enabled by this owner confirmation; it remains subject to the separate legal/compliance gate and accountant approval. All OR entries remain distinct from **Approved** status until the required professional evidence is attached.
