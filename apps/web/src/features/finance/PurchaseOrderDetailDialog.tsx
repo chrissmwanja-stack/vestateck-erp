@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton, Table, TableBody, TableCell,
   TableHead, TableRow, Box, Typography, CircularProgress, Divider, Grid, Chip,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { Close as CloseIcon } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
 
 interface LineItem {

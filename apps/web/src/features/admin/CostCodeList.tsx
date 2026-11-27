@@ -4,7 +4,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TableSortLabel, TextField, Typography,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
+import { Search as SearchIcon } from "@mui/icons-material";
 import { supabase } from "../../lib/supabaseClient";
 import type { CostCenter } from "@erp-platform/shared";
 

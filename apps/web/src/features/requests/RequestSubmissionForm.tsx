@@ -19,8 +19,7 @@ import {
   Typography,
   IconButton,
 } from '@mui/material';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
-import AddCircleOutline from '@mui/icons-material/AddCircleOutline';
+import { DeleteOutline, AddCircleOutline } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
