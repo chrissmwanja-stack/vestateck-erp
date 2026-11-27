@@ -246,10 +246,22 @@ describe('InsurerStatements: recording', () => {
     await user.click(await screen.findByRole('button', { name: 'Record statement' }));
     const d = await fill(user, { lines: 'policy p1 premium 1000000' });
     await user.click(saveBtn(d));
-    expect((await screen.findAllByText(/is not valid JSON/)).length).toBeGreaterThan(0); // the browser's own parse message
+    expect((await screen.findAllByText(/The lines are not valid JSON\. Enter an array such as/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Unexpected token/)).toBeNull(); // not the browser's raw parse message
     expect(mockRpc).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeTruthy();
-    await waitFor(() => expect(saveBtn(screen.getByRole('dialog')).disabled).toBe(false));
+    expect(saveBtn(screen.getByRole('dialog')).disabled).toBe(false); // can correct and retry
+  });
+
+  it('refuses lines that are valid JSON but not an array, without calling the server', async () => {
+    const user = userEvent.setup();
+    renderStatements();
+    await user.click(await screen.findByRole('button', { name: 'Record statement' }));
+    const d = await fill(user, { lines: '{"policy_id":"p1","premium":1000000}' });
+    await user.click(saveBtn(d));
+    expect((await screen.findAllByText('The lines must be a JSON array, with one entry per policy.')).length).toBeGreaterThan(0);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('keeps the dialog and shows the server message when the statement is refused, for example a repeated reference', async () => {

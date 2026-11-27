@@ -66,10 +66,20 @@ export default function InsurerStatements() {
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
-    setBusy(true);
     setError(null);
+    let lines: unknown;
     try {
-      const lines = JSON.parse(form.lines);
+      lines = JSON.parse(form.lines);
+    } catch {
+      setError('The lines are not valid JSON. Enter an array such as [{"policy_id":"...","premium":0,"commission":0,"claims_paid":0}].');
+      return;
+    }
+    if (!Array.isArray(lines)) {
+      setError('The lines must be a JSON array, with one entry per policy.');
+      return;
+    }
+    setBusy(true);
+    try {
       await rpc('ins_record_insurer_statement', {
         p_insurer_id: form.insurer_id, p_statement_ref: form.ref,
         p_period_from: form.from, p_period_to: form.to, p_lines: lines,

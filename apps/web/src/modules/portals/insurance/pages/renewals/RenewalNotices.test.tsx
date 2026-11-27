@@ -144,6 +144,14 @@ describe('RenewalNotices: generating', () => {
     expect(await screen.findByText('RN-2026-0001')).toBeTruthy();
   });
 
+  it('lets a member generate notices, because the server only asks for insurance access (marking sent is the manager step)', async () => {
+    const user = userEvent.setup();
+    mockCanManage = false;
+    renderNotices();
+    await user.click(await screen.findByRole('button', { name: 'Generate notices' }));
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('ins_generate_renewal_notices', {}));
+  });
+
   it('shows Generating and disables the button while it runs, so it runs once', async () => {
     const user = userEvent.setup();
     let release: (v: unknown) => void = () => {};
@@ -159,10 +167,10 @@ describe('RenewalNotices: generating', () => {
 
   it('shows the server message when generation is refused, and can be retried', async () => {
     const user = userEvent.setup();
-    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'INS_ACCESS_DENIED: Only a manager can generate renewal notices' } });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'INS_ACCESS_DENIED: Not allowed' } });
     renderNotices();
     await user.click(await screen.findByRole('button', { name: 'Generate notices' }));
-    expect(await screen.findByText('Only a manager can generate renewal notices')).toBeTruthy();
+    expect(await screen.findByText('Not allowed')).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Generate notices' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

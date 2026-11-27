@@ -83,7 +83,7 @@ export default function NewClaim() {
     <Box sx={{ p: 3, maxWidth: 900 }}>
       <PageHeader title="Report claim" subtitle="Notify a loss against a bound policy." />
       <ErrorBanner message={error} />
-      {policies.length === 0 && <Alert severity="info" sx={{ mb: 2 }}>There are no bound policies to claim against.</Alert>}
+      {policies.length === 0 && !error && <Alert severity="info" sx={{ mb: 2 }}>There are no bound policies to claim against.</Alert>}
       <Card>
         <CardContent>
           <Grid container spacing={2}>
